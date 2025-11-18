@@ -1,0 +1,9 @@
+services:
+  kcnprocessor:
+    image: ghcr.io/bizkey/kcnprocessor/kcnprocessor:latest
+    pull_policy: always
+    container_name: kcnprocessor
+    restart: unless-stopped
+    network_mode: host  
+    env_file:
+      - .env
