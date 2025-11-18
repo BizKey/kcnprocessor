@@ -17,13 +17,13 @@ RUN apk add --no-cache libgcc openssl ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/kcnmonitoring /app/
+COPY --from=builder /app/target/release/kcnprocessor /app/
 
-RUN chmod +x /app/kcnmonitoring
+RUN chmod +x /app/kcnprocessor
 
 RUN adduser -D -u 1000 myuser
 USER myuser
 
 ENV RUST_LOG=INFO
 
-CMD ["/app/kcnmonitoring"]
+CMD ["/app/kcnprocessor"]

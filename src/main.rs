@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let handler = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             println!("Processing: {}", msg);
-            // Здесь можно добавить реальную обработку: парсинг, запись в БД и т.д.
+            
         }
         info!("Message handler finished");
     });
