@@ -50,7 +50,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     }
     // };
 
-    let (ws_stream, _) = connect_async(ws_url).await.expect("Failed to connect");
+    let (ws_stream, _) = connect_async(ws_url).await.map_err(|e| {
+        error!("WebSocket connection failed: {}", e);
+        e
+    })?;
     let (mut write, mut read) = ws_stream.split();
 
     let subscribe = r#"{"id":"1","type":"subscribe","topic":"/market/ticker:BTC-USDT","privateChannel":false,"response":true}"#;
