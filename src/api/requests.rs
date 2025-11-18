@@ -1,6 +1,7 @@
 use crate::api::models::{ApiV3BulletPrivate, ApiV3BulletPublic};
 use base64::Engine;
 use hmac::{Hmac, Mac};
+use log::{error, info};
 use reqwest::{Client, Response};
 
 use sha2::Sha256;
@@ -95,7 +96,7 @@ impl KuCoinClient {
                 "/api/v1/bullet-private",
                 None,
                 None,
-                false,
+                true,
             )
             .await
         {
@@ -185,12 +186,10 @@ impl KuCoinClient {
                     pairs.join("&")
                 })
                 .unwrap_or_default();
-
             let body_str = body
                 .as_ref()
                 .map(|b| serde_json::to_string(b).unwrap())
                 .unwrap_or_default();
-
             let signature = self.generate_signature(
                 timestamp,
                 method.as_ref(),

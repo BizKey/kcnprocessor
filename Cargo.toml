@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1.47", features = ["full"] }
-tokio-tungstenite = "0.28"
-reqwest = {version = "0.12", features = ["json", "rustls-tls"]}
+tokio-tungstenite = { version = "0.28", features = ["native-tls"] }
+reqwest = {version = "0.12", features = ["json", "native-tls"]}
 chrono = { version = "0.4", features = ["clock"] }
 env_logger = "0.11"
 log = "0.4"
@@ -17,3 +17,4 @@ sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono"] }
 sha2 = "0.10"
 hmac = "0.12"
 base64 = "0.22"
+futures-util = "0.3.31"

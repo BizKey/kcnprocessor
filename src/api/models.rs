@@ -4,10 +4,6 @@ use sqlx::FromRow;
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPublicDataInstanceServers {
     pub endpoint: String,
-    pub encrypt: bool,
-    pub protocol: String,
-    pub pingInterval: f64,
-    pub pingTimeout: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,10 +20,6 @@ pub struct ApiV3BulletPublic {
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
     pub endpoint: String,
-    pub encrypt: bool,
-    pub protocol: String,
-    pub pingInterval: f64,
-    pub pingTimeout: f64,
 }
 
 #[derive(Debug, Deserialize)]
