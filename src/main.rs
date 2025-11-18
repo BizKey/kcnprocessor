@@ -32,6 +32,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             error!("Ошибка при выполнении запроса: {}", e)
         }
     };
+    // match api::requests::KuCoinClient::new("https://api.kucoin.com".to_string()) {
+    //     Ok(client) => match client.api_v1_bullet_private().await {
+    //         Ok(bullet_public) => {
+    //             info!("Public {:?}", bullet_public);
+    //             for instance in bullet_public.data.instanceServers.iter() {
+    //                 ws_url = format!("{}?token={}", instance.endpoint, bullet_public.data.token);
+    //                 break;
+    //             }
+    //         }
+    //         Err(e) => {
+    //             error!("Ошибка при выполнении запроса: {}", e)
+    //         }
+    //     },
+    //     Err(e) => {
+    //         error!("Ошибка при выполнении запроса: {}", e)
+    //     }
+    // };
 
     let (ws_stream, _) = connect_async(ws_url).await.expect("Failed to connect");
     let (mut write, mut read) = ws_stream.split();
