@@ -1,6 +1,6 @@
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{error, info, trace};
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let handler = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            println!("Processing: {}", msg);
+            info!("Processing: {}", msg);
         }
         info!("Message handler finished");
     });
@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let (mut write, mut read) = ws_stream.split();
 
-        let subscribe = r#"{"id":"1","type":"subscribe","topic":"/market/ticker:BTC-USDT","privateChannel":false,"response":true}"#;
+        let subscribe = r#"{"id":1545910660739,"type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#;
         if let Err(e) = write.send(Message::text(subscribe)).await {
             error!("Failed to send subscribe message: {}", e);
             sleep(RECONNECT_DELAY).await;
@@ -74,10 +74,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                         Some(Ok(Message::Ping(data))) => {
                             let _ = write.send(Message::Pong(data)).await;
-                            info!("Ping");
+                            trace!("Ping recv");
+                        }
+                        Some(Ok(Message::Pong(_))) => {
+                            trace!("Pong recv");
                         }
                         Some(Ok(Message::Close(close))) => {
-                            info!("Connection closed by server: {:?}", close);
+                            error!("Connection closed by server: {:?}", close);
                             should_reconnect = true;
                             break;
                         }
@@ -86,9 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             should_reconnect = true;
                             break;
                         }
-                        Some(Ok(_)) => {
-                            info!("123");
-                        }
+                        Some(Ok(_)) => {}
                         None => {
                             info!("WebSocket stream ended");
                             should_reconnect = true;
@@ -97,6 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     }
                 }
                 _ = ping_interval.tick() => {
+                    trace!("Ping sent");
                     let _ = write.send(Message::Ping(vec![].into())).await;
                 }
             }
