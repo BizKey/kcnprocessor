@@ -225,3 +225,24 @@ impl KuCoinClient {
         Ok(response)
     }
 }
+
+pub async fn get_public_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let bullet_public: ApiV3BulletPublic = client.api_v1_bullet_public().await?;
+    bullet_public
+        .data
+        .instanceServers
+        .first()
+        .map(|s| format!("{}?token={}", s.endpoint, bullet_public.data.token))
+        .ok_or_else(|| "No instance servers in bullet response".into())
+}
+pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let bullet_private: ApiV3BulletPrivate = client.api_v1_bullet_private().await?;
+    bullet_private
+        .data
+        .instanceServers
+        .first()
+        .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
+        .ok_or_else(|| "No instance servers in bullet response".into())
+}

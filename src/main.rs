@@ -1,7 +1,6 @@
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
-use std::env;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -11,7 +10,7 @@ mod api {
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
-const PING_INTERVAL: Duration = Duration::from_secs(10);
+const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -28,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     });
 
     loop {
-        let ws_url = match get_private_ws_url().await {
+        let ws_url = match api::requests::get_private_ws_url().await {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get WebSocket URL: {}", e);
@@ -54,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             sleep(RECONNECT_DELAY).await;
             continue;
         }
-
+        
         info!("Subscribed and listening for messages...");
 
         let ping_interval = interval(PING_INTERVAL);
@@ -75,6 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                         Some(Ok(Message::Ping(data))) => {
                             let _ = write.send(Message::Pong(data)).await;
+                            info!("Ping");
                         }
                         Some(Ok(Message::Close(close))) => {
                             info!("Connection closed by server: {:?}", close);
@@ -86,7 +86,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             should_reconnect = true;
                             break;
                         }
-                        Some(Ok(_)) => {}
+                        Some(Ok(_)) => {
+                            info!("123");
+                        }
                         None => {
                             info!("WebSocket stream ended");
                             should_reconnect = true;
@@ -113,24 +115,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("Application shutdown complete");
 
     Ok(())
-}
-async fn get_public_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client = api::requests::KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    let bullet_public = client.api_v1_bullet_public().await?;
-    bullet_public
-        .data
-        .instanceServers
-        .first()
-        .map(|s| format!("{}?token={}", s.endpoint, bullet_public.data.token))
-        .ok_or_else(|| "No instance servers in bullet response".into())
-}
-async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client = api::requests::KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    let bullet_private = client.api_v1_bullet_private().await?;
-    bullet_private
-        .data
-        .instanceServers
-        .first()
-        .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
-        .ok_or_else(|| "No instance servers in bullet response".into())
 }
