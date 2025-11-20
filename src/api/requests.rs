@@ -1,7 +1,6 @@
-use crate::api::models::{ApiV3BulletPrivate, ApiV3BulletPublic};
+use crate::api::models::ApiV3BulletPrivate;
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log::{error, info};
 use reqwest::{Client, Response};
 
 use sha2::Sha256;
@@ -44,47 +43,6 @@ impl KuCoinClient {
             api_passphrase,
             base_url,
         })
-    }
-
-    pub async fn api_v1_bullet_public(
-        &self,
-    ) -> Result<ApiV3BulletPublic, Box<dyn std::error::Error + Send + Sync>> {
-        return match self
-            .make_request(
-                reqwest::Method::POST,
-                "/api/v1/bullet-public",
-                None,
-                None,
-                false,
-            )
-            .await
-        {
-            Ok(response) => match response.status().as_str() {
-                "200" => match response.text().await {
-                    Ok(text) => match serde_json::from_str::<ApiV3BulletPublic>(&text) {
-                        Ok(r) => match r.code.as_str() {
-                            "200000" => Ok(r),
-                            _ => Err(format!("API error: code {}", r.code).into()),
-                        },
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
-                    },
-                    Err(e) => {
-                        return Err(format!("Error get text response from HTTP:'{}'", e).into());
-                    }
-                },
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
-            },
-            Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
-        };
     }
 
     pub async fn api_v1_bullet_private(
@@ -226,22 +184,12 @@ impl KuCoinClient {
     }
 }
 
-pub async fn get_public_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    let bullet_public: ApiV3BulletPublic = client.api_v1_bullet_public().await?;
-    bullet_public
-        .data
-        .instanceServers
-        .first()
-        .map(|s| format!("{}?token={}", s.endpoint, bullet_public.data.token))
-        .ok_or_else(|| "No instance servers in bullet response".into())
-}
 pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     let bullet_private: ApiV3BulletPrivate = client.api_v1_bullet_private().await?;
     bullet_private
         .data
-        .instanceServers
+        .instance_servers
         .first()
         .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
         .ok_or_else(|| "No instance servers in bullet response".into())

@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             sleep(RECONNECT_DELAY).await;
             continue;
         }
-        
+
         info!("Subscribed and listening for messages...");
 
         let ping_interval = interval(PING_INTERVAL);
