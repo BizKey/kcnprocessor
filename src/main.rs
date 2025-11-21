@@ -48,8 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             .execute(&pool)
                             .await
                         {
-                            Ok(_) => info!("Success insert kucoin test"),
-                            Err(e) => error!("Error on bulk insert tickers to db: {}", e),
+                            Ok(_) => info!("Success insert error"),
+                            Err(e) => error!("Error insert: {}", e),
                         };
                     }
                     KuCoinMessage::Message(data) => {
@@ -70,9 +70,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     .execute(&pool)
                                     .await
                                     {
-                                        Ok(_) => info!("Success insert kucoin test"),
+                                        Ok(_) => info!("Success insert error"),
                                         Err(e) => {
-                                            error!("Error on bulk insert tickers to db: {}", e)
+                                            error!("Error insert: {}", e)
                                         }
                                     };
                                 }
@@ -93,9 +93,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     .execute(&pool)
                                     .await
                                     {
-                                        Ok(_) => info!("Success insert kucoin test"),
+                                        Ok(_) => info!("Success insert error"),
                                         Err(e) => {
-                                            error!("Error on bulk insert tickers to db: {}", e)
+                                            error!("Error insert: {}", e)
                                         }
                                     };
                                 }
@@ -109,8 +109,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 .execute(&pool)
                                 .await
                             {
-                                Ok(_) => info!("Success insert kucoin test"),
-                                Err(e) => error!("Error on bulk insert tickers to db: {}", e),
+                                Ok(_) => info!("Success insert error"),
+                                Err(e) => error!("Error insert: {}", e),
                             };
                         }
                     }
@@ -123,8 +123,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             .execute(&pool)
                             .await
                         {
-                            Ok(_) => info!("Success insert kucoin test"),
-                            Err(e) => error!("Error on bulk insert tickers to db: {}", e),
+                            Ok(_) => info!("Success insert error"),
+                            Err(e) => error!("Error insert: {}", e),
                         };
                     }
                 },
@@ -137,8 +137,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         .execute(&pool)
                         .await
                     {
-                        Ok(_) => info!("Success insert kucoin test"),
-                        Err(e) => error!("Error on bulk insert tickers to db: {}", e),
+                        Ok(_) => info!("Success insert error"),
+                        Err(e) => error!("Error insert: {}", e),
                     };
                 }
             }
