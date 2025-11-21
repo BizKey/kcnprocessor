@@ -37,9 +37,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             match serde_json::from_value::<BalanceData>(data.data) {
                                 Ok(balance) => {
                                     info!("{:?}", balance)
+                                    // sent balance to pg
                                 }
                                 Err(e) => {
                                     error!("Failed to parse message {}", e)
+                                    // sent balance error to pg
                                 }
                             }
                         } else if data.topic == "/spotMarket/tradeOrdersV2" {
@@ -49,18 +51,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 }
                                 Err(e) => {
                                     error!("Failed to parse message {}", e)
+                                    // sent order error to pg
                                 }
                             }
                         } else {
                             info!("Unknown topic: {}", data.topic);
+                            // sent error to pg
                         }
                     }
                     KuCoinMessage::Ack(data) => {
                         info!("{:?}", data)
+                        // sent ack to pg
                     }
                 },
                 Err(e) => {
                     error!("Failed to parse message: {} | Raw: {}", e, msg);
+                    // sent error to pg
                 }
             }
         }
@@ -72,6 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get WebSocket URL: {}", e);
+                // sent error to pg
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -81,6 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok((stream, _)) => stream,
             Err(e) => {
                 error!("WebSocket connection failed: {}", e);
+                // sent error to pg
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -91,12 +99,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let subscribe_orders = r#"{"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#;
         if let Err(e) = write.send(Message::text(subscribe_orders)).await {
             error!("Failed to send subscribe message: {}", e);
+            // sent error to pg
             sleep(RECONNECT_DELAY).await;
             continue;
         }
         let subscribe_balance = r#"{"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}"#;
         if let Err(e) = write.send(Message::text(subscribe_balance)).await {
             error!("Failed to send subscribe message: {}", e);
+            // sent error to pg
             sleep(RECONNECT_DELAY).await;
             continue;
         }
@@ -128,17 +138,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                         Some(Ok(Message::Close(close))) => {
                             error!("Connection closed by server: {:?}", close);
+                            // sent error to pg
                             should_reconnect = true;
                             break;
                         }
                         Some(Err(e)) => {
                             error!("WebSocket read error: {}", e);
+                            // sent error to pg
                             should_reconnect = true;
                             break;
                         }
                         Some(Ok(_)) => {}
                         None => {
                             info!("WebSocket stream ended");
+                            // sent error to pg
                             should_reconnect = true;
                             break;
                         }
@@ -152,6 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         if should_reconnect {
             error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
+            // sent error to pg
             sleep(RECONNECT_DELAY).await;
         } else {
             break;
