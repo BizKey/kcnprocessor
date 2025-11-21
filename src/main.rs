@@ -4,6 +4,8 @@ use log::{error, info, trace};
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
+
+use crate::api::models::KuCoinMessage;
 mod api {
     pub mod models;
     pub mod requests;
@@ -17,11 +19,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
 
-    let (tx, mut rx) = mpsc::channel::<String>(1000);
+    // websocket to pg
+    let (tx_in, mut rx_in) = mpsc::channel::<String>(1000);
+    // pg to websocket
+    let (tx_out, mut rx_out) = mpsc::channel::<String>(1000);
 
     let handler = tokio::spawn(async move {
-        while let Some(msg) = rx.recv().await {
+        while let Some(msg) = rx_in.recv().await {
             info!("Processing: {}", msg);
+            match serde_json::from_str::<KuCoinMessage>(&msg) {
+                Ok(kc_msg) => match kc_msg {
+                    KuCoinMessage::Welcome(data) => {
+                        info!("{:?}", data)
+                    }
+                    KuCoinMessage::Message(data) => {
+                        info!("{:?}", data)
+                    }
+                    KuCoinMessage::Ack(data) => {
+                        info!("{:?}", data)
+                    }
+                },
+                Err(e) => {
+                    error!("Failed to parse message: {} | Raw: {}", e, msg);
+                }
+            }
         }
         info!("Message handler finished");
     });
@@ -47,8 +68,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let (mut write, mut read) = ws_stream.split();
 
-        let subscribe = r#"{"id":1545910660739,"type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#;
-        if let Err(e) = write.send(Message::text(subscribe)).await {
+        let subscribe_orders = r#"{"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#;
+        if let Err(e) = write.send(Message::text(subscribe_orders)).await {
+            error!("Failed to send subscribe message: {}", e);
+            sleep(RECONNECT_DELAY).await;
+            continue;
+        }
+        let subscribe_balance = r#"{"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}"#;
+        if let Err(e) = write.send(Message::text(subscribe_balance)).await {
             error!("Failed to send subscribe message: {}", e);
             sleep(RECONNECT_DELAY).await;
             continue;
@@ -66,8 +93,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 msg = read.next() => {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
-                            if tx.send(text.to_string()).await.is_err() {
-                                drop(tx);
+                            if tx_in.send(text.to_string()).await.is_err() {
+                                drop(tx_in);
                                 let _ = handler.await;
                                 return Ok(());
                             }
@@ -111,7 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    drop(tx);
+    drop(tx_in);
 
     let _ = handler.await;
     info!("Application shutdown complete");
