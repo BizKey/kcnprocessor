@@ -1,6 +1,8 @@
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, trace};
+use sqlx::postgres::PgPoolOptions;
+use std::env;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -19,6 +21,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
 
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let pool = PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&database_url)
+        .await
+        .expect("Failed to create pool");
+
     // websocket to pg
     let (tx_in, mut rx_in) = mpsc::channel::<String>(1000);
     // pg to websocket
@@ -30,7 +40,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             match serde_json::from_str::<KuCoinMessage>(&msg) {
                 Ok(kc_msg) => match kc_msg {
                     KuCoinMessage::Welcome(data) => {
-                        info!("{:?}", data)
+                        info!("{:?}", data);
+                        match sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)")
+                            .bind("kucoin")
+                            .bind("test")
+                            .execute(&pool)
+                            .await
+                        {
+                            Ok(_) => {
+                                info!("Success insert kucoin test")
+                            }
+                            Err(e) => error!("Error on bulk insert tickers to db: {}", e),
+                        };
                     }
                     KuCoinMessage::Message(data) => {
                         if data.topic == "/account/balance" {
@@ -40,8 +61,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     // sent balance to pg
                                 }
                                 Err(e) => {
-                                    error!("Failed to parse message {}", e)
+                                    error!("Failed to parse message {}", e);
                                     // sent balance error to pg
+                                    match sqlx::query(
+                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
+                                    )
+                                    .bind("kucoin")
+                                    .bind("test")
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => {
+                                            info!("Success insert kucoin test")
+                                        }
+                                        Err(e) => {
+                                            error!("Error on bulk insert tickers to db: {}", e)
+                                        }
+                                    };
                                 }
                             }
                         } else if data.topic == "/spotMarket/tradeOrdersV2" {
@@ -50,23 +86,71 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     info!("{:?}", order)
                                 }
                                 Err(e) => {
-                                    error!("Failed to parse message {}", e)
+                                    error!("Failed to parse message {}", e);
                                     // sent order error to pg
+                                    match sqlx::query(
+                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
+                                    )
+                                    .bind("kucoin")
+                                    .bind("test")
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => {
+                                            info!("Success insert kucoin test")
+                                        }
+                                        Err(e) => {
+                                            error!("Error on bulk insert tickers to db: {}", e)
+                                        }
+                                    };
                                 }
                             }
                         } else {
                             info!("Unknown topic: {}", data.topic);
                             // sent error to pg
+                            match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
+                                .bind("kucoin")
+                                .bind("test")
+                                .execute(&pool)
+                                .await
+                            {
+                                Ok(_) => {
+                                    info!("Success insert kucoin test")
+                                }
+                                Err(e) => error!("Error on bulk insert tickers to db: {}", e),
+                            };
                         }
                     }
                     KuCoinMessage::Ack(data) => {
-                        info!("{:?}", data)
+                        info!("{:?}", data);
                         // sent ack to pg
+                        match sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)")
+                            .bind("kucoin")
+                            .bind("test")
+                            .execute(&pool)
+                            .await
+                        {
+                            Ok(_) => {
+                                info!("Success insert kucoin test")
+                            }
+                            Err(e) => error!("Error on bulk insert tickers to db: {}", e),
+                        };
                     }
                 },
                 Err(e) => {
                     error!("Failed to parse message: {} | Raw: {}", e, msg);
                     // sent error to pg
+                    match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
+                        .bind("kucoin")
+                        .bind("test")
+                        .execute(&pool)
+                        .await
+                    {
+                        Ok(_) => {
+                            info!("Success insert kucoin test")
+                        }
+                        Err(e) => error!("Error on bulk insert tickers to db: {}", e),
+                    };
                 }
             }
         }

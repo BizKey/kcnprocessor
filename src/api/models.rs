@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
