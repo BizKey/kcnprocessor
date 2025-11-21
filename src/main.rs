@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-use crate::api::models::KuCoinMessage;
+use crate::api::models::{BalanceData, KuCoinMessage};
 mod api {
     pub mod models;
     pub mod requests;
@@ -33,7 +33,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         info!("{:?}", data)
                     }
                     KuCoinMessage::Message(data) => {
-                        info!("{:?}", data)
+                        if data.topic == "/account/balance" {
+                            match serde_json::from_value::<BalanceData>(data.data) {
+                                Ok(bal) => {
+                                    info!("{:?}", bal)
+                                }
+                                Err(e) => {
+                                    error!("Failed to parse message {}", e)
+                                }
+                            }
+                        } else if data.topic == "/spotMarket/tradeOrdersV2" {
+                            info!("Order data: {:?}", data.data);
+                        } else {
+                            info!("Unknown topic: {}", data.topic);
+                        }
                     }
                     KuCoinMessage::Ack(data) => {
                         info!("{:?}", data)
