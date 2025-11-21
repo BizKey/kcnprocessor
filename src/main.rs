@@ -22,6 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     dotenv().ok();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let exchange: String = "kucoin".to_string();
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
@@ -42,14 +43,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     KuCoinMessage::Welcome(data) => {
                         info!("{:?}", data);
                         match sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)")
-                            .bind("kucoin")
-                            .bind("test")
+                            .bind(exchange.clone())
+                            .bind(serde_json::to_value(&data).unwrap())
                             .execute(&pool)
                             .await
                         {
-                            Ok(_) => {
-                                info!("Success insert kucoin test")
-                            }
+                            Ok(_) => info!("Success insert kucoin test"),
                             Err(e) => error!("Error on bulk insert tickers to db: {}", e),
                         };
                     }
@@ -66,14 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     match sqlx::query(
                                         "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
                                     )
-                                    .bind("kucoin")
-                                    .bind("test")
+                                    .bind(exchange.clone())
+                                    .bind(e.to_string())
                                     .execute(&pool)
                                     .await
                                     {
-                                        Ok(_) => {
-                                            info!("Success insert kucoin test")
-                                        }
+                                        Ok(_) => info!("Success insert kucoin test"),
                                         Err(e) => {
                                             error!("Error on bulk insert tickers to db: {}", e)
                                         }
@@ -91,14 +88,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     match sqlx::query(
                                         "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
                                     )
-                                    .bind("kucoin")
-                                    .bind("test")
+                                    .bind(exchange.clone())
+                                    .bind(e.to_string())
                                     .execute(&pool)
                                     .await
                                     {
-                                        Ok(_) => {
-                                            info!("Success insert kucoin test")
-                                        }
+                                        Ok(_) => info!("Success insert kucoin test"),
                                         Err(e) => {
                                             error!("Error on bulk insert tickers to db: {}", e)
                                         }
@@ -109,14 +104,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             info!("Unknown topic: {}", data.topic);
                             // sent error to pg
                             match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
-                                .bind("kucoin")
-                                .bind("test")
+                                .bind(exchange.clone())
+                                .bind(data.topic)
                                 .execute(&pool)
                                 .await
                             {
-                                Ok(_) => {
-                                    info!("Success insert kucoin test")
-                                }
+                                Ok(_) => info!("Success insert kucoin test"),
                                 Err(e) => error!("Error on bulk insert tickers to db: {}", e),
                             };
                         }
@@ -125,14 +118,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         info!("{:?}", data);
                         // sent ack to pg
                         match sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)")
-                            .bind("kucoin")
-                            .bind("test")
+                            .bind(exchange.clone())
+                            .bind(serde_json::to_value(&data).unwrap())
                             .execute(&pool)
                             .await
                         {
-                            Ok(_) => {
-                                info!("Success insert kucoin test")
-                            }
+                            Ok(_) => info!("Success insert kucoin test"),
                             Err(e) => error!("Error on bulk insert tickers to db: {}", e),
                         };
                     }
@@ -141,14 +132,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     error!("Failed to parse message: {} | Raw: {}", e, msg);
                     // sent error to pg
                     match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
-                        .bind("kucoin")
-                        .bind("test")
+                        .bind(exchange.clone())
+                        .bind(e.to_string())
                         .execute(&pool)
                         .await
                     {
-                        Ok(_) => {
-                            info!("Success insert kucoin test")
-                        }
+                        Ok(_) => info!("Success insert kucoin test"),
                         Err(e) => error!("Error on bulk insert tickers to db: {}", e),
                     };
                 }
