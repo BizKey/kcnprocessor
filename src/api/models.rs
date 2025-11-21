@@ -30,11 +30,11 @@ pub struct AckData {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BalanceRelationContext {
-    pub symbol: String,
+    pub symbol: Option<String>,
     #[serde(rename = "orderId")]
-    pub order_id: String,
+    pub order_id: Option<String>,
     #[serde(rename = "tradeId")]
-    pub trade_id: String,
+    pub trade_id: Option<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BalanceData {
