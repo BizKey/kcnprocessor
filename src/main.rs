@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-use crate::api::models::{BalanceData, KuCoinMessage, OrderData};
+use crate::api::models::{BalanceData, BalanceRelationContext, KuCoinMessage, OrderData};
 mod api {
     pub mod models;
     pub mod requests;
@@ -48,16 +48,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             .execute(&pool)
                             .await
                         {
-                            Ok(_) => info!("Success insert error"),
-                            Err(e) => error!("Error insert: {}", e),
+                            Ok(_) => info!("Success insert events"),
+                            Err(e) => error!("Error insert events: {}", e),
                         };
                     }
                     KuCoinMessage::Message(data) => {
                         if data.topic == "/account/balance" {
                             match serde_json::from_value::<BalanceData>(data.data) {
                                 Ok(balance) => {
-                                    info!("{:?}", balance)
+                                    info!("{:?}", balance);
+                                    let relation_context = match balance.relationContext {
+                                        Some(ctx) => ctx,
+                                        None => {
+                                            error!("Missing relationContext for balance");
+                                            BalanceRelationContext {
+                                                symbol: None,
+                                                order_id: None,
+                                                trade_id: None,
+                                            }
+                                        }
+                                    };
                                     // sent balance to pg
+                                    match sqlx::query(
+                                        "INSERT INTO balance (exchange, account_id, available, available_change, currency, hold, hold_change, relation_event, relation_event_id, time, total, symbol, order_id, trade_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+                                    )
+                                    .bind(exchange.clone())
+                                    .bind(balance.account_id)
+                                    .bind(balance.available)
+                                    .bind(balance.available_change)
+                                    .bind(balance.currency)
+                                    .bind(balance.hold)
+                                    .bind(balance.hold_change)
+                                    .bind(balance.relation_event)
+                                    .bind(balance.relation_event_id)
+                                    .bind(balance.time)
+                                    .bind(balance.total)
+                                    .bind(relation_context.symbol)
+                                    .bind(relation_context.order_id)
+                                    .bind(relation_context.trade_id)
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => info!("Success insert balance"),
+                                        Err(e) => {
+                                            error!("Error insert balance: {}", e);
+                                            match sqlx::query(
+                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
+                                    )
+                                    .bind(exchange.clone())
+                                    .bind(e.to_string())
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => info!("Success insert error"),
+                                        Err(e) => {
+                                            error!("Error insert error: {}", e)
+                                        }
+                                    };
+                                        }
+                                    };
                                 }
                                 Err(e) => {
                                     error!("Failed to parse message {}", e);
@@ -70,9 +119,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     .execute(&pool)
                                     .await
                                     {
-                                        Ok(_) => info!("Success insert error"),
+                                        Ok(_) => info!("Success insert parsing error"),
                                         Err(e) => {
-                                            error!("Error insert: {}", e)
+                                            error!("Error parsing balance: {}", e)
                                         }
                                     };
                                 }
