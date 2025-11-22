@@ -172,8 +172,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             .execute(&pool)
                             .await
                         {
-                            Ok(_) => info!("Success insert error"),
-                            Err(e) => error!("Error insert: {}", e),
+                            Ok(_) => info!("Success insert Ack"),
+                            Err(e) => error!("Error insert Ack: {}", e),
                         };
                     }
                 },
