@@ -104,6 +104,12 @@ pub struct MessageData {
     pub subject: String,
     pub data: serde_json::Value,
 }
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ErrorData {
+    pub id: String,
+    pub code: i64,
+    pub data: String,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
@@ -116,4 +122,7 @@ pub enum KuCoinMessage {
 
     #[serde(rename = "message")]
     Message(MessageData),
+
+    #[serde(rename = "error")]
+    Error(ErrorData),
 }

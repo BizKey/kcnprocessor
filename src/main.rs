@@ -176,6 +176,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             Err(e) => error!("Error insert Ack: {}", e),
                         };
                     }
+                    KuCoinMessage::Error(data) => {
+                        info!("{:?}", data);
+                        // sent error to pg
+                        match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
+                            .bind(exchange.clone())
+                            .bind(data.data)
+                            .execute(&pool)
+                            .await
+                        {
+                            Ok(_) => info!("Success insert error"),
+                            Err(e) => error!("Error insert: {}", e),
+                        };
+                    }
                 },
                 Err(e) => {
                     error!("Failed to parse message: {} | Raw: {}", e, msg);
