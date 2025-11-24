@@ -64,32 +64,32 @@ pub struct OrderData {
     #[serde(rename = "orderType")]
     pub order_type: String, // limit market
     #[serde(rename = "feeType")]
-    pub fee_type: String, // takerFee makerFee
-    pub liquidity: String, // taker maker
-    pub price: String,
+    pub fee_type: Option<String>, // takerFee makerFee
+    pub liquidity: Option<String>, // taker maker
+    pub price: Option<String>,
     #[serde(rename = "orderId")]
     pub order_id: String,
     #[serde(rename = "clientOid")]
     pub client_oid: String,
     #[serde(rename = "tradeId")]
-    pub trade_id: String,
+    pub trade_id: Option<String>,
     #[serde(rename = "originSize")]
     pub origin_size: String,
-    pub size: String,
+    pub size: Option<String>,
     #[serde(rename = "filledSize")]
-    pub filled_size: String,
+    pub filled_size: Option<String>,
     #[serde(rename = "matchSize")]
-    pub match_size: String,
+    pub match_size: Option<String>,
     #[serde(rename = "matchPrice")]
-    pub match_price: String,
+    pub match_price: Option<String>,
     #[serde(rename = "canceledSize")]
-    pub canceled_size: String,
+    pub canceled_size: Option<String>,
     #[serde(rename = "oldSize")]
-    pub old_size: String,
+    pub old_size: Option<String>,
     #[serde(rename = "remainSize")]
-    pub remain_size: String,
+    pub remain_size: Option<String>,
     #[serde(rename = "remainFunds")]
-    pub remain_funds: String,
+    pub remain_funds: Option<String>,
     #[serde(rename = "orderTime")]
     pub order_time: String,
     pub ts: i64,
