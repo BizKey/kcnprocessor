@@ -180,9 +180,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                                     if order.order_type == "open" && order.status == "open" {
                                         // order in order book
+                                        // add order to active orders
                                     };
                                     if order.order_type == "filled" && order.status == "done" {
                                         // order all filled
+                                        // get order from db and cancel them
                                     }
                                 }
                                 Err(e) => {
