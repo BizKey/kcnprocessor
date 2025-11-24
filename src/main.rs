@@ -129,7 +129,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         } else if data.topic == "/spotMarket/tradeOrdersV2" {
                             match serde_json::from_value::<OrderData>(data.data) {
                                 Ok(order) => {
-                                    info!("{:?}", order)
+                                    info!("{:?}", order);
+                                    match sqlx::query(
+                                        "INSERT INTO orderevents (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)",
+                                    )
+                                    .bind(exchange.clone())
+                                    .bind(order.status)
+                                    .bind(order.type_)
+                                    .bind(order.symbol)
+                                    .bind(order.side)
+                                    .bind(order.order_type)
+                                    .bind(order.fee_type)
+                                    .bind(order.liquidity)
+                                    .bind(order.price)
+                                    .bind(order.order_id)
+                                    .bind(order.client_oid)
+                                    .bind(order.trade_id)
+                                    .bind(order.origin_size)
+                                    .bind(order.size)
+                                    .bind(order.filled_size)
+                                    .bind(order.match_size)
+                                    .bind(order.match_price)
+                                    .bind(order.canceled_size)
+                                    .bind(order.old_size)
+                                    .bind(order.remain_size)
+                                    .bind(order.remain_funds)
+                                    .bind(order.order_time)
+                                    .bind(order.ts)
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => info!("Success insert order event"),
+                                        Err(e) => {
+                                            error!("Error insert order event: {}", e);
+                                            match sqlx::query(
+                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
+                                    )
+                                    .bind(exchange.clone())
+                                    .bind(e.to_string())
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => info!("Success insert error"),
+                                        Err(e) => {
+                                            error!("Error insert error: {}", e)
+                                        }
+                                    };
+                                        }
+                                    };
                                 }
                                 Err(e) => {
                                     error!("Failed to parse message {}", e);

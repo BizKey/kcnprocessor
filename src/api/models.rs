@@ -56,16 +56,16 @@ pub struct BalanceData {
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {
-    pub status: String,
+    pub status: String, // new open match done
     #[serde(rename = "type")]
-    pub type_: String,
-    pub symbol: String,
-    pub side: String,
+    pub type_: String, // open match update filled canceled received
+    pub symbol: String, // BTC-USDT ETH-USDT KCS-USDT
+    pub side: String,   // buy sell
     #[serde(rename = "orderType")]
-    pub order_type: String,
+    pub order_type: String, // limit market
     #[serde(rename = "feeType")]
-    pub fee_type: String,
-    pub liquidity: String,
+    pub fee_type: String, // takerFee makerFee
+    pub liquidity: String, // taker maker
     pub price: String,
     #[serde(rename = "orderId")]
     pub order_id: String,
