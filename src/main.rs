@@ -218,22 +218,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let (mut write, mut read) = ws_stream.split();
 
-        let subscribe_orders = r#"{"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#;
-        if let Err(e) = write.send(Message::text(subscribe_orders)).await {
+        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#)).await {
             error!("Failed to send subscribe message: {}", e);
             // sent error to pg
             sleep(RECONNECT_DELAY).await;
             continue;
         }
-        let subscribe_balance = r#"{"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}"#;
-        if let Err(e) = write.send(Message::text(subscribe_balance)).await {
+        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}"#)).await {
             error!("Failed to send subscribe message: {}", e);
             // sent error to pg
             sleep(RECONNECT_DELAY).await;
             continue;
         }
-        let subscribe_position = r#"{"id":subscribe_position,"type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}"#;
-        if let Err(e) = write.send(Message::text(subscribe_position)).await {
+        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}"#)).await {
             error!("Failed to send subscribe message: {}", e);
             // sent error to pg
             sleep(RECONNECT_DELAY).await;
