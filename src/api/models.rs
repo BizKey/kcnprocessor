@@ -56,40 +56,40 @@ pub struct BalanceData {
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {
-    pub status: String,
+    pub status: String, // new open match done
     #[serde(rename = "type")]
-    pub type_: String,
-    pub symbol: String,
-    pub side: String,
+    pub type_: String, // open match update filled canceled received
+    pub symbol: String, // BTC-USDT ETH-USDT KCS-USDT
+    pub side: String,   // buy sell
     #[serde(rename = "orderType")]
-    pub order_type: String,
+    pub order_type: String, // limit market
     #[serde(rename = "feeType")]
-    pub fee_type: String,
-    pub liquidity: String,
-    pub price: String,
+    pub fee_type: Option<String>, // takerFee makerFee
+    pub liquidity: Option<String>, // taker maker
+    pub price: Option<String>,
     #[serde(rename = "orderId")]
     pub order_id: String,
     #[serde(rename = "clientOid")]
     pub client_oid: String,
     #[serde(rename = "tradeId")]
-    pub trade_id: String,
+    pub trade_id: Option<String>,
     #[serde(rename = "originSize")]
     pub origin_size: String,
-    pub size: String,
+    pub size: Option<String>,
     #[serde(rename = "filledSize")]
-    pub filled_size: String,
+    pub filled_size: Option<String>,
     #[serde(rename = "matchSize")]
-    pub match_size: String,
+    pub match_size: Option<String>,
     #[serde(rename = "matchPrice")]
-    pub match_price: String,
+    pub match_price: Option<String>,
     #[serde(rename = "canceledSize")]
-    pub canceled_size: String,
+    pub canceled_size: Option<String>,
     #[serde(rename = "oldSize")]
-    pub old_size: String,
+    pub old_size: Option<String>,
     #[serde(rename = "remainSize")]
-    pub remain_size: String,
+    pub remain_size: Option<String>,
     #[serde(rename = "remainFunds")]
-    pub remain_funds: String,
+    pub remain_funds: Option<String>,
     #[serde(rename = "orderTime")]
     pub order_time: String,
     pub ts: i64,
@@ -104,6 +104,12 @@ pub struct MessageData {
     pub subject: String,
     pub data: serde_json::Value,
 }
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ErrorData {
+    pub id: String,
+    pub code: i64,
+    pub data: String,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
@@ -116,4 +122,7 @@ pub enum KuCoinMessage {
 
     #[serde(rename = "message")]
     Message(MessageData),
+
+    #[serde(rename = "error")]
+    Error(ErrorData),
 }

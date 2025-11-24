@@ -129,7 +129,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         } else if data.topic == "/spotMarket/tradeOrdersV2" {
                             match serde_json::from_value::<OrderData>(data.data) {
                                 Ok(order) => {
-                                    info!("{:?}", order)
+                                    info!("{:?}", order);
+                                    match sqlx::query(
+                                        "INSERT INTO orderevents (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)",
+                                    )
+                                    .bind(exchange.clone())
+                                    .bind(&order.status)
+                                    .bind(&order.type_)
+                                    .bind(&order.symbol)
+                                    .bind(&order.side)
+                                    .bind(&order.order_type)
+                                    .bind(&order.fee_type)
+                                    .bind(&order.liquidity)
+                                    .bind(&order.price)
+                                    .bind(&order.order_id)
+                                    .bind(&order.client_oid)
+                                    .bind(&order.trade_id)
+                                    .bind(&order.origin_size)
+                                    .bind(&order.size)
+                                    .bind(&order.filled_size)
+                                    .bind(&order.match_size)
+                                    .bind(&order.match_price)
+                                    .bind(&order.canceled_size)
+                                    .bind(&order.old_size)
+                                    .bind(&order.remain_size)
+                                    .bind(&order.remain_funds)
+                                    .bind(&order.order_time)
+                                    .bind(&order.ts)
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => info!("Success insert order event"),
+                                        Err(e) => {
+                                            error!("Error insert order event: {}", e);
+                                            match sqlx::query(
+                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
+                                    )
+                                    .bind(exchange.clone())
+                                    .bind(e.to_string())
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => info!("Success insert error"),
+                                        Err(e) => {
+                                            error!("Error insert error: {}", e)
+                                        }
+                                    };
+                                        }
+                                    };
+
+                                    if order.order_type == "open" && order.status == "open" {
+                                        // order in order book
+                                        // add order to active orders
+                                    };
+                                    if order.order_type == "filled" && order.status == "done" {
+                                        // order all filled
+                                        // get order from db and cancel them
+                                    }
                                 }
                                 Err(e) => {
                                     error!("Failed to parse message {}", e);
@@ -176,6 +232,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             Err(e) => error!("Error insert Ack: {}", e),
                         };
                     }
+                    KuCoinMessage::Error(data) => {
+                        info!("{:?}", data);
+                        // sent error to pg
+                        match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
+                            .bind(exchange.clone())
+                            .bind(data.data)
+                            .execute(&pool)
+                            .await
+                        {
+                            Ok(_) => info!("Success insert error"),
+                            Err(e) => error!("Error insert: {}", e),
+                        };
+                    }
                 },
                 Err(e) => {
                     error!("Failed to parse message: {} | Raw: {}", e, msg);
@@ -218,22 +287,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let (mut write, mut read) = ws_stream.split();
 
-        let subscribe_orders = r#"{"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#;
-        if let Err(e) = write.send(Message::text(subscribe_orders)).await {
+        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#)).await {
             error!("Failed to send subscribe message: {}", e);
             // sent error to pg
             sleep(RECONNECT_DELAY).await;
             continue;
         }
-        let subscribe_balance = r#"{"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}"#;
-        if let Err(e) = write.send(Message::text(subscribe_balance)).await {
+        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}"#)).await {
             error!("Failed to send subscribe message: {}", e);
             // sent error to pg
             sleep(RECONNECT_DELAY).await;
             continue;
         }
-        let subscribe_position = r#"{"id":subscribe_position,"type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}"#;
-        if let Err(e) = write.send(Message::text(subscribe_position)).await {
+        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}"#)).await {
             error!("Failed to send subscribe message: {}", e);
             // sent error to pg
             sleep(RECONNECT_DELAY).await;
