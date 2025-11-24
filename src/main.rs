@@ -181,10 +181,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     if order.order_type == "open" && order.status == "open" {
                                         // order in order book
                                         // add order to active orders
+                                        match sqlx::query(
+                                            "INSERT INTO orderactive (exchange, client_oid, symbol) VALUES ($1, $2, $3)",
+                                        )
+                                        .bind(exchange.clone())
+                                        .bind(&order.client_oid)
+                                        .bind(&order.symbol)
+                                        .execute(&pool)
+                                        .await
+                                        {
+                                            Ok(_) => info!("Success insert order active"),
+                                            Err(e) => {
+                                                error!("Error insert order active: {}", e);
+                                                match sqlx::query(
+                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
+                                    )
+                                    .bind(exchange.clone())
+                                    .bind(e.to_string())
+                                    .execute(&pool)
+                                    .await
+                                    {
+                                        Ok(_) => info!("Success insert error"),
+                                        Err(e) => {
+                                            error!("Error insert error: {}", e)
+                                        }
+                                    };
+                                            }
+                                        };
                                     };
                                     if order.order_type == "filled" && order.status == "done" {
+
                                         // order all filled
                                         // get order from db and cancel them
+                                        // create new order
                                     }
                                 }
                                 Err(e) => {
