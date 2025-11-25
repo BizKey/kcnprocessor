@@ -216,6 +216,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let (mut trade_ws_write, mut trade_ws_read) = trade_ws_stream.split();
 
+        match trade_ws_read.next().await {
+            Some(Ok(Message::Text(text))) => {
+                info!("{:?}", text);
+                let session_msg_text = text.to_string();
+
+                match api::requests::sign_kucoin(&session_msg_text) {
+                    Ok(signature) => {
+                        info!("Sending session signature");
+                        let _ = trade_ws_write.send(Message::text(signature)).await;
+                    }
+                    Err(_) => {}
+                }
+            }
+            None => {
+                info!("Trading WS stream ended while waiting for sessionId");
+                sleep(RECONNECT_DELAY).await;
+                continue;
+            }
+            _ => {}
+        }
+
         // Position/Orders WS
         // let event_ws_url = match api::requests::get_private_ws_url().await {
         //     Ok(url) => url,
@@ -305,18 +326,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     match trade_msg {
                         Some(Ok(Message::Text(text))) => {
                             info!("{:?}", text);
-                            let session_msg_text = text.to_string();
-
-                            if session_msg_text.contains("sessionId") {
-                                match api::requests::sign_kucoin(&session_msg_text){
-                                    Ok(signature) => {
-                                        info!("Sending session signature");
-                                let _ = trade_ws_write.send(Message::text(signature)).await;
-                                    }
-                                    Err(_) =>{}
-                                }
-
-                            }
                         }
                         Some(Ok(Message::Ping(data))) => {
                             let _ = trade_ws_write.send(Message::Pong(data)).await;
