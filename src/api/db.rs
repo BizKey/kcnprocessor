@@ -95,7 +95,7 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
             .execute(pool)
             .await
     {
-         let err_msg = format!("Failed to insert order event into DB: {}", e);
+        let err_msg = format!("Failed to insert order event into DB: {}", e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
