@@ -114,3 +114,15 @@ pub async fn insert_db_orderactive(pool: &PgPool, exchange: &str, order: &OrderD
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+
+pub async fn delete_db_orderactive(pool: &PgPool, order_id: &str) {
+    if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE order_id = $1")
+        .bind(order_id)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed to delete order from orderactive: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, "kucoin", &err_msg).await;
+    }
+}
