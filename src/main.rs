@@ -195,7 +195,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     });
 
     loop {
-        // Add/Cancel orders WS
+        //Add/Cancel orders WS
         let trade_ws_url = match api::requests::get_trading_ws_url() {
             Ok(url) => url,
             Err(e) => {
@@ -217,35 +217,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (mut trade_ws_write, mut trade_ws_read) = trade_ws_stream.split();
 
         // Position/Orders WS
-        let event_ws_url = match api::requests::get_private_ws_url().await {
-            Ok(url) => url,
-            Err(e) => {
-                error!("Failed to get WebSocket URL: {}", e);
-                // sent error to pg
-                sleep(RECONNECT_DELAY).await;
-                continue;
-            }
-        };
+        // let event_ws_url = match api::requests::get_private_ws_url().await {
+        //     Ok(url) => url,
+        //     Err(e) => {
+        //         error!("Failed to get WebSocket URL: {}", e);
+        //         // sent error to pg
+        //         sleep(RECONNECT_DELAY).await;
+        //         continue;
+        //     }
+        // };
 
-        let event_ws_stream = match connect_async(event_ws_url).await {
-            Ok((stream, _)) => stream,
-            Err(e) => {
-                error!("WebSocket connection failed: {}", e);
-                // sent error to pg
-                sleep(RECONNECT_DELAY).await;
-                continue;
-            }
-        };
+        // let event_ws_stream = match connect_async(event_ws_url).await {
+        //     Ok((stream, _)) => stream,
+        //     Err(e) => {
+        //         error!("WebSocket connection failed: {}", e);
+        //         // sent error to pg
+        //         sleep(RECONNECT_DELAY).await;
+        //         continue;
+        //     }
+        // };
 
-        let (mut event_ws_write, mut event_ws_read) = event_ws_stream.split();
+        // let (mut event_ws_write, mut event_ws_read) = event_ws_stream.split();
 
-        for sub in build_subscription() {
-            if let Err(e) = event_ws_write.send(Message::text(sub.to_string())).await {
-                error!("Failed to subscribe: {}", e);
-                insert_db_error(&pool, &exchange, &e.to_string()).await;
-                break;
-            }
-        }
+        // for sub in build_subscription() {
+        //     if let Err(e) = event_ws_write.send(Message::text(sub.to_string())).await {
+        //         error!("Failed to subscribe: {}", e);
+        //         insert_db_error(&pool, &exchange, &e.to_string()).await;
+        //         break;
+        //     }
+        // }
 
         info!("Subscribed and listening for messages...");
 
@@ -259,51 +259,64 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         loop {
             tokio::select! {
                 // Events
-                event_msg = event_ws_read.next() => {
-                    match event_msg {
-                        Some(Ok(Message::Text(text))) => {
-                            if tx_in.send(text.to_string()).await.is_err() {
-                                drop(tx_in);
-                                let _ = handler.await;
-                                return Ok(());
-                            }
-                        }
-                        Some(Ok(Message::Ping(data))) => {
-                            let _ = event_ws_write.send(Message::Pong(data)).await;
-                            trace!("Ping recv");
-                        }
-                        Some(Ok(Message::Pong(_))) => {
-                            trace!("Pong recv");
-                        }
-                        Some(Ok(Message::Close(close))) => {
-                            error!("Connection closed by server: {:?}", close);
-                            // sent error to pg
-                            should_reconnect = true;
-                            break;
-                        }
-                        Some(Err(e)) => {
-                            error!("WebSocket read error: {}", e);
-                            // sent error to pg
-                            should_reconnect = true;
-                            break;
-                        }
-                        Some(Ok(_)) => {}
-                        None => {
-                            info!("WebSocket stream ended");
-                            // sent error to pg
-                            should_reconnect = true;
-                            break;
-                        }
-                    }
-                }
-                _ = event_ping_interval.tick() => {
-                    trace!("Ping sent");
-                    let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
-                }
+                // event_msg = event_ws_read.next() => {
+                //     match event_msg {
+                //         Some(Ok(Message::Text(text))) => {
+                //             if tx_in.send(text.to_string()).await.is_err() {
+                //                 drop(tx_in);
+                //                 let _ = handler.await;
+                //                 return Ok(());
+                //             }
+                //         }
+                //         Some(Ok(Message::Ping(data))) => {
+                //             let _ = event_ws_write.send(Message::Pong(data)).await;
+                //             trace!("Ping recv");
+                //         }
+                //         Some(Ok(Message::Pong(_))) => {
+                //             trace!("Pong recv");
+                //         }
+                //         Some(Ok(Message::Close(close))) => {
+                //             error!("Connection closed by server: {:?}", close);
+                //             // sent error to pg
+                //             should_reconnect = true;
+                //             break;
+                //         }
+                //         Some(Err(e)) => {
+                //             error!("WebSocket read error: {}", e);
+                //             // sent error to pg
+                //             should_reconnect = true;
+                //             break;
+                //         }
+                //         Some(Ok(_)) => {}
+                //         None => {
+                //             info!("WebSocket stream ended");
+                //             // sent error to pg
+                //             should_reconnect = true;
+                //             break;
+                //         }
+                //     }
+                // }
+                // _ = event_ping_interval.tick() => {
+                //     trace!("Ping sent");
+                //     let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
+                // }
                 trade_msg =  trade_ws_read.next() => {
+                    info!("{:?}", trade_msg);
                     match trade_msg {
                         Some(Ok(Message::Text(text))) => {
                             info!("{:?}", text);
+                            let session_msg_text = text.to_string();
+
+                            if session_msg_text.contains("sessionId") {
+                                match api::requests::sign_kucoin(&session_msg_text){
+                                    Ok(signature) => {
+                                        info!("Sending session signature");
+                                let _ = trade_ws_write.send(Message::text(signature)).await;
+                                    }
+                                    Err(_) =>{}
+                                }
+
+                            }
                         }
                         Some(Ok(Message::Ping(data))) => {
                             let _ = trade_ws_write.send(Message::Pong(data)).await;

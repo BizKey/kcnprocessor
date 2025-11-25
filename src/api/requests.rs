@@ -110,6 +110,12 @@ impl KuCoinClient {
         let result = mac.finalize();
         base64::engine::general_purpose::STANDARD.encode(result.into_bytes())
     }
+    pub fn generate_signature_for_websocket(&self, prehash: &str) -> String {
+        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
+            .expect("HMAC can take key of any size");
+        mac.update(prehash.as_bytes());
+        base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
+    }
     async fn make_request(
         &self,
         method: reqwest::Method,
@@ -196,35 +202,36 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
         .ok_or_else(|| "No instance servers in bullet response".into())
 }
 
-fn sign_kucoin(prehash: &str, secret: &str) -> Vec<u8> {
-    let mut mac =
-        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
-    mac.update(prehash.as_bytes());
-    mac.finalize().into_bytes().to_vec()
-}
-
-pub fn get_trading_ws_url() -> Result<String, Box<dyn std::error::Error>> {
-    let api_key = std::env::var("KUCOIN_KEY")?;
-    let api_secret = std::env::var("KUCOIN_SECRET")?;
-    let passphrase = std::env::var("KUCOIN_PASS")?;
+pub fn get_trading_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
 
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)?
         .as_millis()
         .to_string();
 
-    let prehash = format!("{}{}", api_key, timestamp);
-    let sign = base64::engine::general_purpose::STANDARD.encode(sign_kucoin(&prehash, &api_secret));
-    let passphrase_sign =
-        base64::engine::general_purpose::STANDARD.encode(sign_kucoin(&passphrase, &api_secret));
+    let str_to_sign = format!("{}{}", client.api_key, timestamp);
+    let sign = client.generate_signature_for_websocket(&str_to_sign);
+    let passphrase_sign = client.generate_signature_for_websocket(&client.api_passphrase);
 
     let url = format!(
-        "wss://wsapi.kucoin.com/v1/private?apikey={}&timestamp={}&sign={}&passphrase={}",
-        url_encode(&api_key),
-        url_encode(&timestamp),
+        "wss://wsapi.kucoin.com/v1/private?apikey={}&sign={}&passphrase={}&timestamp={}",
+        url_encode(&client.api_key),
         url_encode(&sign),
-        url_encode(&passphrase_sign)
+        url_encode(&passphrase_sign),
+        url_encode(&timestamp),
     );
 
     Ok(url)
+}
+
+pub fn sign_kucoin(prehash: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let api_secret = match env::var("KUCOIN_SECRET") {
+        Ok(val) => val,
+        Err(e) => return Err(e.into()),
+    };
+    let mut mac =
+        HmacSha256::new_from_slice(api_secret.as_bytes()).expect("HMAC can take key of any size");
+    mac.update(prehash.as_bytes());
+    Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
 }
