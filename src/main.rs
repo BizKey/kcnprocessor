@@ -63,6 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             match serde_json::from_value::<BalanceData>(data.data) {
                                 Ok(balance) => {
                                     info!("{:?}", balance);
+                                    // sent balance to pg
                                     insert_db_balance(
                                         &pool_for_handler,
                                         &exchange_for_handler,
@@ -85,6 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             match serde_json::from_value::<OrderData>(data.data) {
                                 Ok(order) => {
                                     info!("{:?}", order);
+                                    // sent order to pg
                                     insert_db_orderevent(
                                         &pool_for_handler,
                                         &exchange_for_handler,
