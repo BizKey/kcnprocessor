@@ -2,6 +2,7 @@ use crate::api::models::ApiV3BulletPrivate;
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use reqwest::{Client, Response};
+use urlencoding::encode as url_encode;
 
 use sha2::Sha256;
 use std::collections::HashMap;
@@ -193,4 +194,37 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
         .first()
         .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
         .ok_or_else(|| "No instance servers in bullet response".into())
+}
+
+fn sign_kucoin(prehash: &str, secret: &str) -> Vec<u8> {
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
+    mac.update(prehash.as_bytes());
+    mac.finalize().into_bytes().to_vec()
+}
+
+pub fn get_trading_ws_url() -> Result<String, Box<dyn std::error::Error>> {
+    let api_key = std::env::var("KUCOIN_KEY")?;
+    let api_secret = std::env::var("KUCOIN_SECRET")?;
+    let passphrase = std::env::var("KUCOIN_PASS")?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)?
+        .as_millis()
+        .to_string();
+
+    let prehash = format!("{}{}", api_key, timestamp);
+    let sign = base64::engine::general_purpose::STANDARD.encode(sign_kucoin(&prehash, &api_secret));
+    let passphrase_sign =
+        base64::engine::general_purpose::STANDARD.encode(sign_kucoin(&passphrase, &api_secret));
+
+    let url = format!(
+        "wss://wsapi.kucoin.com/v1/private?apikey={}&timestamp={}&sign={}&passphrase={}",
+        url_encode(&api_key),
+        url_encode(&timestamp),
+        url_encode(&sign),
+        url_encode(&passphrase_sign)
+    );
+
+    Ok(url)
 }
