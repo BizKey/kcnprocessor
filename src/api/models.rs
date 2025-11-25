@@ -57,7 +57,7 @@ pub struct BalanceData {
 #[derive(sqlx::FromRow, Debug)]
 pub struct ActiveOrder {
     pub exchange: String,
-    pub client_oid: String,
+    pub order_id: String,
     pub symbol: String,
 }
 #[derive(Debug, Deserialize, Serialize)]

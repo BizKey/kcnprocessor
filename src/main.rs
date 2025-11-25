@@ -28,6 +28,10 @@ fn build_subscription() -> Vec<serde_json::Value> {
     ]
 }
 
+pub fn symbol_to_kucoin_api(symbol: &str) -> String {
+    symbol.replace("-", "")
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
@@ -115,15 +119,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             &order.order_id,
                                         )
                                         .await;
-                                        // get active order
-                                        fetch_all_active_orders_by_symbol(
+                                        // get active order's
+                                        for active_order in fetch_all_active_orders_by_symbol(
                                             &pool_for_handler,
                                             &exchange_for_handler,
                                             &order.symbol,
                                         )
-                                        .await;
+                                        .await
+                                        {
+                                            // cancel other orders by symbol
+                                            let cancel_msg = serde_json::json!({
+                                                "id": format!("cancel-{}", active_order.order_id),
+                                                "op": "margin.cancel",
+                                                "args": {
+                                                    "symbol": symbol_to_kucoin_api(&active_order.symbol),
+                                                    "orderId": active_order.order_id
+                                                }
+                                            });
+                                            if let Err(e) =
+                                                tx_out.send(cancel_msg.to_string()).await
+                                            {
+                                                error!(
+                                                    "Failed to send cancel message to tx_out: {}",
+                                                    e
+                                                );
+                                                insert_db_error(
+                                                    &pool_for_handler,
+                                                    &exchange_for_handler,
+                                                    &e.to_string(),
+                                                )
+                                                .await;
+                                            }
+                                        }
 
-                                        // get order from db and cancel them
                                         // create new order
                                     }
                                 }
