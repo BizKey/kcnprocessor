@@ -1,3 +1,8 @@
+use crate::api::db::{
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_orderactive,
+    insert_db_orderevent,
+};
+use crate::api::models::{BalanceData, KuCoinMessage, OrderData};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, trace};
@@ -6,15 +11,22 @@ use std::env;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-
-use crate::api::models::{BalanceData, BalanceRelationContext, KuCoinMessage, OrderData};
 mod api {
+    pub mod db;
     pub mod models;
     pub mod requests;
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
+
+fn build_subscription() -> Vec<serde_json::Value> {
+    vec![
+        serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}),
+        serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}),
+        serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}),
+    ]
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -35,6 +47,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // pg to websocket
     let (tx_out, mut rx_out) = mpsc::channel::<String>(1000);
 
+    let exchange_for_handler = exchange.clone();
+    let pool_for_handler = pool.clone();
     let handler = tokio::spawn(async move {
         while let Some(msg) = rx_in.recv().await {
             info!("Processing: {}", msg);
@@ -42,172 +56,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 Ok(kc_msg) => match kc_msg {
                     KuCoinMessage::Welcome(data) => {
                         info!("{:?}", data);
-                        match sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)")
-                            .bind(exchange.clone())
-                            .bind(serde_json::to_value(&data).unwrap())
-                            .execute(&pool)
-                            .await
-                        {
-                            Ok(_) => info!("Success insert events"),
-                            Err(e) => error!("Error insert events: {}", e),
-                        };
+                        insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
                     }
                     KuCoinMessage::Message(data) => {
                         if data.topic == "/account/balance" {
                             match serde_json::from_value::<BalanceData>(data.data) {
                                 Ok(balance) => {
                                     info!("{:?}", balance);
-                                    let relation_context = match balance.relationContext {
-                                        Some(ctx) => ctx,
-                                        None => {
-                                            error!("Missing relationContext for balance");
-                                            BalanceRelationContext {
-                                                symbol: None,
-                                                order_id: None,
-                                                trade_id: None,
-                                            }
-                                        }
-                                    };
-                                    // sent balance to pg
-                                    match sqlx::query(
-                                        "INSERT INTO balance (exchange, account_id, available, available_change, currency, hold, hold_change, relation_event, relation_event_id, time, total, symbol, order_id, trade_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+                                    insert_db_balance(
+                                        &pool_for_handler,
+                                        &exchange_for_handler,
+                                        balance,
                                     )
-                                    .bind(exchange.clone())
-                                    .bind(balance.account_id)
-                                    .bind(balance.available)
-                                    .bind(balance.available_change)
-                                    .bind(balance.currency)
-                                    .bind(balance.hold)
-                                    .bind(balance.hold_change)
-                                    .bind(balance.relation_event)
-                                    .bind(balance.relation_event_id)
-                                    .bind(balance.time)
-                                    .bind(balance.total)
-                                    .bind(relation_context.symbol)
-                                    .bind(relation_context.order_id)
-                                    .bind(relation_context.trade_id)
-                                    .execute(&pool)
-                                    .await
-                                    {
-                                        Ok(_) => info!("Success insert balance"),
-                                        Err(e) => {
-                                            error!("Error insert balance: {}", e);
-                                            match sqlx::query(
-                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
-                                    )
-                                    .bind(exchange.clone())
-                                    .bind(e.to_string())
-                                    .execute(&pool)
-                                    .await
-                                    {
-                                        Ok(_) => info!("Success insert error"),
-                                        Err(e) => {
-                                            error!("Error insert error: {}", e)
-                                        }
-                                    };
-                                        }
-                                    };
+                                    .await;
                                 }
                                 Err(e) => {
                                     error!("Failed to parse message {}", e);
                                     // sent balance error to pg
-                                    match sqlx::query(
-                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
+                                    insert_db_error(
+                                        &pool_for_handler,
+                                        &exchange_for_handler,
+                                        &e.to_string(),
                                     )
-                                    .bind(exchange.clone())
-                                    .bind(e.to_string())
-                                    .execute(&pool)
-                                    .await
-                                    {
-                                        Ok(_) => info!("Success insert parsing error"),
-                                        Err(e) => {
-                                            error!("Error parsing balance: {}", e)
-                                        }
-                                    };
+                                    .await;
                                 }
                             }
                         } else if data.topic == "/spotMarket/tradeOrdersV2" {
                             match serde_json::from_value::<OrderData>(data.data) {
                                 Ok(order) => {
                                     info!("{:?}", order);
-                                    match sqlx::query(
-                                        "INSERT INTO orderevents (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)",
+                                    insert_db_orderevent(
+                                        &pool_for_handler,
+                                        &exchange_for_handler,
+                                        &order,
                                     )
-                                    .bind(exchange.clone())
-                                    .bind(&order.status)
-                                    .bind(&order.type_)
-                                    .bind(&order.symbol)
-                                    .bind(&order.side)
-                                    .bind(&order.order_type)
-                                    .bind(&order.fee_type)
-                                    .bind(&order.liquidity)
-                                    .bind(&order.price)
-                                    .bind(&order.order_id)
-                                    .bind(&order.client_oid)
-                                    .bind(&order.trade_id)
-                                    .bind(&order.origin_size)
-                                    .bind(&order.size)
-                                    .bind(&order.filled_size)
-                                    .bind(&order.match_size)
-                                    .bind(&order.match_price)
-                                    .bind(&order.canceled_size)
-                                    .bind(&order.old_size)
-                                    .bind(&order.remain_size)
-                                    .bind(&order.remain_funds)
-                                    .bind(&order.order_time)
-                                    .bind(&order.ts)
-                                    .execute(&pool)
-                                    .await
-                                    {
-                                        Ok(_) => info!("Success insert order event"),
-                                        Err(e) => {
-                                            error!("Error insert order event: {}", e);
-                                            match sqlx::query(
-                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
-                                    )
-                                    .bind(exchange.clone())
-                                    .bind(e.to_string())
-                                    .execute(&pool)
-                                    .await
-                                    {
-                                        Ok(_) => info!("Success insert error"),
-                                        Err(e) => {
-                                            error!("Error insert error: {}", e)
-                                        }
-                                    };
-                                        }
-                                    };
-
+                                    .await;
                                     if order.order_type == "open" && order.status == "open" {
                                         // order in order book
                                         // add order to active orders
-                                        match sqlx::query(
-                                            "INSERT INTO orderactive (exchange, client_oid, symbol) VALUES ($1, $2, $3)",
+                                        insert_db_orderactive(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &order,
                                         )
-                                        .bind(exchange.clone())
-                                        .bind(&order.client_oid)
-                                        .bind(&order.symbol)
-                                        .execute(&pool)
-                                        .await
-                                        {
-                                            Ok(_) => info!("Success insert order active"),
-                                            Err(e) => {
-                                                error!("Error insert order active: {}", e);
-                                                match sqlx::query(
-                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
-                                    )
-                                    .bind(exchange.clone())
-                                    .bind(e.to_string())
-                                    .execute(&pool)
-                                    .await
-                                    {
-                                        Ok(_) => info!("Success insert error"),
-                                        Err(e) => {
-                                            error!("Error insert error: {}", e)
-                                        }
-                                    };
-                                            }
-                                        };
+                                        .await;
                                     };
                                     if order.order_type == "filled" && order.status == "done" {
 
@@ -219,74 +111,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 Err(e) => {
                                     error!("Failed to parse message {}", e);
                                     // sent order error to pg
-                                    match sqlx::query(
-                                        "INSERT INTO errors (exchange, msg) VALUES ($1, $2)",
+                                    insert_db_error(
+                                        &pool_for_handler,
+                                        &exchange_for_handler,
+                                        &e.to_string(),
                                     )
-                                    .bind(exchange.clone())
-                                    .bind(e.to_string())
-                                    .execute(&pool)
-                                    .await
-                                    {
-                                        Ok(_) => info!("Success insert error"),
-                                        Err(e) => {
-                                            error!("Error insert: {}", e)
-                                        }
-                                    };
+                                    .await;
                                 }
                             }
                         } else {
                             info!("Unknown topic: {}", data.topic);
                             // sent error to pg
-                            match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
-                                .bind(exchange.clone())
-                                .bind(data.topic)
-                                .execute(&pool)
-                                .await
-                            {
-                                Ok(_) => info!("Success insert error"),
-                                Err(e) => error!("Error insert: {}", e),
-                            };
+                            insert_db_error(&pool_for_handler, &exchange_for_handler, &data.topic)
+                                .await;
                         }
                     }
                     KuCoinMessage::Ack(data) => {
                         info!("{:?}", data);
                         // sent ack to pg
-                        match sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)")
-                            .bind(exchange.clone())
-                            .bind(serde_json::to_value(&data).unwrap())
-                            .execute(&pool)
-                            .await
-                        {
-                            Ok(_) => info!("Success insert Ack"),
-                            Err(e) => error!("Error insert Ack: {}", e),
-                        };
+                        insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
                     }
                     KuCoinMessage::Error(data) => {
                         info!("{:?}", data);
                         // sent error to pg
-                        match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
-                            .bind(exchange.clone())
-                            .bind(data.data)
-                            .execute(&pool)
-                            .await
-                        {
-                            Ok(_) => info!("Success insert error"),
-                            Err(e) => error!("Error insert: {}", e),
-                        };
+                        insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data).await;
                     }
                 },
                 Err(e) => {
                     error!("Failed to parse message: {} | Raw: {}", e, msg);
                     // sent error to pg
-                    match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
-                        .bind(exchange.clone())
-                        .bind(e.to_string())
-                        .execute(&pool)
-                        .await
-                    {
-                        Ok(_) => info!("Success insert error"),
-                        Err(e) => error!("Error insert: {}", e),
-                    };
+                    insert_db_error(&pool_for_handler, &exchange_for_handler, &e.to_string()).await;
                 }
             }
         }
@@ -316,23 +170,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let (mut write, mut read) = ws_stream.split();
 
-        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}"#)).await {
-            error!("Failed to send subscribe message: {}", e);
-            // sent error to pg
-            sleep(RECONNECT_DELAY).await;
-            continue;
-        }
-        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}"#)).await {
-            error!("Failed to send subscribe message: {}", e);
-            // sent error to pg
-            sleep(RECONNECT_DELAY).await;
-            continue;
-        }
-        if let Err(e) = write.send(Message::text(r#"{"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}"#)).await {
-            error!("Failed to send subscribe message: {}", e);
-            // sent error to pg
-            sleep(RECONNECT_DELAY).await;
-            continue;
+        for sub in build_subscription() {
+            if let Err(e) = write.send(Message::text(sub.to_string())).await {
+                error!("Failed to subscribe: {}", e);
+                insert_db_error(&pool, &exchange, &e.to_string()).await;
+                break;
+            }
         }
 
         info!("Subscribed and listening for messages...");
