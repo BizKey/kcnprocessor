@@ -97,7 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         &order,
                                     )
                                     .await;
-                                    if order.order_type == "open" && order.status == "open" {
+                                    if order.type_ == "open" && order.status == "open" {
                                         // order in order book
                                         // add order to active orders
                                         insert_db_orderactive(
@@ -107,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         )
                                         .await;
                                     };
-                                    if order.order_type == "filled" && order.status == "done" {
+                                    if order.type_ == "filled" && order.status == "done" {
                                         info!(
                                             "Order fully filled, removing from active: {}",
                                             order.order_id
@@ -196,7 +196,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     loop {
         // Add/Cancel orders WS
-        let order_ws_url = match api::requests::get_trading_ws_url() {
+        let trade_ws_url = match api::requests::get_trading_ws_url() {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get trading WS URL: {}", e);
@@ -205,7 +205,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         };
 
-        let order_ws_stream = match connect_async(order_ws_url).await {
+        let trade_ws_stream = match connect_async(trade_ws_url).await {
             Ok((stream, _)) => stream,
             Err(e) => {
                 error!("Failed to connect to trading WS: {}", e);
@@ -214,7 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         };
 
-        let (mut order_ws_write, mut order_ws_read) = order_ws_stream.split();
+        let (mut trade_ws_write, mut trade_ws_read) = trade_ws_stream.split();
 
         // Position/Orders WS
         let event_ws_url = match api::requests::get_private_ws_url().await {
@@ -249,16 +249,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         info!("Subscribed and listening for messages...");
 
-        let ping_interval = interval(PING_INTERVAL);
-        tokio::pin!(ping_interval);
+        let event_ping_interval = interval(PING_INTERVAL);
+        let trade_ping_interval = interval(PING_INTERVAL);
+        tokio::pin!(event_ping_interval);
+        tokio::pin!(trade_ping_interval);
 
         let mut should_reconnect = false;
 
         loop {
             tokio::select! {
                 // Events
-                msg = event_ws_read.next() => {
-                    match msg {
+                event_msg = event_ws_read.next() => {
+                    match event_msg {
                         Some(Ok(Message::Text(text))) => {
                             if tx_in.send(text.to_string()).await.is_err() {
                                 drop(tx_in);
@@ -294,20 +296,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                     }
                 }
-                _ = ping_interval.tick() => {
+                _ = event_ping_interval.tick() => {
                     trace!("Ping sent");
                     let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
                 }
-            }
-            tokio::select! {
-                // Add/Cancel order
-                msg =  order_ws_read.next() => {
-                    match msg {
+                trade_msg =  trade_ws_read.next() => {
+                    match trade_msg {
                         Some(Ok(Message::Text(text))) => {
                             info!("{:?}", text);
                         }
                         Some(Ok(Message::Ping(data))) => {
-                            let _ = event_ws_write.send(Message::Pong(data)).await;
+                            let _ = trade_ws_write.send(Message::Pong(data)).await;
                             trace!("Ping recv");
                         }
                         Some(Ok(Message::Pong(_))) => {
@@ -334,10 +333,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                     }
                 }
-                _ = ping_interval.tick() => {
+                _ = trade_ping_interval.tick() => {
                     trace!("Ping sent");
-                    let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
+                    let _ = trade_ws_write.send(Message::Ping(vec![].into())).await;
                 }
+
             }
         }
         if should_reconnect {
