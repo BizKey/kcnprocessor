@@ -102,9 +102,9 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
 }
 pub async fn insert_db_orderactive(pool: &PgPool, exchange: &str, order: &OrderData) {
     if let Err(e) =
-        sqlx::query("INSERT INTO orderactive (exchange, client_oid, symbol) VALUES ($1, $2, $3)")
+        sqlx::query("INSERT INTO orderactive (exchange, order_id, symbol) VALUES ($1, $2, $3)")
             .bind(exchange)
-            .bind(&order.client_oid)
+            .bind(&order.order_id)
             .bind(&order.symbol)
             .execute(pool)
             .await
