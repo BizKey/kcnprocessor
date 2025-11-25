@@ -1,5 +1,5 @@
-use crate::api::models::{BalanceData, BalanceRelationContext, OrderData};
-use log::error;
+use crate::api::models::{ActiveOrder, BalanceData, BalanceRelationContext, OrderData};
+use log::{error, info, trace};
 use serde::Serialize;
 use sqlx::PgPool;
 
@@ -115,8 +115,9 @@ pub async fn insert_db_orderactive(pool: &PgPool, exchange: &str, order: &OrderD
     }
 }
 
-pub async fn delete_db_orderactive(pool: &PgPool, order_id: &str) {
-    if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE order_id = $1")
+pub async fn delete_db_orderactive(pool: &PgPool, exchange: &str, order_id: &str) {
+    if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE exchange = $1 AND order_id = $2")
+        .bind(exchange)
         .bind(order_id)
         .execute(pool)
         .await
@@ -124,5 +125,30 @@ pub async fn delete_db_orderactive(pool: &PgPool, order_id: &str) {
         let err_msg = format!("Failed to delete order from orderactive: {}", e);
         error!("{}", err_msg);
         insert_db_error(pool, "kucoin", &err_msg).await;
+    }
+}
+pub async fn fetch_all_active_orders_by_symbol(
+    pool: &PgPool,
+    exchange: &str,
+    symbol: &str,
+) -> Vec<ActiveOrder> {
+    match sqlx::query_as::<_, ActiveOrder>(
+        "SELECT exchange, order_id, symbol FROM orderactive WHERE exchange = $1 AND symbol = $2",
+    )
+    .bind(exchange)
+    .bind(symbol)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(orders) => orders,
+        Err(e) => {
+            let err_msg = format!(
+                "Failed to fetch active orders by symbol '{}': {}",
+                symbol, e
+            );
+            error!("{}", err_msg);
+            insert_db_error(pool, "kucoin", &err_msg).await;
+            vec![]
+        }
     }
 }

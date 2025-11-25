@@ -1,6 +1,6 @@
 use crate::api::db::{
-    delete_db_orderactive, insert_db_balance, insert_db_error, insert_db_event,
-    insert_db_orderactive, insert_db_orderevent,
+    delete_db_orderactive, fetch_all_active_orders_by_symbol, insert_db_balance, insert_db_error,
+    insert_db_event, insert_db_orderactive, insert_db_orderevent,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData};
 use dotenv::dotenv;
@@ -108,10 +108,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             "Order fully filled, removing from active: {}",
                                             order.order_id
                                         );
-                                        delete_db_orderactive(&pool_for_handler, &order.order_id)
-                                            .await;
+                                        // delete filled order from active orders
+                                        delete_db_orderactive(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &order.order_id,
+                                        )
+                                        .await;
+                                        // get active order
+                                        fetch_all_active_orders_by_symbol(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &order.symbol,
+                                        )
+                                        .await;
 
-                                        // order all filled
                                         // get order from db and cancel them
                                         // create new order
                                     }

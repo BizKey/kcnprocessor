@@ -54,6 +54,12 @@ pub struct BalanceData {
     pub total: String,
     pub relationContext: Option<BalanceRelationContext>,
 }
+#[derive(sqlx::FromRow, Debug)]
+pub struct ActiveOrder {
+    pub exchange: String,
+    pub client_oid: String,
+    pub symbol: String,
+}
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {
     pub status: String, // new open match done
