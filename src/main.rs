@@ -169,6 +169,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 "symbol": &order.symbol,
                                                 "timeInForce": "GTC",
                                                 "type":"limit",
+                                                "autoBorrow": true,
+                                                "autoRepay": true,
                                             }
                                         });
                                         if let Err(e) =
@@ -198,6 +200,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 "symbol": &order.symbol,
                                                 "timeInForce": "GTC",
                                                 "type":"limit",
+                                                "autoBorrow": true,
+                                                "autoRepay": true,
                                             }
                                         });
                                         if let Err(e) = tx_out.send(buy_order_msg.to_string()).await
@@ -226,6 +230,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 "symbol": &order.symbol,
                                                 "timeInForce": "GTC",
                                                 "type":"limit",
+                                                "autoBorrow": true,
+                                                "autoRepay": true,
                                             }
                                         });
                                         if let Err(e) = tx_out.send(buy_order_msg.to_string()).await
@@ -254,6 +260,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 "symbol": &order.symbol,
                                                 "timeInForce": "GTC",
                                                 "type":"limit",
+                                                "autoBorrow": true,
+                                                "autoRepay": true,
                                             }
                                         });
                                         if let Err(e) =
