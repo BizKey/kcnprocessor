@@ -214,9 +214,62 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             .await;
                                         }
 
+                                        // create new buy order
+                                        let side = "buy";
+                                        let buy_order_msg = serde_json::json!({
+                                            "id": format!("create-order-{}-{}", &side, &order.symbol),
+                                            "op": "margin.order",
+                                            "args": {
+                                                "price": order.match_price, // -1%
+                                                "size": 1,
+                                                "side":side,
+                                                "symbol": &order.symbol,
+                                                "timeInForce": "GTC",
+                                                "type":"limit",
+                                            }
+                                        });
+                                        if let Err(e) = tx_out.send(buy_order_msg.to_string()).await
+                                        {
+                                            error!(
+                                                "Failed to send buy order message to tx_out: {}",
+                                                e
+                                            );
+                                            insert_db_error(
+                                                &pool_for_handler,
+                                                &exchange_for_handler,
+                                                &e.to_string(),
+                                            )
+                                            .await;
+                                        }
 
-
-                                        
+                                        // create new sell order
+                                        let side = "sell";
+                                        let sell_order_msg = serde_json::json!({
+                                            "id": format!("create-order-{}-{}",&side, &order.symbol),
+                                            "op": "margin.order",
+                                            "args": {
+                                                "price": order.match_price, // +1%
+                                                "size": 1,
+                                                "side":side,
+                                                "symbol": &order.symbol,
+                                                "timeInForce": "GTC",
+                                                "type":"limit",
+                                            }
+                                        });
+                                        if let Err(e) =
+                                            tx_out.send(sell_order_msg.to_string()).await
+                                        {
+                                            error!(
+                                                "Failed to send sell order message to tx_out: {}",
+                                                e
+                                            );
+                                            insert_db_error(
+                                                &pool_for_handler,
+                                                &exchange_for_handler,
+                                                &e.to_string(),
+                                            )
+                                            .await;
+                                        }
                                     }
                                 }
                                 Err(e) => {
