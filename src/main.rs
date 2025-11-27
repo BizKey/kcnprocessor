@@ -108,59 +108,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await;
                                     };
                                     if order.type_ == "filled" && order.status == "done" {
-                                        info!(
-                                            "Order fully filled, removing from active: {}",
-                                            order.order_id
-                                        );
-                                        // delete filled order from active orders
-                                        delete_db_orderactive(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &order.order_id,
-                                        )
-                                        .await;
-                                        // get active order's
-                                        for active_order in fetch_all_active_orders_by_symbol(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &order.symbol,
-                                        )
-                                        .await
-                                        {
-                                            // cancel other orders by symbol
-                                            let cancel_msg = serde_json::json!({
-                                                "id": format!("cancel-{}", active_order.order_id),
-                                                "op": "margin.cancel",
-                                                "args": {
-                                                    "symbol": &active_order.symbol,
-                                                    "orderId": active_order.order_id
-                                                }
-                                            });
-                                            if let Err(e) =
-                                                tx_out.send(cancel_msg.to_string()).await
-                                            {
-                                                error!(
-                                                    "Failed to send cancel message to tx_out: {}",
-                                                    e
-                                                );
-                                                insert_db_error(
-                                                    &pool_for_handler,
-                                                    &exchange_for_handler,
-                                                    &e.to_string(),
-                                                )
-                                                .await;
-                                            }
-                                        }
-                                        // sell limit by order.match_price
-                                        // buy limit by order.match_price on 1% lower
-
-                                        // buy limit by order.match_price
-                                        // sell limit by order.match_price on 1% upper
-
                                         // filled sell (cancel all buy orders)
                                         //     check if order on sell exist
                                         //         unexist - add buy order - 1 tick
-                                        //                 - add buy order - 1% 
+                                        //                 - add buy order - 1%
                                         //         exist 	- add buy order - 1%
                                         // filled buy (cancel all sell orders)
                                         //     check if order on buy exist
@@ -168,126 +119,283 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         //                 - add sell order - 1%
                                         //         exist	- add sell order - 1%
 
-                                        // create new sell order
-                                        let side = "sell";
-                                        let sell_order_msg = serde_json::json!({
-                                            "id": format!("create-order-{}-{}",&side, &order.symbol),
-                                            "op": "margin.order",
-                                            "args": {
-                                                "price": order.match_price,
-                                                "size": 1,
-                                                "side":side,
-                                                "symbol": &order.symbol,
-                                                "timeInForce": "GTC",
-                                                "type":"limit",
-                                                "autoBorrow": true,
-                                                "autoRepay": true,
-                                            }
-                                        });
-                                        if let Err(e) =
-                                            tx_out.send(sell_order_msg.to_string()).await
-                                        {
-                                            error!(
-                                                "Failed to send sell order message to tx_out: {}",
-                                                e
-                                            );
-                                            insert_db_error(
-                                                &pool_for_handler,
-                                                &exchange_for_handler,
-                                                &e.to_string(),
-                                            )
-                                            .await;
-                                        }
+                                        // delete filled order from active orders
+                                        delete_db_orderactive(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &order.order_id,
+                                        )
+                                        .await;
 
-                                        // create new buy order
-                                        let side = "buy";
-                                        let buy_order_msg = serde_json::json!({
-                                            "id": format!("create-order-{}-{}", &side, &order.symbol),
-                                            "op": "margin.order",
-                                            "args": {
-                                                "price": order.match_price,
-                                                "size": 1,
-                                                "side":side,
-                                                "symbol": &order.symbol,
-                                                "timeInForce": "GTC",
-                                                "type":"limit",
-                                                "autoBorrow": true,
-                                                "autoRepay": true,
-                                            }
-                                        });
-                                        if let Err(e) = tx_out.send(buy_order_msg.to_string()).await
-                                        {
-                                            error!(
-                                                "Failed to send buy order message to tx_out: {}",
-                                                e
-                                            );
-                                            insert_db_error(
+                                        if order.side == "sell" {
+                                            // filled sell (cancel all buy orders)
+                                            // get active order's
+                                            for active_order in fetch_all_active_orders_by_symbol(
                                                 &pool_for_handler,
                                                 &exchange_for_handler,
-                                                &e.to_string(),
+                                                &order.symbol,
+                                                "buy",
                                             )
-                                            .await;
-                                        }
-
-                                        // create new buy order
-                                        let side = "buy";
-                                        let buy_order_msg = serde_json::json!({
-                                            "id": format!("create-order-{}-{}", &side, &order.symbol),
-                                            "op": "margin.order",
-                                            "args": {
-                                                "price": order.match_price, // -1%
-                                                "size": 1,
-                                                "side":side,
-                                                "symbol": &order.symbol,
-                                                "timeInForce": "GTC",
-                                                "type":"limit",
-                                                "autoBorrow": true,
-                                                "autoRepay": true,
+                                            .await
+                                            {
+                                                // cancel other orders by symbol
+                                                let cancel_msg = serde_json::json!({
+                                                    "id": format!("cancel-{}", active_order.order_id),
+                                                    "op": "margin.cancel",
+                                                    "args": {
+                                                        "symbol": &active_order.symbol,
+                                                        "orderId": active_order.order_id
+                                                    }
+                                                });
+                                                if let Err(e) =
+                                                    tx_out.send(cancel_msg.to_string()).await
+                                                {
+                                                    error!(
+                                                        "Failed to send cancel message to tx_out: {}",
+                                                        e
+                                                    );
+                                                    insert_db_error(
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &e.to_string(),
+                                                    )
+                                                    .await;
+                                                }
                                             }
-                                        });
-                                        if let Err(e) = tx_out.send(buy_order_msg.to_string()).await
-                                        {
-                                            error!(
-                                                "Failed to send buy order message to tx_out: {}",
-                                                e
-                                            );
-                                            insert_db_error(
+                                            //     check if order on sell exist
+                                            let orders = fetch_all_active_orders_by_symbol(
                                                 &pool_for_handler,
                                                 &exchange_for_handler,
-                                                &e.to_string(),
+                                                &order.symbol,
+                                                "sell",
                                             )
                                             .await;
-                                        }
-
-                                        // create new sell order
-                                        let side = "sell";
-                                        let sell_order_msg = serde_json::json!({
-                                            "id": format!("create-order-{}-{}",&side, &order.symbol),
-                                            "op": "margin.order",
-                                            "args": {
-                                                "price": order.match_price, // +1%
-                                                "size": 1,
-                                                "side":side,
-                                                "symbol": &order.symbol,
-                                                "timeInForce": "GTC",
-                                                "type":"limit",
-                                                "autoBorrow": true,
-                                                "autoRepay": true,
+                                            if orders.len() == 0 {
+                                                // create new buy order
+                                                let side = "buy";
+                                                let buy_order_msg = serde_json::json!({
+                                                    "id": format!("create-order-{}-{}", &side, &order.symbol),
+                                                    "op": "margin.order",
+                                                    "args": {
+                                                        "price": order.match_price, // -1%
+                                                        "size": 1,
+                                                        "side":side,
+                                                        "symbol": &order.symbol,
+                                                        "timeInForce": "GTC",
+                                                        "type":"limit",
+                                                        "autoBorrow": true,
+                                                        "autoRepay": true,
+                                                    }
+                                                });
+                                                if let Err(e) =
+                                                    tx_out.send(buy_order_msg.to_string()).await
+                                                {
+                                                    error!(
+                                                        "Failed to send buy order message to tx_out: {}",
+                                                        e
+                                                    );
+                                                    insert_db_error(
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &e.to_string(),
+                                                    )
+                                                    .await;
+                                                }
+                                                // create new buy order
+                                                let side = "buy";
+                                                let buy_order_msg = serde_json::json!({
+                                                    "id": format!("create-order-{}-{}", &side, &order.symbol),
+                                                    "op": "margin.order",
+                                                    "args": {
+                                                        "price": order.match_price, // -1 tick
+                                                        "size": 1,
+                                                        "side":side,
+                                                        "symbol": &order.symbol,
+                                                        "timeInForce": "GTC",
+                                                        "type":"limit",
+                                                        "autoBorrow": true,
+                                                        "autoRepay": true,
+                                                    }
+                                                });
+                                                if let Err(e) =
+                                                    tx_out.send(buy_order_msg.to_string()).await
+                                                {
+                                                    error!(
+                                                        "Failed to send buy order message to tx_out: {}",
+                                                        e
+                                                    );
+                                                    insert_db_error(
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &e.to_string(),
+                                                    )
+                                                    .await;
+                                                }
+                                            } else {
+                                                // create new buy order
+                                                let side = "buy";
+                                                let buy_order_msg = serde_json::json!({
+                                                    "id": format!("create-order-{}-{}", &side, &order.symbol),
+                                                    "op": "margin.order",
+                                                    "args": {
+                                                        "price": order.match_price, // -1%
+                                                        "size": 1,
+                                                        "side":side,
+                                                        "symbol": &order.symbol,
+                                                        "timeInForce": "GTC",
+                                                        "type":"limit",
+                                                        "autoBorrow": true,
+                                                        "autoRepay": true,
+                                                    }
+                                                });
+                                                if let Err(e) =
+                                                    tx_out.send(buy_order_msg.to_string()).await
+                                                {
+                                                    error!(
+                                                        "Failed to send buy order message to tx_out: {}",
+                                                        e
+                                                    );
+                                                    insert_db_error(
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &e.to_string(),
+                                                    )
+                                                    .await;
+                                                }
                                             }
-                                        });
-                                        if let Err(e) =
-                                            tx_out.send(sell_order_msg.to_string()).await
-                                        {
-                                            error!(
-                                                "Failed to send sell order message to tx_out: {}",
-                                                e
-                                            );
-                                            insert_db_error(
+                                        } else if order.side == "buy" {
+                                            // filled buy (cancel all sell orders)
+                                            // get active order's
+                                            for active_order in fetch_all_active_orders_by_symbol(
                                                 &pool_for_handler,
                                                 &exchange_for_handler,
-                                                &e.to_string(),
+                                                &order.symbol,
+                                                "sell",
+                                            )
+                                            .await
+                                            {
+                                                // cancel other orders by symbol
+                                                let cancel_msg = serde_json::json!({
+                                                    "id": format!("cancel-{}", active_order.order_id),
+                                                    "op": "margin.cancel",
+                                                    "args": {
+                                                        "symbol": &active_order.symbol,
+                                                        "orderId": active_order.order_id
+                                                    }
+                                                });
+                                                if let Err(e) =
+                                                    tx_out.send(cancel_msg.to_string()).await
+                                                {
+                                                    error!(
+                                                        "Failed to send cancel message to tx_out: {}",
+                                                        e
+                                                    );
+                                                    insert_db_error(
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &e.to_string(),
+                                                    )
+                                                    .await;
+                                                }
+                                            }
+                                            //     check if order on buy exist
+                                            let orders = fetch_all_active_orders_by_symbol(
+                                                &pool_for_handler,
+                                                &exchange_for_handler,
+                                                &order.symbol,
+                                                "buy",
                                             )
                                             .await;
+                                            if orders.len() == 0 {
+                                                let side = "sell";
+                                                let sell_order_msg = serde_json::json!({
+                                                    "id": format!("create-order-{}-{}",&side, &order.symbol),
+                                                    "op": "margin.order",
+                                                    "args": {
+                                                        "price": order.match_price, // -1 tick
+                                                        "size": 1,
+                                                        "side":side,
+                                                        "symbol": &order.symbol,
+                                                        "timeInForce": "GTC",
+                                                        "type":"limit",
+                                                        "autoBorrow": true,
+                                                        "autoRepay": true,
+                                                    }
+                                                });
+                                                if let Err(e) =
+                                                    tx_out.send(sell_order_msg.to_string()).await
+                                                {
+                                                    error!(
+                                                        "Failed to send sell order message to tx_out: {}",
+                                                        e
+                                                    );
+                                                    insert_db_error(
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &e.to_string(),
+                                                    )
+                                                    .await;
+                                                }
+                                                let side = "sell";
+                                                let sell_order_msg = serde_json::json!({
+                                                    "id": format!("create-order-{}-{}",&side, &order.symbol),
+                                                    "op": "margin.order",
+                                                    "args": {
+                                                        "price": order.match_price, // -1%
+                                                        "size": 1,
+                                                        "side":side,
+                                                        "symbol": &order.symbol,
+                                                        "timeInForce": "GTC",
+                                                        "type":"limit",
+                                                        "autoBorrow": true,
+                                                        "autoRepay": true,
+                                                    }
+                                                });
+                                                if let Err(e) =
+                                                    tx_out.send(sell_order_msg.to_string()).await
+                                                {
+                                                    error!(
+                                                        "Failed to send sell order message to tx_out: {}",
+                                                        e
+                                                    );
+                                                    insert_db_error(
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &e.to_string(),
+                                                    )
+                                                    .await;
+                                                }
+                                            } else {
+                                                let side = "sell";
+                                                let sell_order_msg = serde_json::json!({
+                                                    "id": format!("create-order-{}-{}",&side, &order.symbol),
+                                                    "op": "margin.order",
+                                                    "args": {
+                                                        "price": order.match_price, // -1%
+                                                        "size": 1,
+                                                        "side":side,
+                                                        "symbol": &order.symbol,
+                                                        "timeInForce": "GTC",
+                                                        "type":"limit",
+                                                        "autoBorrow": true,
+                                                        "autoRepay": true,
+                                                    }
+                                                });
+                                                if let Err(e) =
+                                                    tx_out.send(sell_order_msg.to_string()).await
+                                                {
+                                                    error!(
+                                                        "Failed to send sell order message to tx_out: {}",
+                                                        e
+                                                    );
+                                                    insert_db_error(
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &e.to_string(),
+                                                    )
+                                                    .await;
+                                                }
+                                            }
                                         }
                                     }
                                 }

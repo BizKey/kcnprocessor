@@ -131,12 +131,14 @@ pub async fn fetch_all_active_orders_by_symbol(
     pool: &PgPool,
     exchange: &str,
     symbol: &str,
+    side: &str,
 ) -> Vec<ActiveOrder> {
     match sqlx::query_as::<_, ActiveOrder>(
-        "SELECT exchange, order_id, symbol FROM orderactive WHERE exchange = $1 AND symbol = $2",
+        "SELECT exchange, order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
     )
     .bind(exchange)
     .bind(symbol)
+    .bind(side)
     .fetch_all(pool)
     .await
     {
