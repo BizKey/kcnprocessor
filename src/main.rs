@@ -157,6 +157,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         // buy limit by order.match_price
                                         // sell limit by order.match_price on 1% upper
 
+                                        // filled sell (cancel all buy orders)
+                                        //     check if order on sell exist
+                                        //         unexist - add buy order - 1 tick
+                                        //                 - add buy order - 1% 
+                                        //         exist 	- add buy order - 1%
+                                        // filled buy (cancel all sell orders)
+                                        //     check if order on buy exist
+                                        //         unexist - add sell order - 1 tick
+                                        //                 - add sell order - 1%
+                                        //         exist	- add sell order - 1%
+
                                         // create new sell order
                                         let side = "sell";
                                         let sell_order_msg = serde_json::json!({
