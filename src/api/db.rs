@@ -1,4 +1,4 @@
-use crate::api::models::{ActiveOrder, BalanceData, BalanceRelationContext, OrderData};
+use crate::api::models::{ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol};
 use log::{error, info, trace};
 use serde::Serialize;
 use sqlx::PgPool;
@@ -153,4 +153,27 @@ pub async fn fetch_all_active_orders_by_symbol(
             vec![]
         }
     }
+}
+pub async fn fetch_price_increment_by_symbol(
+    pool: &PgPool,
+    exchange: &str,
+    symbol: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let price_increment = sqlx::query_scalar(
+        "SELECT price_increment FROM symbol WHERE exchange = $1 AND symbol = $2",
+    )
+    .bind(exchange)
+    .bind(symbol)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| {
+        let err_msg = format!(
+            "Failed to fetch price_increment by symbol '{}': {}",
+            symbol, e
+        );
+        error!("{}", err_msg);
+        e
+    })?;
+
+    Ok(price_increment)
 }

@@ -1,6 +1,7 @@
 use crate::api::db::{
-    delete_db_orderactive, fetch_all_active_orders_by_symbol, insert_db_balance, insert_db_error,
-    insert_db_event, insert_db_orderactive, insert_db_orderevent,
+    delete_db_orderactive, fetch_all_active_orders_by_symbol, fetch_price_increment_by_symbol,
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_orderactive,
+    insert_db_orderevent,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData};
 use dotenv::dotenv;
@@ -107,7 +108,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         )
                                         .await;
                                     };
-                                    if order.type_ == "filled" && order.status == "done" {
+                                    if order.type_ == "match"
+                                        && order.status == "match"
+                                        && order.remain_size == Some("0".to_string())
+                                    {
+                                        // get last event on match size of position
+                                        // next msg will filled, but it don't have match price
+
                                         // filled sell (cancel all buy orders)
                                         //     check if order on sell exist
                                         //         unexist - add buy order - 1 tick
@@ -126,6 +133,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             &order.order_id,
                                         )
                                         .await;
+                                        let price_increment = fetch_price_increment_by_symbol(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &order.symbol,
+                                        );
 
                                         if order.side == "sell" {
                                             // filled sell (cancel all buy orders)
@@ -298,7 +310,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     .await;
                                                 }
                                             }
-                                            //     check if order on buy exist
+                                            // check if order on buy exist
                                             let orders = fetch_all_active_orders_by_symbol(
                                                 &pool_for_handler,
                                                 &exchange_for_handler,

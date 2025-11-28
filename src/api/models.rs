@@ -132,3 +132,10 @@ pub enum KuCoinMessage {
     #[serde(rename = "error")]
     Error(ErrorData),
 }
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Symbol {
+    pub exchange: String,
+    pub symbol: String,
+    pub price_increment: String,
+}
