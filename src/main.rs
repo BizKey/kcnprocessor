@@ -222,7 +222,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     "id": format!("create-order-{}-{}", &side, &order.symbol),
                                                     "op": "margin.order",
                                                     "args": {
-                                                        "price": order.match_price, // -1%
+                                                        "price": calculate_price(&order.match_price, &price_increment, |a, b| a * 0.99), // -1%
                                                         "size": 1,
                                                         "side":side,
                                                         "symbol": &order.symbol,
@@ -283,7 +283,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     "id": format!("create-order-{}-{}", &side, &order.symbol),
                                                     "op": "margin.order",
                                                     "args": {
-                                                        "price": order.match_price, // -1%
+                                                        "price": calculate_price(&order.match_price, &price_increment, |a, b| a * 0.99), // -1%
                                                         "size": 1,
                                                         "side":side,
                                                         "symbol": &order.symbol,
@@ -386,7 +386,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     "id": format!("create-order-{}-{}",&side, &order.symbol),
                                                     "op": "margin.order",
                                                     "args": {
-                                                        "price": order.match_price, // -1%
+                                                        "price": calculate_price(&order.match_price, &price_increment, |a, b| a * 1.01), // +1%
                                                         "size": 1,
                                                         "side":side,
                                                         "symbol": &order.symbol,
@@ -416,7 +416,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     "id": format!("create-order-{}-{}",&side, &order.symbol),
                                                     "op": "margin.order",
                                                     "args": {
-                                                        "price": order.match_price, // -1%
+                                                        "price": calculate_price(&order.match_price, &price_increment, |a, b| a * 1.01), // +1%
                                                         "size": 1,
                                                         "side":side,
                                                         "symbol": &order.symbol,
