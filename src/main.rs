@@ -137,7 +137,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             &pool_for_handler,
                                             &exchange_for_handler,
                                             &order.symbol,
-                                        );
+                                        ).await;
 
                                         if order.side == "sell" {
                                             // filled sell (cancel all buy orders)
@@ -219,7 +219,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     "id": format!("create-order-{}-{}", &side, &order.symbol),
                                                     "op": "margin.order",
                                                     "args": {
-                                                        "price": order.match_price, // -1 tick
+                                                        "price": order.match_price - price_increment, // -1 tick
                                                         "size": 1,
                                                         "side":side,
                                                         "symbol": &order.symbol,
@@ -324,7 +324,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     "id": format!("create-order-{}-{}",&side, &order.symbol),
                                                     "op": "margin.order",
                                                     "args": {
-                                                        "price": order.match_price, // -1 tick
+                                                        "price": order.match_price + price_increment, // +1 tick
                                                         "size": 1,
                                                         "side":side,
                                                         "symbol": &order.symbol,
