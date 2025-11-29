@@ -33,6 +33,23 @@ pub fn symbol_to_kucoin_api(symbol: &str) -> String {
     symbol.replace("-", "")
 }
 
+fn calculate_price(
+    base_price: &Option<String>,
+    increment: &str,
+    operation: fn(f64, f64) -> f64,
+) -> Option<String> {
+    if let Some(match_price) = base_price {
+        if let (Ok(price_num), Ok(inc_num)) = (match_price.parse::<f64>(), increment.parse::<f64>())
+        {
+            Some(operation(price_num, inc_num).to_string())
+        } else {
+            base_price.clone()
+        }
+    } else {
+        None
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
@@ -133,11 +150,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             &order.order_id,
                                         )
                                         .await;
-                                        let price_increment = fetch_price_increment_by_symbol(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &order.symbol,
-                                        ).await;
+                                        let price_increment_result =
+                                            fetch_price_increment_by_symbol(
+                                                &pool_for_handler,
+                                                &exchange_for_handler,
+                                                &order.symbol,
+                                            )
+                                            .await;
+
+                                        let price_increment = match price_increment_result {
+                                            Ok(inc) => inc,
+                                            Err(e) => {
+                                                error!("Failed to fetch price increment: {}", e);
+                                                insert_db_error(
+                                                    &pool_for_handler,
+                                                    &exchange_for_handler,
+                                                    &e,
+                                                )
+                                                .await;
+                                                continue;
+                                            }
+                                        };
 
                                         if order.side == "sell" {
                                             // filled sell (cancel all buy orders)
@@ -219,7 +252,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     "id": format!("create-order-{}-{}", &side, &order.symbol),
                                                     "op": "margin.order",
                                                     "args": {
-                                                        "price": order.match_price - price_increment, // -1 tick
+                                                        "price": calculate_price(&order.match_price, &price_increment, |a, b| a - b), // -1 tick
                                                         "size": 1,
                                                         "side":side,
                                                         "symbol": &order.symbol,
@@ -324,7 +357,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     "id": format!("create-order-{}-{}",&side, &order.symbol),
                                                     "op": "margin.order",
                                                     "args": {
-                                                        "price": order.match_price + price_increment, // +1 tick
+                                                        "price":calculate_price(&order.match_price, &price_increment, |a, b| a + b), // +1 tick
                                                         "size": 1,
                                                         "side":side,
                                                         "symbol": &order.symbol,

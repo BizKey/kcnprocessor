@@ -158,7 +158,7 @@ pub async fn fetch_price_increment_by_symbol(
     pool: &PgPool,
     exchange: &str,
     symbol: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String, String> {
     let price_increment = sqlx::query_scalar(
         "SELECT price_increment FROM symbol WHERE exchange = $1 AND symbol = $2",
     )
@@ -167,12 +167,10 @@ pub async fn fetch_price_increment_by_symbol(
     .fetch_one(pool)
     .await
     .map_err(|e| {
-        let err_msg = format!(
+        format!(
             "Failed to fetch price_increment by symbol '{}': {}",
             symbol, e
-        );
-        error!("{}", err_msg);
-        e
+        )
     })?;
 
     Ok(price_increment)
