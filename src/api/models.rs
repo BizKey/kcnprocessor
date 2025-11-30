@@ -54,6 +54,12 @@ pub struct BalanceData {
     pub total: String,
     pub relationContext: Option<BalanceRelationContext>,
 }
+#[derive(sqlx::FromRow, Debug)]
+pub struct ActiveOrder {
+    pub exchange: String,
+    pub order_id: String,
+    pub symbol: String,
+}
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {
     pub status: String, // new open match done
@@ -125,4 +131,11 @@ pub enum KuCoinMessage {
 
     #[serde(rename = "error")]
     Error(ErrorData),
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Symbol {
+    pub exchange: String,
+    pub symbol: String,
+    pub price_increment: String,
 }
