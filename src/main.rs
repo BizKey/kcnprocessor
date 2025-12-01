@@ -347,7 +347,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             .await
                             {
                                 error!("Error handling trade order event: {}", e);
-                                // Опционально: логировать в БД
                             }
                         } else {
                             info!("Unknown topic: {}", data.topic);
