@@ -68,7 +68,7 @@ pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceDa
     }
 }
 pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderData) {
-    if let Err(e) = sqlx::query("INSERT INTO orderevents (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)")
+    if let Err(e) = sqlx::query("INSERT INTO orderevent (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)")
             .bind(exchange)
             .bind(&order.status)
             .bind(&order.type_)
@@ -101,13 +101,15 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
     }
 }
 pub async fn insert_db_orderactive(pool: &PgPool, exchange: &str, order: &OrderData) {
-    if let Err(e) =
-        sqlx::query("INSERT INTO orderactive (exchange, order_id, symbol) VALUES ($1, $2, $3)")
-            .bind(exchange)
-            .bind(&order.order_id)
-            .bind(&order.symbol)
-            .execute(pool)
-            .await
+    if let Err(e) = sqlx::query(
+        "INSERT INTO orderactive (exchange, order_id, symbol, side) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(exchange)
+    .bind(&order.order_id)
+    .bind(&order.symbol)
+    .bind(&order.side)
+    .execute(pool)
+    .await
     {
         let err_msg = format!("Failed to insert order active into DB: {}", e);
         error!("{}", err_msg);
