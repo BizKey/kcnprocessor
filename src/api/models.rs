@@ -98,7 +98,7 @@ pub struct OrderData {
     #[serde(rename = "remainFunds")]
     pub remain_funds: Option<String>,
     #[serde(rename = "orderTime")]
-    pub order_time: String,
+    pub order_time: i64,
     pub ts: i64,
 }
 #[derive(Debug, Deserialize, Serialize)]
