@@ -452,6 +452,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let exchange_for_handler = exchange.clone();
     let pool_for_handler = pool.clone();
+    let symbol_map_for_handler = symbol_map;
+
     let handler_event = tokio::spawn(async move {
         while let Some(msg) = rx_in.recv().await {
             info!("Processing: {}", msg);
@@ -491,7 +493,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 &tx_out,
                                 &pool_for_handler,
                                 &exchange_for_handler,
-                                &symbol_map,
+                                &symbol_map_for_handler,
                             )
                             .await
                             {
