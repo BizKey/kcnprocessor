@@ -304,7 +304,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let exchange_for_handler = exchange.clone();
     let pool_for_handler = pool.clone();
-    let handler = tokio::spawn(async move {
+    let handler_event = tokio::spawn(async move {
         while let Some(msg) = rx_in.recv().await {
             info!("Processing: {}", msg);
             match serde_json::from_str::<KuCoinMessage>(&msg) {
@@ -468,7 +468,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         Some(Ok(Message::Text(text))) => {
                             if tx_in.send(text.to_string()).await.is_err() {
                                 drop(tx_in);
-                                let _ = handler.await;
+                                let _ = handler_event.await;
                                 return Ok(());
                             }
                         }
@@ -556,7 +556,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     drop(tx_in);
 
-    let _ = handler.await;
+    let _ = handler_event.await;
     info!("Application shutdown complete");
 
     Ok(())
