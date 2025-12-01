@@ -172,12 +172,7 @@ async fn handle_trade_order_event(
                     }
                     active_orders = sell_orders;
                     //     check if order on sell exist
-                    if active_orders
-                        .iter()
-                        .filter(|order| order.side == "sell")
-                        .count()
-                        == 0
-                    {
+                    if !active_orders.iter().any(|order| order.side == "sell") {
                         // create new buy order
                         if let Some(price) =
                             calculate_price(&order.match_price, &price_increment, |a, _b| {
@@ -238,12 +233,7 @@ async fn handle_trade_order_event(
                     }
                     active_orders = buy_orders;
                     // count buy orders
-                    if active_orders
-                        .iter()
-                        .filter(|order| order.side == "buy")
-                        .count()
-                        == 0
-                    {
+                    if !active_orders.iter().any(|order| order.side == "buy") {
                         if let Some(price) =
                             calculate_price(&order.match_price, &price_increment, |a, b| a + b)
                         {
