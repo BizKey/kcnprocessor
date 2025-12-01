@@ -101,6 +101,188 @@ fn calculate_price(
     }
 }
 
+async fn handle_trade_order_event(
+    data: serde_json::Value,
+    tx_out: &mpsc::Sender<String>,
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match serde_json::from_value::<OrderData>(data) {
+        Ok(order) => {
+            info!("{:?}", order);
+            // sent order to pg
+            insert_db_orderevent(pool, exchange, &order).await;
+            if order.type_ == "open" && order.status == "open" {
+                // order in order book
+                // add order to active orders
+                insert_db_orderactive(pool, exchange, &order).await;
+            } else if order.type_ == "match"
+                && order.status == "match"
+                && order.remain_size == Some("0".to_string())
+            {
+                // get last event on match size of position
+                // next msg will filled, but it don't have match price
+
+                // filled sell (cancel all buy orders)
+                //     check if order on sell exist
+                //         unexist - add buy order - 1 tick
+                //                 - add buy order - 1%
+                //         exist 	- add buy order - 1%
+                // filled buy (cancel all sell orders)
+                //     check if order on buy exist
+                //         unexist - add sell order - 1 tick
+                //                 - add sell order - 1%
+                //         exist	- add sell order - 1%
+
+                let mut active_orders =
+                    fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol).await;
+
+                delete_db_orderactive(pool, exchange, &order.order_id).await;
+                active_orders.retain(|o| o.order_id != order.order_id);
+
+                let price_increment_result =
+                    fetch_price_increment_by_symbol(pool, exchange, &order.symbol).await;
+
+                let price_increment = match price_increment_result {
+                    Ok(inc) => inc,
+                    Err(e) => {
+                        error!("Failed to fetch price increment: {}", e);
+                        insert_db_error(pool, exchange, &e).await;
+                        return Err(e)
+                    }
+                };
+
+                if order.side == "sell" {
+                    // filled sell (cancel all buy orders)
+                    let mut sell_orders: Vec<api::models::ActiveOrder> =
+                        Vec::with_capacity(active_orders.len());
+                    for order in active_orders.drain(..) {
+                        if order.side == "buy" {
+                            cancel_order(&tx_out, pool, exchange, &order.symbol, &order.order_id)
+                                .await;
+                        } else {
+                            sell_orders.push(order);
+                        }
+                    }
+                    active_orders = sell_orders;
+                    //     check if order on sell exist
+                    if active_orders
+                        .iter()
+                        .filter(|order| order.side == "sell")
+                        .count()
+                        == 0
+                    {
+                        // create new buy order
+                        make_order(
+                            &tx_out,
+                            pool,
+                            exchange,
+                            "buy",
+                            &order.symbol,
+                            calculate_price(&order.match_price, &price_increment, |a, _b| {
+                                a * 100.0 / 101.0
+                            })
+                            .expect("REASON"),
+                            1,
+                        )
+                        .await;
+
+                        // create new buy order
+                        make_order(
+                            &tx_out,
+                            pool,
+                            exchange,
+                            "buy",
+                            &order.symbol,
+                            calculate_price(&order.match_price, &price_increment, |a, b| a - b)
+                                .expect("REASON"),
+                            1,
+                        )
+                        .await;
+                    } else {
+                        // create new buy order
+                        make_order(
+                            &tx_out,
+                            pool,
+                            exchange,
+                            "buy",
+                            &order.symbol,
+                            calculate_price(&order.match_price, &price_increment, |a, _b| {
+                                a * 100.0 / 101.0
+                            })
+                            .expect("REASON"),
+                            1,
+                        )
+                        .await;
+                    }
+                } else if order.side == "buy" {
+                    // filled buy (cancel all sell orders)
+                    let mut buy_orders: Vec<api::models::ActiveOrder> =
+                        Vec::with_capacity(active_orders.len());
+                    for order in active_orders.drain(..) {
+                        if order.side == "sell" {
+                            cancel_order(&tx_out, pool, exchange, &order.symbol, &order.order_id)
+                                .await;
+                        } else {
+                            buy_orders.push(order);
+                        };
+                    }
+                    active_orders = buy_orders;
+                    // count buy orders
+                    if active_orders
+                        .iter()
+                        .filter(|order| order.side == "buy")
+                        .count()
+                        == 0
+                    {
+                        make_order(
+                            &tx_out,
+                            pool,
+                            exchange,
+                            "sell",
+                            &order.symbol,
+                            calculate_price(&order.match_price, &price_increment, |a, b| a + b)
+                                .expect("REASON"),
+                            1,
+                        )
+                        .await;
+
+                        make_order(
+                            &tx_out,
+                            pool,
+                            exchange,
+                            "sell",
+                            &order.symbol,
+                            calculate_price(&order.match_price, &price_increment, |a, _b| a * 1.01)
+                                .expect("REASON"),
+                            1,
+                        )
+                        .await;
+                    } else {
+                        make_order(
+                            &tx_out,
+                            pool,
+                            exchange,
+                            "sell",
+                            &order.symbol,
+                            calculate_price(&order.match_price, &price_increment, |a, _b| a * 1.01)
+                                .expect("REASON"),
+                            1,
+                        )
+                        .await;
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to parse message {}", e);
+            // sent order error to pg
+            insert_db_error(pool, exchange, &e.to_string()).await;
+        }
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
@@ -156,268 +338,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 }
                             }
                         } else if data.topic == "/spotMarket/tradeOrdersV2" {
-                            match serde_json::from_value::<OrderData>(data.data) {
-                                Ok(order) => {
-                                    info!("{:?}", order);
-                                    // sent order to pg
-                                    insert_db_orderevent(
-                                        &pool_for_handler,
-                                        &exchange_for_handler,
-                                        &order,
-                                    )
-                                    .await;
-                                    if order.type_ == "open" && order.status == "open" {
-                                        // order in order book
-                                        // add order to active orders
-                                        insert_db_orderactive(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &order,
-                                        )
-                                        .await;
-                                    } else if order.type_ == "match"
-                                        && order.status == "match"
-                                        && order.remain_size == Some("0".to_string())
-                                    {
-                                        // get last event on match size of position
-                                        // next msg will filled, but it don't have match price
-
-                                        // filled sell (cancel all buy orders)
-                                        //     check if order on sell exist
-                                        //         unexist - add buy order - 1 tick
-                                        //                 - add buy order - 1%
-                                        //         exist 	- add buy order - 1%
-                                        // filled buy (cancel all sell orders)
-                                        //     check if order on buy exist
-                                        //         unexist - add sell order - 1 tick
-                                        //                 - add sell order - 1%
-                                        //         exist	- add sell order - 1%
-
-                                        let mut active_orders = fetch_all_active_orders_by_symbol(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &order.symbol,
-                                        )
-                                        .await;
-
-                                        delete_db_orderactive(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &order.order_id,
-                                        )
-                                        .await;
-                                        active_orders.retain(|o| o.order_id != order.order_id);
-
-                                        let price_increment_result =
-                                            fetch_price_increment_by_symbol(
-                                                &pool_for_handler,
-                                                &exchange_for_handler,
-                                                &order.symbol,
-                                            )
-                                            .await;
-
-                                        let price_increment = match price_increment_result {
-                                            Ok(inc) => inc,
-                                            Err(e) => {
-                                                error!("Failed to fetch price increment: {}", e);
-                                                insert_db_error(
-                                                    &pool_for_handler,
-                                                    &exchange_for_handler,
-                                                    &e,
-                                                )
-                                                .await;
-                                                continue;
-                                            }
-                                        };
-
-                                        if order.side == "sell" {
-                                            // filled sell (cancel all buy orders)
-                                            let mut sell_orders: Vec<api::models::ActiveOrder> =
-                                                Vec::with_capacity(active_orders.len());
-                                            for order in active_orders.drain(..) {
-                                                if order.side == "buy" {
-                                                    if let Err(e) = cancel_order(
-                                                        &tx_out,
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &order.symbol,
-                                                        &order.order_id,
-                                                    )
-                                                    .await
-                                                    {
-                                                        continue;
-                                                    };
-                                                } else {
-                                                    sell_orders.push(order);
-                                                }
-                                            }
-                                            active_orders = sell_orders;
-                                            //     check if order on sell exist
-                                            if active_orders
-                                                .iter()
-                                                .filter(|order| order.side == "sell")
-                                                .count()
-                                                == 0
-                                            {
-                                                // create new buy order
-                                                if let Err(e) = make_order(
-                                                    &tx_out,
-                                                    &pool_for_handler,
-                                                    &exchange_for_handler,
-                                                    "buy",
-                                                    &order.symbol,
-                                                    calculate_price(
-                                                        &order.match_price,
-                                                        &price_increment,
-                                                        |a, _b| a * 100.0 / 101.0,
-                                                    )
-                                                    .expect("REASON"),
-                                                    1,
-                                                )
-                                                .await
-                                                {
-                                                    continue;
-                                                }
-
-                                                // create new buy order
-                                                if let Err(e) = make_order(
-                                                    &tx_out,
-                                                    &pool_for_handler,
-                                                    &exchange_for_handler,
-                                                    "buy",
-                                                    &order.symbol,
-                                                    calculate_price(
-                                                        &order.match_price,
-                                                        &price_increment,
-                                                        |a, b| a - b,
-                                                    )
-                                                    .expect("REASON"),
-                                                    1,
-                                                )
-                                                .await
-                                                {
-                                                    continue;
-                                                }
-                                            } else {
-                                                // create new buy order
-                                                if let Err(e) = make_order(
-                                                    &tx_out,
-                                                    &pool_for_handler,
-                                                    &exchange_for_handler,
-                                                    "buy",
-                                                    &order.symbol,
-                                                    calculate_price(
-                                                        &order.match_price,
-                                                        &price_increment,
-                                                        |a, _b| a * 100.0 / 101.0,
-                                                    )
-                                                    .expect("REASON"),
-                                                    1,
-                                                )
-                                                .await
-                                                {
-                                                    continue;
-                                                };
-                                            }
-                                        } else if order.side == "buy" {
-                                            // filled buy (cancel all sell orders)
-                                            let mut buy_orders: Vec<api::models::ActiveOrder> =
-                                                Vec::with_capacity(active_orders.len());
-                                            for order in active_orders.drain(..) {
-                                                if order.side == "sell" {
-                                                    if let Err(e) = cancel_order(
-                                                        &tx_out,
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &order.symbol,
-                                                        &order.order_id,
-                                                    )
-                                                    .await
-                                                    {
-                                                        continue;
-                                                    };
-                                                } else {
-                                                    buy_orders.push(order);
-                                                };
-                                            }
-                                            active_orders = buy_orders;
-                                            // count buy orders
-                                            if active_orders
-                                                .iter()
-                                                .filter(|order| order.side == "buy")
-                                                .count()
-                                                == 0
-                                            {
-                                                if let Err(e) = make_order(
-                                                    &tx_out,
-                                                    &pool_for_handler,
-                                                    &exchange_for_handler,
-                                                    "sell",
-                                                    &order.symbol,
-                                                    calculate_price(
-                                                        &order.match_price,
-                                                        &price_increment,
-                                                        |a, b| a + b,
-                                                    )
-                                                    .expect("REASON"),
-                                                    1,
-                                                )
-                                                .await
-                                                {
-                                                    continue;
-                                                };
-
-                                                if let Err(e) = make_order(
-                                                    &tx_out,
-                                                    &pool_for_handler,
-                                                    &exchange_for_handler,
-                                                    "sell",
-                                                    &order.symbol,
-                                                    calculate_price(
-                                                        &order.match_price,
-                                                        &price_increment,
-                                                        |a, _b| a * 1.01,
-                                                    )
-                                                    .expect("REASON"),
-                                                    1,
-                                                )
-                                                .await
-                                                {
-                                                    continue;
-                                                };
-                                            } else {
-                                                if let Err(e) = make_order(
-                                                    &tx_out,
-                                                    &pool_for_handler,
-                                                    &exchange_for_handler,
-                                                    "sell",
-                                                    &order.symbol,
-                                                    calculate_price(
-                                                        &order.match_price,
-                                                        &price_increment,
-                                                        |a, _b| a * 1.01,
-                                                    )
-                                                    .expect("REASON"),
-                                                    1,
-                                                )
-                                                .await
-                                                {
-                                                    continue;
-                                                };
-                                            }
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    error!("Failed to parse message {}", e);
-                                    // sent order error to pg
-                                    insert_db_error(
-                                        &pool_for_handler,
-                                        &exchange_for_handler,
-                                        &e.to_string(),
-                                    )
-                                    .await;
-                                }
+                            if let Err(e) = handle_trade_order_event(
+                                data.data,
+                                &tx_out,
+                                &pool_for_handler,
+                                &exchange_for_handler,
+                            )
+                            .await
+                            {
+                                error!("Error handling trade order event: {}", e);
+                                // Опционально: логировать в БД
                             }
                         } else {
                             info!("Unknown topic: {}", data.topic);
