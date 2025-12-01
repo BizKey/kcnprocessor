@@ -247,7 +247,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 == 0
                                             {
                                                 // create new buy order
-                                                send_order(
+                                                if let Err(e) = send_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -261,10 +261,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     .expect("REASON"),
                                                     1,
                                                 )
-                                                .await;
+                                                .await
+                                                {
+                                                    continue;
+                                                }
 
                                                 // create new buy order
-                                                send_order(
+                                                if let Err(e) = send_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -278,10 +281,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     .expect("REASON"),
                                                     1,
                                                 )
-                                                .await;
+                                                .await
+                                                {
+                                                    continue;
+                                                }
                                             } else {
                                                 // create new buy order
-                                                send_order(
+                                                if let Err(e) = send_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -295,7 +301,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     .expect("REASON"),
                                                     1,
                                                 )
-                                                .await;
+                                                .await
+                                                {
+                                                    continue;
+                                                };
                                             }
                                         } else if order.side == "buy" {
                                             // filled buy (cancel all sell orders)
@@ -338,7 +347,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 .count()
                                                 == 0
                                             {
-                                                send_order(
+                                                if let Err(e) = send_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -352,9 +361,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     .expect("REASON"),
                                                     1,
                                                 )
-                                                .await;
+                                                .await
+                                                {
+                                                    continue;
+                                                };
 
-                                                send_order(
+                                                if let Err(e) = send_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -368,9 +380,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     .expect("REASON"),
                                                     1,
                                                 )
-                                                .await;
+                                                .await
+                                                {
+                                                    continue;
+                                                };
                                             } else {
-                                                send_order(
+                                                if let Err(e) = send_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -384,7 +399,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     .expect("REASON"),
                                                     1,
                                                 )
-                                                .await;
+                                                .await
+                                                {
+                                                    continue;
+                                                };
                                             }
                                         }
                                     }
