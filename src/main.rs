@@ -214,10 +214,31 @@ async fn handle_trade_order_event(
                             |a, _b| a * 100.0 / 101.0,
                         ) {
                             if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment =
-                                    symbol_info.base_increment.parse::<f64>().unwrap_or(1.0);
-                                let min_size =
-                                    symbol_info.base_min_size.parse::<f64>().unwrap_or(1.0);
+                                let base_increment = match symbol_info.base_increment.parse::<f64>()
+                                {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_increment '{}' for symbol {}",
+                                            symbol_info.base_increment, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_increment")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
+                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_min_size '{}' for symbol {}",
+                                            symbol_info.base_min_size, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_min_size")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
 
                                 if let Some(size_str) =
                                     calculate_size(10.0, price_f64, base_increment, min_size)
@@ -246,10 +267,31 @@ async fn handle_trade_order_event(
                             |a, b| a - b,
                         ) {
                             if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment =
-                                    symbol_info.base_increment.parse::<f64>().unwrap_or(1.0);
-                                let min_size =
-                                    symbol_info.base_min_size.parse::<f64>().unwrap_or(1.0);
+                                let base_increment = match symbol_info.base_increment.parse::<f64>()
+                                {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_increment '{}' for symbol {}",
+                                            symbol_info.base_increment, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_increment")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
+                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_min_size '{}' for symbol {}",
+                                            symbol_info.base_min_size, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_min_size")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
                                 if let Some(size_str) =
                                     calculate_size(10.0, price_f64, base_increment, min_size)
                                 {
@@ -277,10 +319,31 @@ async fn handle_trade_order_event(
                             |a, _b| a * 100.0 / 101.0,
                         ) {
                             if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment =
-                                    symbol_info.base_increment.parse::<f64>().unwrap_or(1.0);
-                                let min_size =
-                                    symbol_info.base_min_size.parse::<f64>().unwrap_or(1.0);
+                                let base_increment = match symbol_info.base_increment.parse::<f64>()
+                                {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_increment '{}' for symbol {}",
+                                            symbol_info.base_increment, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_increment")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
+                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_min_size '{}' for symbol {}",
+                                            symbol_info.base_min_size, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_min_size")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
                                 if let Some(size_str) =
                                     calculate_size(10.0, price_f64, base_increment, min_size)
                                 {
@@ -328,10 +391,31 @@ async fn handle_trade_order_event(
                             |a, b| a + b,
                         ) {
                             if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment =
-                                    symbol_info.base_increment.parse::<f64>().unwrap_or(1.0);
-                                let min_size =
-                                    symbol_info.base_min_size.parse::<f64>().unwrap_or(1.0);
+                                let base_increment = match symbol_info.base_increment.parse::<f64>()
+                                {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_increment '{}' for symbol {}",
+                                            symbol_info.base_increment, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_increment")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
+                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_min_size '{}' for symbol {}",
+                                            symbol_info.base_min_size, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_min_size")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
                                 if let Some(size_str) =
                                     calculate_size(10.0, price_f64, base_increment, min_size)
                                 {
@@ -357,10 +441,31 @@ async fn handle_trade_order_event(
                             |a, _b| a * 1.01,
                         ) {
                             if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment =
-                                    symbol_info.base_increment.parse::<f64>().unwrap_or(1.0);
-                                let min_size =
-                                    symbol_info.base_min_size.parse::<f64>().unwrap_or(1.0);
+                                let base_increment = match symbol_info.base_increment.parse::<f64>()
+                                {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_increment '{}' for symbol {}",
+                                            symbol_info.base_increment, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_increment")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
+                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_min_size '{}' for symbol {}",
+                                            symbol_info.base_min_size, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_min_size")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
 
                                 if let Some(size_str) =
                                     calculate_size(10.0, price_f64, base_increment, min_size)
@@ -388,10 +493,31 @@ async fn handle_trade_order_event(
                             |a, _b| a * 1.01,
                         ) {
                             if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment =
-                                    symbol_info.base_increment.parse::<f64>().unwrap_or(1.0);
-                                let min_size =
-                                    symbol_info.base_min_size.parse::<f64>().unwrap_or(1.0);
+                                let base_increment = match symbol_info.base_increment.parse::<f64>()
+                                {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_increment '{}' for symbol {}",
+                                            symbol_info.base_increment, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_increment")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
+                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
+                                    Ok(v) if v > 0.0 => v,
+                                    _ => {
+                                        error!(
+                                            "Invalid base_min_size '{}' for symbol {}",
+                                            symbol_info.base_min_size, order.symbol
+                                        );
+                                        insert_db_error(pool, exchange, "Invalid base_min_size")
+                                            .await;
+                                        return Ok(());
+                                    }
+                                };
 
                                 if let Some(size_str) =
                                     calculate_size(10.0, price_f64, base_increment, min_size)
