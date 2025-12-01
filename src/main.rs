@@ -53,7 +53,7 @@ async fn cancel_order(
     Ok(())
 }
 
-async fn send_order(
+async fn make_order(
     tx_out: &mpsc::Sender<String>,
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
@@ -257,7 +257,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 == 0
                                             {
                                                 // create new buy order
-                                                if let Err(e) = send_order(
+                                                if let Err(e) = make_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -277,7 +277,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 }
 
                                                 // create new buy order
-                                                if let Err(e) = send_order(
+                                                if let Err(e) = make_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -297,7 +297,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 }
                                             } else {
                                                 // create new buy order
-                                                if let Err(e) = send_order(
+                                                if let Err(e) = make_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -342,7 +342,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 .count()
                                                 == 0
                                             {
-                                                if let Err(e) = send_order(
+                                                if let Err(e) = make_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -361,7 +361,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     continue;
                                                 };
 
-                                                if let Err(e) = send_order(
+                                                if let Err(e) = make_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
@@ -380,7 +380,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     continue;
                                                 };
                                             } else {
-                                                if let Err(e) = send_order(
+                                                if let Err(e) = make_order(
                                                     &tx_out,
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
