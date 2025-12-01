@@ -430,6 +430,22 @@ async fn handle_trade_order_event(
     Ok(())
 }
 
+async fn outgoing_message_handler(
+    mut rx_out: mpsc::Receiver<String>,
+    mut ws_write: tokio_tungstenite::WebSocketStream<
+        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+    >,
+) {
+    while let Some(message) = rx_out.recv().await {
+        info!("Sending outgoing message: {}", message);
+        if let Err(e) = ws_write.send(Message::text(message)).await {
+            error!("Failed to send outgoing message: {}", e);
+            break;
+        }
+    }
+    info!("Outgoing message handler finished");
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
