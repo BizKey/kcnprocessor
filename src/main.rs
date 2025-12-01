@@ -151,8 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             &order,
                                         )
                                         .await;
-                                    };
-                                    if order.type_ == "match"
+                                    } else if order.type_ == "match"
                                         && order.status == "match"
                                         && order.remain_size == Some("0".to_string())
                                     {
