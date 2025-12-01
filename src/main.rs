@@ -171,51 +171,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 continue;
                                             }
                                         };
+                                        let mut active_orders = fetch_all_active_orders_by_symbol(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &order.symbol,
+                                        )
+                                        .await;
 
                                         if order.side == "sell" {
                                             // filled sell (cancel all buy orders)
-                                            // get active order's
-                                            for active_order in fetch_all_active_orders_by_symbol(
-                                                &pool_for_handler,
-                                                &exchange_for_handler,
-                                                &order.symbol,
-                                                "buy",
-                                            )
-                                            .await
-                                            {
-                                                // cancel other orders by symbol
-                                                let cancel_msg = serde_json::json!({
-                                                    "id": format!("cancel-{}", active_order.order_id),
-                                                    "op": "margin.cancel",
-                                                    "args": {
-                                                        "symbol": &active_order.symbol,
-                                                        "orderId": active_order.order_id
+                                            let mut sell_orders: Vec<api::models::ActiveOrder> =
+                                                Vec::with_capacity(active_orders.len());
+                                            for order in active_orders.drain(..) {
+                                                if order.side == "buy" {
+                                                    // cancel other orders by symbol
+                                                    let cancel_msg = serde_json::json!({
+                                                        "id": format!("cancel-{}", order.order_id),
+                                                        "op": "margin.cancel",
+                                                        "args": {
+                                                            "symbol": &order.symbol,
+                                                            "orderId": order.order_id
+                                                        }
+                                                    });
+                                                    if let Err(e) =
+                                                        tx_out.send(cancel_msg.to_string()).await
+                                                    {
+                                                        error!(
+                                                            "Failed to send cancel message to tx_out: {}",
+                                                            e
+                                                        );
+                                                        insert_db_error(
+                                                            &pool_for_handler,
+                                                            &exchange_for_handler,
+                                                            &e.to_string(),
+                                                        )
+                                                        .await;
                                                     }
-                                                });
-                                                if let Err(e) =
-                                                    tx_out.send(cancel_msg.to_string()).await
-                                                {
-                                                    error!(
-                                                        "Failed to send cancel message to tx_out: {}",
-                                                        e
-                                                    );
-                                                    insert_db_error(
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &e.to_string(),
-                                                    )
-                                                    .await;
+                                                } else {
+                                                    sell_orders.push(order);
                                                 }
                                             }
+                                            active_orders = sell_orders;
                                             //     check if order on sell exist
-                                            let orders = fetch_all_active_orders_by_symbol(
-                                                &pool_for_handler,
-                                                &exchange_for_handler,
-                                                &order.symbol,
-                                                "sell",
-                                            )
-                                            .await;
-                                            if orders.len() == 0 {
+                                            if active_orders
+                                                .iter()
+                                                .filter(|order| order.side == "sell")
+                                                .count()
+                                                == 0
+                                            {
                                                 // create new buy order
                                                 let side = "buy";
                                                 let buy_order_msg = serde_json::json!({
@@ -310,48 +313,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             }
                                         } else if order.side == "buy" {
                                             // filled buy (cancel all sell orders)
-                                            // get active order's
-                                            for active_order in fetch_all_active_orders_by_symbol(
-                                                &pool_for_handler,
-                                                &exchange_for_handler,
-                                                &order.symbol,
-                                                "sell",
-                                            )
-                                            .await
-                                            {
-                                                // cancel other orders by symbol
-                                                let cancel_msg = serde_json::json!({
-                                                    "id": format!("cancel-{}", active_order.order_id),
-                                                    "op": "margin.cancel",
-                                                    "args": {
-                                                        "symbol": &active_order.symbol,
-                                                        "orderId": active_order.order_id
+                                            let mut buy_orders: Vec<api::models::ActiveOrder> =
+                                                Vec::with_capacity(active_orders.len());
+                                            for order in active_orders.drain(..) {
+                                                if order.side == "sell" {
+                                                    // cancel other orders by symbol
+                                                    let cancel_msg = serde_json::json!({
+                                                        "id": format!("cancel-{}", order.order_id),
+                                                        "op": "margin.cancel",
+                                                        "args": {
+                                                            "symbol": order.symbol,
+                                                            "orderId": order.order_id
+                                                        }
+                                                    });
+                                                    if let Err(e) =
+                                                        tx_out.send(cancel_msg.to_string()).await
+                                                    {
+                                                        error!(
+                                                            "Failed to send cancel message to tx_out: {}",
+                                                            e
+                                                        );
+                                                        insert_db_error(
+                                                            &pool_for_handler,
+                                                            &exchange_for_handler,
+                                                            &e.to_string(),
+                                                        )
+                                                        .await;
                                                     }
-                                                });
-                                                if let Err(e) =
-                                                    tx_out.send(cancel_msg.to_string()).await
-                                                {
-                                                    error!(
-                                                        "Failed to send cancel message to tx_out: {}",
-                                                        e
-                                                    );
-                                                    insert_db_error(
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &e.to_string(),
-                                                    )
-                                                    .await;
-                                                }
+                                                } else {
+                                                    buy_orders.push(order);
+                                                };
                                             }
-                                            // check if order on buy exist
-                                            let orders = fetch_all_active_orders_by_symbol(
-                                                &pool_for_handler,
-                                                &exchange_for_handler,
-                                                &order.symbol,
-                                                "buy",
-                                            )
-                                            .await;
-                                            if orders.len() == 0 {
+                                            active_orders = buy_orders;
+                                            // count buy orders
+                                            if active_orders
+                                                .iter()
+                                                .filter(|order| order.side == "buy")
+                                                .count()
+                                                == 0
+                                            {
                                                 let side = "sell";
                                                 let sell_order_msg = serde_json::json!({
                                                     "id": format!("create-order-{}-{}",&side, &order.symbol),

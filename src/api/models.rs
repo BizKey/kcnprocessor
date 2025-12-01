@@ -59,6 +59,7 @@ pub struct ActiveOrder {
     pub exchange: String,
     pub order_id: String,
     pub symbol: String,
+    pub side: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {
