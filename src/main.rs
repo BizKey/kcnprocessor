@@ -236,14 +236,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 Vec::with_capacity(active_orders.len());
                                             for order in active_orders.drain(..) {
                                                 if order.side == "buy" {
-                                                    cancel_order(
+                                                    if let Err(e) = cancel_order(
                                                         &tx_out,
                                                         &pool_for_handler,
                                                         &exchange_for_handler,
                                                         &order.symbol,
                                                         &order.order_id,
                                                     )
-                                                    .await;
+                                                    .await
+                                                    {
+                                                        continue;
+                                                    };
                                                 } else {
                                                     sell_orders.push(order);
                                                 }
@@ -322,14 +325,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 Vec::with_capacity(active_orders.len());
                                             for order in active_orders.drain(..) {
                                                 if order.side == "sell" {
-                                                    cancel_order(
+                                                    if let Err(e) = cancel_order(
                                                         &tx_out,
                                                         &pool_for_handler,
                                                         &exchange_for_handler,
                                                         &order.symbol,
                                                         &order.order_id,
                                                     )
-                                                    .await;
+                                                    .await
+                                                    {
+                                                        continue;
+                                                    };
                                                 } else {
                                                     buy_orders.push(order);
                                                 };
