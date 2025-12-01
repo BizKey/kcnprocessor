@@ -148,7 +148,7 @@ async fn handle_trade_order_event(
                     Err(e) => {
                         error!("Failed to fetch price increment: {}", e);
                         insert_db_error(pool, exchange, &e).await;
-                        return Err(e)
+                        return Err(e.into())
                     }
                 };
 
