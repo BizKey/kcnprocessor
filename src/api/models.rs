@@ -59,6 +59,7 @@ pub struct ActiveOrder {
     pub exchange: String,
     pub order_id: String,
     pub symbol: String,
+    pub side: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {
@@ -137,5 +138,7 @@ pub enum KuCoinMessage {
 pub struct Symbol {
     pub exchange: String,
     pub symbol: String,
+    pub base_increment: String,
     pub price_increment: String,
+    pub base_min_size: String,
 }

@@ -131,14 +131,12 @@ pub async fn fetch_all_active_orders_by_symbol(
     pool: &PgPool,
     exchange: &str,
     symbol: &str,
-    side: &str,
 ) -> Vec<ActiveOrder> {
     match sqlx::query_as::<_, ActiveOrder>(
-        "SELECT exchange, order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
+        "SELECT exchange, order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2",
     )
     .bind(exchange)
     .bind(symbol)
-    .bind(side)
     .fetch_all(pool)
     .await
     {
@@ -154,24 +152,18 @@ pub async fn fetch_all_active_orders_by_symbol(
         }
     }
 }
-pub async fn fetch_price_increment_by_symbol(
-    pool: &PgPool,
-    exchange: &str,
-    symbol: &str,
-) -> Result<String, String> {
-    let price_increment = sqlx::query_scalar(
-        "SELECT price_increment FROM symbol WHERE exchange = $1 AND symbol = $2",
-    )
-    .bind(exchange)
-    .bind(symbol)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| {
-        format!(
-            "Failed to fetch price_increment by symbol '{}': {}",
-            symbol, e
-        )
-    })?;
-
-    Ok(price_increment)
+pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
+    match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, price_increment, base_min_size FROM symbol WHERE exchange = $1")
+        .bind(exchange)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(symbols) => symbols,
+        Err(e) => {
+            let err_msg = format!("Failed to fetch all symbols from symbol: {}", e);
+            error!("{}", err_msg);
+            insert_db_error(pool, "kucoin", &err_msg).await;
+            vec![]
+        }
+    }
 }
