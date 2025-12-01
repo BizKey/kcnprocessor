@@ -114,6 +114,68 @@ fn calculate_size(
 
     Some(format_size(size, base_increment))
 }
+async fn create_order_safely(
+    tx_out: &mpsc::Sender<String>,
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    side: &str,
+    symbol: &str,
+    price_str: &str,
+    base_increment_str: &str,
+    min_size_str: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let price_f64 = match price_str.parse::<f64>() {
+        Ok(v) if v > 0.0 => v,
+        _ => {
+            let msg = format!("Invalid price '{}' for symbol {}", price_str, symbol);
+            error!("{}", msg);
+            insert_db_error(pool, exchange, &msg).await;
+            return Ok(());
+        }
+    };
+
+    let base_increment = match base_increment_str.parse::<f64>() {
+        Ok(v) if v > 0.0 => v,
+        _ => {
+            let msg = format!(
+                "Invalid base_increment '{}' for symbol {}",
+                base_increment_str, symbol
+            );
+            error!("{}", msg);
+            insert_db_error(pool, exchange, &msg).await;
+            return Ok(());
+        }
+    };
+
+    let min_size = match min_size_str.parse::<f64>() {
+        Ok(v) if v > 0.0 => v,
+        _ => {
+            let msg = format!("Invalid min_size '{}' for symbol {}", min_size_str, symbol);
+            error!("{}", msg);
+            insert_db_error(pool, exchange, &msg).await;
+            return Ok(());
+        }
+    };
+
+    if let Some(size_str) = calculate_size(10.0, price_f64, base_increment, min_size) {
+        make_order(
+            tx_out,
+            pool,
+            exchange,
+            side,
+            symbol,
+            price_str.to_string(),
+            size_str,
+        )
+        .await?;
+    } else {
+        let msg = format!("Calculated size below min_size for symbol {}", symbol);
+        error!("{}", msg);
+        insert_db_error(pool, exchange, &msg).await;
+    }
+
+    Ok(())
+}
 
 fn calculate_price(
     base_price: &Option<String>,
@@ -213,48 +275,17 @@ async fn handle_trade_order_event(
                             &symbol_info.price_increment,
                             |a, _b| a * 100.0 / 101.0,
                         ) {
-                            if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment = match symbol_info.base_increment.parse::<f64>()
-                                {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_increment '{}' for symbol {}",
-                                            symbol_info.base_increment, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_increment")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_min_size '{}' for symbol {}",
-                                            symbol_info.base_min_size, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_min_size")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-
-                                if let Some(size_str) =
-                                    calculate_size(10.0, price_f64, base_increment, min_size)
-                                {
-                                    let _ = make_order(
-                                        &tx_out,
-                                        pool,
-                                        exchange,
-                                        "buy",
-                                        &order.symbol,
-                                        price_str,
-                                        size_str,
-                                    )
-                                    .await;
-                                };
-                            }
+                            create_order_safely(
+                                &tx_out,
+                                pool,
+                                exchange,
+                                "buy",
+                                &order.symbol,
+                                &price_str,
+                                &symbol_info.base_increment,
+                                &symbol_info.base_min_size,
+                            )
+                            .await?;
                         } else {
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -266,47 +297,17 @@ async fn handle_trade_order_event(
                             &symbol_info.price_increment,
                             |a, b| a - b,
                         ) {
-                            if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment = match symbol_info.base_increment.parse::<f64>()
-                                {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_increment '{}' for symbol {}",
-                                            symbol_info.base_increment, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_increment")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_min_size '{}' for symbol {}",
-                                            symbol_info.base_min_size, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_min_size")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                if let Some(size_str) =
-                                    calculate_size(10.0, price_f64, base_increment, min_size)
-                                {
-                                    let _ = make_order(
-                                        &tx_out,
-                                        pool,
-                                        exchange,
-                                        "buy",
-                                        &order.symbol,
-                                        price_str,
-                                        size_str,
-                                    )
-                                    .await;
-                                }
-                            }
+                            create_order_safely(
+                                &tx_out,
+                                pool,
+                                exchange,
+                                "buy",
+                                &order.symbol,
+                                &price_str,
+                                &symbol_info.base_increment,
+                                &symbol_info.base_min_size,
+                            )
+                            .await?;
                         } else {
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -318,47 +319,17 @@ async fn handle_trade_order_event(
                             &symbol_info.price_increment,
                             |a, _b| a * 100.0 / 101.0,
                         ) {
-                            if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment = match symbol_info.base_increment.parse::<f64>()
-                                {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_increment '{}' for symbol {}",
-                                            symbol_info.base_increment, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_increment")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_min_size '{}' for symbol {}",
-                                            symbol_info.base_min_size, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_min_size")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                if let Some(size_str) =
-                                    calculate_size(10.0, price_f64, base_increment, min_size)
-                                {
-                                    let _ = make_order(
-                                        &tx_out,
-                                        pool,
-                                        exchange,
-                                        "buy",
-                                        &order.symbol,
-                                        price_str,
-                                        size_str,
-                                    )
-                                    .await;
-                                }
-                            }
+                            create_order_safely(
+                                &tx_out,
+                                pool,
+                                exchange,
+                                "buy",
+                                &order.symbol,
+                                &price_str,
+                                &symbol_info.base_increment,
+                                &symbol_info.base_min_size,
+                            )
+                            .await?;
                         } else {
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -390,47 +361,17 @@ async fn handle_trade_order_event(
                             &symbol_info.price_increment,
                             |a, b| a + b,
                         ) {
-                            if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment = match symbol_info.base_increment.parse::<f64>()
-                                {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_increment '{}' for symbol {}",
-                                            symbol_info.base_increment, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_increment")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_min_size '{}' for symbol {}",
-                                            symbol_info.base_min_size, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_min_size")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                if let Some(size_str) =
-                                    calculate_size(10.0, price_f64, base_increment, min_size)
-                                {
-                                    let _ = make_order(
-                                        &tx_out,
-                                        pool,
-                                        exchange,
-                                        "sell",
-                                        &order.symbol,
-                                        price_str,
-                                        size_str,
-                                    )
-                                    .await;
-                                }
-                            }
+                            create_order_safely(
+                                &tx_out,
+                                pool,
+                                exchange,
+                                "sell",
+                                &order.symbol,
+                                &price_str,
+                                &symbol_info.base_increment,
+                                &symbol_info.base_min_size,
+                            )
+                            .await?;
                         } else {
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -440,48 +381,17 @@ async fn handle_trade_order_event(
                             &symbol_info.price_increment,
                             |a, _b| a * 1.01,
                         ) {
-                            if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment = match symbol_info.base_increment.parse::<f64>()
-                                {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_increment '{}' for symbol {}",
-                                            symbol_info.base_increment, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_increment")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_min_size '{}' for symbol {}",
-                                            symbol_info.base_min_size, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_min_size")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-
-                                if let Some(size_str) =
-                                    calculate_size(10.0, price_f64, base_increment, min_size)
-                                {
-                                    let _ = make_order(
-                                        &tx_out,
-                                        pool,
-                                        exchange,
-                                        "sell",
-                                        &order.symbol,
-                                        price_str,
-                                        size_str,
-                                    )
-                                    .await;
-                                }
-                            }
+                            create_order_safely(
+                                &tx_out,
+                                pool,
+                                exchange,
+                                "sell",
+                                &order.symbol,
+                                &price_str,
+                                &symbol_info.base_increment,
+                                &symbol_info.base_min_size,
+                            )
+                            .await?;
                         } else {
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -492,48 +402,17 @@ async fn handle_trade_order_event(
                             &symbol_info.price_increment,
                             |a, _b| a * 1.01,
                         ) {
-                            if let Ok(price_f64) = price_str.parse::<f64>() {
-                                let base_increment = match symbol_info.base_increment.parse::<f64>()
-                                {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_increment '{}' for symbol {}",
-                                            symbol_info.base_increment, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_increment")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-                                let min_size = match symbol_info.base_min_size.parse::<f64>() {
-                                    Ok(v) if v > 0.0 => v,
-                                    _ => {
-                                        error!(
-                                            "Invalid base_min_size '{}' for symbol {}",
-                                            symbol_info.base_min_size, order.symbol
-                                        );
-                                        insert_db_error(pool, exchange, "Invalid base_min_size")
-                                            .await;
-                                        return Ok(());
-                                    }
-                                };
-
-                                if let Some(size_str) =
-                                    calculate_size(10.0, price_f64, base_increment, min_size)
-                                {
-                                    let _ = make_order(
-                                        &tx_out,
-                                        pool,
-                                        exchange,
-                                        "sell",
-                                        &order.symbol,
-                                        price_str,
-                                        size_str,
-                                    )
-                                    .await;
-                                }
-                            }
+                            create_order_safely(
+                                &tx_out,
+                                pool,
+                                exchange,
+                                "sell",
+                                &order.symbol,
+                                &price_str,
+                                &symbol_info.base_increment,
+                                &symbol_info.base_min_size,
+                            )
+                            .await?;
                         } else {
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
