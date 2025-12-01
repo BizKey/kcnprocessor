@@ -520,6 +520,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             {
                                 error!("Error handling trade order event: {}", e);
                             }
+                        } else if data.topic == "/margin/position" {
                         } else {
                             info!("Unknown topic: {}", data.topic);
                             // sent error to pg
@@ -635,7 +636,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             tokio::select! {
                 // Events
                 event_msg = event_ws_read.next() => {
-                    info!("Event {:?}", event_msg);
                     match event_msg {
                         Some(Ok(Message::Text(text))) => {
                             if tx_in.send(text.to_string()).await.is_err() {
@@ -677,7 +677,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
                 }
                 trade_msg =  trade_ws_read.next() => {
-                    info!("Trade {:?}", trade_msg);
                     match trade_msg {
                         Some(Ok(Message::Text(text))) => {
                             info!("{:?}", text);
