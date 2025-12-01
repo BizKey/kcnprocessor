@@ -29,6 +29,30 @@ fn build_subscription() -> Vec<serde_json::Value> {
     ]
 }
 
+async fn cancel_order(
+    tx_out: &mpsc::Sender<String>,
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    symbol: &str,
+    order_id: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // cancel other orders by symbol
+    let msg = serde_json::json!({
+      "id": format!("cancel-{}", order_id),
+    "op": "margin.cancel",
+    "args": {
+        "symbol": symbol,
+        "orderId": order_id
+    }
+    });
+    if let Err(e) = tx_out.send(msg.to_string()).await {
+        error!("Failed to send order: {}", e);
+        insert_db_error(pool, exchange, &e.to_string()).await;
+        return Err(e.into());
+    }
+    Ok(())
+}
+
 async fn send_order(
     tx_out: &mpsc::Sender<String>,
     pool: &sqlx::Pool<sqlx::Postgres>,
@@ -212,29 +236,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 Vec::with_capacity(active_orders.len());
                                             for order in active_orders.drain(..) {
                                                 if order.side == "buy" {
-                                                    // cancel other orders by symbol
-                                                    let cancel_msg = serde_json::json!({
-                                                        "id": format!("cancel-{}", order.order_id),
-                                                        "op": "margin.cancel",
-                                                        "args": {
-                                                            "symbol": &order.symbol,
-                                                            "orderId": order.order_id
-                                                        }
-                                                    });
-                                                    if let Err(e) =
-                                                        tx_out.send(cancel_msg.to_string()).await
-                                                    {
-                                                        error!(
-                                                            "Failed to send cancel message to tx_out: {}",
-                                                            e
-                                                        );
-                                                        insert_db_error(
-                                                            &pool_for_handler,
-                                                            &exchange_for_handler,
-                                                            &e.to_string(),
-                                                        )
-                                                        .await;
-                                                    }
+                                                    cancel_order(
+                                                        &tx_out,
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &order.symbol,
+                                                        &order.order_id,
+                                                    )
+                                                    .await;
                                                 } else {
                                                     sell_orders.push(order);
                                                 }
@@ -313,29 +322,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 Vec::with_capacity(active_orders.len());
                                             for order in active_orders.drain(..) {
                                                 if order.side == "sell" {
-                                                    // cancel other orders by symbol
-                                                    let cancel_msg = serde_json::json!({
-                                                        "id": format!("cancel-{}", order.order_id),
-                                                        "op": "margin.cancel",
-                                                        "args": {
-                                                            "symbol": order.symbol,
-                                                            "orderId": order.order_id
-                                                        }
-                                                    });
-                                                    if let Err(e) =
-                                                        tx_out.send(cancel_msg.to_string()).await
-                                                    {
-                                                        error!(
-                                                            "Failed to send cancel message to tx_out: {}",
-                                                            e
-                                                        );
-                                                        insert_db_error(
-                                                            &pool_for_handler,
-                                                            &exchange_for_handler,
-                                                            &e.to_string(),
-                                                        )
-                                                        .await;
-                                                    }
+                                                    cancel_order(
+                                                        &tx_out,
+                                                        &pool_for_handler,
+                                                        &exchange_for_handler,
+                                                        &order.symbol,
+                                                        &order.order_id,
+                                                    )
+                                                    .await;
                                                 } else {
                                                     buy_orders.push(order);
                                                 };
