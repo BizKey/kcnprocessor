@@ -170,13 +170,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         //                 - add sell order - 1%
                                         //         exist	- add sell order - 1%
 
-                                        // delete filled order from active orders
+                                        let mut active_orders = fetch_all_active_orders_by_symbol(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &order.symbol,
+                                        )
+                                        .await;
+
                                         delete_db_orderactive(
                                             &pool_for_handler,
                                             &exchange_for_handler,
                                             &order.order_id,
                                         )
                                         .await;
+                                        active_orders.retain(|o| o.order_id != order.order_id);
+
                                         let price_increment_result =
                                             fetch_price_increment_by_symbol(
                                                 &pool_for_handler,
@@ -198,12 +206,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 continue;
                                             }
                                         };
-                                        let mut active_orders = fetch_all_active_orders_by_symbol(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &order.symbol,
-                                        )
-                                        .await;
 
                                         if order.side == "sell" {
                                             // filled sell (cancel all buy orders)
