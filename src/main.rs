@@ -29,8 +29,35 @@ fn build_subscription() -> Vec<serde_json::Value> {
     ]
 }
 
-pub fn symbol_to_kucoin_api(symbol: &str) -> String {
-    symbol.replace("-", "")
+async fn send_order(
+    tx_out: &mpsc::Sender<String>,
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    side: &str,
+    symbol: &str,
+    price: String,
+    size: i32,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let msg = serde_json::json!({
+        "id": format!("create-order-{}-{}", side, symbol),
+        "op": "margin.order",
+        "args": {
+            "price": price,
+            "size": size,
+            "side": side,
+            "symbol": symbol,
+            "timeInForce": "GTC",
+            "type": "limit",
+            "autoBorrow": true,
+            "autoRepay": true,
+        }
+    });
+    if let Err(e) = tx_out.send(msg.to_string()).await {
+        error!("Failed to send order: {}", e);
+        insert_db_error(pool, exchange, &e.to_string()).await;
+        return Err(e.into());
+    }
+    Ok(())
 }
 
 fn calculate_price(
@@ -220,96 +247,55 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 == 0
                                             {
                                                 // create new buy order
-                                                let side = "buy";
-                                                let buy_order_msg = serde_json::json!({
-                                                    "id": format!("create-order-{}-{}", &side, &order.symbol),
-                                                    "op": "margin.order",
-                                                    "args": {
-                                                        "price": calculate_price(&order.match_price, &price_increment, |a, _b| a * 100.0 / 101.0), // -1%
-                                                        "size": 1,
-                                                        "side":side,
-                                                        "symbol": &order.symbol,
-                                                        "timeInForce": "GTC",
-                                                        "type":"limit",
-                                                        "autoBorrow": true,
-                                                        "autoRepay": true,
-                                                    }
-                                                });
-                                                if let Err(e) =
-                                                    tx_out.send(buy_order_msg.to_string()).await
-                                                {
-                                                    error!(
-                                                        "Failed to send buy order message to tx_out: {}",
-                                                        e
-                                                    );
-                                                    insert_db_error(
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &e.to_string(),
+                                                send_order(
+                                                    &tx_out,
+                                                    &pool_for_handler,
+                                                    &exchange_for_handler,
+                                                    "buy",
+                                                    &order.symbol,
+                                                    calculate_price(
+                                                        &order.match_price,
+                                                        &price_increment,
+                                                        |a, _b| a * 100.0 / 101.0,
                                                     )
-                                                    .await;
-                                                }
+                                                    .expect("REASON"),
+                                                    1,
+                                                )
+                                                .await;
+
                                                 // create new buy order
-                                                let side = "buy";
-                                                let buy_order_msg = serde_json::json!({
-                                                    "id": format!("create-order-{}-{}", &side, &order.symbol),
-                                                    "op": "margin.order",
-                                                    "args": {
-                                                        "price": calculate_price(&order.match_price, &price_increment, |a, b| a - b), // -1 tick
-                                                        "size": 1,
-                                                        "side":side,
-                                                        "symbol": &order.symbol,
-                                                        "timeInForce": "GTC",
-                                                        "type":"limit",
-                                                        "autoBorrow": true,
-                                                        "autoRepay": true,
-                                                    }
-                                                });
-                                                if let Err(e) =
-                                                    tx_out.send(buy_order_msg.to_string()).await
-                                                {
-                                                    error!(
-                                                        "Failed to send buy order message to tx_out: {}",
-                                                        e
-                                                    );
-                                                    insert_db_error(
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &e.to_string(),
+                                                send_order(
+                                                    &tx_out,
+                                                    &pool_for_handler,
+                                                    &exchange_for_handler,
+                                                    "buy",
+                                                    &order.symbol,
+                                                    calculate_price(
+                                                        &order.match_price,
+                                                        &price_increment,
+                                                        |a, b| a - b,
                                                     )
-                                                    .await;
-                                                }
+                                                    .expect("REASON"),
+                                                    1,
+                                                )
+                                                .await;
                                             } else {
                                                 // create new buy order
-                                                let side = "buy";
-                                                let buy_order_msg = serde_json::json!({
-                                                    "id": format!("create-order-{}-{}", &side, &order.symbol),
-                                                    "op": "margin.order",
-                                                    "args": {
-                                                        "price": calculate_price(&order.match_price, &price_increment, |a, _b| a * 100.0 / 101.0), // -1%
-                                                        "size": 1,
-                                                        "side":side,
-                                                        "symbol": &order.symbol,
-                                                        "timeInForce": "GTC",
-                                                        "type":"limit",
-                                                        "autoBorrow": true,
-                                                        "autoRepay": true,
-                                                    }
-                                                });
-                                                if let Err(e) =
-                                                    tx_out.send(buy_order_msg.to_string()).await
-                                                {
-                                                    error!(
-                                                        "Failed to send buy order message to tx_out: {}",
-                                                        e
-                                                    );
-                                                    insert_db_error(
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &e.to_string(),
+                                                send_order(
+                                                    &tx_out,
+                                                    &pool_for_handler,
+                                                    &exchange_for_handler,
+                                                    "buy",
+                                                    &order.symbol,
+                                                    calculate_price(
+                                                        &order.match_price,
+                                                        &price_increment,
+                                                        |a, _b| a * 100.0 / 101.0,
                                                     )
-                                                    .await;
-                                                }
+                                                    .expect("REASON"),
+                                                    1,
+                                                )
+                                                .await;
                                             }
                                         } else if order.side == "buy" {
                                             // filled buy (cancel all sell orders)
@@ -352,94 +338,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 .count()
                                                 == 0
                                             {
-                                                let side = "sell";
-                                                let sell_order_msg = serde_json::json!({
-                                                    "id": format!("create-order-{}-{}",&side, &order.symbol),
-                                                    "op": "margin.order",
-                                                    "args": {
-                                                        "price":calculate_price(&order.match_price, &price_increment, |a, b| a + b), // +1 tick
-                                                        "size": 1,
-                                                        "side":side,
-                                                        "symbol": &order.symbol,
-                                                        "timeInForce": "GTC",
-                                                        "type":"limit",
-                                                        "autoBorrow": true,
-                                                        "autoRepay": true,
-                                                    }
-                                                });
-                                                if let Err(e) =
-                                                    tx_out.send(sell_order_msg.to_string()).await
-                                                {
-                                                    error!(
-                                                        "Failed to send sell order message to tx_out: {}",
-                                                        e
-                                                    );
-                                                    insert_db_error(
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &e.to_string(),
+                                                send_order(
+                                                    &tx_out,
+                                                    &pool_for_handler,
+                                                    &exchange_for_handler,
+                                                    "sell",
+                                                    &order.symbol,
+                                                    calculate_price(
+                                                        &order.match_price,
+                                                        &price_increment,
+                                                        |a, b| a + b,
                                                     )
-                                                    .await;
-                                                }
-                                                let side = "sell";
-                                                let sell_order_msg = serde_json::json!({
-                                                    "id": format!("create-order-{}-{}",&side, &order.symbol),
-                                                    "op": "margin.order",
-                                                    "args": {
-                                                        "price": calculate_price(&order.match_price, &price_increment, |a, _b| a * 1.01), // +1%
-                                                        "size": 1,
-                                                        "side":side,
-                                                        "symbol": &order.symbol,
-                                                        "timeInForce": "GTC",
-                                                        "type":"limit",
-                                                        "autoBorrow": true,
-                                                        "autoRepay": true,
-                                                    }
-                                                });
-                                                if let Err(e) =
-                                                    tx_out.send(sell_order_msg.to_string()).await
-                                                {
-                                                    error!(
-                                                        "Failed to send sell order message to tx_out: {}",
-                                                        e
-                                                    );
-                                                    insert_db_error(
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &e.to_string(),
+                                                    .expect("REASON"),
+                                                    1,
+                                                )
+                                                .await;
+
+                                                send_order(
+                                                    &tx_out,
+                                                    &pool_for_handler,
+                                                    &exchange_for_handler,
+                                                    "sell",
+                                                    &order.symbol,
+                                                    calculate_price(
+                                                        &order.match_price,
+                                                        &price_increment,
+                                                        |a, _b| a * 1.01,
                                                     )
-                                                    .await;
-                                                }
+                                                    .expect("REASON"),
+                                                    1,
+                                                )
+                                                .await;
                                             } else {
-                                                let side = "sell";
-                                                let sell_order_msg = serde_json::json!({
-                                                    "id": format!("create-order-{}-{}",&side, &order.symbol),
-                                                    "op": "margin.order",
-                                                    "args": {
-                                                        "price": calculate_price(&order.match_price, &price_increment, |a, _b| a * 1.01), // +1%
-                                                        "size": 1,
-                                                        "side":side,
-                                                        "symbol": &order.symbol,
-                                                        "timeInForce": "GTC",
-                                                        "type":"limit",
-                                                        "autoBorrow": true,
-                                                        "autoRepay": true,
-                                                    }
-                                                });
-                                                if let Err(e) =
-                                                    tx_out.send(sell_order_msg.to_string()).await
-                                                {
-                                                    error!(
-                                                        "Failed to send sell order message to tx_out: {}",
-                                                        e
-                                                    );
-                                                    insert_db_error(
-                                                        &pool_for_handler,
-                                                        &exchange_for_handler,
-                                                        &e.to_string(),
+                                                send_order(
+                                                    &tx_out,
+                                                    &pool_for_handler,
+                                                    &exchange_for_handler,
+                                                    "sell",
+                                                    &order.symbol,
+                                                    calculate_price(
+                                                        &order.match_price,
+                                                        &price_increment,
+                                                        |a, _b| a * 1.01,
                                                     )
-                                                    .await;
-                                                }
+                                                    .expect("REASON"),
+                                                    1,
+                                                )
+                                                .await;
                                             }
                                         }
                                     }
