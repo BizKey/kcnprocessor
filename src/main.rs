@@ -477,7 +477,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let handler_event = tokio::spawn(async move {
         while let Some(msg) = rx_in.recv().await {
-            info!("Processing: {}", msg);
             match serde_json::from_str::<KuCoinMessage>(&msg) {
                 Ok(kc_msg) => match kc_msg {
                     KuCoinMessage::Welcome(data) => {
