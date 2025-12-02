@@ -202,3 +202,62 @@ pub async fn upsert_position_ratio(
 
     Ok(())
 }
+
+pub async fn upsert_position_debt(
+    pool: &PgPool,
+    exchange: &str,
+    debt_symbol: &str,
+    debt_value: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO positiondebt
+        (exchange, debt_symbol, debt_value, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (exchange, debt_symbol) 
+        DO UPDATE SET
+            debt_value = EXCLUDED.debt_value,
+            updated_at = NOW()
+        "#,
+    )
+    .bind(exchange)
+    .bind(debt_symbol)
+    .bind(debt_value)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn upsert_position_asset(
+    pool: &PgPool,
+    exchange: &str,
+    asset_symbol: &str,
+    asset_total: &str,
+    asset_available: &str,
+    asset_hold: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO positionasset
+        (exchange, asset_symbol, asset_total, asset_available, asset_hold, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (exchange, asset_symbol) 
+        DO UPDATE SET
+            asset_total = EXCLUDED.asset_total,
+            asset_available = EXCLUDED.asset_available,
+            asset_hold = EXCLUDED.asset_hold,
+            asset_hold = EXCLUDED.asset_hold,
+            updated_at = NOW()
+        "#,
+    )
+    .bind(exchange)
+    .bind(asset_symbol)
+    .bind(asset_total)
+    .bind(asset_available)
+    .bind(asset_hold)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}

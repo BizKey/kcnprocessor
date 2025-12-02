@@ -1,7 +1,7 @@
 use crate::api::db::{
     delete_db_orderactive, fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_db_balance,
     insert_db_error, insert_db_event, insert_db_orderactive, insert_db_orderevent,
-    upsert_position_ratio,
+    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use dotenv::dotenv;
@@ -452,6 +452,27 @@ async fn handle_position_event(
             {
                 error!("Failed to upsert margin account state: {}", e);
                 insert_db_error(pool, exchange, &e.to_string()).await;
+            }
+            for (symbol, amount) in position.debt_list {
+                if let Err(e) = upsert_position_debt(&pool, &exchange, &symbol, &amount).await {
+                    error!("Failed to insert debt margin account state: {}", e);
+                    insert_db_error(pool, exchange, &e.to_string()).await;
+                }
+            }
+            for (symbol, symbol_info) in position.asset_list {
+                if let Err(e) = upsert_position_asset(
+                    &pool,
+                    &exchange,
+                    &symbol,
+                    &symbol_info.total,
+                    &symbol_info.available,
+                    &symbol_info.hold,
+                )
+                .await
+                {
+                    error!("Failed to insert debt margin account state: {}", e);
+                    insert_db_error(pool, exchange, &e.to_string()).await;
+                }
             }
         }
         Err(e) => {
