@@ -435,7 +435,6 @@ async fn handle_position_event(
     data: serde_json::Value,
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
-    symbol_map: &HashMap<String, Symbol>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match serde_json::from_value::<PositionData>(data) {
         Ok(position) => {
@@ -620,7 +619,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 data.data,
                                 &pool_for_handler,
                                 &exchange_for_handler,
-                                &symbol_map_for_handler,
                             )
                             .await
                             {
