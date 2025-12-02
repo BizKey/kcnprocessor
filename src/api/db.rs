@@ -1,5 +1,5 @@
 use crate::api::models::{ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol};
-use log::{error, info, trace};
+use log::error;
 use serde::Serialize;
 use sqlx::PgPool;
 
@@ -135,7 +135,7 @@ pub async fn fetch_all_active_orders_by_symbol(
     symbol: &str,
 ) -> Vec<ActiveOrder> {
     match sqlx::query_as::<_, ActiveOrder>(
-        "SELECT exchange, order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2",
+        "SELECT order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2",
     )
     .bind(exchange)
     .bind(symbol)
@@ -168,4 +168,95 @@ pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
             vec![]
         }
     }
+}
+
+pub async fn upsert_position_ratio(
+    pool: &PgPool,
+    exchange: &str,
+    debt_ratio: f64,
+    total_asset: f64,
+    margin_coefficient_total_asset: &str,
+    total_debt: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO positionratio 
+        (exchange, debt_ratio, total_asset, margin_coefficient_total_asset, total_debt, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (exchange) 
+        DO UPDATE SET
+            debt_ratio = EXCLUDED.debt_ratio,
+            total_asset = EXCLUDED.total_asset,
+            margin_coefficient_total_asset = EXCLUDED.margin_coefficient_total_asset,
+            total_debt = EXCLUDED.total_debt,
+            updated_at = NOW()
+        "#,
+    )
+    .bind(exchange)
+    .bind(debt_ratio)
+    .bind(total_asset)
+    .bind(margin_coefficient_total_asset)
+    .bind(total_debt)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn upsert_position_debt(
+    pool: &PgPool,
+    exchange: &str,
+    debt_symbol: &str,
+    debt_value: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO positiondebt
+        (exchange, debt_symbol, debt_value, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (exchange, debt_symbol) 
+        DO UPDATE SET
+            debt_value = EXCLUDED.debt_value,
+            updated_at = NOW()
+        "#,
+    )
+    .bind(exchange)
+    .bind(debt_symbol)
+    .bind(debt_value)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn upsert_position_asset(
+    pool: &PgPool,
+    exchange: &str,
+    asset_symbol: &str,
+    asset_total: &str,
+    asset_available: &str,
+    asset_hold: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO positionasset
+        (exchange, asset_symbol, asset_total, asset_available, asset_hold, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (exchange, asset_symbol) 
+        DO UPDATE SET
+            asset_total = EXCLUDED.asset_total,
+            asset_available = EXCLUDED.asset_available,
+            asset_hold = EXCLUDED.asset_hold,
+            updated_at = NOW()
+        "#,
+    )
+    .bind(exchange)
+    .bind(asset_symbol)
+    .bind(asset_total)
+    .bind(asset_available)
+    .bind(asset_hold)
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }

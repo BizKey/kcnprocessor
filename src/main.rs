@@ -1,8 +1,9 @@
 use crate::api::db::{
     delete_db_orderactive, fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_db_balance,
     insert_db_error, insert_db_event, insert_db_orderactive, insert_db_orderevent,
+    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{BalanceData, KuCoinMessage, OrderData, Symbol};
+use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, trace};
@@ -430,6 +431,98 @@ async fn handle_trade_order_event(
     Ok(())
 }
 
+async fn handle_position_event(
+    data: serde_json::Value,
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match serde_json::from_value::<PositionData>(data) {
+        Ok(position) => {
+            info!("{:?}", position);
+            if let Err(e) = upsert_position_ratio(
+                &pool,
+                &exchange,
+                position.debt_ratio,
+                position.total_asset,
+                &position.margin_coefficient_total_asset,
+                &position.total_debt,
+            )
+            .await
+            {
+                error!("Failed to upsert margin account state: {}", e);
+                insert_db_error(pool, exchange, &e.to_string()).await;
+            }
+            for (symbol, amount) in &position.debt_list {
+                if let Err(e) = upsert_position_debt(&pool, &exchange, &symbol, &amount).await {
+                    error!("Failed to insert debt margin account state: {}", e);
+                    insert_db_error(pool, exchange, &e.to_string()).await;
+                }
+            }
+            for (symbol, symbol_info) in &position.asset_list {
+                if let Err(e) = upsert_position_asset(
+                    &pool,
+                    &exchange,
+                    &symbol,
+                    &symbol_info.total,
+                    &symbol_info.available,
+                    &symbol_info.hold,
+                )
+                .await
+                {
+                    error!("Failed to insert asset margin account state: {}", e);
+                    insert_db_error(pool, exchange, &e.to_string()).await;
+                }
+            }
+
+            for (asset, debt_str) in &position.debt_list {
+                if let Ok(debt) = debt_str.parse::<f64>() {
+                    if debt <= 0.0 {
+                        continue;
+                    }
+
+                    if let Some(asset_info) = &position.asset_list.get(asset) {
+                        if let Ok(available) = asset_info.available.parse::<f64>() {
+                            if available >= debt {
+                                info!(
+                                    "Can repay {} {} debt with available {}",
+                                    debt, asset, available
+                                );
+
+                                if let Err(e) =
+                                    api::requests::create_repay_order(asset, &debt.to_string())
+                                        .await
+                                {
+                                    error!("Failed to repay debt: {}", e);
+                                    insert_db_error(pool, exchange, &e.to_string()).await;
+                                }
+                            } else if available > 0.0 {
+                                info!(
+                                    "Can partially repay {} {} debt with available {}",
+                                    debt, asset, available
+                                );
+
+                                if let Err(e) =
+                                    api::requests::create_repay_order(asset, &available.to_string())
+                                        .await
+                                {
+                                    error!("Failed to partially repay debt: {}", e);
+                                    insert_db_error(pool, exchange, &e.to_string()).await;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to parse message {}", e);
+            // sent order error to pg
+            insert_db_error(pool, exchange, &e.to_string()).await;
+        }
+    }
+    Ok(())
+}
+
 async fn outgoing_message_handler(
     mut rx_out: mpsc::Receiver<String>,
     mut ws_write: tokio_tungstenite::WebSocketStream<
@@ -520,6 +613,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("Error handling trade order event: {}", e);
                             }
                         } else if data.topic == "/margin/position" {
+                            // save to db position
+
+                            if let Err(e) = handle_position_event(
+                                data.data,
+                                &pool_for_handler,
+                                &exchange_for_handler,
+                            )
+                            .await
+                            {
+                                error!("Error handle position event: {}", e);
+                            }
                         } else {
                             info!("Unknown topic: {}", data.topic);
                             // sent error to pg
