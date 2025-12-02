@@ -470,7 +470,7 @@ async fn handle_position_event(
                 )
                 .await
                 {
-                    error!("Failed to insert debt margin account state: {}", e);
+                    error!("Failed to insert asset margin account state: {}", e);
                     insert_db_error(pool, exchange, &e.to_string()).await;
                 }
             }
