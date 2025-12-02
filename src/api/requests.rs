@@ -1,6 +1,7 @@
 use crate::api::models::ApiV3BulletPrivate;
 use base64::Engine;
 use hmac::{Hmac, Mac};
+use log::info;
 use reqwest::{Client, Response};
 use urlencoding::encode as url_encode;
 
@@ -116,6 +117,46 @@ impl KuCoinClient {
         mac.update(prehash.as_bytes());
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
+
+    pub async fn margin_repay(
+        &self,
+        currency: &str,
+        size: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let body = {
+            let mut map = std::collections::HashMap::new();
+            map.insert("currency", currency);
+            map.insert("size", size);
+            map
+        };
+
+        match self
+            .make_request(
+                reqwest::Method::POST,
+                "/api/v1/margin/repay",
+                None,
+                Some(body),
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => {
+                    // Успешное погашение
+                    info!("Successfully repaid {} {} debt", size, currency);
+                    Ok(())
+                }
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
+        }
+    }
+
     async fn make_request(
         &self,
         method: reqwest::Method,
@@ -200,6 +241,15 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
         .first()
         .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
         .ok_or_else(|| "No instance servers in bullet response".into())
+}
+pub async fn create_repay_order(
+    currency: &str,
+    size: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.margin_repay(currency, size).await?;
+
+    Ok(())
 }
 
 pub fn get_trading_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {

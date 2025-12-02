@@ -453,13 +453,13 @@ async fn handle_position_event(
                 error!("Failed to upsert margin account state: {}", e);
                 insert_db_error(pool, exchange, &e.to_string()).await;
             }
-            for (symbol, amount) in position.debt_list {
+            for (symbol, amount) in &position.debt_list {
                 if let Err(e) = upsert_position_debt(&pool, &exchange, &symbol, &amount).await {
                     error!("Failed to insert debt margin account state: {}", e);
                     insert_db_error(pool, exchange, &e.to_string()).await;
                 }
             }
-            for (symbol, symbol_info) in position.asset_list {
+            for (symbol, symbol_info) in &position.asset_list {
                 if let Err(e) = upsert_position_asset(
                     &pool,
                     &exchange,
@@ -472,6 +472,46 @@ async fn handle_position_event(
                 {
                     error!("Failed to insert asset margin account state: {}", e);
                     insert_db_error(pool, exchange, &e.to_string()).await;
+                }
+            }
+
+            for (asset, debt_str) in &position.debt_list {
+                if let Ok(debt) = debt_str.parse::<f64>() {
+                    if debt <= 0.0 {
+                        continue;
+                    }
+
+                    if let Some(asset_info) = &position.asset_list.get(asset) {
+                        if let Ok(available) = asset_info.available.parse::<f64>() {
+                            if available >= debt {
+                                info!(
+                                    "Can repay {} {} debt with available {}",
+                                    debt, asset, available
+                                );
+
+                                if let Err(e) =
+                                    api::requests::create_repay_order(asset, &debt.to_string())
+                                        .await
+                                {
+                                    error!("Failed to repay debt: {}", e);
+                                    insert_db_error(pool, exchange, &e.to_string()).await;
+                                }
+                            } else if available > 0.0 {
+                                info!(
+                                    "Can partially repay {} {} debt with available {}",
+                                    debt, asset, available
+                                );
+
+                                if let Err(e) =
+                                    api::requests::create_repay_order(asset, &available.to_string())
+                                        .await
+                                {
+                                    error!("Failed to partially repay debt: {}", e);
+                                    insert_db_error(pool, exchange, &e.to_string()).await;
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
