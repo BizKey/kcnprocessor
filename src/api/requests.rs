@@ -133,7 +133,7 @@ impl KuCoinClient {
         match self
             .make_request(
                 reqwest::Method::POST,
-                "/api/v1/margin/repay",
+                "/api/v3/margin/repay",
                 None,
                 Some(body),
                 true,
