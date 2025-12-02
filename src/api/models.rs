@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
@@ -60,6 +61,28 @@ pub struct ActiveOrder {
     pub order_id: String,
     pub symbol: String,
     pub side: String,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AssetInfo {
+    pub total: String,
+    pub available: String,
+    pub hold: String,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PositionData {
+    #[serde(rename = "debtRatio")]
+    pub debt_ratio: f64,
+    #[serde(rename = "totalAsset")]
+    pub total_asset: f64,
+    #[serde(rename = "marginCoefficientTotalAsset")]
+    pub margin_coefficient_total_asset: String,
+    #[serde(rename = "totalDebt")]
+    pub total_debt: String,
+    #[serde(rename = "assetList")]
+    pub asset_list: HashMap<String, AssetInfo>,
+    #[serde(rename = "debtList")]
+    pub debt_list: HashMap<String, String>, // ключ: актив, значение: строка долга
+    pub timestamp: i64,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {

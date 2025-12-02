@@ -2,7 +2,7 @@ use crate::api::db::{
     delete_db_orderactive, fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_db_balance,
     insert_db_error, insert_db_event, insert_db_orderactive, insert_db_orderevent,
 };
-use crate::api::models::{BalanceData, KuCoinMessage, OrderData, Symbol};
+use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, trace};
@@ -430,6 +430,25 @@ async fn handle_trade_order_event(
     Ok(())
 }
 
+async fn handle_position_event(
+    data: serde_json::Value,
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    symbol_map: &HashMap<String, Symbol>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match serde_json::from_value::<PositionData>(data) {
+        Ok(order) => {
+            info!("{:?}", order);
+        }
+        Err(e) => {
+            error!("Failed to parse message {}", e);
+            // sent order error to pg
+            insert_db_error(pool, exchange, &e.to_string()).await;
+        }
+    }
+    Ok(())
+}
+
 async fn outgoing_message_handler(
     mut rx_out: mpsc::Receiver<String>,
     mut ws_write: tokio_tungstenite::WebSocketStream<
@@ -520,6 +539,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("Error handling trade order event: {}", e);
                             }
                         } else if data.topic == "/margin/position" {
+                            // save to db position
+
+                            if let Err(e) = handle_position_event(
+                                data.data,
+                                &pool_for_handler,
+                                &exchange_for_handler,
+                                &symbol_map_for_handler,
+                            )
+                            .await
+                            {
+                                error!("Error handle position event: {}", e);
+                            }
                         } else {
                             info!("Unknown topic: {}", data.topic);
                             // sent error to pg
