@@ -1,5 +1,5 @@
 use crate::api::models::{ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol};
-use log::{error, info, trace};
+use log::error;
 use serde::Serialize;
 use sqlx::PgPool;
 
@@ -135,7 +135,7 @@ pub async fn fetch_all_active_orders_by_symbol(
     symbol: &str,
 ) -> Vec<ActiveOrder> {
     match sqlx::query_as::<_, ActiveOrder>(
-        "SELECT exchange, order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2",
+        "SELECT order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2",
     )
     .bind(exchange)
     .bind(symbol)
