@@ -247,7 +247,6 @@ pub async fn upsert_position_asset(
             asset_total = EXCLUDED.asset_total,
             asset_available = EXCLUDED.asset_available,
             asset_hold = EXCLUDED.asset_hold,
-            asset_hold = EXCLUDED.asset_hold,
             updated_at = NOW()
         "#,
     )
