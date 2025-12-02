@@ -1,6 +1,7 @@
 use crate::api::db::{
     delete_db_orderactive, fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_db_balance,
     insert_db_error, insert_db_event, insert_db_orderactive, insert_db_orderevent,
+    upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use dotenv::dotenv;
@@ -437,8 +438,21 @@ async fn handle_position_event(
     symbol_map: &HashMap<String, Symbol>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match serde_json::from_value::<PositionData>(data) {
-        Ok(order) => {
-            info!("{:?}", order);
+        Ok(position) => {
+            info!("{:?}", position);
+            if let Err(e) = upsert_position_ratio(
+                &pool,
+                &exchange,
+                position.debt_ratio,
+                position.total_asset,
+                &position.margin_coefficient_total_asset,
+                &position.total_debt,
+            )
+            .await
+            {
+                error!("Failed to upsert margin account state: {}", e);
+                insert_db_error(pool, exchange, &e.to_string()).await;
+            }
         }
         Err(e) => {
             error!("Failed to parse message {}", e);

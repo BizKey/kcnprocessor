@@ -169,3 +169,36 @@ pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
         }
     }
 }
+
+pub async fn upsert_position_ratio(
+    pool: &PgPool,
+    exchange: &str,
+    debt_ratio: f64,
+    total_asset: f64,
+    margin_coefficient_total_asset: &str,
+    total_debt: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO positionratio 
+        (exchange, debt_ratio, total_asset, margin_coefficient_total_asset, total_debt, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (exchange) 
+        DO UPDATE SET
+            debt_ratio = EXCLUDED.debt_ratio,
+            total_asset = EXCLUDED.total_asset,
+            margin_coefficient_total_asset = EXCLUDED.margin_coefficient_total_asset,
+            total_debt = EXCLUDED.total_debt,
+            updated_at = NOW()
+        "#,
+    )
+    .bind(exchange)
+    .bind(debt_ratio)
+    .bind(total_asset)
+    .bind(margin_coefficient_total_asset)
+    .bind(total_debt)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
