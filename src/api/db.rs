@@ -90,8 +90,8 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
             .bind(&order.old_size)
             .bind(&order.remain_size)
             .bind(&order.remain_funds)
-            .bind(&order.order_time)
-            .bind(&order.ts)
+            .bind(order.order_time)
+            .bind(order.ts)
             .execute(pool)
             .await
     {

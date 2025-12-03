@@ -254,15 +254,16 @@ pub async fn create_repay_order(
     currency: &str,
     size: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if let Ok(size_val) = size.parse::<f64>() {
-        if size_val <= 0.0 {
-            info!(
-                "Skip repay for {} with zero/negative size: {}",
-                currency, size
-            );
-            return Ok(());
-        }
+    if let Ok(size_val) = size.parse::<f64>()
+        && size_val <= 0.0
+    {
+        info!(
+            "Skip repay for {} with zero/negative size: {}",
+            currency, size
+        );
+        return Ok(());
     }
+
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.margin_repay(currency, size).await?;
 
