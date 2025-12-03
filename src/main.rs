@@ -553,11 +553,26 @@ async fn outgoing_message_handler(
         Message,
     >,
 ) {
-    while let Some(message) = rx_out.recv().await {
-        info!("Sending outgoing message: {}", message);
-        if let Err(e) = ws_write.send(Message::text(message)).await {
-            error!("Failed to send outgoing message: {}", e);
-            break;
+    let mut ping_interval = interval(Duration::from_secs(5));
+
+    loop {
+        tokio::select! {
+            // Send orders from channel
+            Some(message) = rx_out.recv() => {
+                info!("Sending outgoing message: {}", message);
+                if let Err(e) = ws_write.send(Message::text(message)).await {
+                    error!("Failed to send outgoing message: {}", e);
+                    break;
+                }
+            },
+
+            // Send periodic ping frame
+            _ = ping_interval.tick() => {
+                if let Err(e) = ws_write.send(Message::Ping(vec![].into())).await {
+                    error!("Failed to send ping: {}", e);
+                    break;
+                }
+            }
         }
     }
     info!("Outgoing message handler finished");
@@ -803,6 +818,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
                 _ = event_ping_interval.tick() => {
                     let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
+                }
+                trade_msg =  trade_ws_read.next() => {
+                    match trade_msg {
+                        Some(Ok(Message::Text(text))) => {
+                            info!("{:?}", text);
+                        }
+                        Some(Ok(Message::Pong(_))) => {
+                        }
+                        Some(Ok(Message::Close(close))) => {
+                            error!("Connection closed by server: {:?}", close);
+                            // sent error to pg
+                            should_reconnect = true;
+                            break;
+                        }
+                        Some(Err(e)) => {
+                            error!("WebSocket read error: {}", e);
+                            // sent error to pg
+                            should_reconnect = true;
+                            break;
+                        }
+                        Some(Ok(_)) => {}
+                        None => {
+                            info!("WebSocket stream ended");
+                            // sent error to pg
+                            should_reconnect = true;
+                            break;
+                        }
+                    }
                 }
 
             }
