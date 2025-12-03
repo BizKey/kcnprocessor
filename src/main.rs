@@ -13,6 +13,7 @@ use std::env;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
+use uuid::Uuid;
 mod api {
     pub mod db;
     pub mod models;
@@ -63,6 +64,7 @@ async fn make_order(
     price: String,
     size: String,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client_oid = Uuid::new_v4().to_string();
     let msg = serde_json::json!({
         "id": format!("create-order-{}-{}", side, symbol),
         "op": "margin.order",
@@ -75,6 +77,7 @@ async fn make_order(
             "type": "limit",
             "autoBorrow": true,
             "autoRepay": true,
+              "clientOid": client_oid,
         }
     });
     if let Err(e) = tx_out.send(msg.to_string()).await {
