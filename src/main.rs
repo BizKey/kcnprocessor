@@ -397,25 +397,27 @@ async fn handle_trade_order_event(
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
                         }
-                    } else if let Some(price_str) = calculate_price(
-                        &order.match_price,
-                        &symbol_info.price_increment,
-                        |a, _b| a * 1.01,
-                    ) {
-                        create_order_safely(
-                            tx_out,
-                            pool,
-                            exchange,
-                            "sell",
-                            &order.symbol,
-                            &price_str,
-                            &symbol_info.base_increment,
-                            &symbol_info.base_min_size,
-                        )
-                        .await?;
                     } else {
-                        error!("Failed to calculate price for order {}", order.order_id);
-                        insert_db_error(pool, exchange, "Price calculation failed").await;
+                        if let Some(price_str) = calculate_price(
+                            &order.match_price,
+                            &symbol_info.price_increment,
+                            |a, _b| a * 1.01,
+                        ) {
+                            create_order_safely(
+                                tx_out,
+                                pool,
+                                exchange,
+                                "sell",
+                                &order.symbol,
+                                &price_str,
+                                &symbol_info.base_increment,
+                                &symbol_info.base_min_size,
+                            )
+                            .await?;
+                        } else {
+                            error!("Failed to calculate price for order {}", order.order_id);
+                            insert_db_error(pool, exchange, "Price calculation failed").await;
+                        }
                     }
                 }
             }
@@ -581,7 +583,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let tx_out_clone = tx_out.clone();
 
         // Work with oncome events
-        let handler_event = tokio::spawn(async move {
+        let _ = tokio::spawn(async move {
             while let Some(msg) = rx_in.recv().await {
                 match serde_json::from_str::<KuCoinMessage>(&msg) {
                     Ok(kc_msg) => match kc_msg {
@@ -740,7 +742,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         }
 
-        let outgoing_handler = tokio::spawn(outgoing_message_handler(rx_out, trade_ws_write));
+        let _ = tokio::spawn(outgoing_message_handler(rx_out, trade_ws_write));
         info!("Subscribed and listening for messages...");
 
         let event_ping_interval = interval(PING_INTERVAL);
@@ -795,8 +797,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         drop(tx_in);
         drop(tx_out);
-        handler_event.abort();
-        outgoing_handler.abort();
 
         if !should_reconnect {
             break;
