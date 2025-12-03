@@ -225,9 +225,9 @@ async fn handle_trade_order_event(
                 //         exist 	- add buy order - 1%
                 // filled buy (cancel all sell orders)
                 //     check if order on buy exist
-                //         unexist - add sell order - 1 tick
-                //                 - add sell order - 1%
-                //         exist	- add sell order - 1%
+                //         unexist - add sell order + 1 tick
+                //                 - add sell order + 1%
+                //         exist	- add sell order + 1%
 
                 let mut active_orders =
                     fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol).await;
@@ -274,7 +274,7 @@ async fn handle_trade_order_event(
                         if let Some(price_str) = calculate_price(
                             &order.match_price,
                             &symbol_info.price_increment,
-                            |a, _b| a * 100.0 / 101.0,
+                            |a, b| a - b, // match_price - 1 tick
                         ) {
                             create_order_safely(
                                 tx_out,
@@ -291,12 +291,11 @@ async fn handle_trade_order_event(
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
                         }
-
                         // create new buy order
                         if let Some(price_str) = calculate_price(
                             &order.match_price,
                             &symbol_info.price_increment,
-                            |a, b| a - b,
+                            |a, _b| a * 0.99, // match_price - 1%
                         ) {
                             create_order_safely(
                                 tx_out,
@@ -318,7 +317,7 @@ async fn handle_trade_order_event(
                         if let Some(price_str) = calculate_price(
                             &order.match_price,
                             &symbol_info.price_increment,
-                            |a, _b| a * 100.0 / 101.0,
+                            |a, _b| a * 0.99, // match_price - 1%
                         ) {
                             create_order_safely(
                                 tx_out,
@@ -360,7 +359,7 @@ async fn handle_trade_order_event(
                         if let Some(price_str) = calculate_price(
                             &order.match_price,
                             &symbol_info.price_increment,
-                            |a, b| a + b,
+                            |a, b| a + b, // match_price + 1 tick
                         ) {
                             create_order_safely(
                                 tx_out,
@@ -380,7 +379,7 @@ async fn handle_trade_order_event(
                         if let Some(price_str) = calculate_price(
                             &order.match_price,
                             &symbol_info.price_increment,
-                            |a, _b| a * 1.01,
+                            |a, _b| a * 1.01, // match_price + 1%
                         ) {
                             create_order_safely(
                                 tx_out,
@@ -401,7 +400,7 @@ async fn handle_trade_order_event(
                         if let Some(price_str) = calculate_price(
                             &order.match_price,
                             &symbol_info.price_increment,
-                            |a, _b| a * 1.01,
+                            |a, _b| a * 1.01, // match_price + 1%
                         ) {
                             create_order_safely(
                                 tx_out,
