@@ -6,7 +6,7 @@ use crate::api::db::{
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
-use log::{error, info, trace};
+use log::{error, info};
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::env;
@@ -256,7 +256,7 @@ async fn handle_trade_order_event(
                     for order in active_orders.drain(..) {
                         if order.side == "buy" {
                             let _ = cancel_order(
-                                &tx_out,
+                                tx_out,
                                 pool,
                                 exchange,
                                 &order.symbol,
@@ -277,7 +277,7 @@ async fn handle_trade_order_event(
                             |a, _b| a * 100.0 / 101.0,
                         ) {
                             create_order_safely(
-                                &tx_out,
+                                tx_out,
                                 pool,
                                 exchange,
                                 "buy",
@@ -299,7 +299,7 @@ async fn handle_trade_order_event(
                             |a, b| a - b,
                         ) {
                             create_order_safely(
-                                &tx_out,
+                                tx_out,
                                 pool,
                                 exchange,
                                 "buy",
@@ -321,7 +321,7 @@ async fn handle_trade_order_event(
                             |a, _b| a * 100.0 / 101.0,
                         ) {
                             create_order_safely(
-                                &tx_out,
+                                tx_out,
                                 pool,
                                 exchange,
                                 "buy",
@@ -343,7 +343,7 @@ async fn handle_trade_order_event(
                     for order in active_orders.drain(..) {
                         if order.side == "sell" {
                             let _ = cancel_order(
-                                &tx_out,
+                                tx_out,
                                 pool,
                                 exchange,
                                 &order.symbol,
@@ -363,7 +363,7 @@ async fn handle_trade_order_event(
                             |a, b| a + b,
                         ) {
                             create_order_safely(
-                                &tx_out,
+                                tx_out,
                                 pool,
                                 exchange,
                                 "sell",
@@ -383,7 +383,7 @@ async fn handle_trade_order_event(
                             |a, _b| a * 1.01,
                         ) {
                             create_order_safely(
-                                &tx_out,
+                                tx_out,
                                 pool,
                                 exchange,
                                 "sell",
@@ -397,27 +397,25 @@ async fn handle_trade_order_event(
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
                         }
+                    } else if let Some(price_str) = calculate_price(
+                        &order.match_price,
+                        &symbol_info.price_increment,
+                        |a, _b| a * 1.01,
+                    ) {
+                        create_order_safely(
+                            tx_out,
+                            pool,
+                            exchange,
+                            "sell",
+                            &order.symbol,
+                            &price_str,
+                            &symbol_info.base_increment,
+                            &symbol_info.base_min_size,
+                        )
+                        .await?;
                     } else {
-                        if let Some(price_str) = calculate_price(
-                            &order.match_price,
-                            &symbol_info.price_increment,
-                            |a, _b| a * 1.01,
-                        ) {
-                            create_order_safely(
-                                &tx_out,
-                                pool,
-                                exchange,
-                                "sell",
-                                &order.symbol,
-                                &price_str,
-                                &symbol_info.base_increment,
-                                &symbol_info.base_min_size,
-                            )
-                            .await?;
-                        } else {
-                            error!("Failed to calculate price for order {}", order.order_id);
-                            insert_db_error(pool, exchange, "Price calculation failed").await;
-                        }
+                        error!("Failed to calculate price for order {}", order.order_id);
+                        insert_db_error(pool, exchange, "Price calculation failed").await;
                     }
                 }
             }
@@ -440,8 +438,8 @@ async fn handle_position_event(
         Ok(position) => {
             info!("{:?}", position);
             if let Err(e) = upsert_position_ratio(
-                &pool,
-                &exchange,
+                pool,
+                exchange,
                 position.debt_ratio,
                 position.total_asset,
                 &position.margin_coefficient_total_asset,
@@ -453,16 +451,16 @@ async fn handle_position_event(
                 insert_db_error(pool, exchange, &e.to_string()).await;
             }
             for (symbol, amount) in &position.debt_list {
-                if let Err(e) = upsert_position_debt(&pool, &exchange, &symbol, &amount).await {
+                if let Err(e) = upsert_position_debt(pool, exchange, symbol, amount).await {
                     error!("Failed to insert debt margin account state: {}", e);
                     insert_db_error(pool, exchange, &e.to_string()).await;
                 }
             }
             for (symbol, symbol_info) in &position.asset_list {
                 if let Err(e) = upsert_position_asset(
-                    &pool,
-                    &exchange,
-                    &symbol,
+                    pool,
+                    exchange,
+                    symbol,
                     &symbol_info.total,
                     &symbol_info.available,
                     &symbol_info.hold,
@@ -509,6 +507,14 @@ async fn handle_position_event(
                                     insert_db_error(pool, exchange, &e.to_string()).await;
                                 }
                             }
+                        } else {
+                            error!("Failed to parse available balance for {}", asset);
+                            insert_db_error(
+                                pool,
+                                exchange,
+                                &format!("Parse error: available={}", asset_info.available),
+                            )
+                            .await;
                         }
                     }
                 }
@@ -572,6 +578,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // pg to websocket
         let (tx_out, rx_out) = mpsc::channel::<String>(100);
 
+        let tx_out_clone = tx_out.clone();
+
         // Work with oncome events
         let handler_event = tokio::spawn(async move {
             while let Some(msg) = rx_in.recv().await {
@@ -608,7 +616,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             } else if data.topic == "/spotMarket/tradeOrdersV2" {
                                 if let Err(e) = handle_trade_order_event(
                                     data.data,
-                                    &tx_out,
+                                    &tx_out_clone,
                                     &pool_for_handler,
                                     &exchange_for_handler,
                                     &symbol_map_for_handler,
@@ -687,13 +695,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Some(Ok(Message::Text(text))) => {
                 info!("{:?}", text);
                 let session_msg_text = text.to_string();
-
-                match api::requests::sign_kucoin(&session_msg_text) {
-                    Ok(signature) => {
-                        info!("Sending session signature");
-                        let _ = trade_ws_write.send(Message::text(signature)).await;
-                    }
-                    Err(_) => {}
+                if let Ok(signature) = api::requests::sign_kucoin(&session_msg_text) {
+                    info!("Sending session signature");
+                    let _ = trade_ws_write.send(Message::text(signature)).await;
                 }
             }
             None => {
@@ -751,17 +755,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     match event_msg {
                         Some(Ok(Message::Text(text))) => {
                             if tx_in.send(text.to_string()).await.is_err() {
-                                drop(tx_in);
-                                let _ = handler_event.await;
-                                return Ok(());
+                                error!("Failed to send to handler, reconnecting...");
+                                should_reconnect = true;
+                                break;
                             }
                         }
                         Some(Ok(Message::Ping(data))) => {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
-                            trace!("Ping recv");
                         }
                         Some(Ok(Message::Pong(_))) => {
-                            trace!("Pong recv");
                         }
                         Some(Ok(Message::Close(close))) => {
                             error!("Connection closed by server: {:?}", close);
@@ -785,7 +787,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     }
                 }
                 _ = event_ping_interval.tick() => {
-                    trace!("Ping sent");
                     let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
                 }
 
@@ -793,6 +794,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
 
         drop(tx_in);
+        drop(tx_out);
         handler_event.abort();
         outgoing_handler.abort();
 
