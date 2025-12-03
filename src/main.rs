@@ -525,8 +525,11 @@ async fn handle_position_event(
 
 async fn outgoing_message_handler(
     mut rx_out: mpsc::Receiver<String>,
-    mut ws_write: tokio_tungstenite::WebSocketStream<
-        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+    mut ws_write: futures_util::stream::SplitSink<
+        tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        Message,
     >,
 ) {
     while let Some(message) = rx_out.recv().await {
@@ -553,106 +556,112 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .await
         .expect("Failed to create pool");
 
-    // websocket to pg
-    let (tx_in, mut rx_in) = mpsc::channel::<String>(1000);
-    // pg to websocket
-    let (tx_out, mut rx_out) = mpsc::channel::<String>(100);
-
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info
         .into_iter()
         .map(|s| (s.symbol.clone(), s))
         .collect();
 
-    let exchange_for_handler = exchange.clone();
-    let pool_for_handler = pool.clone();
-    let symbol_map_for_handler = symbol_map;
+    loop {
+        let exchange_for_handler = exchange.clone();
+        let pool_for_handler = pool.clone();
+        let symbol_map_for_handler = symbol_map.clone();
 
-    let handler_event = tokio::spawn(async move {
-        while let Some(msg) = rx_in.recv().await {
-            match serde_json::from_str::<KuCoinMessage>(&msg) {
-                Ok(kc_msg) => match kc_msg {
-                    KuCoinMessage::Welcome(data) => {
-                        info!("{:?}", data);
-                        insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
-                    }
-                    KuCoinMessage::Message(data) => {
-                        if data.topic == "/account/balance" {
-                            match serde_json::from_value::<BalanceData>(data.data) {
-                                Ok(balance) => {
-                                    info!("{:?}", balance);
-                                    // sent balance to pg
-                                    insert_db_balance(
-                                        &pool_for_handler,
-                                        &exchange_for_handler,
-                                        balance,
-                                    )
-                                    .await;
-                                }
-                                Err(e) => {
-                                    error!("Failed to parse message {}", e);
-                                    // sent balance error to pg
-                                    insert_db_error(
-                                        &pool_for_handler,
-                                        &exchange_for_handler,
-                                        &e.to_string(),
-                                    )
-                                    .await;
-                                }
-                            }
-                        } else if data.topic == "/spotMarket/tradeOrdersV2" {
-                            if let Err(e) = handle_trade_order_event(
-                                data.data,
-                                &tx_out,
-                                &pool_for_handler,
-                                &exchange_for_handler,
-                                &symbol_map_for_handler,
-                            )
-                            .await
-                            {
-                                error!("Error handling trade order event: {}", e);
-                            }
-                        } else if data.topic == "/margin/position" {
-                            // save to db position
+        // websocket to pg
+        let (tx_in, mut rx_in) = mpsc::channel::<String>(1000);
+        // pg to websocket
+        let (tx_out, rx_out) = mpsc::channel::<String>(100);
 
-                            if let Err(e) = handle_position_event(
-                                data.data,
-                                &pool_for_handler,
-                                &exchange_for_handler,
-                            )
-                            .await
-                            {
-                                error!("Error handle position event: {}", e);
+        // Work with oncome events
+        let handler_event = tokio::spawn(async move {
+            while let Some(msg) = rx_in.recv().await {
+                match serde_json::from_str::<KuCoinMessage>(&msg) {
+                    Ok(kc_msg) => match kc_msg {
+                        KuCoinMessage::Welcome(data) => {
+                            info!("{:?}", data);
+                            insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
+                        }
+                        KuCoinMessage::Message(data) => {
+                            if data.topic == "/account/balance" {
+                                match serde_json::from_value::<BalanceData>(data.data) {
+                                    Ok(balance) => {
+                                        info!("{:?}", balance);
+                                        // sent balance to pg
+                                        insert_db_balance(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            balance,
+                                        )
+                                        .await;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to parse message {}", e);
+                                        // sent balance error to pg
+                                        insert_db_error(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &e.to_string(),
+                                        )
+                                        .await;
+                                    }
+                                }
+                            } else if data.topic == "/spotMarket/tradeOrdersV2" {
+                                if let Err(e) = handle_trade_order_event(
+                                    data.data,
+                                    &tx_out,
+                                    &pool_for_handler,
+                                    &exchange_for_handler,
+                                    &symbol_map_for_handler,
+                                )
+                                .await
+                                {
+                                    error!("Error handling trade order event: {}", e);
+                                }
+                            } else if data.topic == "/margin/position" {
+                                // save to db position
+
+                                if let Err(e) = handle_position_event(
+                                    data.data,
+                                    &pool_for_handler,
+                                    &exchange_for_handler,
+                                )
+                                .await
+                                {
+                                    error!("Error handle position event: {}", e);
+                                }
+                            } else {
+                                info!("Unknown topic: {}", data.topic);
+                                // sent error to pg
+                                insert_db_error(
+                                    &pool_for_handler,
+                                    &exchange_for_handler,
+                                    &data.topic,
+                                )
+                                .await;
                             }
-                        } else {
-                            info!("Unknown topic: {}", data.topic);
+                        }
+                        KuCoinMessage::Ack(data) => {
+                            info!("{:?}", data);
+                            // sent ack to pg
+                            insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
+                        }
+                        KuCoinMessage::Error(data) => {
+                            info!("{:?}", data);
                             // sent error to pg
-                            insert_db_error(&pool_for_handler, &exchange_for_handler, &data.topic)
+                            insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data)
                                 .await;
                         }
-                    }
-                    KuCoinMessage::Ack(data) => {
-                        info!("{:?}", data);
-                        // sent ack to pg
-                        insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
-                    }
-                    KuCoinMessage::Error(data) => {
-                        info!("{:?}", data);
+                    },
+                    Err(e) => {
+                        error!("Failed to parse message: {} | Raw: {}", e, msg);
                         // sent error to pg
-                        insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data).await;
+                        insert_db_error(&pool_for_handler, &exchange_for_handler, &e.to_string())
+                            .await;
                     }
-                },
-                Err(e) => {
-                    error!("Failed to parse message: {} | Raw: {}", e, msg);
-                    // sent error to pg
-                    insert_db_error(&pool_for_handler, &exchange_for_handler, &e.to_string()).await;
                 }
             }
-        }
-        info!("Message handler finished");
-    });
-
-    loop {
+            info!("Message handler finished");
+        });
         //Add/Cancel orders WS
         let trade_ws_url = match api::requests::get_trading_ws_url() {
             Ok(url) => url,
@@ -718,6 +727,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let (mut event_ws_write, mut event_ws_read) = event_ws_stream.split();
 
+        // subscribtion
         for sub in build_subscription() {
             if let Err(e) = event_ws_write.send(Message::text(sub.to_string())).await {
                 error!("Failed to subscribe: {}", e);
@@ -726,12 +736,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         }
 
+        let outgoing_handler = tokio::spawn(outgoing_message_handler(rx_out, trade_ws_write));
         info!("Subscribed and listening for messages...");
 
         let event_ping_interval = interval(PING_INTERVAL);
-        let trade_ping_interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
-        tokio::pin!(trade_ping_interval);
 
         let mut should_reconnect = false;
 
@@ -779,59 +788,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     trace!("Ping sent");
                     let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
                 }
-                trade_msg =  trade_ws_read.next() => {
-                    match trade_msg {
-                        Some(Ok(Message::Text(text))) => {
-                            info!("{:?}", text);
-                        }
-                        Some(Ok(Message::Ping(data))) => {
-                            let _ = trade_ws_write.send(Message::Pong(data)).await;
-                            trace!("Ping recv");
-                        }
-                        Some(Ok(Message::Pong(_))) => {
-                            trace!("Pong recv");
-                        }
-                        Some(Ok(Message::Close(close))) => {
-                            error!("Connection closed by server: {:?}", close);
-                            // sent error to pg
-                            should_reconnect = true;
-                            break;
-                        }
-                        Some(Err(e)) => {
-                            error!("WebSocket read error: {}", e);
-                            // sent error to pg
-                            should_reconnect = true;
-                            break;
-                        }
-                        Some(Ok(_)) => {}
-                        None => {
-                            info!("WebSocket stream ended");
-                            // sent error to pg
-                            should_reconnect = true;
-                            break;
-                        }
-                    }
-                }
-                _ = trade_ping_interval.tick() => {
-                    trace!("Ping sent");
-                    let _ = trade_ws_write.send(Message::Ping(vec![].into())).await;
-                }
 
             }
         }
-        if should_reconnect {
-            error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
-            // sent error to pg
-            sleep(RECONNECT_DELAY).await;
-        } else {
+
+        drop(tx_in);
+        handler_event.abort();
+        outgoing_handler.abort();
+
+        if !should_reconnect {
             break;
         }
+        error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
+        sleep(RECONNECT_DELAY).await;
     }
-
-    drop(tx_in);
-
-    let _ = handler_event.await;
-    info!("Application shutdown complete");
 
     Ok(())
 }

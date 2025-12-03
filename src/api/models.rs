@@ -156,7 +156,7 @@ pub enum KuCoinMessage {
     Error(ErrorData),
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]
 pub struct Symbol {
     pub exchange: String,
     pub symbol: String,
