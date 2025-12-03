@@ -178,17 +178,31 @@ async fn create_order_safely(
     Ok(())
 }
 
+fn format_price(price: f64, increment: f64) -> String {
+    let decimals = if increment >= 1.0 {
+        0
+    } else {
+        (-increment.log10().floor() as usize).min(10)
+    };
+    format!("{:.decimals$}", price)
+}
+
 fn calculate_price(
     base_price: &Option<String>,
     increment: &str,
     operation: fn(f64, f64) -> f64,
 ) -> Option<String> {
     if let Some(match_price) = base_price {
-        if let (Ok(price_num), Ok(inc_num)) = (match_price.parse::<f64>(), increment.parse::<f64>())
-        {
-            Some(operation(price_num, inc_num).to_string())
-        } else {
-            base_price.clone()
+        match (match_price.parse::<f64>(), increment.parse::<f64>()) {
+            (Ok(price_num), Ok(inc_num)) if inc_num > 0.0 => {
+                let calculated_price = operation(price_num, inc_num);
+
+                // Округляем до шага цены
+                let rounded_price = (calculated_price / inc_num).round() * inc_num;
+
+                Some(format_price(rounded_price, inc_num))
+            }
+            _ => base_price.clone(),
         }
     } else {
         None
