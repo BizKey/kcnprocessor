@@ -1,7 +1,7 @@
-use crate::api::models::ApiV3BulletPrivate;
+use crate::api::models::{ApiV3BulletPrivate, SymbolOpenOrder};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log::info;
+use log::{error, info};
 use reqwest::{Client, Response};
 use urlencoding::encode as url_encode;
 
@@ -125,7 +125,75 @@ impl KuCoinClient {
         mac.update(prehash.as_bytes());
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
-
+    pub async fn get_symbols_with_open_order(
+        &self,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("tradeType", "MARGIN_TRADE");
+        match self
+            .make_request(
+                reqwest::Method::GET,
+                "/api/v3/hf/margin/order/active/symbols",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<SymbolOpenOrder>(&text) {
+                        Ok(res) => Ok(res.data.symbols),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
+    pub async fn cancel_all_orders_by_symbol(
+        &self,
+        symbol: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("tradeType", "MARGIN_TRADE");
+        query_params.insert("symbol", symbol);
+        match self
+            .make_request(
+                reqwest::Method::DELETE,
+                "/api/v3/hf/margin/orders",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => {
+                    info!("Success cancel orders by {}", symbol);
+                    Ok(())
+                }
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
     pub async fn margin_repay(
         &self,
         currency: &str,
@@ -150,7 +218,6 @@ impl KuCoinClient {
         {
             Ok(response) => match response.status().as_str() {
                 "200" => {
-                    // Успешное погашение
                     info!("Successfully repaid {} {} debt", size, currency);
                     Ok(())
                 }
@@ -249,6 +316,23 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
         .first()
         .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
         .ok_or_else(|| "No instance servers in bullet response".into())
+}
+pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let symbols = client.get_symbols_with_open_order().await?;
+
+    for symbol in symbols.iter() {
+        match client.cancel_all_orders_by_symbol(symbol).await {
+            Ok(()) => {
+                info!("Successfully cancelled all orders for symbol: {}", symbol);
+            }
+            Err(e) => {
+                let err_msg = format!("Failed to cancel orders for symbol '{}': {}", symbol, e);
+                error!("{}", err_msg);
+            }
+        }
+    }
+    Ok(())
 }
 pub async fn create_repay_order(
     currency: &str,

@@ -100,7 +100,7 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn insert_db_orderactive(pool: &PgPool, exchange: &str, order: &OrderData) {
+pub async fn insert_current_orderactive_to_db(pool: &PgPool, exchange: &str, order: &OrderData) {
     if let Err(e) = sqlx::query(
         "INSERT INTO orderactive (exchange, order_id, symbol, side) VALUES ($1, $2, $3, $4)",
     )
@@ -116,8 +116,19 @@ pub async fn insert_db_orderactive(pool: &PgPool, exchange: &str, order: &OrderD
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn delete_all_orderactive_from_db(pool: &sqlx::PgPool, exchange: &str) {
+    if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE exchange = $1")
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed delete all active orders from DB: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
 
-pub async fn delete_db_orderactive(pool: &PgPool, exchange: &str, order_id: &str) {
+pub async fn delete_current_orderactive_from_db(pool: &PgPool, exchange: &str, order_id: &str) {
     if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE exchange = $1 AND order_id = $2")
         .bind(exchange)
         .bind(order_id)

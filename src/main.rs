@@ -1,6 +1,7 @@
 use crate::api::db::{
-    delete_db_orderactive, fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_db_balance,
-    insert_db_error, insert_db_event, insert_db_orderactive, insert_db_orderevent,
+    delete_all_orderactive_from_db, delete_current_orderactive_from_db,
+    fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_current_orderactive_to_db,
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_orderevent,
     upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
@@ -227,9 +228,12 @@ async fn handle_trade_order_event(
             if order.type_ == "open" && order.status == "open" {
                 // order in order book
                 // add order to active orders
-                insert_db_orderactive(pool, exchange, &order).await;
+                insert_current_orderactive_to_db(pool, exchange, &order).await;
+            } else if order.type_ == "canceled" {
+                // cancel order
+                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
             } else if order.type_ == "match"
-                && order.status == "match"
+                && order.status == "open"
                 && order.remain_size == Some("0".to_string())
             {
                 // get last event on match size of position
@@ -249,7 +253,7 @@ async fn handle_trade_order_event(
                 let mut active_orders =
                     fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol).await;
 
-                delete_db_orderactive(pool, exchange, &order.order_id).await;
+                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
                 active_orders.retain(|o| o.order_id != order.order_id);
 
                 let symbol_info = match symbol_map.get(&order.symbol) {
@@ -308,49 +312,27 @@ async fn handle_trade_order_event(
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
                         }
-                        // create new buy order
-                        if let Some(price_str) = calculate_price(
-                            &order.match_price,
-                            &symbol_info.price_increment,
-                            |a, _b| a * 0.99, // match_price - 1%
-                        ) {
-                            create_order_safely(
-                                tx_out,
-                                pool,
-                                exchange,
-                                "buy",
-                                &order.symbol,
-                                &price_str,
-                                &symbol_info.base_increment,
-                                &symbol_info.base_min_size,
-                            )
-                            .await?;
-                        } else {
-                            error!("Failed to calculate price for order {}", order.order_id);
-                            insert_db_error(pool, exchange, "Price calculation failed").await;
-                        }
+                    }
+                    // create new buy order
+                    if let Some(price_str) = calculate_price(
+                        &order.match_price,
+                        &symbol_info.price_increment,
+                        |a, _b| a * 0.99, // match_price - 1%
+                    ) {
+                        create_order_safely(
+                            tx_out,
+                            pool,
+                            exchange,
+                            "buy",
+                            &order.symbol,
+                            &price_str,
+                            &symbol_info.base_increment,
+                            &symbol_info.base_min_size,
+                        )
+                        .await?;
                     } else {
-                        // create new buy order
-                        if let Some(price_str) = calculate_price(
-                            &order.match_price,
-                            &symbol_info.price_increment,
-                            |a, _b| a * 0.99, // match_price - 1%
-                        ) {
-                            create_order_safely(
-                                tx_out,
-                                pool,
-                                exchange,
-                                "buy",
-                                &order.symbol,
-                                &price_str,
-                                &symbol_info.base_increment,
-                                &symbol_info.base_min_size,
-                            )
-                            .await?;
-                        } else {
-                            error!("Failed to calculate price for order {}", order.order_id);
-                            insert_db_error(pool, exchange, "Price calculation failed").await;
-                        }
+                        error!("Failed to calculate price for order {}", order.order_id);
+                        insert_db_error(pool, exchange, "Price calculation failed").await;
                     }
                 } else if order.side == "buy" {
                     // filled buy (cancel all sell orders)
@@ -393,47 +375,26 @@ async fn handle_trade_order_event(
                             error!("Failed to calculate price for order {}", order.order_id);
                             insert_db_error(pool, exchange, "Price calculation failed").await;
                         }
-                        if let Some(price_str) = calculate_price(
-                            &order.match_price,
-                            &symbol_info.price_increment,
-                            |a, _b| a * 1.01, // match_price + 1%
-                        ) {
-                            create_order_safely(
-                                tx_out,
-                                pool,
-                                exchange,
-                                "sell",
-                                &order.symbol,
-                                &price_str,
-                                &symbol_info.base_increment,
-                                &symbol_info.base_min_size,
-                            )
-                            .await?;
-                        } else {
-                            error!("Failed to calculate price for order {}", order.order_id);
-                            insert_db_error(pool, exchange, "Price calculation failed").await;
-                        }
+                    }
+                    if let Some(price_str) = calculate_price(
+                        &order.match_price,
+                        &symbol_info.price_increment,
+                        |a, _b| a * 1.01, // match_price + 1%
+                    ) {
+                        create_order_safely(
+                            tx_out,
+                            pool,
+                            exchange,
+                            "sell",
+                            &order.symbol,
+                            &price_str,
+                            &symbol_info.base_increment,
+                            &symbol_info.base_min_size,
+                        )
+                        .await?;
                     } else {
-                        if let Some(price_str) = calculate_price(
-                            &order.match_price,
-                            &symbol_info.price_increment,
-                            |a, _b| a * 1.01, // match_price + 1%
-                        ) {
-                            create_order_safely(
-                                tx_out,
-                                pool,
-                                exchange,
-                                "sell",
-                                &order.symbol,
-                                &price_str,
-                                &symbol_info.base_increment,
-                                &symbol_info.base_min_size,
-                            )
-                            .await?;
-                        } else {
-                            error!("Failed to calculate price for order {}", order.order_id);
-                            insert_db_error(pool, exchange, "Price calculation failed").await;
-                        }
+                        error!("Failed to calculate price for order {}", order.order_id);
+                        insert_db_error(pool, exchange, "Price calculation failed").await;
                     }
                 }
             }
@@ -594,6 +555,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .connect(&database_url)
         .await
         .expect("Failed to create pool");
+
+    delete_all_orderactive_from_db(&pool, &exchange).await;
+
+    match api::requests::cancel_all_open_orders().await {
+        Ok(()) => {
+            info!("Successfully cancelled all open orders");
+        }
+        Err(e) => {
+            let msg = format!("Failed to cancel all open orders {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
 
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info

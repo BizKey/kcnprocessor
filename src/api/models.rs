@@ -116,9 +116,9 @@ pub struct OrderData {
     #[serde(rename = "oldSize")]
     pub old_size: Option<String>,
     #[serde(rename = "remainSize")]
-    pub remain_size: Option<String>,
+    pub remain_size: Option<String>, // only on limit order
     #[serde(rename = "remainFunds")]
-    pub remain_funds: Option<String>,
+    pub remain_funds: Option<String>, // only on market order
     #[serde(rename = "orderTime")]
     pub order_time: i64,
     pub ts: i64,
@@ -163,4 +163,14 @@ pub struct Symbol {
     pub base_increment: String,
     pub price_increment: String,
     pub base_min_size: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SymbolOpenOrderData {
+    pub symbols: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SymbolOpenOrder {
+    pub data: SymbolOpenOrderData,
 }
