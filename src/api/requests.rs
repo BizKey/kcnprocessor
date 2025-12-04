@@ -168,6 +168,42 @@ impl KuCoinClient {
             Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
+    pub async fn cancel_all_order_by_symbol(
+        &self,
+        symbol: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("tradeType", "MARGIN_TRADE");
+        query_params.insert("symbol", symbol);
+        match self
+            .make_request(
+                reqwest::Method::DELETE,
+                "/api/v3/hf/margin/orders",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => {
+                    info!("Success cancel orders by {}", symbol);
+                    Ok(())
+                }
+                status => match response.text().await {
+                    Ok(text) => {
+                        return Err(format!(
+                            "Wrong HTTP status: '{}' with body: '{}'",
+                            status, text
+                        )
+                        .into());
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
     pub async fn margin_repay(
         &self,
         currency: &str,
