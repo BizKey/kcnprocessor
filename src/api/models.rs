@@ -164,3 +164,14 @@ pub struct Symbol {
     pub price_increment: String,
     pub base_min_size: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct SymbolOpenOrderData {
+    pub symbols: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SymbolOpenOrder {
+    pub code: String,
+    pub data: SymbolOpenOrderData,
+}

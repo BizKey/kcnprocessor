@@ -1,4 +1,4 @@
-use crate::api::models::ApiV3BulletPrivate;
+use crate::api::models::{ApiV3BulletPrivate, SymbolOpenOrder};
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use log::info;
@@ -125,7 +125,49 @@ impl KuCoinClient {
         mac.update(prehash.as_bytes());
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
-
+    pub async fn get_symbols_with_open_order(
+        &self,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("tradeType", "MARGIN_TRADE");
+        match self
+            .make_request(
+                reqwest::Method::GET,
+                "/api/v3/hf/margin/order/active/symbols",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<SymbolOpenOrder>(&text) {
+                        Ok(res) => Ok(res.data.symbols),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => {
+                        return Err(format!("Error get text response from HTTP:'{}'", e).into());
+                    }
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        return Err(format!(
+                            "Wrong HTTP status: '{}' with body: '{}'",
+                            status, text
+                        )
+                        .into());
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
     pub async fn margin_repay(
         &self,
         currency: &str,
@@ -150,7 +192,6 @@ impl KuCoinClient {
         {
             Ok(response) => match response.status().as_str() {
                 "200" => {
-                    // Успешное погашение
                     info!("Successfully repaid {} {} debt", size, currency);
                     Ok(())
                 }
