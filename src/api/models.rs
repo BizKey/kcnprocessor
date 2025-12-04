@@ -116,9 +116,9 @@ pub struct OrderData {
     #[serde(rename = "oldSize")]
     pub old_size: Option<String>,
     #[serde(rename = "remainSize")]
-    pub remain_size: Option<String>,
+    pub remain_size: Option<String>, // only on limit order
     #[serde(rename = "remainFunds")]
-    pub remain_funds: Option<String>,
+    pub remain_funds: Option<String>, // only on market order
     #[serde(rename = "orderTime")]
     pub order_time: i64,
     pub ts: i64,
