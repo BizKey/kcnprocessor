@@ -1,7 +1,7 @@
 use crate::api::models::{ApiV3BulletPrivate, SymbolOpenOrder};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log::info;
+use log::{error, info};
 use reqwest::{Client, Response};
 use urlencoding::encode as url_encode;
 
@@ -150,22 +150,16 @@ impl KuCoinClient {
                         )
                         .into()),
                     },
-                    Err(e) => {
-                        return Err(format!("Error get text response from HTTP:'{}'", e).into());
-                    }
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
                     Ok(text) => {
-                        return Err(format!(
-                            "Wrong HTTP status: '{}' with body: '{}'",
-                            status, text
-                        )
-                        .into());
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
                     }
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
-            Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
     pub async fn cancel_all_orders_by_symbol(
@@ -192,16 +186,12 @@ impl KuCoinClient {
                 }
                 status => match response.text().await {
                     Ok(text) => {
-                        return Err(format!(
-                            "Wrong HTTP status: '{}' with body: '{}'",
-                            status, text
-                        )
-                        .into());
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
                     }
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
-            Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
     pub async fn margin_repay(
@@ -329,10 +319,18 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
 }
 pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    let cancel_for_cancel = client.get_symbols_with_open_order().await?;
+    let symbols = client.get_symbols_with_open_order().await?;
 
-    for symbol in cancel_for_cancel.iter() {
-        let _ = client.cancel_all_orders_by_symbol(&symbol);
+    for symbol in symbols.iter() {
+        match client.cancel_all_orders_by_symbol(symbol).await {
+            Ok(()) => {
+                info!("Successfully cancelled all orders for symbol: {}", symbol);
+            }
+            Err(e) => {
+                let err_msg = format!("Failed to cancel orders for symbol '{}': {}", symbol, e);
+                error!("{}", err_msg);
+            }
+        }
     }
     Ok(())
 }

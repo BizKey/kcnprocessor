@@ -557,7 +557,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .expect("Failed to create pool");
 
     delete_all_orderactive_from_db(&pool, &exchange).await;
-    let _ = api::requests::cancel_all_open_orders().await;
+
+    match api::requests::cancel_all_open_orders().await {
+        Ok(()) => {
+            info!("Successfully cancelled all open orders");
+        }
+        Err(e) => {
+            let msg = format!("Failed to cancel all open orders {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
 
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info

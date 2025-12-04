@@ -172,6 +172,5 @@ pub struct SymbolOpenOrderData {
 
 #[derive(Debug, Deserialize)]
 pub struct SymbolOpenOrder {
-    pub code: String,
     pub data: SymbolOpenOrderData,
 }
