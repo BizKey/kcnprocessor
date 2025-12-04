@@ -1,6 +1,7 @@
 use crate::api::db::{
-    delete_db_orderactive, fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_db_balance,
-    insert_db_error, insert_db_event, insert_db_orderactive, insert_db_orderevent,
+    delete_all_orderactive_from_db, delete_current_orderactive_from_db,
+    fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_current_orderactive_to_db,
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_orderevent,
     upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
@@ -227,10 +228,10 @@ async fn handle_trade_order_event(
             if order.type_ == "open" && order.status == "open" {
                 // order in order book
                 // add order to active orders
-                insert_db_orderactive(pool, exchange, &order).await;
+                insert_current_orderactive_to_db(pool, exchange, &order).await;
             } else if order.type_ == "canceled" {
                 // cancel order
-                delete_db_orderactive(pool, exchange, &order.order_id).await;
+                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
             } else if order.type_ == "match"
                 && order.status == "open"
                 && order.remain_size == Some("0".to_string())
@@ -252,7 +253,7 @@ async fn handle_trade_order_event(
                 let mut active_orders =
                     fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol).await;
 
-                delete_db_orderactive(pool, exchange, &order.order_id).await;
+                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
                 active_orders.retain(|o| o.order_id != order.order_id);
 
                 let symbol_info = match symbol_map.get(&order.symbol) {
@@ -554,6 +555,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .connect(&database_url)
         .await
         .expect("Failed to create pool");
+
+    delete_all_orderactive_from_db(&pool, &exchange).await;
 
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info
