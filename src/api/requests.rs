@@ -168,7 +168,7 @@ impl KuCoinClient {
             Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
-    pub async fn cancel_all_order_by_symbol(
+    pub async fn cancel_all_orders_by_symbol(
         &self,
         symbol: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -326,6 +326,15 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
         .first()
         .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
         .ok_or_else(|| "No instance servers in bullet response".into())
+}
+pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let cancel_for_cancel = client.get_symbols_with_open_order().await?;
+
+    for symbol in cancel_for_cancel.iter() {
+        let _ = client.cancel_all_orders_by_symbol(&symbol);
+    }
+    Ok(())
 }
 pub async fn create_repay_order(
     currency: &str,
