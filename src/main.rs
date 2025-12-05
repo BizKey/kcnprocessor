@@ -317,7 +317,7 @@ async fn handle_trade_order_event(
                     if let Some(price_str) = calculate_price(
                         &order.match_price,
                         &symbol_info.price_increment,
-                        |a, _b| a * 0.99, // match_price - 1%
+                        |a, _b| a * 100.0 / 101.0, // match_price - 1%
                     ) {
                         create_order_safely(
                             tx_out,
