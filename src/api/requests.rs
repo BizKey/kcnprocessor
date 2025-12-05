@@ -167,8 +167,8 @@ impl KuCoinClient {
         symbol: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
-        query_params.insert("tradeType", "MARGIN_TRADE");
         query_params.insert("symbol", symbol);
+        query_params.insert("tradeType", "MARGIN_TRADE");
         match self
             .make_request(
                 reqwest::Method::DELETE,
