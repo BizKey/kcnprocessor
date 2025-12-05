@@ -193,7 +193,7 @@ impl KuCoinClient {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => {
-                        info!("{}", text);
+                        info!("{:.?}", text);
                         Ok(())
                     }
                     Err(e) => {
@@ -368,9 +368,8 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
 pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     let symbols = client.get_symbols_with_open_order().await?;
-    info!("{:.?}", &symbols);
-
     for symbol in symbols.data.symbols.iter() {
+        info!("Open orders for:{:.?}", symbol);
         client.get_all_open_orders(symbol).await;
     }
     Ok(())
