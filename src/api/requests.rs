@@ -363,7 +363,7 @@ pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + 
     for symbol in symbols.data.symbols.iter() {
         info!("Open orders for:{:.?}", symbol);
         let client2: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-        client2.get_all_open_orders(symbol).await;
+        client2.cancel_all_orders_by_symbol(symbol).await;
     }
     Ok(())
 }
