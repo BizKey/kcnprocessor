@@ -167,10 +167,12 @@ pub struct Symbol {
 
 #[derive(Debug, Deserialize)]
 pub struct SymbolOpenOrderData {
+    pub symbolSize: i64,
     pub symbols: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SymbolOpenOrder {
+    pub code: String,
     pub data: SymbolOpenOrderData,
 }
