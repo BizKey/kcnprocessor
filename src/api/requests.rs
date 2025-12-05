@@ -190,22 +190,14 @@ impl KuCoinClient {
             )
             .await
         {
-            Ok(response) => match response.status().as_str() {
-                "200" => match response.text().await {
-                    Ok(text) => {
-                        info!("{:.?}", text);
-                        Ok(())
-                    }
-                    Err(e) => {
-                        return Err(format!("Error get text response from HTTP:'{}'", e).into());
-                    }
-                },
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
+            Ok(response) => match response.text().await {
+                Ok(text) => {
+                    info!("{:.?}", text);
+                    Ok(())
+                }
+                Err(e) => {
+                    return Err(format!("Error get text response from HTTP:'{}'", e).into());
+                }
             },
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
