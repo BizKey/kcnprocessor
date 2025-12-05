@@ -219,17 +219,12 @@ impl KuCoinClient {
             )
             .await
         {
-            Ok(response) => match response.status().as_str() {
-                "200" => {
-                    info!("Success cancel orders by {}", symbol);
+            Ok(response) => match response.text().await {
+                Ok(text) => {
+                    info!("{:.?}", text);
                     Ok(())
                 }
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
+                Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
             },
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
