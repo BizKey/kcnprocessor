@@ -250,11 +250,9 @@ async fn handle_trade_order_event(
                 //                 - add sell order + 1%
                 //         exist	- add sell order + 1%
 
+                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
                 let mut active_orders =
                     fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol).await;
-
-                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-                active_orders.retain(|o| o.order_id != order.order_id);
 
                 let symbol_info = match symbol_map.get(&order.symbol) {
                     Some(info) => info,
@@ -284,6 +282,8 @@ async fn handle_trade_order_event(
                                 &order.order_id,
                             )
                             .await;
+                            delete_current_orderactive_from_db(pool, exchange, &order.order_id)
+                                .await;
                         } else {
                             sell_orders.push(order);
                         }
@@ -348,6 +348,8 @@ async fn handle_trade_order_event(
                                 &order.order_id,
                             )
                             .await;
+                            delete_current_orderactive_from_db(pool, exchange, &order.order_id)
+                                .await;
                         } else {
                             buy_orders.push(order);
                         };
