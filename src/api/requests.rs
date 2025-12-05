@@ -98,18 +98,22 @@ impl KuCoinClient {
     ) -> String {
         let method_upper = method.to_uppercase();
 
-        let full_endpoint = if !query_string.is_empty() {
-            format!("{}?{}", endpoint, query_string)
+        let string_to_sign = if method_upper == "DELETE" {
+            if !query_string.is_empty() {
+                format!("{}{}{}?{}", timestamp, method_upper, endpoint, query_string)
+            } else {
+                format!("{}{}{}", timestamp, method_upper, endpoint)
+            }
         } else {
-            endpoint.to_string()
+            if !query_string.is_empty() {
+                format!(
+                    "{}{}{}?{}{}",
+                    timestamp, method_upper, endpoint, query_string, body
+                )
+            } else {
+                format!("{}{}{}{}", timestamp, method_upper, endpoint, body)
+            }
         };
-
-        let body_for_signature = body;
-
-        let string_to_sign = format!(
-            "{}{}{}{}",
-            timestamp, method_upper, full_endpoint, body_for_signature
-        );
 
         info!("String to sign: {}", string_to_sign);
         let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
@@ -169,13 +173,50 @@ impl KuCoinClient {
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
+    pub async fn get_all_open_orders(
+        &self,
+        symbol: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("tradeType", "MARGIN_TRADE");
+        query_params.insert("symbol", symbol);
+        match self
+            .make_request(
+                reqwest::Method::GET,
+                "/api/v3/hf/margin/orders/active",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => {
+                        info!("{}", text);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        return Err(format!("Error get text response from HTTP:'{}'", e).into());
+                    }
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
     pub async fn cancel_all_orders_by_symbol(
         &self,
         symbol: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
-        query_params.insert("symbol", symbol);
         query_params.insert("tradeType", "MARGIN_TRADE");
+        query_params.insert("symbol", symbol);
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -274,39 +315,26 @@ impl KuCoinClient {
                     pairs.join("&")
                 })
                 .unwrap_or_default();
-            let method_str = method.as_ref();
-            let method_upper = method_str.to_uppercase();
+            let body_str = body
+                .as_ref()
+                .map(|b| serde_json::to_string(b).unwrap())
+                .unwrap_or_default();
+            let signature = self.generate_signature(
+                timestamp,
+                method.as_ref(),
+                endpoint,
+                &query_string,
+                &body_str,
+            );
 
-            let path_with_query = if !query_string.is_empty() {
-                format!("{}?{}", endpoint, query_string)
-            } else {
-                endpoint.to_string()
-            };
-
-            let string_to_sign = format!("{}{}{}", timestamp, method_upper, path_with_query);
-
-            info!("String to sign: {}", string_to_sign);
-
-            let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
-                .expect("HMAC can take key of any size");
-            mac.update(string_to_sign.as_bytes());
-            let signature =
-                base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes());
-
-            let mut passphrase_mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
-                .expect("HMAC can take key of any size");
-            passphrase_mac.update(self.api_passphrase.as_bytes());
-            let passphrase_signature = base64::engine::general_purpose::STANDARD
-                .encode(passphrase_mac.finalize().into_bytes());
+            let passphrase_signature = self.generate_passphrase_signature();
 
             request_builder = request_builder
                 .header("KC-API-KEY", &self.api_key)
                 .header("KC-API-SIGN", signature)
                 .header("KC-API-TIMESTAMP", timestamp.to_string())
                 .header("KC-API-PASSPHRASE", passphrase_signature)
-                .header("KC-API-KEY-VERSION", "2")
-                .header("Content-Type", "application/json")
-                .header("User-Agent", "kucoin-rust-sdk/1.0");
+                .header("KC-API-KEY-VERSION", "2");
         }
 
         let response = request_builder.send().await.map_err(|e| {
@@ -342,15 +370,7 @@ pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + 
     let symbols = client.get_symbols_with_open_order().await?;
 
     for symbol in symbols.iter() {
-        match client.cancel_all_orders_by_symbol(symbol).await {
-            Ok(()) => {
-                info!("Successfully cancelled all orders for symbol: {}", symbol);
-            }
-            Err(e) => {
-                let err_msg = format!("Failed to cancel orders for symbol '{}': {}", symbol, e);
-                error!("{}", err_msg);
-            }
-        }
+        client.get_all_open_orders(symbol).await;
     }
     Ok(())
 }
