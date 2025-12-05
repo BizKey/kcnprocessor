@@ -255,8 +255,14 @@ impl KuCoinClient {
             request_builder = request_builder.query(&params);
         }
 
-        if let Some(body_data) = &body {
-            request_builder = request_builder.json(&body_data);
+        let body_for_request = if let Some(body_data) = &body {
+            Some(serde_json::to_string(body_data)?)
+        } else {
+            None
+        };
+
+        if let Some(body_str) = &body_for_request {
+            request_builder = request_builder.body(body_str.clone());
         }
 
         if authenticated {
@@ -274,30 +280,20 @@ impl KuCoinClient {
                     pairs.join("&")
                 })
                 .unwrap_or_default();
-            let method_str = method.as_ref();
-            let method_upper = method_str.to_uppercase();
-
-            let path_with_query = if !query_string.is_empty() {
-                format!("{}?{}", endpoint, query_string)
-            } else {
-                endpoint.to_string()
+            let body_for_signature = match &body_for_request {
+                Some(body_str) => body_str.clone(),
+                None => String::new(),
             };
 
-            let string_to_sign = format!("{}{}{}", timestamp, method_upper, path_with_query);
+            let signature = self.generate_signature(
+                timestamp,
+                method.as_ref(),
+                endpoint,
+                &query_string,
+                &body_for_signature,
+            );
 
-            info!("String to sign: {}", string_to_sign);
-
-            let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
-                .expect("HMAC can take key of any size");
-            mac.update(string_to_sign.as_bytes());
-            let signature =
-                base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes());
-
-            let mut passphrase_mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
-                .expect("HMAC can take key of any size");
-            passphrase_mac.update(self.api_passphrase.as_bytes());
-            let passphrase_signature = base64::engine::general_purpose::STANDARD
-                .encode(passphrase_mac.finalize().into_bytes());
+            let passphrase_signature = self.generate_passphrase_signature();
 
             request_builder = request_builder
                 .header("KC-API-KEY", &self.api_key)
@@ -305,8 +301,7 @@ impl KuCoinClient {
                 .header("KC-API-TIMESTAMP", timestamp.to_string())
                 .header("KC-API-PASSPHRASE", passphrase_signature)
                 .header("KC-API-KEY-VERSION", "2")
-                .header("Content-Type", "application/json")
-                .header("User-Agent", "kucoin-rust-sdk/1.0");
+                .header("Content-Type", "application/json");
         }
 
         let response = request_builder.send().await.map_err(|e| {
