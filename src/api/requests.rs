@@ -98,22 +98,18 @@ impl KuCoinClient {
     ) -> String {
         let method_upper = method.to_uppercase();
 
-        let string_to_sign = if method_upper == "DELETE" {
-            if !query_string.is_empty() {
-                format!("{}{}{}?{}", timestamp, method_upper, endpoint, query_string)
-            } else {
-                format!("{}{}{}", timestamp, method_upper, endpoint)
-            }
+        let full_endpoint = if !query_string.is_empty() {
+            format!("{}?{}", endpoint, query_string)
         } else {
-            if !query_string.is_empty() {
-                format!(
-                    "{}{}{}?{}{}",
-                    timestamp, method_upper, endpoint, query_string, body
-                )
-            } else {
-                format!("{}{}{}{}", timestamp, method_upper, endpoint, body)
-            }
+            endpoint.to_string()
         };
+
+        let body_for_signature = body;
+
+        let string_to_sign = format!(
+            "{}{}{}{}",
+            timestamp, method_upper, full_endpoint, body_for_signature
+        );
 
         info!("String to sign: {}", string_to_sign);
         let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
@@ -259,8 +255,14 @@ impl KuCoinClient {
             request_builder = request_builder.query(&params);
         }
 
-        if let Some(body_data) = &body {
-            request_builder = request_builder.json(&body_data);
+        let body_for_request = if let Some(body_data) = &body {
+            Some(serde_json::to_string(body_data)?)
+        } else {
+            None
+        };
+
+        if let Some(body_str) = &body_for_request {
+            request_builder = request_builder.body(body_str.clone());
         }
 
         if authenticated {
@@ -278,22 +280,18 @@ impl KuCoinClient {
                     pairs.join("&")
                 })
                 .unwrap_or_default();
-            let body_str = body
-                .as_ref()
-                .map(|b| serde_json::to_string(b).unwrap())
-                .unwrap_or_default();
-
-            let signature = if method.as_ref() == "DELETE" {
-                self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, "")
-            } else {
-                self.generate_signature(
-                    timestamp,
-                    method.as_ref(),
-                    endpoint,
-                    &query_string,
-                    &body_str,
-                )
+            let body_for_signature = match &body_for_request {
+                Some(body_str) => body_str.clone(),
+                None => String::new(),
             };
+
+            let signature = self.generate_signature(
+                timestamp,
+                method.as_ref(),
+                endpoint,
+                &query_string,
+                &body_for_signature,
+            );
 
             let passphrase_signature = self.generate_passphrase_signature();
 
@@ -302,7 +300,8 @@ impl KuCoinClient {
                 .header("KC-API-SIGN", signature)
                 .header("KC-API-TIMESTAMP", timestamp.to_string())
                 .header("KC-API-PASSPHRASE", passphrase_signature)
-                .header("KC-API-KEY-VERSION", "2");
+                .header("KC-API-KEY-VERSION", "2")
+                .header("Content-Type", "application/json");
         }
 
         let response = request_builder.send().await.map_err(|e| {
