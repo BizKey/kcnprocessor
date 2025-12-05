@@ -282,13 +282,18 @@ impl KuCoinClient {
                 .as_ref()
                 .map(|b| serde_json::to_string(b).unwrap())
                 .unwrap_or_default();
-            let signature = self.generate_signature(
-                timestamp,
-                method.as_ref(),
-                endpoint,
-                &query_string,
-                &body_str,
-            );
+
+            let signature = if method.as_ref() == "DELETE" {
+                self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, "")
+            } else {
+                self.generate_signature(
+                    timestamp,
+                    method.as_ref(),
+                    endpoint,
+                    &query_string,
+                    &body_str,
+                )
+            };
 
             let passphrase_signature = self.generate_passphrase_signature();
 
