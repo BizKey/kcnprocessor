@@ -173,6 +173,43 @@ impl KuCoinClient {
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
+    pub async fn get_all_open_orders(
+        &self,
+        symbol: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("tradeType", "MARGIN_TRADE");
+        query_params.insert("symbol", symbol);
+        match self
+            .make_request(
+                reqwest::Method::GET,
+                "/api/v3/hf/margin/orders/active",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => {
+                        info!("{}", text);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        return Err(format!("Error get text response from HTTP:'{}'", e).into());
+                    }
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
     pub async fn cancel_all_orders_by_symbol(
         &self,
         symbol: &str,
@@ -333,15 +370,7 @@ pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + 
     let symbols = client.get_symbols_with_open_order().await?;
 
     for symbol in symbols.iter() {
-        match client.cancel_all_orders_by_symbol(symbol).await {
-            Ok(()) => {
-                info!("Successfully cancelled all orders for symbol: {}", symbol);
-            }
-            Err(e) => {
-                let err_msg = format!("Failed to cancel orders for symbol '{}': {}", symbol, e);
-                error!("{}", err_msg);
-            }
-        }
+        client.get_all_open_orders(symbol).await;
     }
     Ok(())
 }
