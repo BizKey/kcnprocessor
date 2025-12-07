@@ -489,6 +489,9 @@ async fn handle_position_event(
         }
     }
     // sell available
+    for (asset, asset_info) in &position.asset_list {
+        if let Some(asset_available) = &position.debt_list.get(asset) {}
+    }
 }
 
 async fn outgoing_message_handler(
