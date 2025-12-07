@@ -442,7 +442,7 @@ async fn handle_position_event(
             insert_db_error(pool, exchange, &e.to_string()).await;
         }
     }
-
+    // repay borrow
     for (asset, debt_str) in &position.debt_list {
         if let Ok(debt) = debt_str.parse::<f64>() {
             if debt <= 0.0 {
@@ -488,6 +488,7 @@ async fn handle_position_event(
             }
         }
     }
+    // sell available
 }
 
 async fn outgoing_message_handler(
