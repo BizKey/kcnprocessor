@@ -235,12 +235,12 @@ async fn handle_trade_order_event(
 
         // filled sell (cancel all buy orders)
         //     check if order on sell exist
-        //         unexist - add buy order - 1 tick
+        //         unexist - add buy order
         //                 - add buy order - 1%
         //         exist 	- add buy order - 1%
         // filled buy (cancel all sell orders)
         //     check if order on buy exist
-        //         unexist - add sell order + 1 tick
+        //         unexist - add sell order
         //                 - add sell order + 1%
         //         exist	- add sell order + 1%
 
@@ -262,25 +262,22 @@ async fn handle_trade_order_event(
 
         if order.side == "sell" {
             // filled sell (cancel all buy orders)
-            let mut sell_orders: Vec<api::models::ActiveOrder> =
-                Vec::with_capacity(active_orders.len());
-            for order in active_orders.drain(..) {
-                if order.side == "buy" {
-                    let _ =
-                        cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
-                    delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-                } else {
-                    sell_orders.push(order);
-                }
+            for order in
+                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await
+            {
+                let _ = cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
+                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
             }
-            active_orders = sell_orders;
             //     check if order on sell exist
-            if !active_orders.iter().any(|order| order.side == "sell") {
+            let sell_orders =
+                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
+
+            if sell_orders.len() == 0 {
                 // create new buy order
                 if let Some(price_str) = calculate_price(
                     &order.match_price,
                     &symbol_info.price_increment,
-                    |a, b| a - b, // match_price - 1 tick
+                    |a, _b| a, // match_price
                 ) {
                     create_order_safely(
                         tx_out,
@@ -329,11 +326,14 @@ async fn handle_trade_order_event(
                 delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
             }
             // count buy orders
-            if !active_orders.iter().any(|order| order.side == "buy") {
+            let buy_orders =
+                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await;
+
+            if buy_orders.len() == 0 {
                 if let Some(price_str) = calculate_price(
                     &order.match_price,
                     &symbol_info.price_increment,
-                    |a, b| a + b, // match_price + 1 tick
+                    |a, _b| a, // match_price
                 ) {
                     create_order_safely(
                         tx_out,
