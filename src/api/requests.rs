@@ -115,7 +115,6 @@ impl KuCoinClient {
             }
         };
 
-        info!("String to sign: {}", string_to_sign);
         let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
             .expect("HMAC can take key of any size");
         mac.update(string_to_sign.as_bytes());
