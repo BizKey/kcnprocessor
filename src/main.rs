@@ -8,6 +8,7 @@ use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Sy
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
+use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::env;
@@ -214,300 +215,283 @@ fn calculate_price(
 }
 
 async fn handle_trade_order_event(
-    data: serde_json::Value,
+    order: OrderData,
     tx_out: &mpsc::Sender<String>,
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     symbol_map: &HashMap<String, Symbol>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match serde_json::from_value::<OrderData>(data) {
-        Ok(order) => {
-            info!("{:?}", order);
-            // sent order to pg
-            insert_db_orderevent(pool, exchange, &order).await;
-            if order.type_ == "open" && order.status == "open" {
-                // order in order book
-                // add order to active orders
-                insert_current_orderactive_to_db(pool, exchange, &order).await;
-            } else if order.type_ == "canceled" {
-                // cancel order
-                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-            } else if order.type_ == "match"
-                && order.status == "open"
-                && order.remain_size == Some("0".to_string())
-            {
-                // get last event on match size of position
-                // next msg will filled, but it don't have match price
+) {
+    // sent order to pg
+    insert_db_orderevent(pool, exchange, &order).await;
+    if order.type_ == "open" && order.status == "open" {
+        // order in order book
+        // add order to active orders
+        insert_current_orderactive_to_db(pool, exchange, &order).await;
+    } else if order.type_ == "canceled" {
+        // cancel order
+        delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
+    } else if order.type_ == "match"
+        && order.status == "open"
+        && order.remain_size == Some("0".to_string())
+    {
+        // get last event on match size of position
+        // next msg will filled, but it don't have match price
 
-                // filled sell (cancel all buy orders)
-                //     check if order on sell exist
-                //         unexist - add buy order - 1 tick
-                //                 - add buy order - 1%
-                //         exist 	- add buy order - 1%
-                // filled buy (cancel all sell orders)
-                //     check if order on buy exist
-                //         unexist - add sell order + 1 tick
-                //                 - add sell order + 1%
-                //         exist	- add sell order + 1%
+        // filled sell (cancel all buy orders)
+        //     check if order on sell exist
+        //         unexist - add buy order - 1 tick
+        //                 - add buy order - 1%
+        //         exist 	- add buy order - 1%
+        // filled buy (cancel all sell orders)
+        //     check if order on buy exist
+        //         unexist - add sell order + 1 tick
+        //                 - add sell order + 1%
+        //         exist	- add sell order + 1%
 
-                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-                let mut active_orders =
-                    fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol).await;
+        delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
+        let mut active_orders =
+            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol).await;
 
-                let symbol_info = match symbol_map.get(&order.symbol) {
-                    Some(info) => info,
-                    None => {
-                        error!("Symbol info not found for: {}", order.symbol);
-                        insert_db_error(
-                            pool,
-                            exchange,
-                            &format!("Missing symbol info for {}", order.symbol),
-                        )
-                        .await;
-                        return Ok(());
-                    }
-                };
-
-                if order.side == "sell" {
-                    // filled sell (cancel all buy orders)
-                    let mut sell_orders: Vec<api::models::ActiveOrder> =
-                        Vec::with_capacity(active_orders.len());
-                    for order in active_orders.drain(..) {
-                        if order.side == "buy" {
-                            let _ = cancel_order(
-                                tx_out,
-                                pool,
-                                exchange,
-                                &order.symbol,
-                                &order.order_id,
-                            )
-                            .await;
-                            delete_current_orderactive_from_db(pool, exchange, &order.order_id)
-                                .await;
-                        } else {
-                            sell_orders.push(order);
-                        }
-                    }
-                    active_orders = sell_orders;
-                    //     check if order on sell exist
-                    if !active_orders.iter().any(|order| order.side == "sell") {
-                        // create new buy order
-                        if let Some(price_str) = calculate_price(
-                            &order.match_price,
-                            &symbol_info.price_increment,
-                            |a, b| a - b, // match_price - 1 tick
-                        ) {
-                            create_order_safely(
-                                tx_out,
-                                pool,
-                                exchange,
-                                "buy",
-                                &order.symbol,
-                                &price_str,
-                                &symbol_info.base_increment,
-                                &symbol_info.base_min_size,
-                            )
-                            .await?;
-                        } else {
-                            error!("Failed to calculate price for order {}", order.order_id);
-                            insert_db_error(pool, exchange, "Price calculation failed").await;
-                        }
-                    }
-                    // create new buy order
-                    if let Some(price_str) = calculate_price(
-                        &order.match_price,
-                        &symbol_info.price_increment,
-                        |a, _b| a * 100.0 / 101.0, // match_price - 1%
-                    ) {
-                        create_order_safely(
-                            tx_out,
-                            pool,
-                            exchange,
-                            "buy",
-                            &order.symbol,
-                            &price_str,
-                            &symbol_info.base_increment,
-                            &symbol_info.base_min_size,
-                        )
-                        .await?;
-                    } else {
-                        error!("Failed to calculate price for order {}", order.order_id);
-                        insert_db_error(pool, exchange, "Price calculation failed").await;
-                    }
-                } else if order.side == "buy" {
-                    // filled buy (cancel all sell orders)
-                    let mut buy_orders: Vec<api::models::ActiveOrder> =
-                        Vec::with_capacity(active_orders.len());
-                    for order in active_orders.drain(..) {
-                        if order.side == "sell" {
-                            let _ = cancel_order(
-                                tx_out,
-                                pool,
-                                exchange,
-                                &order.symbol,
-                                &order.order_id,
-                            )
-                            .await;
-                            delete_current_orderactive_from_db(pool, exchange, &order.order_id)
-                                .await;
-                        } else {
-                            buy_orders.push(order);
-                        };
-                    }
-                    active_orders = buy_orders;
-                    // count buy orders
-                    if !active_orders.iter().any(|order| order.side == "buy") {
-                        if let Some(price_str) = calculate_price(
-                            &order.match_price,
-                            &symbol_info.price_increment,
-                            |a, b| a + b, // match_price + 1 tick
-                        ) {
-                            create_order_safely(
-                                tx_out,
-                                pool,
-                                exchange,
-                                "sell",
-                                &order.symbol,
-                                &price_str,
-                                &symbol_info.base_increment,
-                                &symbol_info.base_min_size,
-                            )
-                            .await?;
-                        } else {
-                            error!("Failed to calculate price for order {}", order.order_id);
-                            insert_db_error(pool, exchange, "Price calculation failed").await;
-                        }
-                    }
-                    if let Some(price_str) = calculate_price(
-                        &order.match_price,
-                        &symbol_info.price_increment,
-                        |a, _b| a * 1.01, // match_price + 1%
-                    ) {
-                        create_order_safely(
-                            tx_out,
-                            pool,
-                            exchange,
-                            "sell",
-                            &order.symbol,
-                            &price_str,
-                            &symbol_info.base_increment,
-                            &symbol_info.base_min_size,
-                        )
-                        .await?;
-                    } else {
-                        error!("Failed to calculate price for order {}", order.order_id);
-                        insert_db_error(pool, exchange, "Price calculation failed").await;
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            error!("Failed to parse message {}", e);
-            // sent order error to pg
-            insert_db_error(pool, exchange, &e.to_string()).await;
-        }
-    }
-    Ok(())
-}
-
-async fn handle_position_event(
-    data: serde_json::Value,
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match serde_json::from_value::<PositionData>(data) {
-        Ok(position) => {
-            info!("{:?}", position);
-            if let Err(e) = upsert_position_ratio(
-                pool,
-                exchange,
-                position.debt_ratio,
-                position.total_asset,
-                &position.margin_coefficient_total_asset,
-                &position.total_debt,
-            )
-            .await
-            {
-                error!("Failed to upsert margin account state: {}", e);
-                insert_db_error(pool, exchange, &e.to_string()).await;
-            }
-            for (symbol, amount) in &position.debt_list {
-                if let Err(e) = upsert_position_debt(pool, exchange, symbol, amount).await {
-                    error!("Failed to insert debt margin account state: {}", e);
-                    insert_db_error(pool, exchange, &e.to_string()).await;
-                }
-            }
-            for (symbol, symbol_info) in &position.asset_list {
-                if let Err(e) = upsert_position_asset(
+        let symbol_info = match symbol_map.get(&order.symbol) {
+            Some(info) => info,
+            None => {
+                error!("Symbol info not found for: {}", order.symbol);
+                insert_db_error(
                     pool,
                     exchange,
-                    symbol,
-                    &symbol_info.total,
-                    &symbol_info.available,
-                    &symbol_info.hold,
+                    &format!("Missing symbol info for {}", order.symbol),
+                )
+                .await;
+                return;
+            }
+        };
+
+        if order.side == "sell" {
+            // filled sell (cancel all buy orders)
+            let mut sell_orders: Vec<api::models::ActiveOrder> =
+                Vec::with_capacity(active_orders.len());
+            for order in active_orders.drain(..) {
+                if order.side == "buy" {
+                    let _ =
+                        cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
+                    delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
+                } else {
+                    sell_orders.push(order);
+                }
+            }
+            active_orders = sell_orders;
+            //     check if order on sell exist
+            if !active_orders.iter().any(|order| order.side == "sell") {
+                // create new buy order
+                if let Some(price_str) = calculate_price(
+                    &order.match_price,
+                    &symbol_info.price_increment,
+                    |a, b| a - b, // match_price - 1 tick
+                ) {
+                    match create_order_safely(
+                        tx_out,
+                        pool,
+                        exchange,
+                        "buy",
+                        &order.symbol,
+                        &price_str,
+                        &symbol_info.base_increment,
+                        &symbol_info.base_min_size,
+                    )
+                    .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    };
+                } else {
+                    error!("Failed to calculate price for order {}", order.order_id);
+                    insert_db_error(pool, exchange, "Price calculation failed").await;
+                }
+            }
+            // create new buy order
+            if let Some(price_str) = calculate_price(
+                &order.match_price,
+                &symbol_info.price_increment,
+                |a, _b| a * 100.0 / 101.0, // match_price - 1%
+            ) {
+                match create_order_safely(
+                    tx_out,
+                    pool,
+                    exchange,
+                    "buy",
+                    &order.symbol,
+                    &price_str,
+                    &symbol_info.base_increment,
+                    &symbol_info.base_min_size,
                 )
                 .await
                 {
-                    error!("Failed to insert asset margin account state: {}", e);
-                    insert_db_error(pool, exchange, &e.to_string()).await;
+                    Ok(_) => {}
+                    Err(e) => {}
+                };
+            } else {
+                error!("Failed to calculate price for order {}", order.order_id);
+                insert_db_error(pool, exchange, "Price calculation failed").await;
+            }
+        } else if order.side == "buy" {
+            // filled buy (cancel all sell orders)
+            let mut buy_orders: Vec<api::models::ActiveOrder> =
+                Vec::with_capacity(active_orders.len());
+            for order in active_orders.drain(..) {
+                if order.side == "sell" {
+                    let _ =
+                        cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
+                    delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
+                } else {
+                    buy_orders.push(order);
+                };
+            }
+            active_orders = buy_orders;
+            // count buy orders
+            if !active_orders.iter().any(|order| order.side == "buy") {
+                if let Some(price_str) = calculate_price(
+                    &order.match_price,
+                    &symbol_info.price_increment,
+                    |a, b| a + b, // match_price + 1 tick
+                ) {
+                    match create_order_safely(
+                        tx_out,
+                        pool,
+                        exchange,
+                        "sell",
+                        &order.symbol,
+                        &price_str,
+                        &symbol_info.base_increment,
+                        &symbol_info.base_min_size,
+                    )
+                    .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    };
+                } else {
+                    error!("Failed to calculate price for order {}", order.order_id);
+                    insert_db_error(pool, exchange, "Price calculation failed").await;
                 }
             }
-
-            for (asset, debt_str) in &position.debt_list {
-                if let Ok(debt) = debt_str.parse::<f64>() {
-                    if debt <= 0.0 {
-                        continue;
-                    }
-
-                    if let Some(asset_info) = &position.asset_list.get(asset) {
-                        if let Ok(available) = asset_info.available.parse::<f64>() {
-                            if available >= debt {
-                                info!(
-                                    "Can repay {} {} debt with available {}",
-                                    debt, asset, available
-                                );
-
-                                if let Err(e) =
-                                    api::requests::create_repay_order(asset, &debt.to_string())
-                                        .await
-                                {
-                                    error!("Failed to repay debt: {}", e);
-                                    insert_db_error(pool, exchange, &e.to_string()).await;
-                                }
-                            } else if available > 0.0 {
-                                info!(
-                                    "Can partially repay {} {} debt with available {}",
-                                    debt, asset, available
-                                );
-
-                                if let Err(e) =
-                                    api::requests::create_repay_order(asset, &available.to_string())
-                                        .await
-                                {
-                                    error!("Failed to partially repay debt: {}", e);
-                                    insert_db_error(pool, exchange, &e.to_string()).await;
-                                }
-                            }
-                        } else {
-                            error!("Failed to parse available balance for {}", asset);
-                            insert_db_error(
-                                pool,
-                                exchange,
-                                &format!("Parse error: available={}", asset_info.available),
-                            )
-                            .await;
-                        }
-                    }
-                }
+            if let Some(price_str) = calculate_price(
+                &order.match_price,
+                &symbol_info.price_increment,
+                |a, _b| a * 1.01, // match_price + 1%
+            ) {
+                match create_order_safely(
+                    tx_out,
+                    pool,
+                    exchange,
+                    "sell",
+                    &order.symbol,
+                    &price_str,
+                    &symbol_info.base_increment,
+                    &symbol_info.base_min_size,
+                )
+                .await
+                {
+                    Ok(_) => {}
+                    Err(e) => {}
+                };
+            } else {
+                error!("Failed to calculate price for order {}", order.order_id);
+                insert_db_error(pool, exchange, "Price calculation failed").await;
             }
         }
-        Err(e) => {
-            error!("Failed to parse message {}", e);
-            // sent order error to pg
+    }
+}
+
+async fn handle_position_event(
+    position: PositionData,
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+) {
+    if let Err(e) = upsert_position_ratio(
+        pool,
+        exchange,
+        position.debt_ratio,
+        position.total_asset,
+        &position.margin_coefficient_total_asset,
+        &position.total_debt,
+    )
+    .await
+    {
+        info!("{:?}", position);
+        error!("Failed to upsert margin account state: {}", e);
+        insert_db_error(pool, exchange, &e.to_string()).await;
+    }
+    for (symbol, amount) in &position.debt_list {
+        if let Err(e) = upsert_position_debt(pool, exchange, symbol, amount).await {
+            error!("Failed to insert debt margin account state: {}", e);
             insert_db_error(pool, exchange, &e.to_string()).await;
         }
     }
-    Ok(())
+    for (symbol, symbol_info) in &position.asset_list {
+        if let Err(e) = upsert_position_asset(
+            pool,
+            exchange,
+            symbol,
+            &symbol_info.total,
+            &symbol_info.available,
+            &symbol_info.hold,
+        )
+        .await
+        {
+            error!("Failed to insert asset margin account state: {}", e);
+            insert_db_error(pool, exchange, &e.to_string()).await;
+        }
+    }
+    // repay borrow
+    for (asset, debt_str) in &position.debt_list {
+        if let Ok(debt) = debt_str.parse::<f64>() {
+            if debt <= 0.0 {
+                continue;
+            }
+
+            if let Some(asset_info) = &position.asset_list.get(asset) {
+                if let Ok(available) = asset_info.available.parse::<f64>() {
+                    if available >= debt {
+                        info!(
+                            "Can repay {} {} debt with available {}",
+                            debt, asset, available
+                        );
+
+                        if let Err(e) =
+                            api::requests::create_repay_order(asset, &debt.to_string()).await
+                        {
+                            error!("Failed to repay debt: {}", e);
+                            insert_db_error(pool, exchange, &e.to_string()).await;
+                        }
+                    } else if available > 0.0 {
+                        info!(
+                            "Can partially repay {} {} debt with available {}",
+                            debt, asset, available
+                        );
+
+                        if let Err(e) =
+                            api::requests::create_repay_order(asset, &available.to_string()).await
+                        {
+                            error!("Failed to partially repay debt: {}", e);
+                            insert_db_error(pool, exchange, &e.to_string()).await;
+                        }
+                    }
+                } else {
+                    error!("Failed to parse available balance for {}", asset);
+                    insert_db_error(
+                        pool,
+                        exchange,
+                        &format!("Parse error: available={}", asset_info.available),
+                    )
+                    .await;
+                }
+            }
+        }
+    }
+    // sell available
+    for (asset, asset_info) in &position.asset_list {
+        if let Some(asset_available) = &position.debt_list.get(asset) {}
+    }
 }
 
 async fn outgoing_message_handler(
@@ -589,7 +573,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let tx_out_clone = tx_out.clone();
 
-        // Work with oncome events
+        // Work with income events
         let _ = tokio::spawn(async move {
             while let Some(msg) = rx_in.recv().await {
                 match serde_json::from_str::<KuCoinMessage>(&msg) {
@@ -600,9 +584,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                         KuCoinMessage::Message(data) => {
                             if data.topic == "/account/balance" {
-                                match serde_json::from_value::<BalanceData>(data.data) {
+                                match BalanceData::deserialize(&data.data) {
                                     Ok(balance) => {
-                                        info!("{:?}", balance);
                                         // sent balance to pg
                                         insert_db_balance(
                                             &pool_for_handler,
@@ -612,6 +595,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await;
                                     }
                                     Err(e) => {
+                                        info!("{:?}", data.data);
                                         error!("Failed to parse message {}", e);
                                         // sent balance error to pg
                                         insert_db_error(
@@ -623,28 +607,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 }
                             } else if data.topic == "/spotMarket/tradeOrdersV2" {
-                                if let Err(e) = handle_trade_order_event(
-                                    data.data,
-                                    &tx_out_clone,
-                                    &pool_for_handler,
-                                    &exchange_for_handler,
-                                    &symbol_map_for_handler,
-                                )
-                                .await
-                                {
-                                    error!("Error handling trade order event: {}", e);
+                                match OrderData::deserialize(&data.data) {
+                                    Ok(order) => {
+                                        // order magic
+                                        handle_trade_order_event(
+                                            order,
+                                            &tx_out_clone,
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &symbol_map_for_handler,
+                                        )
+                                        .await
+                                    }
+                                    Err(e) => {
+                                        info!("{:?}", data.data);
+                                        error!("Failed to parse message {}", e);
+                                        // sent order error to pg
+                                        insert_db_error(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &e.to_string(),
+                                        )
+                                        .await;
+                                    }
                                 }
                             } else if data.topic == "/margin/position" {
                                 // save to db position
-
-                                if let Err(e) = handle_position_event(
-                                    data.data,
-                                    &pool_for_handler,
-                                    &exchange_for_handler,
-                                )
-                                .await
-                                {
-                                    error!("Error handle position event: {}", e);
+                                match PositionData::deserialize(&data.data) {
+                                    Ok(position) => {
+                                        handle_position_event(
+                                            position,
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                        )
+                                        .await
+                                    }
+                                    Err(e) => {
+                                        info!("{:?}", data.data);
+                                        error!("Failed to parse message {}", e);
+                                        // sent order error to pg
+                                        insert_db_error(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &e.to_string(),
+                                        )
+                                        .await;
+                                    }
                                 }
                             } else {
                                 info!("Unknown topic: {}", data.topic);
@@ -772,8 +780,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         Some(Ok(Message::Ping(data))) => {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
                         }
-                        Some(Ok(Message::Pong(_))) => {
-                        }
                         Some(Ok(Message::Close(close))) => {
                             error!("Connection closed by server: {:?}", close);
                             // sent error to pg
@@ -802,8 +808,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     match trade_msg {
                         Some(Ok(Message::Text(text))) => {
                             info!("{:?}", text);
-                        }
-                        Some(Ok(Message::Pong(_))) => {
                         }
                         Some(Ok(Message::Close(close))) => {
                             error!("Connection closed by server: {:?}", close);
