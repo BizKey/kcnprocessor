@@ -1,7 +1,7 @@
 use crate::api::models::{ApiV3BulletPrivate, SymbolOpenOrder};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log::info;
+use log::{error, info};
 use reqwest::{Client, Response};
 use urlencoding::encode as url_encode;
 
@@ -173,10 +173,7 @@ impl KuCoinClient {
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
-    pub async fn cancel_all_orders_by_symbol(
-        &self,
-        symbol: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn cancel_all_orders_by_symbol(&self, symbol: &str) {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
         query_params.insert("symbol", symbol);
@@ -193,11 +190,14 @@ impl KuCoinClient {
             Ok(response) => match response.text().await {
                 Ok(text) => {
                     info!("{:.?}", text);
-                    Ok(())
                 }
-                Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                Err(e) => {
+                    error!("Error get text response from HTTP: {}", e);
+                }
             },
-            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+            Err(e) => {
+                error!("Error HTTP: {}", e);
+            }
         }
     }
     pub async fn margin_repay(
