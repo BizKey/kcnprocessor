@@ -65,7 +65,7 @@ async fn make_order(
     symbol: &str,
     price: String,
     size: String,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) {
     let client_oid = Uuid::new_v4().to_string();
     let msg = serde_json::json!({
         "id": format!("create-order-{}-{}", side, symbol),
@@ -85,9 +85,7 @@ async fn make_order(
     if let Err(e) = tx_out.send(msg.to_string()).await {
         error!("Failed to send order: {}", e);
         insert_db_error(pool, exchange, &e.to_string()).await;
-        return Err(e.into());
     }
-    Ok(())
 }
 
 fn format_size(size: f64, increment: f64) -> String {
@@ -129,14 +127,14 @@ async fn create_order_safely(
     price_str: &str,
     base_increment_str: &str,
     min_size_str: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) {
     let price_f64 = match price_str.parse::<f64>() {
         Ok(v) if v > 0.0 => v,
         _ => {
             let msg = format!("Invalid price '{}' for symbol {}", price_str, symbol);
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
-            return Ok(());
+            return;
         }
     };
 
@@ -149,7 +147,7 @@ async fn create_order_safely(
             );
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
-            return Ok(());
+            return;
         }
     };
 
@@ -159,7 +157,7 @@ async fn create_order_safely(
             let msg = format!("Invalid min_size '{}' for symbol {}", min_size_str, symbol);
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
-            return Ok(());
+            return;
         }
     };
 
@@ -173,14 +171,12 @@ async fn create_order_safely(
             price_str.to_string(),
             size_str,
         )
-        .await?;
+        .await;
     } else {
         let msg = format!("Calculated size below min_size for symbol {}", symbol);
         error!("{}", msg);
         insert_db_error(pool, exchange, &msg).await;
     }
-
-    Ok(())
 }
 
 fn format_price(price: f64, increment: f64) -> String {
@@ -288,7 +284,7 @@ async fn handle_trade_order_event(
                     &symbol_info.price_increment,
                     |a, b| a - b, // match_price - 1 tick
                 ) {
-                    match create_order_safely(
+                    create_order_safely(
                         tx_out,
                         pool,
                         exchange,
@@ -298,11 +294,7 @@ async fn handle_trade_order_event(
                         &symbol_info.base_increment,
                         &symbol_info.base_min_size,
                     )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(e) => {}
-                    };
+                    .await;
                 } else {
                     error!("Failed to calculate price for order {}", order.order_id);
                     insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -314,7 +306,7 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
-                match create_order_safely(
+                create_order_safely(
                     tx_out,
                     pool,
                     exchange,
@@ -324,11 +316,7 @@ async fn handle_trade_order_event(
                     &symbol_info.base_increment,
                     &symbol_info.base_min_size,
                 )
-                .await
-                {
-                    Ok(_) => {}
-                    Err(e) => {}
-                };
+                .await;
             } else {
                 error!("Failed to calculate price for order {}", order.order_id);
                 insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -354,7 +342,7 @@ async fn handle_trade_order_event(
                     &symbol_info.price_increment,
                     |a, b| a + b, // match_price + 1 tick
                 ) {
-                    match create_order_safely(
+                    create_order_safely(
                         tx_out,
                         pool,
                         exchange,
@@ -364,11 +352,7 @@ async fn handle_trade_order_event(
                         &symbol_info.base_increment,
                         &symbol_info.base_min_size,
                     )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(e) => {}
-                    };
+                    .await;
                 } else {
                     error!("Failed to calculate price for order {}", order.order_id);
                     insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -379,7 +363,7 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
-                match create_order_safely(
+                create_order_safely(
                     tx_out,
                     pool,
                     exchange,
@@ -389,11 +373,7 @@ async fn handle_trade_order_event(
                     &symbol_info.base_increment,
                     &symbol_info.base_min_size,
                 )
-                .await
-                {
-                    Ok(_) => {}
-                    Err(e) => {}
-                };
+                .await;
             } else {
                 error!("Failed to calculate price for order {}", order.order_id);
                 insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -490,7 +470,9 @@ async fn handle_position_event(
     }
     // sell available
     for (asset, asset_info) in &position.asset_list {
-        if let Some(asset_available) = &position.debt_list.get(asset) {}
+        if let Some(asset_available) = &position.debt_list.get(asset) {
+            info!("{:.?} {:.?}", asset_info, asset_available);
+        }
     }
 }
 

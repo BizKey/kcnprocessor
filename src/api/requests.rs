@@ -1,7 +1,7 @@
 use crate::api::models::{ApiV3BulletPrivate, SymbolOpenOrder};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log::{error, info};
+use log::info;
 use reqwest::{Client, Response};
 use urlencoding::encode as url_encode;
 
@@ -169,35 +169,6 @@ impl KuCoinClient {
                     }
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
-            },
-            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
-        }
-    }
-    pub async fn get_all_open_orders(
-        &self,
-        symbol: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut query_params = std::collections::HashMap::new();
-        query_params.insert("tradeType", "MARGIN_TRADE");
-        query_params.insert("symbol", symbol);
-        match self
-            .make_request(
-                reqwest::Method::GET,
-                "/api/v3/hf/margin/orders/active",
-                Some(query_params),
-                None,
-                true,
-            )
-            .await
-        {
-            Ok(response) => match response.text().await {
-                Ok(text) => {
-                    info!("{:.?}", text);
-                    Ok(())
-                }
-                Err(e) => {
-                    return Err(format!("Error get text response from HTTP:'{}'", e).into());
-                }
             },
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
