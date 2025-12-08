@@ -53,13 +53,13 @@ pub struct BalanceData {
     pub relation_event_id: String,
     pub time: String,
     pub total: String,
-    pub relationContext: Option<BalanceRelationContext>,
+    #[serde(rename = "relationContext")]
+    pub relation_context: Option<BalanceRelationContext>,
 }
 #[derive(sqlx::FromRow, Debug)]
 pub struct ActiveOrder {
     pub order_id: String,
     pub symbol: String,
-    pub side: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {
@@ -167,12 +167,10 @@ pub struct Symbol {
 
 #[derive(Debug, Deserialize)]
 pub struct SymbolOpenOrderData {
-    pub symbolSize: i64,
     pub symbols: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SymbolOpenOrder {
-    pub code: String,
     pub data: SymbolOpenOrderData,
 }

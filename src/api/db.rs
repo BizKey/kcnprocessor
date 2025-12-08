@@ -33,7 +33,7 @@ pub async fn insert_db_event<T: Serialize>(pool: &PgPool, exchange: &str, msg: &
     }
 }
 pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceData) {
-    let relation_context = match balance.relationContext {
+    let relation_context = match balance.relation_context {
         Some(ctx) => ctx,
         None => {
             error!("Missing relationContext for balance");
@@ -147,7 +147,7 @@ pub async fn fetch_all_active_orders_by_symbol(
     side: &str,
 ) -> Vec<ActiveOrder> {
     match sqlx::query_as::<_, ActiveOrder>(
-        "SELECT order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
+        "SELECT order_id, symbol FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
     )
     .bind(exchange)
     .bind(symbol)
