@@ -79,7 +79,7 @@ async fn make_order(
             "type": "limit",
             "autoBorrow": true,
             "autoRepay": true,
-              "clientOid": client_oid,
+            "clientOid": client_oid,
         }
     });
     if let Err(e) = tx_out.send(msg.to_string()).await {
@@ -245,8 +245,6 @@ async fn handle_trade_order_event(
         //         exist	- add sell order + 1%
 
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-        let mut active_orders =
-            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol).await;
 
         let symbol_info = match symbol_map.get(&order.symbol) {
             Some(info) => info,
@@ -323,18 +321,13 @@ async fn handle_trade_order_event(
             }
         } else if order.side == "buy" {
             // filled buy (cancel all sell orders)
-            let mut buy_orders: Vec<api::models::ActiveOrder> =
-                Vec::with_capacity(active_orders.len());
-            for order in active_orders.drain(..) {
-                if order.side == "sell" {
-                    let _ =
-                        cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
-                    delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-                } else {
-                    buy_orders.push(order);
-                };
+
+            for order in
+                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await
+            {
+                let _ = cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
+                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
             }
-            active_orders = buy_orders;
             // count buy orders
             if !active_orders.iter().any(|order| order.side == "buy") {
                 if let Some(price_str) = calculate_price(
