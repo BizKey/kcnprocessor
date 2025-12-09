@@ -4,9 +4,7 @@ use crate::api::db::{
     insert_db_balance, insert_db_error, insert_db_event, insert_db_orderevent,
     upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{
-    BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsgData,
-};
+use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsg};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
@@ -803,7 +801,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             info!("{:?}", &text);
                             match serde_json::from_str::<Value>(&text){
                                 Ok(json_value) =>{
-                                    match TradeMsgData::deserialize(json_value) {
+                                    match TradeMsg::deserialize(json_value) {
                                     Ok(trademsg) => {
                                         // make_order()
                                     }

@@ -185,3 +185,15 @@ pub struct TradeMsgData {
     #[serde(rename = "outTime")]
     pub out_time: i64,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TradeMsg {
+    pub id: Option<String>,
+    pub op: Option<String>,
+    pub msg: Option<String>,
+    pub data: Vec<TradeMsgData>,
+    #[serde(rename = "inTime")]
+    pub in_time: i64,
+    #[serde(rename = "outTime")]
+    pub out_time: i64,
+}
