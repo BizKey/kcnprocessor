@@ -68,7 +68,7 @@ async fn make_order(
 ) {
     let client_oid = Uuid::new_v4().to_string();
     let msg = serde_json::json!({
-        "id": format!("create-order-{}-{}", side, symbol),
+        "id": format!("create-order-{}-{}-{}-{}",symbol, price, size, side),
         "op": "margin.order",
         "args": {
             "price": price,
