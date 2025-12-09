@@ -94,7 +94,7 @@ pub async fn insert_db_msgevent(pool: &PgPool, exchange: &str, order: &TradeMsg)
             }
         }
     };
-    if let Err(e) = sqlx::query("INSERT INTO msgevent (exchange, id, op, msg, code, borrow_size, client_oid, order_id, loan_apply_id, limit, reset, remaining, in_time, out_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)")
+    if let Err(e) = sqlx::query("INSERT INTO msgevent (exchange, idmsg, op, msg, code, borrow_size, client_oid, order_id, loan_apply_id, limit_rate, reset_rate, remaining_rate, in_time, out_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)")
             .bind(exchange)
             .bind(&order.id)
             .bind(&order.op)
