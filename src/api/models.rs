@@ -177,6 +177,8 @@ pub struct SymbolOpenOrder {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TradeMsgData {
+    pub id: Option<String>,
+    pub op: Option<String>,
     pub msg: Option<String>,
     #[serde(rename = "inTime")]
     pub in_time: i64,
