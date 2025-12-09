@@ -4,11 +4,14 @@ use crate::api::db::{
     insert_db_balance, insert_db_error, insert_db_event, insert_db_orderevent,
     upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
+use crate::api::models::{
+    BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsgData,
+};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use serde::Deserialize;
+use serde_json::Value;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::env;
@@ -552,6 +555,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     loop {
         let exchange_for_handler = exchange.clone();
         let pool_for_handler = pool.clone();
+        let exchange_for_handler2 = exchange.clone();
+        let pool_for_handler2 = pool.clone();
         let symbol_map_for_handler = symbol_map.clone();
 
         // websocket to pg
@@ -796,23 +801,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     match trade_msg {
                         Some(Ok(Message::Text(text))) => {
                             info!("{:?}", &text);
-
-                            match PositionData::deserialize(text.to_string()) {
-                                    Ok(position) => {
+                            match serde_json::from_str::<Value>(&text){
+                                Ok(json_value) =>{
+                                    match TradeMsgData::deserialize(json_value) {
+                                    Ok(trademsg) => {
                                         // make_order()
                                     }
                                     Err(e) => {
-                                        info!("{:?}", text.to_string());
+                                        info!("{:?}", &text);
                                         error!("Failed to parse message {}", e);
                                         // sent order error to pg
                                         insert_db_error(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
+                                            &pool_for_handler2,
+                                            &exchange_for_handler2,
                                             &e.to_string(),
                                         )
                                         .await;
                                     }
-                                };
+                                }
+                                }
+                                Err(e) => {
+                                     info!("{:?}", &text);
+                                        error!("Failed to parse message {}", e);
+                                        // sent order error to pg
+                                        insert_db_error(
+                                            &pool_for_handler2,
+                                            &exchange_for_handler2,
+                                            &e.to_string(),
+                                        )
+                                        .await;
+                                }
+                            }
+
+
 
 
 

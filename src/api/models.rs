@@ -174,3 +174,12 @@ pub struct SymbolOpenOrderData {
 pub struct SymbolOpenOrder {
     pub data: SymbolOpenOrderData,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TradeMsgData {
+    pub msg: Option<String>,
+    #[serde(rename = "inTime")]
+    pub in_time: i64,
+    #[serde(rename = "outTime")]
+    pub out_time: i64,
+}
