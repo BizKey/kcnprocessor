@@ -66,7 +66,6 @@ async fn make_order(
     price: String,
     size: String,
 ) {
-    let client_oid = Uuid::new_v4().to_string();
     let msg = serde_json::json!({
         "id": format!("create-order-{}-{}-{}-{}",symbol, price, size, side),
         "op": "margin.order",
@@ -79,7 +78,7 @@ async fn make_order(
             "type": "limit",
             "autoBorrow": true,
             "autoRepay": true,
-            "clientOid": client_oid,
+            "clientOid": Uuid::new_v4().to_string(),
         }
     });
     if let Err(e) = tx_out.send(msg.to_string()).await {
