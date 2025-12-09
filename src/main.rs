@@ -795,7 +795,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 trade_msg =  trade_ws_read.next() => {
                     match trade_msg {
                         Some(Ok(Message::Text(text))) => {
-                            info!("{:?}", text);
+                            info!("{:?}", &text);
+
+                            match PositionData::deserialize(text.to_string()) {
+                                    Ok(position) => {
+                                        // make_order()
+                                    }
+                                    Err(e) => {
+                                        info!("{:?}", text.to_string());
+                                        error!("Failed to parse message {}", e);
+                                        // sent order error to pg
+                                        insert_db_error(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &e.to_string(),
+                                        )
+                                        .await;
+                                    }
+                                };
+
+
+
                         }
                         Some(Ok(Message::Close(close))) => {
                             error!("Connection closed by server: {:?}", close);
