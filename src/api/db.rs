@@ -1,4 +1,7 @@
-use crate::api::models::{ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol};
+use crate::api::models::{
+    ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeMsg, TradeMsgData,
+    TradeMsgRateLimit,
+};
 use log::error;
 use serde::Serialize;
 use sqlx::PgPool;
@@ -33,7 +36,7 @@ pub async fn insert_db_event<T: Serialize>(pool: &PgPool, exchange: &str, msg: &
     }
 }
 pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceData) {
-    let relation_context = match balance.relationContext {
+    let relation_context = match balance.relation_context {
         Some(ctx) => ctx,
         None => {
             error!("Missing relationContext for balance");
@@ -63,6 +66,53 @@ pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceDa
             .await
     {
         let err_msg = format!("Failed to insert balance into DB: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
+pub async fn insert_db_msgevent(pool: &PgPool, exchange: &str, order: &TradeMsg) {
+    let order_data = match &order.data {
+        Some(ctx) => ctx,
+        None => {
+            error!("Missing order.data for TradeMsg");
+            &TradeMsgData {
+                borrow_size: None,
+                client_oid: None,
+                order_id: None,
+                loan_apply_id: None,
+            }
+        }
+    };
+    let order_user_rate_limit = match &order.user_rate_limit {
+        Some(ctx) => ctx,
+        None => {
+            error!("Missing user_rate_limit for TradeMsg");
+            &TradeMsgRateLimit {
+                limit: None,
+                reset: None,
+                remaining: None,
+            }
+        }
+    };
+    if let Err(e) = sqlx::query("INSERT INTO msgevent (exchange, id, op, msg, code, borrow_size, client_oid, order_id, loan_apply_id, limit, reset, remaining, in_time, out_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)")
+            .bind(exchange)
+            .bind(&order.id)
+            .bind(&order.op)
+            .bind(&order.msg)
+            .bind(&order.code)
+            .bind(&order_data.borrow_size)
+            .bind(&order_data.client_oid)
+            .bind(&order_data.order_id)
+            .bind(&order_data.loan_apply_id)
+            .bind(&order_user_rate_limit.limit)
+            .bind(&order_user_rate_limit.reset)
+            .bind(&order_user_rate_limit.remaining)
+            .bind(&order.in_time)
+            .bind(&order.out_time)
+            .execute(pool)
+            .await
+    {
+        let err_msg = format!("Failed to insert msg event into DB: {}", e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
@@ -147,7 +197,7 @@ pub async fn fetch_all_active_orders_by_symbol(
     side: &str,
 ) -> Vec<ActiveOrder> {
     match sqlx::query_as::<_, ActiveOrder>(
-        "SELECT order_id, symbol, side FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
+        "SELECT order_id, symbol FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
     )
     .bind(exchange)
     .bind(symbol)

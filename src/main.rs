@@ -1,14 +1,15 @@
 use crate::api::db::{
     delete_all_orderactive_from_db, delete_current_orderactive_from_db,
     fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_current_orderactive_to_db,
-    insert_db_balance, insert_db_error, insert_db_event, insert_db_orderevent,
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgevent, insert_db_orderevent,
     upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
+use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsg};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use serde::Deserialize;
+use serde_json::Value;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::env;
@@ -66,9 +67,8 @@ async fn make_order(
     price: String,
     size: String,
 ) {
-    let client_oid = Uuid::new_v4().to_string();
     let msg = serde_json::json!({
-        "id": format!("create-order-{}-{}", side, symbol),
+        "id": format!("create-order-'{}'-'{}'-'{}'-'{}'",symbol, price, size, side),
         "op": "margin.order",
         "args": {
             "price": price,
@@ -79,7 +79,7 @@ async fn make_order(
             "type": "limit",
             "autoBorrow": true,
             "autoRepay": true,
-            "clientOid": client_oid,
+            "clientOid": Uuid::new_v4().to_string(),
         }
     });
     if let Err(e) = tx_out.send(msg.to_string()).await {
@@ -262,11 +262,18 @@ async fn handle_trade_order_event(
 
         if order.side == "sell" {
             // filled sell (cancel all buy orders)
-            for order in
+            for order_from_db in
                 fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await
             {
-                let _ = cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
-                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
+                let _ = cancel_order(
+                    tx_out,
+                    pool,
+                    exchange,
+                    &order_from_db.symbol,
+                    &order_from_db.order_id,
+                )
+                .await;
+                delete_current_orderactive_from_db(pool, exchange, &order_from_db.order_id).await;
             }
             //     check if order on sell exist
             let sell_orders =
@@ -319,10 +326,17 @@ async fn handle_trade_order_event(
         } else if order.side == "buy" {
             // filled buy (cancel all sell orders)
 
-            for order in
+            for order_from_db in
                 fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await
             {
-                let _ = cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
+                let _ = cancel_order(
+                    tx_out,
+                    pool,
+                    exchange,
+                    &order_from_db.symbol,
+                    &order_from_db.order_id,
+                )
+                .await;
                 delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
             }
             // count buy orders
@@ -539,6 +553,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     loop {
         let exchange_for_handler = exchange.clone();
         let pool_for_handler = pool.clone();
+        let exchange_for_handler2 = exchange.clone();
+        let pool_for_handler2 = pool.clone();
         let symbol_map_for_handler = symbol_map.clone();
 
         // websocket to pg
@@ -782,7 +798,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 trade_msg =  trade_ws_read.next() => {
                     match trade_msg {
                         Some(Ok(Message::Text(text))) => {
-                            info!("{:?}", text);
+                            info!("{:?}", &text);
+                            match serde_json::from_str::<Value>(&text){
+                                Ok(json_value) =>{
+                                    match TradeMsg::deserialize(json_value) {
+                                    Ok(trademsg) => {
+                                        insert_db_msgevent(
+                                            &pool_for_handler2,
+                                            &exchange_for_handler2,
+                                            &trademsg,
+                                        )
+                                        .await;
+
+                                        // make_order()
+                                    }
+                                    Err(e) => {
+                                        info!("{:?}", &text);
+                                        error!("Failed to parse message {}", e);
+                                        // sent order error to pg
+                                        insert_db_error(
+                                            &pool_for_handler2,
+                                            &exchange_for_handler2,
+                                            &e.to_string(),
+                                        )
+                                        .await;
+                                    }
+                                }
+                                }
+                                Err(e) => {
+                                     info!("{:?}", &text);
+                                        error!("Failed to parse message {}", e);
+                                        // sent order error to pg
+                                        insert_db_error(
+                                            &pool_for_handler2,
+                                            &exchange_for_handler2,
+                                            &e.to_string(),
+                                        )
+                                        .await;
+                                }
+                            }
+
+
+
+
+
                         }
                         Some(Ok(Message::Close(close))) => {
                             error!("Connection closed by server: {:?}", close);
