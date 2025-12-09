@@ -177,13 +177,21 @@ pub struct SymbolOpenOrder {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TradeMsgData {
-    pub id: Option<String>,
-    pub op: Option<String>,
-    pub msg: Option<String>,
-    #[serde(rename = "inTime")]
-    pub in_time: i64,
-    #[serde(rename = "outTime")]
-    pub out_time: i64,
+    #[serde(rename = "borrowSize")]
+    pub borrow_size: Option<String>,
+    #[serde(rename = "clientOid")]
+    pub client_oid: Option<String>,
+    #[serde(rename = "orderId")]
+    pub order_id: Option<String>,
+    #[serde(rename = "loanApplyId")]
+    pub loan_apply_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TradeMsgRateLimit {
+    pub limit: Option<i64>,
+    pub reset: Option<i64>,
+    pub remaining: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -191,9 +199,12 @@ pub struct TradeMsg {
     pub id: Option<String>,
     pub op: Option<String>,
     pub msg: Option<String>,
-    pub data: Vec<TradeMsgData>,
+    pub code: Option<String>,
+    pub data: Option<TradeMsgData>,
     #[serde(rename = "inTime")]
     pub in_time: i64,
     #[serde(rename = "outTime")]
     pub out_time: i64,
+    #[serde(rename = "userRateLimit")]
+    pub user_rate_limit: Option<TradeMsgRateLimit>,
 }

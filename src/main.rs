@@ -1,7 +1,7 @@
 use crate::api::db::{
     delete_all_orderactive_from_db, delete_current_orderactive_from_db,
     fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_current_orderactive_to_db,
-    insert_db_balance, insert_db_error, insert_db_event, insert_db_orderevent,
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgevent, insert_db_orderevent,
     upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsg};
@@ -803,6 +803,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 Ok(json_value) =>{
                                     match TradeMsg::deserialize(json_value) {
                                     Ok(trademsg) => {
+                                        insert_db_msgevent(
+                                            &pool_for_handler2,
+                                            &exchange_for_handler2,
+                                            &trademsg,
+                                        )
+                                        .await;
+
                                         // make_order()
                                     }
                                     Err(e) => {
