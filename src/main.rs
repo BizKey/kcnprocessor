@@ -67,7 +67,7 @@ async fn make_order(
     size: String,
 ) {
     let msg = serde_json::json!({
-        "id": format!("create-order-{}-{}-{}-{}",symbol, price, size, side),
+        "id": format!("create-order-'{}'-'{}'-'{}'-'{}'",symbol, price, size, side),
         "op": "margin.order",
         "args": {
             "price": price,
