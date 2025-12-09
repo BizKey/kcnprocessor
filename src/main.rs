@@ -262,11 +262,18 @@ async fn handle_trade_order_event(
 
         if order.side == "sell" {
             // filled sell (cancel all buy orders)
-            for order in
+            for order_from_db in
                 fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await
             {
-                let _ = cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
-                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
+                let _ = cancel_order(
+                    tx_out,
+                    pool,
+                    exchange,
+                    &order_from_db.symbol,
+                    &order_from_db.order_id,
+                )
+                .await;
+                delete_current_orderactive_from_db(pool, exchange, &order_from_db.order_id).await;
             }
             //     check if order on sell exist
             let sell_orders =
@@ -319,10 +326,17 @@ async fn handle_trade_order_event(
         } else if order.side == "buy" {
             // filled buy (cancel all sell orders)
 
-            for order in
+            for order_from_db in
                 fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await
             {
-                let _ = cancel_order(tx_out, pool, exchange, &order.symbol, &order.order_id).await;
+                let _ = cancel_order(
+                    tx_out,
+                    pool,
+                    exchange,
+                    &order_from_db.symbol,
+                    &order_from_db.order_id,
+                )
+                .await;
                 delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
             }
             // count buy orders
