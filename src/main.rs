@@ -432,13 +432,9 @@ async fn handle_position_event(
     // repay borrow
     for (asset, debt_str) in &position.debt_list {
         if let Ok(debt) = debt_str.parse::<f64>() {
-            if debt <= 0.0 {
-                continue;
-            }
-
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available) = asset_info.available.parse::<f64>() {
-                    if available >= debt {
+                    if available >= debt && debt > 0.0 {
                         info!(
                             "Can repay {} {} debt with available {}",
                             debt, asset, available
@@ -450,7 +446,7 @@ async fn handle_position_event(
                             error!("Failed to repay debt: {}", e);
                             insert_db_error(pool, exchange, &e.to_string()).await;
                         }
-                    } else if available > 0.0 {
+                    } else if available > 0.0 && debt > 0.0 {
                         info!(
                             "Can partially repay {} {} debt with available {}",
                             debt, asset, available
@@ -462,6 +458,8 @@ async fn handle_position_event(
                             error!("Failed to partially repay debt: {}", e);
                             insert_db_error(pool, exchange, &e.to_string()).await;
                         }
+                    } else if available > 0.0 && debt == 0.0 {
+                        // sell available
                     }
                 } else {
                     error!("Failed to parse available balance for {}", asset);
@@ -473,12 +471,6 @@ async fn handle_position_event(
                     .await;
                 }
             }
-        }
-    }
-    // sell available
-    for (asset, asset_info) in &position.asset_list {
-        if let Some(asset_available) = &position.debt_list.get(asset) {
-            info!("{:.?} {:.?}", asset_info, asset_available);
         }
     }
 }
@@ -837,11 +829,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await;
                                 }
                             }
-
-
-
-
-
                         }
                         Some(Ok(Message::Close(close))) => {
                             error!("Connection closed by server: {:?}", close);
