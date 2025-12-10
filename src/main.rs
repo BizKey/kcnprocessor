@@ -708,6 +708,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             _ => {}
         }
 
+        match trade_ws_read.next().await {
+            Some(Ok(Message::Text(text))) => {
+                info!("{:?}", text);
+            }
+            None => {
+                info!("Trading WS stream dont sent welcome");
+                sleep(RECONNECT_DELAY).await;
+                continue;
+            }
+            _ => {}
+        }
+
         // Position/Orders WS
         let event_ws_url = match api::requests::get_private_ws_url().await {
             Ok(url) => url,
