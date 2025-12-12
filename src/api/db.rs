@@ -35,6 +35,44 @@ pub async fn insert_db_event<T: Serialize>(pool: &PgPool, exchange: &str, msg: &
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn insert_db_msgsend(
+    pool: &PgPool,
+    exchange: &str,
+    id_msg: Option<&str>,
+    op: Option<&str>,
+    args_symbol: Option<&str>,
+    args_side: Option<&str>,
+    args_size: Option<&str>,
+    args_price: Option<&str>,
+    args_time_in_force: Option<&str>,
+    args_type: Option<&str>,
+    args_auto_borrow: Option<&bool>,
+    args_auto_repay: Option<&bool>,
+    args_client_oid: Option<&str>,
+    args_order_id: Option<&str>,
+) {
+    if let Err(e) = sqlx::query("INSERT INTO msgsend (exchange, id_msg, op, args_symbol, args_side, args_size, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);")
+            .bind(exchange)
+            .bind(id_msg)
+            .bind(op)
+            .bind(args_symbol)
+            .bind(args_side)
+            .bind(args_size)
+            .bind(args_price)
+            .bind(args_time_in_force)
+            .bind(args_type)
+            .bind(args_auto_borrow)
+            .bind(args_auto_repay)
+            .bind(args_client_oid)
+            .bind(args_order_id)
+            .execute(pool)
+            .await
+    {
+        let err_msg = format!("Failed to insert msgsend into DB: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
 pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceData) {
     let relation_context = match balance.relation_context {
         Some(ctx) => ctx,

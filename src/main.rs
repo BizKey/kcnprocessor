@@ -1,8 +1,8 @@
 use crate::api::db::{
     delete_all_orderactive_from_db, delete_current_orderactive_from_db,
     fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_current_orderactive_to_db,
-    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgevent, insert_db_orderevent,
-    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgevent, insert_db_msgsend,
+    insert_db_orderevent, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsg};
 use dotenv::dotenv;
@@ -41,11 +41,31 @@ async fn cancel_order(
     symbol: &str,
     order_id: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let id_msg = Uuid::new_v4().to_string();
+    let op = "margin.cancel";
+
+    insert_db_msgsend(
+        pool,
+        exchange,
+        Some(&id_msg),
+        Some(&op),
+        Some(&symbol),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(&order_id),
+    )
+    .await;
     // cancel other orders by symbol
     let msg = serde_json::json!({
-      "id": format!("cancel-{}", order_id),
-    "op": "margin.cancel",
-    "args": {
+      "id": id_msg,
+      "op": op,
+      "args": {
         "symbol": symbol,
         "orderId": order_id
     }
@@ -67,19 +87,44 @@ async fn make_order(
     price: String,
     size: String,
 ) {
+    let id_msg = Uuid::new_v4().to_string();
+    let op = "margin.order";
+    let args_time_in_force = "GTC";
+    let type_ = "limit";
+    let auto_borrow = true;
+    let auto_repay = true;
+    let client_oid = Uuid::new_v4().to_string();
+
+    insert_db_msgsend(
+        pool,
+        exchange,
+        Some(&id_msg),
+        Some(&op),
+        Some(&symbol),
+        Some(&side),
+        Some(&size),
+        Some(&price),
+        Some(&args_time_in_force),
+        Some(&type_),
+        Some(&auto_borrow),
+        Some(&auto_repay),
+        Some(&client_oid),
+        None,
+    )
+    .await;
     let msg = serde_json::json!({
-        "id": format!("create-order-'{}'-'{}'-'{}'-'{}'",symbol, price, size, side),
-        "op": "margin.order",
+        "id": id_msg,
+        "op": op,
         "args": {
             "price": price,
             "size": size,
             "side": side,
             "symbol": symbol,
-            "timeInForce": "GTC",
-            "type": "limit",
-            "autoBorrow": true,
-            "autoRepay": true,
-            "clientOid": Uuid::new_v4().to_string(),
+            "timeInForce":args_time_in_force,
+            "type": type_,
+            "autoBorrow": auto_borrow,
+            "autoRepay": auto_repay,
+            "clientOid": client_oid,
         }
     });
     if let Err(e) = tx_out.send(msg.to_string()).await {
