@@ -324,7 +324,7 @@ async fn handle_trade_order_event(
             let sell_orders =
                 fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
 
-            if sell_orders.len() == 0 {
+            if sell_orders.is_empty() {
                 // create new buy order
                 if let Some(price_str) = calculate_price(
                     &order.match_price,
@@ -388,7 +388,7 @@ async fn handle_trade_order_event(
             let buy_orders =
                 fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await;
 
-            if buy_orders.len() == 0 {
+            if buy_orders.is_empty() {
                 if let Some(price_str) = calculate_price(
                     &order.match_price,
                     &symbol_info.price_increment,
