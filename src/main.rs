@@ -859,7 +859,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         )
                                         .await;
 
-                                        // make_order()
+                                        if trademsg.code == Some(126013.to_string()) {
+                                            // make_order() again
+                                        }
+                                        
                                     }
                                     Err(e) => {
                                         info!("{:?}", &text);
