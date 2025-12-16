@@ -268,6 +268,7 @@ async fn handle_trade_order_event(
         // order in order book
         // add order to active orders
         insert_current_orderactive_to_db(pool, exchange, &order).await;
+        // create new order if don't exist !!!
     } else if order.type_ == "canceled" {
         // cancel order
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
