@@ -269,6 +269,59 @@ async fn handle_trade_order_event(
         // add order to active orders
         insert_current_orderactive_to_db(pool, exchange, &order).await;
         // create new order if don't exist !!!
+        // check if order on sell exist
+        // let sell_orders =
+        //     fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
+
+        // if sell_orders.is_empty() {
+        //     // create new buy order
+        //     if let Some(price_str) = calculate_price(
+        //         &order.match_price,
+        //         &symbol_info.price_increment,
+        //         |a, _b| a, // match_price
+        //     ) {
+        //         create_order_safely(
+        //             tx_out,
+        //             pool,
+        //             exchange,
+        //             "buy",
+        //             &order.symbol,
+        //             &price_str,
+        //             &symbol_info.base_increment,
+        //             &symbol_info.base_min_size,
+        //         )
+        //         .await;
+        //     } else {
+        //         error!("Failed to calculate price for order {}", order.order_id);
+        //         insert_db_error(pool, exchange, "Price calculation failed").await;
+        //     }
+        // }
+        // count buy orders
+        // let buy_orders =
+        //     fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await;
+
+        // if buy_orders.is_empty() {
+        //     if let Some(price_str) = calculate_price(
+        //         &order.match_price,
+        //         &symbol_info.price_increment,
+        //         |a, _b| a, // match_price
+        //     ) {
+        //         create_order_safely(
+        //             tx_out,
+        //             pool,
+        //             exchange,
+        //             "sell",
+        //             &order.symbol,
+        //             &price_str,
+        //             &symbol_info.base_increment,
+        //             &symbol_info.base_min_size,
+        //         )
+        //         .await;
+        //     } else {
+        //         error!("Failed to calculate price for order {}", order.order_id);
+        //         insert_db_error(pool, exchange, "Price calculation failed").await;
+        //     }
+        // }
     } else if order.type_ == "canceled" {
         // cancel order
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
@@ -320,34 +373,7 @@ async fn handle_trade_order_event(
                 )
                 .await;
                 delete_current_orderactive_from_db(pool, exchange, &order_from_db.order_id).await;
-            }
-            // check if order on sell exist
-            let sell_orders =
-                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
-
-            if sell_orders.is_empty() {
-                // create new buy order
-                if let Some(price_str) = calculate_price(
-                    &order.match_price,
-                    &symbol_info.price_increment,
-                    |a, _b| a, // match_price
-                ) {
-                    create_order_safely(
-                        tx_out,
-                        pool,
-                        exchange,
-                        "buy",
-                        &order.symbol,
-                        &price_str,
-                        &symbol_info.base_increment,
-                        &symbol_info.base_min_size,
-                    )
-                    .await;
-                } else {
-                    error!("Failed to calculate price for order {}", order.order_id);
-                    insert_db_error(pool, exchange, "Price calculation failed").await;
-                }
-            }
+            }            
             // create new buy order
             if let Some(price_str) = calculate_price(
                 &order.match_price,
@@ -384,32 +410,6 @@ async fn handle_trade_order_event(
                 )
                 .await;
                 delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-            }
-            // count buy orders
-            let buy_orders =
-                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await;
-
-            if buy_orders.is_empty() {
-                if let Some(price_str) = calculate_price(
-                    &order.match_price,
-                    &symbol_info.price_increment,
-                    |a, _b| a, // match_price
-                ) {
-                    create_order_safely(
-                        tx_out,
-                        pool,
-                        exchange,
-                        "sell",
-                        &order.symbol,
-                        &price_str,
-                        &symbol_info.base_increment,
-                        &symbol_info.base_min_size,
-                    )
-                    .await;
-                } else {
-                    error!("Failed to calculate price for order {}", order.order_id);
-                    insert_db_error(pool, exchange, "Price calculation failed").await;
-                }
             }
             if let Some(price_str) = calculate_price(
                 &order.match_price,
