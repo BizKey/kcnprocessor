@@ -320,7 +320,7 @@ async fn handle_trade_order_event(
                 .await;
                 delete_current_orderactive_from_db(pool, exchange, &order_from_db.order_id).await;
             }
-            //     check if order on sell exist
+            // check if order on sell exist
             let sell_orders =
                 fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
 
@@ -862,7 +862,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         if trademsg.code == Some(126013.to_string()) {
                                             // make_order() again
                                         }
-                                        
+
                                     }
                                     Err(e) => {
                                         info!("{:?}", &text);
