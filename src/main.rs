@@ -142,12 +142,7 @@ fn format_size(size: f64, increment: f64) -> String {
     format!("{:.decimals$}", size)
 }
 
-fn calculate_size(
-    notional: f64,       // $10
-    price: f64,          // цена актива
-    base_increment: f64, // шаг количества (например, 0.0001 для BTC)
-    min_size: f64,       // минимальный размер ордера (например, 0.0001)
-) -> Option<String> {
+fn calculate_size(notional: f64, price: f64, base_increment: f64, min_size: f64) -> Option<String> {
     if price <= 0.0 || base_increment <= 0.0 {
         return None;
     }
