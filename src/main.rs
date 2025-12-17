@@ -165,6 +165,7 @@ async fn create_order_safely(
     side: &str,
     symbol: &str,
     price_str: &str,
+    size_option: Option<&str>,
     symbol_info: &Symbol,
 ) {
     let price_f64 = match price_str.parse::<f64>() {
@@ -203,22 +204,55 @@ async fn create_order_safely(
         }
     };
 
-    if let Some(size_str) = calculate_size(10.0, price_f64, base_increment, min_size) {
-        make_order(
-            tx_out,
-            pool,
-            exchange,
-            side,
-            symbol,
-            price_str.to_string(),
-            size_str,
-        )
-        .await;
-    } else {
-        let msg = format!("Calculated size below min_size for symbol {}", symbol);
-        error!("{}", msg);
-        insert_db_error(pool, exchange, &msg).await;
-    }
+    let size_str = match size_option {
+        // Если размер указан, используем его
+        Some(size_str) => {
+            // Проверяем, что размер соответствует минимальным требованиям
+            match size_str.parse::<f64>() {
+                Ok(size_f64) => {
+                    if size_f64 >= min_size {
+                        // Округляем до шага размера
+                        let rounded_size = (size_f64 / base_increment).floor() * base_increment;
+                        format_size(rounded_size, base_increment)
+                    } else {
+                        let msg = format!(
+                            "Size {} below min_size {} for symbol {}",
+                            size_str, min_size, symbol
+                        );
+                        error!("{}", msg);
+                        insert_db_error(pool, exchange, &msg).await;
+                        return;
+                    }
+                }
+                Err(_) => {
+                    let msg = format!("Invalid size '{}' for symbol {}", size_str, symbol);
+                    error!("{}", msg);
+                    insert_db_error(pool, exchange, &msg).await;
+                    return;
+                }
+            }
+        }
+        // Если размер не указан, рассчитываем его
+        None => match calculate_size(10.0, price_f64, base_increment, min_size) {
+            Some(size) => size,
+            None => {
+                let msg = format!("Failed to calculate size for symbol {}", symbol);
+                error!("{}", msg);
+                insert_db_error(pool, exchange, &msg).await;
+                return;
+            }
+        },
+    };
+    make_order(
+        tx_out,
+        pool,
+        exchange,
+        side,
+        symbol,
+        price_str.to_string(),
+        size_str,
+    )
+    .await;
 }
 
 fn format_price(price: f64, increment: f64) -> String {
@@ -298,6 +332,7 @@ async fn handle_trade_order_event(
                         &order.side,
                         &order.symbol,
                         &price_str,
+                        None,
                         &symbol_info,
                     )
                     .await;
@@ -318,6 +353,7 @@ async fn handle_trade_order_event(
                         &order.side,
                         &order.symbol,
                         &price_str,
+                        None,
                         &symbol_info,
                     )
                     .await;
@@ -385,6 +421,7 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
+                let size_option = order.size.as_deref();
                 create_order_safely(
                     tx_out,
                     pool,
@@ -392,6 +429,7 @@ async fn handle_trade_order_event(
                     "buy",
                     &order.symbol,
                     &price_str,
+                    size_option,
                     &symbol_info,
                 )
                 .await;
@@ -420,6 +458,7 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
+                let size_option = order.size.as_deref();
                 create_order_safely(
                     tx_out,
                     pool,
@@ -427,6 +466,7 @@ async fn handle_trade_order_event(
                     "sell",
                     &order.symbol,
                     &price_str,
+                    size_option,
                     &symbol_info,
                 )
                 .await;
