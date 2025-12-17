@@ -250,7 +250,7 @@ pub async fn fetch_all_active_orders_by_symbol(
                 symbol, e
             );
             error!("{}", err_msg);
-            insert_db_error(pool, "kucoin", &err_msg).await;
+            insert_db_error(pool, exchange, &err_msg).await;
             vec![]
         }
     }

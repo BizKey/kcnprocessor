@@ -142,12 +142,7 @@ fn format_size(size: f64, increment: f64) -> String {
     format!("{:.decimals$}", size)
 }
 
-fn calculate_size(
-    notional: f64,       // $10
-    price: f64,          // цена актива
-    base_increment: f64, // шаг количества (например, 0.0001 для BTC)
-    min_size: f64,       // минимальный размер ордера (например, 0.0001)
-) -> Option<String> {
+fn calculate_size(notional: f64, price: f64, base_increment: f64, min_size: f64) -> Option<String> {
     if price <= 0.0 || base_increment <= 0.0 {
         return None;
     }
@@ -170,8 +165,8 @@ async fn create_order_safely(
     side: &str,
     symbol: &str,
     price_str: &str,
-    base_increment_str: &str,
-    min_size_str: &str,
+    size_option: Option<&str>,
+    symbol_info: &Symbol,
 ) {
     let price_f64 = match price_str.parse::<f64>() {
         Ok(v) if v > 0.0 => v,
@@ -183,12 +178,12 @@ async fn create_order_safely(
         }
     };
 
-    let base_increment = match base_increment_str.parse::<f64>() {
+    let base_increment = match symbol_info.base_increment.parse::<f64>() {
         Ok(v) if v > 0.0 => v,
         _ => {
             let msg = format!(
                 "Invalid base_increment '{}' for symbol {}",
-                base_increment_str, symbol
+                symbol_info.base_increment, symbol,
             );
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
@@ -196,32 +191,68 @@ async fn create_order_safely(
         }
     };
 
-    let min_size = match min_size_str.parse::<f64>() {
+    let min_size = match symbol_info.base_min_size.parse::<f64>() {
         Ok(v) if v > 0.0 => v,
         _ => {
-            let msg = format!("Invalid min_size '{}' for symbol {}", min_size_str, symbol);
+            let msg = format!(
+                "Invalid min_size '{}' for symbol {}",
+                symbol_info.base_min_size, symbol
+            );
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
             return;
         }
     };
 
-    if let Some(size_str) = calculate_size(10.0, price_f64, base_increment, min_size) {
-        make_order(
-            tx_out,
-            pool,
-            exchange,
-            side,
-            symbol,
-            price_str.to_string(),
-            size_str,
-        )
-        .await;
-    } else {
-        let msg = format!("Calculated size below min_size for symbol {}", symbol);
-        error!("{}", msg);
-        insert_db_error(pool, exchange, &msg).await;
-    }
+    let size_str = match size_option {
+        // Если размер указан, используем его
+        Some(size_str) => {
+            // Проверяем, что размер соответствует минимальным требованиям
+            match size_str.parse::<f64>() {
+                Ok(size_f64) => {
+                    if size_f64 >= min_size {
+                        // Округляем до шага размера
+                        let rounded_size = (size_f64 / base_increment).floor() * base_increment;
+                        format_size(rounded_size, base_increment)
+                    } else {
+                        let msg = format!(
+                            "Size {} below min_size {} for symbol {}",
+                            size_str, min_size, symbol
+                        );
+                        error!("{}", msg);
+                        insert_db_error(pool, exchange, &msg).await;
+                        return;
+                    }
+                }
+                Err(_) => {
+                    let msg = format!("Invalid size '{}' for symbol {}", size_str, symbol);
+                    error!("{}", msg);
+                    insert_db_error(pool, exchange, &msg).await;
+                    return;
+                }
+            }
+        }
+        // Если размер не указан, рассчитываем его
+        None => match calculate_size(10.0, price_f64, base_increment, min_size) {
+            Some(size) => size,
+            None => {
+                let msg = format!("Failed to calculate size for symbol {}", symbol);
+                error!("{}", msg);
+                insert_db_error(pool, exchange, &msg).await;
+                return;
+            }
+        },
+    };
+    make_order(
+        tx_out,
+        pool,
+        exchange,
+        side,
+        symbol,
+        price_str.to_string(),
+        size_str,
+    )
+    .await;
 }
 
 fn format_price(price: f64, increment: f64) -> String {
@@ -266,8 +297,72 @@ async fn handle_trade_order_event(
     insert_db_orderevent(pool, exchange, &order).await;
     if order.type_ == "open" && order.status == "open" {
         // order in order book
-        // add order to active orders
+
+        let symbol_info = match symbol_map.get(&order.symbol) {
+            Some(info) => info,
+            None => {
+                error!("Symbol info not found for: {}", order.symbol);
+                insert_db_error(
+                    pool,
+                    exchange,
+                    &format!("Missing symbol info for {}", order.symbol),
+                )
+                .await;
+                return;
+            }
+        };
+
         insert_current_orderactive_to_db(pool, exchange, &order).await;
+
+        let active_orders =
+            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, &order.side).await;
+
+        if active_orders.len() == 1 {
+            if order.side == "buy" {
+                // create new buy order
+                if let Some(price_str) = calculate_price(
+                    &order.price,
+                    &symbol_info.price_increment,
+                    |a, _b| a * 1.01, // price + 1%
+                ) {
+                    create_order_safely(
+                        tx_out,
+                        pool,
+                        exchange,
+                        &order.side,
+                        &order.symbol,
+                        &price_str,
+                        None,
+                        &symbol_info,
+                    )
+                    .await;
+                } else {
+                    error!("Failed to calculate price for order {}", order.order_id);
+                    insert_db_error(pool, exchange, "Price calculation failed").await;
+                }
+            } else if order.side == "sell" {
+                if let Some(price_str) = calculate_price(
+                    &order.price,
+                    &symbol_info.price_increment,
+                    |a, _b| a * 100.0 / 101.0, // price - 1%
+                ) {
+                    create_order_safely(
+                        tx_out,
+                        pool,
+                        exchange,
+                        &order.side,
+                        &order.symbol,
+                        &price_str,
+                        None,
+                        &symbol_info,
+                    )
+                    .await;
+                } else {
+                    error!("Failed to calculate price for order {}", order.order_id);
+                    insert_db_error(pool, exchange, "Price calculation failed").await;
+                }
+            }
+        }
     } else if order.type_ == "canceled" {
         // cancel order
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
@@ -320,39 +415,13 @@ async fn handle_trade_order_event(
                 .await;
                 delete_current_orderactive_from_db(pool, exchange, &order_from_db.order_id).await;
             }
-            //     check if order on sell exist
-            let sell_orders =
-                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
-
-            if sell_orders.len() == 0 {
-                // create new buy order
-                if let Some(price_str) = calculate_price(
-                    &order.match_price,
-                    &symbol_info.price_increment,
-                    |a, _b| a, // match_price
-                ) {
-                    create_order_safely(
-                        tx_out,
-                        pool,
-                        exchange,
-                        "buy",
-                        &order.symbol,
-                        &price_str,
-                        &symbol_info.base_increment,
-                        &symbol_info.base_min_size,
-                    )
-                    .await;
-                } else {
-                    error!("Failed to calculate price for order {}", order.order_id);
-                    insert_db_error(pool, exchange, "Price calculation failed").await;
-                }
-            }
             // create new buy order
             if let Some(price_str) = calculate_price(
                 &order.match_price,
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
+                let size_option = order.size.as_deref();
                 create_order_safely(
                     tx_out,
                     pool,
@@ -360,8 +429,8 @@ async fn handle_trade_order_event(
                     "buy",
                     &order.symbol,
                     &price_str,
-                    &symbol_info.base_increment,
-                    &symbol_info.base_min_size,
+                    size_option,
+                    &symbol_info,
                 )
                 .await;
             } else {
@@ -384,37 +453,12 @@ async fn handle_trade_order_event(
                 .await;
                 delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
             }
-            // count buy orders
-            let buy_orders =
-                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await;
-
-            if buy_orders.len() == 0 {
-                if let Some(price_str) = calculate_price(
-                    &order.match_price,
-                    &symbol_info.price_increment,
-                    |a, _b| a, // match_price
-                ) {
-                    create_order_safely(
-                        tx_out,
-                        pool,
-                        exchange,
-                        "sell",
-                        &order.symbol,
-                        &price_str,
-                        &symbol_info.base_increment,
-                        &symbol_info.base_min_size,
-                    )
-                    .await;
-                } else {
-                    error!("Failed to calculate price for order {}", order.order_id);
-                    insert_db_error(pool, exchange, "Price calculation failed").await;
-                }
-            }
             if let Some(price_str) = calculate_price(
                 &order.match_price,
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
+                let size_option = order.size.as_deref();
                 create_order_safely(
                     tx_out,
                     pool,
@@ -422,8 +466,8 @@ async fn handle_trade_order_event(
                     "sell",
                     &order.symbol,
                     &price_str,
-                    &symbol_info.base_increment,
-                    &symbol_info.base_min_size,
+                    size_option,
+                    &symbol_info,
                 )
                 .await;
             } else {
@@ -859,7 +903,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         )
                                         .await;
 
-                                        // make_order()
+                                        if trademsg.code == Some(126013.to_string()) {
+                                            // make_order() again
+                                        }
+
                                     }
                                     Err(e) => {
                                         info!("{:?}", &text);
