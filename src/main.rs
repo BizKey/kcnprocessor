@@ -170,8 +170,7 @@ async fn create_order_safely(
     side: &str,
     symbol: &str,
     price_str: &str,
-    base_increment_str: &str,
-    min_size_str: &str,
+    symbol_info: &Symbol,
 ) {
     let price_f64 = match price_str.parse::<f64>() {
         Ok(v) if v > 0.0 => v,
@@ -183,12 +182,12 @@ async fn create_order_safely(
         }
     };
 
-    let base_increment = match base_increment_str.parse::<f64>() {
+    let base_increment = match symbol_info.base_increment.parse::<f64>() {
         Ok(v) if v > 0.0 => v,
         _ => {
             let msg = format!(
                 "Invalid base_increment '{}' for symbol {}",
-                base_increment_str, symbol
+                symbol_info.base_increment, symbol,
             );
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
@@ -196,10 +195,13 @@ async fn create_order_safely(
         }
     };
 
-    let min_size = match min_size_str.parse::<f64>() {
+    let min_size = match symbol_info.base_min_size.parse::<f64>() {
         Ok(v) if v > 0.0 => v,
         _ => {
-            let msg = format!("Invalid min_size '{}' for symbol {}", min_size_str, symbol);
+            let msg = format!(
+                "Invalid min_size '{}' for symbol {}",
+                symbol_info.base_min_size, symbol
+            );
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
             return;
@@ -301,8 +303,7 @@ async fn handle_trade_order_event(
                         &order.side,
                         &order.symbol,
                         &price_str,
-                        &symbol_info.base_increment,
-                        &symbol_info.base_min_size,
+                        &symbol_info,
                     )
                     .await;
                 } else {
@@ -322,8 +323,7 @@ async fn handle_trade_order_event(
                         &order.side,
                         &order.symbol,
                         &price_str,
-                        &symbol_info.base_increment,
-                        &symbol_info.base_min_size,
+                        &symbol_info,
                     )
                     .await;
                 } else {
@@ -397,8 +397,7 @@ async fn handle_trade_order_event(
                     "buy",
                     &order.symbol,
                     &price_str,
-                    &symbol_info.base_increment,
-                    &symbol_info.base_min_size,
+                    &symbol_info,
                 )
                 .await;
             } else {
@@ -433,8 +432,7 @@ async fn handle_trade_order_event(
                     "sell",
                     &order.symbol,
                     &price_str,
-                    &symbol_info.base_increment,
-                    &symbol_info.base_min_size,
+                    &symbol_info,
                 )
                 .await;
             } else {
