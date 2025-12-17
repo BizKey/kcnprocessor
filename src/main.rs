@@ -280,10 +280,13 @@ async fn handle_trade_order_event(
                 return;
             }
         };
+
+        insert_current_orderactive_to_db(pool, exchange, &order).await;
+
         let active_orders =
             fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, &order.side).await;
 
-        if active_orders.is_empty() {
+        if active_orders.len() == 1 {
             if order.side == "buy" {
                 // create new buy order
                 if let Some(price_str) = calculate_price(
@@ -329,8 +332,6 @@ async fn handle_trade_order_event(
                 }
             }
         }
-
-        insert_current_orderactive_to_db(pool, exchange, &order).await;
     } else if order.type_ == "canceled" {
         // cancel order
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
