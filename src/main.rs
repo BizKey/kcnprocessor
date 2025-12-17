@@ -267,8 +267,6 @@ async fn handle_trade_order_event(
     if order.type_ == "open" && order.status == "open" {
         // order in order book
 
-        insert_current_orderactive_to_db(pool, exchange, &order).await;
-
         let symbol_info = match symbol_map.get(&order.symbol) {
             Some(info) => info,
             None => {
@@ -282,12 +280,11 @@ async fn handle_trade_order_event(
                 return;
             }
         };
+        let active_orders =
+            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, &order.side).await;
 
         if order.side == "buy" {
-            let buy_orders =
-                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, &order.side).await;
-
-            if buy_orders.len() == 1 {
+            if active_orders.is_empty() {
                 // create new buy order
                 if let Some(price_str) = calculate_price(
                     &order.price,
@@ -311,10 +308,7 @@ async fn handle_trade_order_event(
                 }
             }
         } else if order.side == "sell" {
-            let sell_orders =
-                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, &order.side).await;
-
-            if sell_orders.len() == 1 {
+            if active_orders.is_empty() {
                 if let Some(price_str) = calculate_price(
                     &order.price,
                     &symbol_info.price_increment,
@@ -337,6 +331,7 @@ async fn handle_trade_order_event(
                 }
             }
         };
+        insert_current_orderactive_to_db(pool, exchange, &order).await;
     } else if order.type_ == "canceled" {
         // cancel order
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
