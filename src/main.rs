@@ -314,11 +314,11 @@ async fn handle_trade_order_event(
 
         insert_current_orderactive_to_db(pool, exchange, &order).await;
 
-        let active_orders =
-            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, &order.side).await;
+        if order.side == "buy" {
+            let active_orders =
+                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
 
-        if active_orders.len() == 1 {
-            if order.side == "buy" {
+            if active_orders.is_empty() {
                 // create new buy order
                 if let Some(price_str) = calculate_price(
                     &order.price,
@@ -340,7 +340,11 @@ async fn handle_trade_order_event(
                     error!("Failed to calculate price for order {}", order.order_id);
                     insert_db_error(pool, exchange, "Price calculation failed").await;
                 }
-            } else if order.side == "sell" {
+            }
+        } else if order.side == "sell" {
+            let active_orders =
+                fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await;
+            if active_orders.is_empty() {
                 if let Some(price_str) = calculate_price(
                     &order.price,
                     &symbol_info.price_increment,
