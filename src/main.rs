@@ -295,7 +295,7 @@ async fn handle_trade_order_event(
 ) {
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
-    if order.type_ == "open" && order.status == "open" {
+    if order.type_ == "received" {
         // order in order book
 
         let symbol_info = match symbol_map.get(&order.symbol) {
@@ -332,7 +332,7 @@ async fn handle_trade_order_event(
                         &order.side,
                         &order.symbol,
                         &price_str,
-                        None,
+                        order.size.as_deref(),
                         &symbol_info,
                     )
                     .await;
@@ -353,7 +353,7 @@ async fn handle_trade_order_event(
                         &order.side,
                         &order.symbol,
                         &price_str,
-                        None,
+                        order.size.as_deref(),
                         &symbol_info,
                     )
                     .await;
@@ -366,10 +366,7 @@ async fn handle_trade_order_event(
     } else if order.type_ == "canceled" {
         // cancel order
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-    } else if order.type_ == "match"
-        && order.status == "open"
-        && order.remain_size == Some("0".to_string())
-    {
+    } else if order.type_ == "match" && order.remain_size == Some("0".to_string()) {
         // get last event on match size of position
         // next msg will filled, but it don't have match price
 
@@ -421,7 +418,6 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
-                let size_option = order.size.as_deref();
                 create_order_safely(
                     tx_out,
                     pool,
@@ -429,7 +425,7 @@ async fn handle_trade_order_event(
                     "buy",
                     &order.symbol,
                     &price_str,
-                    size_option,
+                    order.size.as_deref(),
                     &symbol_info,
                 )
                 .await;
@@ -451,14 +447,13 @@ async fn handle_trade_order_event(
                     &order_from_db.order_id,
                 )
                 .await;
-                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
+                delete_current_orderactive_from_db(pool, exchange, &order_from_db.order_id).await;
             }
             if let Some(price_str) = calculate_price(
                 &order.match_price,
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
-                let size_option = order.size.as_deref();
                 create_order_safely(
                     tx_out,
                     pool,
@@ -466,7 +461,7 @@ async fn handle_trade_order_event(
                     "sell",
                     &order.symbol,
                     &price_str,
-                    size_option,
+                    order.size.as_deref(),
                     &symbol_info,
                 )
                 .await;
