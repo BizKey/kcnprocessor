@@ -295,23 +295,21 @@ async fn handle_trade_order_event(
 ) {
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
+    let symbol_info = match symbol_map.get(&order.symbol) {
+        Some(info) => info,
+        None => {
+            error!("Symbol info not found for: {}", order.symbol);
+            insert_db_error(
+                pool,
+                exchange,
+                &format!("Missing symbol info for {}", order.symbol),
+            )
+            .await;
+            return;
+        }
+    };
     if order.type_ == "received" {
         // order in order book
-
-        let symbol_info = match symbol_map.get(&order.symbol) {
-            Some(info) => info,
-            None => {
-                error!("Symbol info not found for: {}", order.symbol);
-                insert_db_error(
-                    pool,
-                    exchange,
-                    &format!("Missing symbol info for {}", order.symbol),
-                )
-                .await;
-                return;
-            }
-        };
-
         insert_current_orderactive_to_db(pool, exchange, &order).await;
 
         if order.side == "buy" {
@@ -386,20 +384,6 @@ async fn handle_trade_order_event(
         //         exist	- add sell order + 1%
 
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-
-        let symbol_info = match symbol_map.get(&order.symbol) {
-            Some(info) => info,
-            None => {
-                error!("Symbol info not found for: {}", order.symbol);
-                insert_db_error(
-                    pool,
-                    exchange,
-                    &format!("Missing symbol info for {}", order.symbol),
-                )
-                .await;
-                return;
-            }
-        };
 
         if order.side == "sell" {
             // filled sell (cancel all buy orders)
