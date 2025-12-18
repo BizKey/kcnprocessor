@@ -295,7 +295,7 @@ async fn handle_trade_order_event(
 ) {
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
-    if order.type_ == "open" {
+    if order.type_ == "received" {
         // order in order book
 
         let symbol_info = match symbol_map.get(&order.symbol) {
@@ -418,7 +418,6 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
-                let size_option = order.size.as_deref();
                 create_order_safely(
                     tx_out,
                     pool,
@@ -426,7 +425,7 @@ async fn handle_trade_order_event(
                     "buy",
                     &order.symbol,
                     &price_str,
-                    size_option,
+                    order.size.as_deref(),
                     &symbol_info,
                 )
                 .await;
@@ -455,7 +454,6 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
-                let size_option = order.size.as_deref();
                 create_order_safely(
                     tx_out,
                     pool,
@@ -463,7 +461,7 @@ async fn handle_trade_order_event(
                     "sell",
                     &order.symbol,
                     &price_str,
-                    size_option,
+                    order.size.as_deref(),
                     &symbol_info,
                 )
                 .await;
