@@ -447,7 +447,7 @@ async fn handle_trade_order_event(
                     &order_from_db.order_id,
                 )
                 .await;
-                delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
+                delete_current_orderactive_from_db(pool, exchange, &order_from_db.order_id).await;
             }
             if let Some(price_str) = calculate_price(
                 &order.match_price,
