@@ -332,7 +332,7 @@ async fn handle_trade_order_event(
                         &order.side,
                         &order.symbol,
                         &price_str,
-                        None,
+                        order.size.as_deref(),
                         &symbol_info,
                     )
                     .await;
@@ -353,7 +353,7 @@ async fn handle_trade_order_event(
                         &order.side,
                         &order.symbol,
                         &price_str,
-                        None,
+                        order.size.as_deref(),
                         &symbol_info,
                     )
                     .await;
