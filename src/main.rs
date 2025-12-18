@@ -295,7 +295,7 @@ async fn handle_trade_order_event(
 ) {
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
-    if order.type_ == "open" && order.status == "open" {
+    if order.type_ == "open" {
         // order in order book
 
         let symbol_info = match symbol_map.get(&order.symbol) {
@@ -366,10 +366,7 @@ async fn handle_trade_order_event(
     } else if order.type_ == "canceled" {
         // cancel order
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-    } else if order.type_ == "match"
-        && order.status == "open"
-        && order.remain_size == Some("0".to_string())
-    {
+    } else if order.type_ == "match" && order.remain_size == Some("0".to_string()) {
         // get last event on match size of position
         // next msg will filled, but it don't have match price
 
