@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 #[derive(Debug, Deserialize)]
@@ -60,7 +59,6 @@ pub struct BalanceData {
 pub struct ActiveOrder {
     pub order_id: String,
     pub symbol: String,
-    pub updated_at: DateTime<Utc>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {

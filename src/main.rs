@@ -312,9 +312,9 @@ async fn handle_trade_order_event(
         // order in order book
         insert_current_orderactive_to_db(pool, exchange, &order).await;
 
-        let active_buy_orders =
+        let mut active_buy_orders =
             fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await;
-        let active_sell_orders =
+        let mut active_sell_orders =
             fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
 
         if order.side == "buy" {
@@ -355,7 +355,7 @@ async fn handle_trade_order_event(
                             &oldest_order.order_id,
                         )
                         .await;
-                        let active_buy_orders =
+                        active_buy_orders =
                             fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy")
                                 .await;
                     } else {
@@ -401,7 +401,7 @@ async fn handle_trade_order_event(
                             &oldest_order.order_id,
                         )
                         .await;
-                        let active_sell_orders = fetch_all_active_orders_by_symbol(
+                        active_sell_orders = fetch_all_active_orders_by_symbol(
                             pool,
                             exchange,
                             &order.symbol,
