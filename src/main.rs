@@ -341,7 +341,9 @@ async fn handle_trade_order_event(
                         error!("Failed to calculate price for order {}", order.order_id);
                         insert_db_error(pool, exchange, "Price calculation failed").await;
                     }
-                } else if active_buy_orders.len() == 3 {
+                }
+
+                while active_buy_orders.len() >= 3 {
                     if let Some(oldest_order) =
                         delete_oldest_orderactive(pool, exchange, &order.symbol, "buy").await
                     {
@@ -353,6 +355,11 @@ async fn handle_trade_order_event(
                             &oldest_order.order_id,
                         )
                         .await;
+                        let active_buy_orders =
+                            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy")
+                                .await;
+                    } else {
+                        break;
                     }
                 }
             }
@@ -380,7 +387,9 @@ async fn handle_trade_order_event(
                         error!("Failed to calculate price for order {}", order.order_id);
                         insert_db_error(pool, exchange, "Price calculation failed").await;
                     }
-                } else if active_sell_orders.len() == 3 {
+                }
+
+                while active_sell_orders.len() >= 3 {
                     if let Some(oldest_order) =
                         delete_oldest_orderactive(pool, exchange, &order.symbol, "sell").await
                     {
@@ -392,6 +401,15 @@ async fn handle_trade_order_event(
                             &oldest_order.order_id,
                         )
                         .await;
+                        let active_sell_orders = fetch_all_active_orders_by_symbol(
+                            pool,
+                            exchange,
+                            &order.symbol,
+                            "sell",
+                        )
+                        .await;
+                    } else {
+                        break;
                     }
                 }
             }
