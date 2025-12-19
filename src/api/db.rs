@@ -228,6 +228,40 @@ pub async fn delete_current_orderactive_from_db(pool: &PgPool, exchange: &str, o
         insert_db_error(pool, "kucoin", &err_msg).await;
     }
 }
+
+pub async fn delete_oldest_orderactive(
+    pool: &PgPool,
+    exchange: &str,
+    symbol: &str,
+    side: &str,
+) -> Option<ActiveOrder> {
+    match sqlx::query_as::<_, ActiveOrder>(
+        "DELETE FROM orderactive
+        WHERE id = (
+            SELECT id
+            FROM orderactive
+            WHERE exchange = $1 AND symbol = $2 AND side = $3
+            ORDER BY updated_at ASC
+            LIMIT 1
+        )
+        RETURNING order_id, symbol, updated_at",
+    )
+    .bind(exchange)
+    .bind(symbol)
+    .bind(side)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(order) => order,
+        Err(e) => {
+            let err_msg = format!("Failed delete active orders by symbol '{}': {}", symbol, e);
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            None
+        }
+    }
+}
+
 pub async fn fetch_all_active_orders_by_symbol(
     pool: &PgPool,
     exchange: &str,
@@ -235,7 +269,7 @@ pub async fn fetch_all_active_orders_by_symbol(
     side: &str,
 ) -> Vec<ActiveOrder> {
     match sqlx::query_as::<_, ActiveOrder>(
-        "SELECT order_id, symbol FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
+        "SELECT order_id, symbol, updated_at FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
     )
     .bind(exchange)
     .bind(symbol)
