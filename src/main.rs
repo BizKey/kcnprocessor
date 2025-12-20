@@ -1,8 +1,9 @@
 use crate::api::db::{
     delete_all_orderactive_from_db, delete_current_orderactive_from_db, delete_oldest_orderactive,
-    fetch_all_active_orders_by_symbol, fetch_symbol_info, insert_current_orderactive_to_db,
-    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgevent, insert_db_msgsend,
-    insert_db_orderevent, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
+    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_sended_msg_to_trade,
+    insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
+    insert_db_msgevent, insert_db_msgsend, insert_db_orderevent, upsert_position_asset,
+    upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsg};
 use dotenv::dotenv;
@@ -648,6 +649,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (tx_out, rx_out) = mpsc::channel::<String>(100);
 
         let tx_out_clone = tx_out.clone();
+        let tx_out_clone2 = tx_out.clone();
 
         // Work with income events
         let _ = tokio::spawn(async move {
@@ -907,10 +909,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         )
                                         .await;
 
-                                        if trademsg.code == Some(126013.to_string()) {
+                                        if trademsg.code == Some("126013".to_string()) {
+                                            // Balance insufficient!
                                             // make_order() again
-                                        }
+                                            if let Some(ref id_str) = trademsg.id {
+                                                if let Some(sended_order) = get_sended_msg_to_trade(
+                                                    &pool_for_handler2,
+                                                    &exchange_for_handler2,
+                                                    id_str.as_str()
+                                                ).await {
+                                                    if let (Some(side), Some(symbol), Some(price), Some(size)) = (
+                                                        &sended_order.args_side,
+                                                        &sended_order.args_symbol,
+                                                        &sended_order.args_price,
+                                                        &sended_order.args_size,
+                                                        ) {
+                                                            make_order(
+                                                                &tx_out_clone2,
+                                                                &pool_for_handler2,
+                                                                &exchange_for_handler2,
+                                                                side,
+                                                                symbol,
+                                                                price.clone(),
+                                                                size.clone(),
+                                                            ).await;
 
+                                                    } else {
+                                                        error!("Missing required fields in sended_order: side={:?}, symbol={:?}, price={:?}, size={:?}", sended_order.args_side, sended_order.args_symbol, sended_order.args_price, sended_order.args_size);
+                                                        insert_db_error(
+                                                            &pool_for_handler2,
+                                                            &exchange_for_handler2,
+                                                            &format!("Missing fields in sended_order for id: {}", id_str),
+                                                        ).await;
+                                                }
+                                            } else {
+                                                error!("No sended order found for id: {}", id_str);
+                                                insert_db_error(
+                                                    &pool_for_handler2,
+                                                    &exchange_for_handler2,
+                                                    &format!("No sended order found for id: {}", id_str),
+                                                ).await;
+                                            }
+                                        }}
                                     }
                                     Err(e) => {
                                         info!("{:?}", &text);

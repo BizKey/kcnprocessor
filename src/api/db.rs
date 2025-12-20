@@ -1,6 +1,6 @@
 use crate::api::models::{
-    ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeMsg, TradeMsgData,
-    TradeMsgRateLimit,
+    ActiveOrder, BalanceData, BalanceRelationContext, MsgSend, OrderData, Symbol, TradeMsg,
+    TradeMsgData, TradeMsgRateLimit,
 };
 use log::error;
 use serde::Serialize;
@@ -225,7 +225,7 @@ pub async fn delete_current_orderactive_from_db(pool: &PgPool, exchange: &str, o
     {
         let err_msg = format!("Failed to delete order from orderactive: {}", e);
         error!("{}", err_msg);
-        insert_db_error(pool, "kucoin", &err_msg).await;
+        insert_db_error(pool, exchange, &err_msg).await;
     }
 }
 
@@ -289,6 +289,26 @@ pub async fn fetch_all_active_orders_by_symbol(
         }
     }
 }
+pub async fn get_sended_msg_to_trade(
+    pool: &PgPool,
+    exchange: &str,
+    id_msg: &str,
+) -> Option<MsgSend> {
+    match sqlx::query_as::<_, MsgSend>("SELECT args_symbol, args_side, args_size, args_price FROM msgsend WHERE exchange = $1 AND id_msg = $2")
+        .bind(exchange)
+        .bind(id_msg)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(order) => order,
+        Err(e) => {
+            let err_msg = format!("Failed to fetch order from msgsend: {}", e);
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            None
+        }
+    }
+}
 pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
     match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, price_increment, base_min_size FROM symbol WHERE exchange = $1")
         .bind(exchange)
@@ -299,7 +319,7 @@ pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
         Err(e) => {
             let err_msg = format!("Failed to fetch all symbols from symbol: {}", e);
             error!("{}", err_msg);
-            insert_db_error(pool, "kucoin", &err_msg).await;
+            insert_db_error(pool, exchange, &err_msg).await;
             vec![]
         }
     }
