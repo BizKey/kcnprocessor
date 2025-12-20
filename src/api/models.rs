@@ -207,3 +207,10 @@ pub struct TradeMsg {
     #[serde(rename = "userRateLimit")]
     pub user_rate_limit: Option<TradeMsgRateLimit>,
 }
+#[derive(sqlx::FromRow, Debug)]
+pub struct MsgSend {
+    pub args_symbol: Option<String>,
+    pub args_side: Option<String>,
+    pub args_size: Option<String>,
+    pub args_price: Option<String>,
+}
