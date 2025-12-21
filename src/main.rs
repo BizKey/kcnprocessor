@@ -206,34 +206,28 @@ async fn create_order_safely(
     };
 
     let size_str = match size_option {
-        // Если размер указан, используем его
-        Some(size_str) => {
-            // Проверяем, что размер соответствует минимальным требованиям
-            match size_str.parse::<f64>() {
-                Ok(size_f64) => {
-                    if size_f64 >= min_size {
-                        // Округляем до шага размера
-                        let rounded_size = (size_f64 / base_increment).floor() * base_increment;
-                        format_size(rounded_size, base_increment)
-                    } else {
-                        let msg = format!(
-                            "Size {} below min_size {} for symbol {}",
-                            size_str, min_size, symbol
-                        );
-                        error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
-                        return;
-                    }
-                }
-                Err(_) => {
-                    let msg = format!("Invalid size '{}' for symbol {}", size_str, symbol);
+        Some(size_str) => match size_str.parse::<f64>() {
+            Ok(size_f64) => {
+                if size_f64 >= min_size {
+                    let rounded_size = (size_f64 / base_increment).floor() * base_increment;
+                    format_size(rounded_size, base_increment)
+                } else {
+                    let msg = format!(
+                        "Size {} below min_size {} for symbol {}",
+                        size_str, min_size, symbol
+                    );
                     error!("{}", msg);
                     insert_db_error(pool, exchange, &msg).await;
                     return;
                 }
             }
-        }
-        // Если размер не указан, рассчитываем его
+            Err(_) => {
+                let msg = format!("Invalid size '{}' for symbol {}", size_str, symbol);
+                error!("{}", msg);
+                insert_db_error(pool, exchange, &msg).await;
+                return;
+            }
+        },
         None => match calculate_size(10.0, price_f64, base_increment, min_size) {
             Some(size) => size,
             None => {
@@ -334,7 +328,7 @@ async fn handle_trade_order_event(
                             &order.side,
                             &order.symbol,
                             &price_str,
-                            order.size.as_deref(),
+                            order.origin_size.as_deref(),
                             &symbol_info,
                         )
                         .await;
@@ -380,7 +374,7 @@ async fn handle_trade_order_event(
                             &order.side,
                             &order.symbol,
                             &price_str,
-                            order.size.as_deref(),
+                            order.origin_size.as_deref(),
                             &symbol_info,
                         )
                         .await;
@@ -449,7 +443,7 @@ async fn handle_trade_order_event(
                     "buy",
                     &order.symbol,
                     &price_str,
-                    order.size.as_deref(),
+                    order.origin_size.as_deref(),
                     &symbol_info,
                 )
                 .await;
@@ -471,7 +465,7 @@ async fn handle_trade_order_event(
                     "sell",
                     &order.symbol,
                     &price_str,
-                    order.size.as_deref(),
+                    order.origin_size.as_deref(),
                     &symbol_info,
                 )
                 .await;
