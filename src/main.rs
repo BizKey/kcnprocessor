@@ -700,15 +700,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    let trade_orders = get_all_symbol_for_trade(&pool, &exchange).await;
-
-    for trd_order in trade_orders.iter() {
-        info!(
-            "Must create order on: {} with size: {}",
-            trd_order.symbol, trd_order.size
-        );
-    }
-
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info
         .into_iter()
@@ -935,6 +926,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut should_reconnect: bool = false;
 
         loop {
+            if !init_order_execute {
+                let trade_orders = get_all_symbol_for_trade(&pool, &exchange).await;
+
+                for trd_order in trade_orders.iter() {
+                    info!(
+                        "Must create order on: {} with size: {}",
+                        trd_order.symbol, trd_order.size
+                    );
+                }
+                // info!("Initializing start orders...");
+                // let trade_orders = get_all_symbol_for_trade(&pool, &exchange).await;
+                // for trd_order in trade_orders.iter() {
+                //     if let Some(symbol_info) = symbol_map.get(&trd_order.symbol) {
+                //         // Определяем цену (например, из текущего рынка)
+                //         let market_price =
+                //             api::requests::get_ticker_price(&trd_order.symbol).await?;
+                //         let price_increment = symbol_info.price_increment.parse::<f64>()?;
+                //         let price_str = format_price(market_price, price_increment);
+                //         let size_str = &trd_order.size;
+
+                //         create_order_safely(
+                //             &tx_out,
+                //             &pool,
+                //             &exchange,
+                //             &trd_order.side,
+                //             &trd_order.symbol,
+                //             &price_str,
+                //             Some(size_str),
+                //             symbol_info,
+                //         )
+                //         .await;
+
+                //         sleep(Duration::from_millis(200)).await; // рейт-лимит
+                //     }
+                // }
+                // init_order_execute = true; // ← устанавливаем флаг
+                // info!("Start orders initialized.");
+            }
             tokio::select! {
                 // Events
                 event_msg = event_ws_read.next() => {
@@ -1078,7 +1107,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                     }
                 }
-
             }
         }
 
