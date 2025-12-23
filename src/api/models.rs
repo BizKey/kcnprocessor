@@ -143,6 +143,14 @@ pub struct ErrorData {
     pub code: i64,
     pub data: String,
 }
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ActualPriceData {
+    pub price: String,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ActualPrice {
+    pub data: ActualPriceData,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]

@@ -269,7 +269,6 @@ fn calculate_price(
             (Ok(price_num), Ok(inc_num)) if inc_num > 0.0 => {
                 let calculated_price = operation(price_num, inc_num);
 
-                // Округляем до шага цены
                 let rounded_price = (calculated_price / inc_num).round() * inc_num;
 
                 Some(format_price(rounded_price, inc_num))
@@ -933,46 +932,64 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 for trd_order in trade_orders.iter() {
                     if let Some(symbol_info) = symbol_map.get(&trd_order.symbol) {
                         match api::requests::get_ticker_price(&trd_order.symbol).await {
-                            Ok(market_price) => {
-                                let price_increment =
-                                    match symbol_info.price_increment.parse::<f64>() {
-                                        Ok(p) => p,
-                                        Err(e) => {
-                                            error!(
-                                                "Invalid price_increment for {}: {}",
-                                                trd_order.symbol, e
-                                            );
-                                            continue;
-                                        }
-                                    };
-                                let price_str = format_price(market_price, price_increment);
-                                let size_str = &trd_order.size;
-
-                                info!("Creating initial sell order: {} @ {}", size_str, price_str);
+                            Ok(actual_price_str) => {
                                 if let Some(price_str) = calculate_price(
-                        &order.price,
-                        &symbol_info.price_increment,
-                        |a, _b| a * 1.01, // price + 1%
-                    )
-                                create_order_safely(
-                                    &tx_out,
-                                    &pool,
-                                    &exchange,
-                                    "sell",
-                                    &trd_order.symbol,
-                                    &price_str,
-                                    Some(size_str),
-                                    symbol_info,
-                                )
-                                .await;
+                                    &Some(actual_price_str.clone()),
+                                    &symbol_info.price_increment,
+                                    |a, _b| a * 1.01, // price + 1%
+                                ) {
+                                    create_order_safely(
+                                        &tx_out,
+                                        &pool,
+                                        &exchange,
+                                        "sell",
+                                        &trd_order.symbol,
+                                        &price_str,
+                                        Some(&trd_order.size),
+                                        &symbol_info,
+                                    )
+                                    .await;
+                                } else {
+                                    error!(
+                                        "Failed to calculate price for init order {}",
+                                        &trd_order.symbol
+                                    );
+                                    insert_db_error(&pool, &exchange, "Price calculation failed")
+                                        .await;
+                                }
+                                if let Some(price_str) = calculate_price(
+                                    &Some(actual_price_str.clone()),
+                                    &symbol_info.price_increment,
+                                    |a, _b| a * 100.0 / 101.0, // price - 1%
+                                ) {
+                                    create_order_safely(
+                                        &tx_out,
+                                        &pool,
+                                        &exchange,
+                                        "buy",
+                                        &trd_order.symbol,
+                                        &price_str,
+                                        Some(&trd_order.size),
+                                        &symbol_info,
+                                    )
+                                    .await;
+                                } else {
+                                    error!(
+                                        "Failed to calculate price for init order {}",
+                                        &trd_order.symbol
+                                    );
+                                    insert_db_error(&pool, &exchange, "Price calculation failed")
+                                        .await;
+                                }
                             }
                             Err(e) => {
                                 error!("Failed to get price for {}: {}", trd_order.symbol, e);
                                 insert_db_error(&pool, &exchange, &e.to_string()).await;
                             }
-                        }
+                        };
                     }
                 }
+                init_order_execute = true;
             }
             tokio::select! {
                 // Events
