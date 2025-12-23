@@ -618,7 +618,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             info!("Successfully cancelled all open orders");
         }
         Err(e) => {
-            let msg: String = format!("Failed to cancel all open orders {}", e);
+            let msg: String = format!("Failed to fetch margin accounts: {}", e);
             error!("{}", msg);
             insert_db_error(&pool, &exchange, &msg).await;
         }
