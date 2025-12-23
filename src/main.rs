@@ -602,7 +602,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
 
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
 
     let pool = PgPoolOptions::new()
@@ -618,7 +618,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             info!("Successfully cancelled all open orders");
         }
         Err(e) => {
-            let msg = format!("Failed to cancel all open orders {}", e);
+            let msg: String = format!("Failed to cancel all open orders {}", e);
             error!("{}", msg);
             insert_db_error(&pool, &exchange, &msg).await;
         }
@@ -631,9 +631,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .collect();
 
     loop {
-        let exchange_for_handler = exchange.clone();
+        let exchange_for_handler: String = exchange.clone();
         let pool_for_handler = pool.clone();
-        let exchange_for_handler2 = exchange.clone();
+        let exchange_for_handler2: String = exchange.clone();
         let pool_for_handler2 = pool.clone();
         let symbol_map_for_handler = symbol_map.clone();
 
@@ -760,7 +760,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             info!("Message handler finished");
         });
         //Add/Cancel orders WS
-        let trade_ws_url = match api::requests::get_trading_ws_url() {
+        let trade_ws_url: String = match api::requests::get_trading_ws_url() {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get trading WS URL: {}", e);
@@ -783,7 +783,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match trade_ws_read.next().await {
             Some(Ok(Message::Text(text))) => {
                 info!("{:?}", text);
-                let session_msg_text = text.to_string();
+                let session_msg_text: String = text.to_string();
                 if let Ok(signature) = api::requests::sign_kucoin(&session_msg_text) {
                     info!("Sending session signature");
                     let _ = trade_ws_write.send(Message::text(signature)).await;
@@ -810,7 +810,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
 
         // Position/Orders WS
-        let event_ws_url = match api::requests::get_private_ws_url().await {
+        let event_ws_url: String = match api::requests::get_private_ws_url().await {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get WebSocket URL: {}", e);
@@ -847,7 +847,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_ping_interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
 
-        let mut should_reconnect = false;
+        let mut should_reconnect: bool = false;
 
         loop {
             tokio::select! {
