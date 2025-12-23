@@ -173,6 +173,39 @@ pub struct SymbolOpenOrderData {
 pub struct SymbolOpenOrder {
     pub data: SymbolOpenOrderData,
 }
+#[derive(Debug, Deserialize)]
+pub struct MarginAccountDataAccount {
+    pub currency: String,
+    pub total: String,
+    pub available: String,
+    pub hold: String,
+    pub liability: String, // borrow
+    #[serde(rename = "liabilityPrincipal")]
+    pub liability_principal: String,
+    #[serde(rename = "liabilityInterest")]
+    pub liability_interest: String,
+    #[serde(rename = "maxBorrowSize")]
+    pub max_borrow_size: String,
+    #[serde(rename = "borrowEnabled")]
+    pub borrow_enabled: bool,
+    #[serde(rename = "transferInEnabled")]
+    pub transfer_in_enabled: bool,
+}
+#[derive(Debug, Deserialize)]
+pub struct MarginAccountData {
+    #[serde(rename = "totalAssetOfQuoteCurrency")]
+    pub total_asset_of_quote_currency: String,
+    #[serde(rename = "totalLiabilityOfQuoteCurrency")]
+    pub total_liability_of_quote_currency: String,
+    #[serde(rename = "debtRatio")]
+    pub debt_ratio: String,
+    pub status: String,
+    pub accounts: Vec<MarginAccountDataAccount>,
+}
+#[derive(Debug, Deserialize)]
+pub struct MarginAccount {
+    pub data: MarginAccountData,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TradeMsgData {

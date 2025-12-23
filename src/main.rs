@@ -623,6 +623,81 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
+    // get all asset
+    // try repay all
+    match api::requests::get_all_margin_accounts().await {
+        Ok(accounts) => {
+            info!(
+                "debtRatio: {}, status: {}, totalAssetOfQuoteCurrency: {}, totalLiabilityOfQuoteCurrency: {}",
+                accounts.debt_ratio,
+                accounts.status,
+                accounts.total_asset_of_quote_currency,
+                accounts.total_liability_of_quote_currency
+            );
+            for account in accounts.accounts.iter() {
+                info!(
+                    "available: {}, borrow_enabled: {}, currency: {}, hold: {}, liability: {}, liability_interest: {}, liability_principal: {}, max_borrow_size: {}, total: {}, transfer_in_enabled: {}",
+                    account.available,
+                    account.borrow_enabled,
+                    account.currency,
+                    account.hold,
+                    account.liability,
+                    account.liability_interest,
+                    account.liability_principal,
+                    account.max_borrow_size,
+                    account.total,
+                    account.transfer_in_enabled,
+                );
+                let debt: f64 = account.liability.parse().unwrap_or(0.0);
+                let available: f64 = account.available.parse().unwrap_or(0.0);
+                if debt > 0.0 {
+                    if available >= debt {
+                        info!(
+                            "Can repay {} {} debt with available {}",
+                            debt, &account.currency, available
+                        );
+
+                        if let Err(e) =
+                            api::requests::create_repay_order(&account.currency, &debt.to_string())
+                                .await
+                        {
+                            error!("Failed to repay debt: {}", e);
+                            insert_db_error(&pool, &exchange, &e.to_string()).await;
+                        }
+                    } else if available > 0.0 {
+                        info!(
+                            "Can partially repay {} {} debt with available {}",
+                            debt, &account.currency, available
+                        );
+                        if let Err(e) = api::requests::create_repay_order(
+                            &account.currency,
+                            &available.to_string(),
+                        )
+                        .await
+                        {
+                            error!("Failed to repay debt: {}", e);
+                            insert_db_error(&pool, &exchange, &e.to_string()).await;
+                        }
+                    } else if available == 0.0 {
+                        let msg = format!(
+                            "Critical: debt of {} {} cannot be repaid — available balance is 0. Stopping bot.",
+                            debt, account.currency
+                        );
+                        error!("{}", msg);
+                        insert_db_error(&pool, &exchange, &msg).await;
+
+                        // exit with error
+                        return Err(msg.into());
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            let msg: String = format!("Failed to cancel all open orders {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
 
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info
