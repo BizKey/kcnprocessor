@@ -1,6 +1,6 @@
 use crate::api::models::{
     ActiveOrder, BalanceData, BalanceRelationContext, MsgSend, OrderData, Symbol, TradeMsg,
-    TradeMsgData, TradeMsgRateLimit,
+    TradeMsgData, TradeMsgRateLimit, TradeSymbol,
 };
 use log::error;
 use serde::Serialize;
@@ -283,6 +283,23 @@ pub async fn fetch_all_active_orders_by_symbol(
                 "Failed to fetch active orders by symbol '{}': {}",
                 symbol, e
             );
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            vec![]
+        }
+    }
+}
+pub async fn get_all_symbol_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeSymbol> {
+    match sqlx::query_as::<_, TradeSymbol>(
+        "SELECT symbol, size FROM symbol_trade WHERE exchange = $1 AND enable = true",
+    )
+    .bind(exchange)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(orders) => orders,
+        Err(e) => {
+            let err_msg = format!("Failed to fetch symbol for trade '{}': {}", exchange, e);
             error!("{}", err_msg);
             insert_db_error(pool, exchange, &err_msg).await;
             vec![]

@@ -1,9 +1,9 @@
 use crate::api::db::{
     delete_all_orderactive_from_db, delete_current_orderactive_from_db, delete_oldest_orderactive,
-    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_sended_msg_to_trade,
-    insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
-    insert_db_msgevent, insert_db_msgsend, insert_db_orderevent, upsert_position_asset,
-    upsert_position_debt, upsert_position_ratio,
+    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_symbol_for_trade,
+    get_sended_msg_to_trade, insert_current_orderactive_to_db, insert_db_balance, insert_db_error,
+    insert_db_event, insert_db_msgevent, insert_db_msgsend, insert_db_orderevent,
+    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsg};
 use dotenv::dotenv;
@@ -697,6 +697,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             error!("{}", msg);
             insert_db_error(&pool, &exchange, &msg).await;
         }
+    }
+
+    let trade_orders = get_all_symbol_for_trade(&pool, &exchange).await;
+
+    for trd_order in trade_orders.iter() {
+        info!(
+            "Must create order on: {} with size: {}",
+            trd_order.symbol, trd_order.size
+        );
     }
 
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;

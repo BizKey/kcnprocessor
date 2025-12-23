@@ -60,6 +60,11 @@ pub struct ActiveOrder {
     pub order_id: String,
     pub symbol: String,
 }
+#[derive(sqlx::FromRow, Debug)]
+pub struct TradeSymbol {
+    pub symbol: String,
+    pub size: String,
+}
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {
     pub total: String,
