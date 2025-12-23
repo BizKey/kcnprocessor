@@ -1,9 +1,9 @@
 use crate::api::db::{
     delete_all_orderactive_from_db, delete_current_orderactive_from_db, delete_oldest_orderactive,
-    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_sended_msg_to_trade,
-    insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
-    insert_db_msgevent, insert_db_msgsend, insert_db_orderevent, upsert_position_asset,
-    upsert_position_debt, upsert_position_ratio,
+    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_symbol_for_trade,
+    get_sended_msg_to_trade, insert_current_orderactive_to_db, insert_db_balance, insert_db_error,
+    insert_db_event, insert_db_msgevent, insert_db_msgsend, insert_db_orderevent,
+    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsg};
 use dotenv::dotenv;
@@ -269,7 +269,6 @@ fn calculate_price(
             (Ok(price_num), Ok(inc_num)) if inc_num > 0.0 => {
                 let calculated_price = operation(price_num, inc_num);
 
-                // Округляем до шага цены
                 let rounded_price = (calculated_price / inc_num).round() * inc_num;
 
                 Some(format_price(rounded_price, inc_num))
@@ -601,8 +600,9 @@ async fn outgoing_message_handler(
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
+    let mut init_order_execute = true;
 
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
 
     let pool = PgPoolOptions::new()
@@ -618,7 +618,82 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             info!("Successfully cancelled all open orders");
         }
         Err(e) => {
-            let msg = format!("Failed to cancel all open orders {}", e);
+            let msg: String = format!("Failed to fetch margin accounts: {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
+    // get all asset
+    // try repay all
+    match api::requests::get_all_margin_accounts().await {
+        Ok(accounts) => {
+            info!(
+                "debtRatio: {}, status: {}, totalAssetOfQuoteCurrency: {}, totalLiabilityOfQuoteCurrency: {}",
+                accounts.debt_ratio,
+                accounts.status,
+                accounts.total_asset_of_quote_currency,
+                accounts.total_liability_of_quote_currency
+            );
+            for account in accounts.accounts.iter() {
+                info!(
+                    "available: {}, borrow_enabled: {}, currency: {}, hold: {}, liability: {}, liability_interest: {}, liability_principal: {}, max_borrow_size: {}, total: {}, transfer_in_enabled: {}",
+                    account.available,
+                    account.borrow_enabled,
+                    account.currency,
+                    account.hold,
+                    account.liability,
+                    account.liability_interest,
+                    account.liability_principal,
+                    account.max_borrow_size,
+                    account.total,
+                    account.transfer_in_enabled,
+                );
+                let debt: f64 = account.liability.parse().unwrap_or(0.0);
+                let available: f64 = account.available.parse().unwrap_or(0.0);
+                if debt > 0.0 {
+                    if available >= debt {
+                        info!(
+                            "Can repay {} {} debt with available {}",
+                            debt, &account.currency, available
+                        );
+
+                        if let Err(e) =
+                            api::requests::create_repay_order(&account.currency, &debt.to_string())
+                                .await
+                        {
+                            error!("Failed to repay debt: {}", e);
+                            insert_db_error(&pool, &exchange, &e.to_string()).await;
+                        }
+                    } else if available > 0.0 {
+                        info!(
+                            "Can partially repay {} {} debt with available {}",
+                            debt, &account.currency, available
+                        );
+                        if let Err(e) = api::requests::create_repay_order(
+                            &account.currency,
+                            &available.to_string(),
+                        )
+                        .await
+                        {
+                            error!("Failed to repay debt: {}", e);
+                            insert_db_error(&pool, &exchange, &e.to_string()).await;
+                        }
+                    } else if available == 0.0 {
+                        let msg = format!(
+                            "Critical: debt of {} {} cannot be repaid — available balance is 0. Stopping bot.",
+                            debt, account.currency
+                        );
+                        error!("{}", msg);
+                        insert_db_error(&pool, &exchange, &msg).await;
+
+                        // exit with error
+                        return Err(msg.into());
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            let msg: String = format!("Failed to cancel all open orders {}", e);
             error!("{}", msg);
             insert_db_error(&pool, &exchange, &msg).await;
         }
@@ -631,9 +706,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .collect();
 
     loop {
-        let exchange_for_handler = exchange.clone();
+        let exchange_for_handler: String = exchange.clone();
         let pool_for_handler = pool.clone();
-        let exchange_for_handler2 = exchange.clone();
+        let exchange_for_handler2: String = exchange.clone();
         let pool_for_handler2 = pool.clone();
         let symbol_map_for_handler = symbol_map.clone();
 
@@ -760,7 +835,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             info!("Message handler finished");
         });
         //Add/Cancel orders WS
-        let trade_ws_url = match api::requests::get_trading_ws_url() {
+        let trade_ws_url: String = match api::requests::get_trading_ws_url() {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get trading WS URL: {}", e);
@@ -783,7 +858,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match trade_ws_read.next().await {
             Some(Ok(Message::Text(text))) => {
                 info!("{:?}", text);
-                let session_msg_text = text.to_string();
+                let session_msg_text: String = text.to_string();
                 if let Ok(signature) = api::requests::sign_kucoin(&session_msg_text) {
                     info!("Sending session signature");
                     let _ = trade_ws_write.send(Message::text(signature)).await;
@@ -810,7 +885,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
 
         // Position/Orders WS
-        let event_ws_url = match api::requests::get_private_ws_url().await {
+        let event_ws_url: String = match api::requests::get_private_ws_url().await {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get WebSocket URL: {}", e);
@@ -847,9 +922,75 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_ping_interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
 
-        let mut should_reconnect = false;
+        let mut should_reconnect: bool = false;
 
         loop {
+            if !init_order_execute {
+                info!("Initializing start orders...");
+                let trade_orders = get_all_symbol_for_trade(&pool, &exchange).await;
+
+                for trd_order in trade_orders.iter() {
+                    if let Some(symbol_info) = symbol_map.get(&trd_order.symbol) {
+                        match api::requests::get_ticker_price(&trd_order.symbol).await {
+                            Ok(actual_price_str) => {
+                                if let Some(price_str) = calculate_price(
+                                    &Some(actual_price_str.clone()),
+                                    &symbol_info.price_increment,
+                                    |a, _b| a * 1.01, // price + 1%
+                                ) {
+                                    create_order_safely(
+                                        &tx_out,
+                                        &pool,
+                                        &exchange,
+                                        "sell",
+                                        &trd_order.symbol,
+                                        &price_str,
+                                        Some(&trd_order.size),
+                                        &symbol_info,
+                                    )
+                                    .await;
+                                } else {
+                                    error!(
+                                        "Failed to calculate price for init order {}",
+                                        &trd_order.symbol
+                                    );
+                                    insert_db_error(&pool, &exchange, "Price calculation failed")
+                                        .await;
+                                }
+                                if let Some(price_str) = calculate_price(
+                                    &Some(actual_price_str.clone()),
+                                    &symbol_info.price_increment,
+                                    |a, _b| a * 100.0 / 101.0, // price - 1%
+                                ) {
+                                    create_order_safely(
+                                        &tx_out,
+                                        &pool,
+                                        &exchange,
+                                        "buy",
+                                        &trd_order.symbol,
+                                        &price_str,
+                                        Some(&trd_order.size),
+                                        &symbol_info,
+                                    )
+                                    .await;
+                                } else {
+                                    error!(
+                                        "Failed to calculate price for init order {}",
+                                        &trd_order.symbol
+                                    );
+                                    insert_db_error(&pool, &exchange, "Price calculation failed")
+                                        .await;
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to get price for {}: {}", trd_order.symbol, e);
+                                insert_db_error(&pool, &exchange, &e.to_string()).await;
+                            }
+                        };
+                    }
+                }
+                init_order_execute = true;
+            }
             tokio::select! {
                 // Events
                 event_msg = event_ws_read.next() => {
@@ -993,7 +1134,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                     }
                 }
-
             }
         }
 

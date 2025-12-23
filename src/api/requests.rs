@@ -1,4 +1,6 @@
-use crate::api::models::{ApiV3BulletPrivate, SymbolOpenOrder};
+use crate::api::models::{
+    ActualPrice, ApiV3BulletPrivate, MarginAccount, MarginAccountData, SymbolOpenOrder,
+};
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use log::{error, info};
@@ -135,6 +137,44 @@ impl KuCoinClient {
         mac.update(prehash.as_bytes());
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
+    pub async fn get_margin_accounts(
+        &self,
+    ) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("queryType", "ALL");
+        query_params.insert("quoteCurrency", "USDT");
+        match self
+            .make_request(
+                reqwest::Method::GET,
+                "/api/v3/margin/accounts",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<MarginAccount>(&text) {
+                        Ok(res) => Ok(res.data),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
     pub async fn get_symbols_with_open_order(
         &self,
     ) -> Result<SymbolOpenOrder, Box<dyn std::error::Error + Send + Sync>> {
@@ -236,6 +276,45 @@ impl KuCoinClient {
             Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
+    pub async fn get_ticker_price(
+        &self,
+        symbol: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("symbol", symbol);
+
+        match self
+            .make_request(
+                reqwest::Method::GET,
+                "/api/v1/market/orderbook/level1",
+                Some(query_params),
+                None,
+                false,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<ActualPrice>(&text) {
+                        Ok(res) => Ok(res.data.price),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
+        }
+    }
 
     async fn make_request(
         &self,
@@ -321,6 +400,17 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
         .first()
         .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
         .ok_or_else(|| "No instance servers in bullet response".into())
+}
+pub async fn get_all_margin_accounts()
+-> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.get_margin_accounts().await
+}
+pub async fn get_ticker_price(
+    symbol: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.get_ticker_price(symbol).await
 }
 pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
