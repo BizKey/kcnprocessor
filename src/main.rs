@@ -521,32 +521,56 @@ async fn handle_position_event(
         if let Ok(debt) = debt_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available) = asset_info.available.parse::<f64>() {
-                    if available >= debt && debt > 0.0 {
-                        info!(
-                            "Can repay {} {} debt with available {}",
-                            debt, asset, available
-                        );
+                    if debt > 0.0 {
+                        if available >= debt {
+                            info!(
+                                "Can repay {} {} debt with available {}",
+                                debt, asset, available
+                            );
 
-                        if let Err(e) =
-                            api::requests::create_repay_order(asset, &debt.to_string()).await
-                        {
-                            error!("Failed to repay debt: {}", e);
-                            insert_db_error(pool, exchange, &e.to_string()).await;
-                        }
-                    } else if available > 0.0 && debt > 0.0 {
-                        info!(
-                            "Can partially repay {} {} debt with available {}",
-                            debt, asset, available
-                        );
+                            if let Err(e) =
+                                api::requests::create_repay_order(asset, &debt.to_string()).await
+                            {
+                                error!("Failed to repay debt: {}", e);
+                                insert_db_error(pool, exchange, &e.to_string()).await;
+                            }
+                        } else if available > 0.0 {
+                            info!(
+                                "Can partially repay {} {} debt with available {}",
+                                debt, asset, available
+                            );
 
-                        if let Err(e) =
-                            api::requests::create_repay_order(asset, &available.to_string()).await
-                        {
-                            error!("Failed to partially repay debt: {}", e);
-                            insert_db_error(pool, exchange, &e.to_string()).await;
+                            if let Err(e) =
+                                api::requests::create_repay_order(asset, &available.to_string())
+                                    .await
+                            {
+                                error!("Failed to partially repay debt: {}", e);
+                                insert_db_error(pool, exchange, &e.to_string()).await;
+                            }
                         }
-                    } else if available > 0.0 && debt == 0.0 {
-                        // sell available
+                    } else if available > 0.0 {
+                        // transfer available from margin
+                        match api::requests::sent_account_transfer(
+                            asset,
+                            &available.to_string(),
+                            "INTERNAL",
+                            "MARGIN_V2",
+                            "TRADE",
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed send {} to TRADE from MARGIN on {} {}",
+                                    asset,
+                                    &available.to_string(),
+                                    e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                            }
+                        }
                     }
                 } else {
                     error!("Failed to parse available balance for {}", asset);
@@ -623,6 +647,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
+    match api::requests::sent_account_transfer(
+        "BTC",
+        "0.00029512",
+        "INTERNAL",
+        "MARGIN_V2",
+        "TRADE",
+    )
+    .await
+    {
+        Ok(_) => {}
+        Err(e) => {
+            let msg: String = format!("Failed send BTC to TRADE from MARGIN {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
     // get all asset
     // try repay all
     match api::requests::get_all_margin_accounts().await {
@@ -664,23 +704,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             error!("Failed to repay debt: {}", e);
                             insert_db_error(&pool, &exchange, &e.to_string()).await;
                         }
-                    } else if available > 0.0 {
-                        info!(
-                            "Can partially repay {} {} debt with available {}",
-                            debt, &account.currency, available
-                        );
-                        if let Err(e) = api::requests::create_repay_order(
-                            &account.currency,
-                            &available.to_string(),
-                        )
-                        .await
-                        {
-                            error!("Failed to repay debt: {}", e);
-                            insert_db_error(&pool, &exchange, &e.to_string()).await;
-                        }
-                    } else if available == 0.0 {
+                    } else {
                         let msg = format!(
-                            "Critical: debt of {} {} cannot be repaid — available balance is 0. Stopping bot.",
+                            "Critical: debt of {} {} cannot be repaid full debt. Stopping bot.",
                             debt, account.currency
                         );
                         error!("{}", msg);
@@ -688,6 +714,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                         // exit with error
                         return Err(msg.into());
+                    }
+                } else if available > 0.0 {
+                    match api::requests::sent_account_transfer(
+                        &account.currency,
+                        &available.to_string(),
+                        "INTERNAL",
+                        "MARGIN_V2",
+                        "TRADE",
+                    )
+                    .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!(
+                                "Failed send {} to TRADE from MARGIN on {} {}",
+                                &account.currency,
+                                &available.to_string(),
+                                e
+                            );
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                        }
                     }
                 }
             }
@@ -933,6 +981,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     if let Some(symbol_info) = symbol_map.get(&trd_order.symbol) {
                         match api::requests::get_ticker_price(&trd_order.symbol).await {
                             Ok(actual_price_str) => {
+                                // sell order
                                 if let Some(price_str) = calculate_price(
                                     &Some(actual_price_str.clone()),
                                     &symbol_info.price_increment,
@@ -957,6 +1006,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     insert_db_error(&pool, &exchange, "Price calculation failed")
                                         .await;
                                 }
+                                // buy order
                                 if let Some(price_str) = calculate_price(
                                     &Some(actual_price_str.clone()),
                                     &symbol_info.price_increment,

@@ -6,6 +6,7 @@ use hmac::{Hmac, Mac};
 use log::{error, info};
 use reqwest::{Client, Response};
 use urlencoding::encode as url_encode;
+use uuid::Uuid;
 
 use sha2::Sha256;
 use std::collections::HashMap;
@@ -239,6 +240,54 @@ impl KuCoinClient {
             }
         }
     }
+    pub async fn account_transfer(
+        &self,
+        currency: &str,
+        client_oid: &str,
+        amount: &str,
+        type_: &str,
+        from_account_type: &str,
+        to_account_type: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let body = {
+            let mut map = std::collections::HashMap::new();
+            map.insert("currency", currency);
+            map.insert("clientOid", client_oid);
+            map.insert("amount", amount);
+            map.insert("type", type_);
+            map.insert("fromAccountType", from_account_type);
+            map.insert("toAccountType", to_account_type);
+            map
+        };
+
+        match self
+            .make_request(
+                reqwest::Method::POST,
+                "/api/v3/accounts/universal-transfer",
+                None,
+                Some(body),
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => {
+                    info!(
+                        "Successfully transfer:{} from:{} to:{} amount:{}",
+                        currency, from_account_type, to_account_type, amount,
+                    );
+                    Ok(())
+                }
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Account transfer request failed: {}", e).into()),
+        }
+    }
     pub async fn margin_repay(
         &self,
         currency: &str,
@@ -405,6 +454,25 @@ pub async fn get_all_margin_accounts()
 -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.get_margin_accounts().await
+}
+pub async fn sent_account_transfer(
+    currency: &str,
+    amount: &str,
+    type_: &str,
+    from_account_type: &str,
+    to_account_type: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client
+        .account_transfer(
+            currency,
+            &Uuid::new_v4().to_string(),
+            amount,
+            type_,
+            from_account_type,
+            to_account_type,
+        )
+        .await
 }
 pub async fn get_ticker_price(
     symbol: &str,
