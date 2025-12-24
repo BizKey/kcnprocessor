@@ -554,7 +554,7 @@ async fn handle_position_event(
                             asset,
                             &available.to_string(),
                             "INTERNAL",
-                            "MARGIN_V2",
+                            "MARGIN",
                             "TRADE",
                         )
                         .await
