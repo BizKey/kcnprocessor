@@ -521,31 +521,34 @@ async fn handle_position_event(
         if let Ok(debt) = debt_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available) = asset_info.available.parse::<f64>() {
-                    if available >= debt && debt > 0.0 {
-                        info!(
-                            "Can repay {} {} debt with available {}",
-                            debt, asset, available
-                        );
+                    if debt > 0.0 {
+                        if available >= debt {
+                            info!(
+                                "Can repay {} {} debt with available {}",
+                                debt, asset, available
+                            );
 
-                        if let Err(e) =
-                            api::requests::create_repay_order(asset, &debt.to_string()).await
-                        {
-                            error!("Failed to repay debt: {}", e);
-                            insert_db_error(pool, exchange, &e.to_string()).await;
-                        }
-                    } else if available > 0.0 && debt > 0.0 {
-                        info!(
-                            "Can partially repay {} {} debt with available {}",
-                            debt, asset, available
-                        );
+                            if let Err(e) =
+                                api::requests::create_repay_order(asset, &debt.to_string()).await
+                            {
+                                error!("Failed to repay debt: {}", e);
+                                insert_db_error(pool, exchange, &e.to_string()).await;
+                            }
+                        } else if available > 0.0 {
+                            info!(
+                                "Can partially repay {} {} debt with available {}",
+                                debt, asset, available
+                            );
 
-                        if let Err(e) =
-                            api::requests::create_repay_order(asset, &available.to_string()).await
-                        {
-                            error!("Failed to partially repay debt: {}", e);
-                            insert_db_error(pool, exchange, &e.to_string()).await;
+                            if let Err(e) =
+                                api::requests::create_repay_order(asset, &available.to_string())
+                                    .await
+                            {
+                                error!("Failed to partially repay debt: {}", e);
+                                insert_db_error(pool, exchange, &e.to_string()).await;
+                            }
                         }
-                    } else if available > 0.0 && debt == 0.0 {
+                    } else if available > 0.0 {
                         // transfer available from margin
                         match api::requests::sent_account_transfer(
                             asset,
@@ -701,23 +704,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             error!("Failed to repay debt: {}", e);
                             insert_db_error(&pool, &exchange, &e.to_string()).await;
                         }
-                    } else if available > 0.0 {
-                        info!(
-                            "Can partially repay {} {} debt with available {}",
-                            debt, &account.currency, available
-                        );
-                        if let Err(e) = api::requests::create_repay_order(
-                            &account.currency,
-                            &available.to_string(),
-                        )
-                        .await
-                        {
-                            error!("Failed to repay debt: {}", e);
-                            insert_db_error(&pool, &exchange, &e.to_string()).await;
-                        }
-                    } else if available == 0.0 {
+                    } else {
                         let msg = format!(
-                            "Critical: debt of {} {} cannot be repaid — available balance is 0. Stopping bot.",
+                            "Critical: debt of {} {} cannot be repaid full debt. Stopping bot.",
                             debt, account.currency
                         );
                         error!("{}", msg);
@@ -725,6 +714,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                         // exit with error
                         return Err(msg.into());
+                    }
+                } else if available > 0.0 {
+                    match api::requests::sent_account_transfer(
+                        &account.currency,
+                        &available.to_string(),
+                        "INTERNAL",
+                        "MARGIN_V2",
+                        "TRADE",
+                    )
+                    .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!(
+                                "Failed send {} to TRADE from MARGIN on {} {}",
+                                &account.currency,
+                                &available.to_string(),
+                                e
+                            );
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                        }
                     }
                 }
             }
