@@ -546,7 +546,28 @@ async fn handle_position_event(
                             insert_db_error(pool, exchange, &e.to_string()).await;
                         }
                     } else if available > 0.0 && debt == 0.0 {
-                        // sell available
+                        // transfer available from margin
+                        match api::requests::sent_account_transfer(
+                            asset,
+                            &available.to_string(),
+                            "INTERNAL",
+                            "MARGIN_V2",
+                            "TRADE",
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed send {} to TRADE from MARGIN on {} {}",
+                                    asset,
+                                    &available.to_string(),
+                                    e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                            }
+                        }
                     }
                 } else {
                     error!("Failed to parse available balance for {}", asset);
