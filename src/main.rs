@@ -548,7 +548,7 @@ async fn handle_position_event(
                                 insert_db_error(pool, exchange, &e.to_string()).await;
                             }
                         }
-                    } else if available > 0.0 {
+                    } else if available > 0.0 && asset != "USDC" {
                         // transfer available from margin
                         match api::requests::sent_account_transfer(
                             asset,
@@ -699,7 +699,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         // exit with error
                         return Err(msg.into());
                     }
-                } else if available > 0.0 {
+                } else if available > 0.0 && &account.currency != "USDC" {
                     match api::requests::sent_account_transfer(
                         &account.currency,
                         &available.to_string(),
