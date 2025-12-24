@@ -623,6 +623,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
+    match api::requests::sent_account_transfer(
+        "BTC",
+        "0.00029512",
+        "INTERNAL",
+        "MARGIN_V2",
+        "TRADE",
+    )
+    .await
+    {
+        Ok(_) => {}
+        Err(e) => {
+            let msg: String = format!("Failed send BTC to TRADE from MARGIN {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
     // get all asset
     // try repay all
     match api::requests::get_all_margin_accounts().await {
@@ -933,6 +949,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     if let Some(symbol_info) = symbol_map.get(&trd_order.symbol) {
                         match api::requests::get_ticker_price(&trd_order.symbol).await {
                             Ok(actual_price_str) => {
+                                // sell order
                                 if let Some(price_str) = calculate_price(
                                     &Some(actual_price_str.clone()),
                                     &symbol_info.price_increment,
@@ -957,6 +974,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     insert_db_error(&pool, &exchange, "Price calculation failed")
                                         .await;
                                 }
+                                // buy order
                                 if let Some(price_str) = calculate_price(
                                     &Some(actual_price_str.clone()),
                                     &symbol_info.price_increment,
