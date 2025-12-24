@@ -554,7 +554,7 @@ async fn handle_position_event(
                             asset,
                             &available.to_string(),
                             "INTERNAL",
-                            "MARGIN_V2",
+                            "MARGIN",
                             "TRADE",
                         )
                         .await
@@ -647,22 +647,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
-    match api::requests::sent_account_transfer(
-        "BTC",
-        "0.00029512",
-        "INTERNAL",
-        "MARGIN_V2",
-        "TRADE",
-    )
-    .await
-    {
-        Ok(_) => {}
-        Err(e) => {
-            let msg: String = format!("Failed send BTC to TRADE from MARGIN {}", e);
-            error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
-        }
-    }
     // get all asset
     // try repay all
     match api::requests::get_all_margin_accounts().await {
@@ -720,7 +704,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         &account.currency,
                         &available.to_string(),
                         "INTERNAL",
-                        "MARGIN_V2",
+                        "MARGIN",
                         "TRADE",
                     )
                     .await
