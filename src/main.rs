@@ -624,7 +624,7 @@ async fn outgoing_message_handler(
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute = true;
+    let mut init_order_execute = false;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
