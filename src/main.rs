@@ -648,7 +648,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
-    match api::requests::sent_account_transfer("USDT", "0.5", "INTERNAL", "MARGIN", "MARGIN_V2")
+    match api::requests::sent_account_transfer("USDT", "20.82493", "INTERNAL", "MARGIN_V2", "TRADE")
         .await
     {
         Ok(_) => {}
@@ -661,7 +661,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
-    match api::requests::sent_account_transfer("SEI", "0.1", "INTERNAL", "MARGIN", "MARGIN_V2")
+    match api::requests::sent_account_transfer("SEI", "300", "INTERNAL", "MARGIN_V2", "TRADE")
         .await
     {
         Ok(_) => {}
