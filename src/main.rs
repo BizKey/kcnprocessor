@@ -648,6 +648,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
+    match api::requests::sent_account_transfer("SEI", "100", "INTERNAL", "MARGIN", "MARGIN").await {
+        Ok(_) => {}
+        Err(e) => {
+            let msg: String = format!(
+                "Failed send {} to MARGIN from MARGIN on {} {}",
+                &account.currency,
+                &available.to_string(),
+                e
+            );
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
     // get all asset
     // try repay all
     match api::requests::get_all_margin_accounts().await {
