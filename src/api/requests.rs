@@ -271,13 +271,13 @@ impl KuCoinClient {
             .await
         {
             Ok(response) => match response.status().as_str() {
-                "200" => {
-                    info!(
-                        "Successfully transfer:{} from:{} to:{} amount:{}",
-                        currency, from_account_type, to_account_type, amount,
-                    );
-                    Ok(())
-                }
+                "200" => match response.text().await {
+                    Ok(text) => {
+                        info!("flex transfer {}", text);
+                        return Ok(());
+                    }
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
                 status => match response.text().await {
                     Ok(text) => {
                         Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
