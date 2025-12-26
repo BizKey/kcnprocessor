@@ -93,7 +93,7 @@ async fn make_order(
     let args_time_in_force = "GTC";
     let type_ = "limit";
     let auto_borrow = true;
-    let auto_repay = false;
+    let auto_repay = true;
     let client_oid = Uuid::new_v4().to_string();
 
     insert_db_msgsend(
@@ -648,7 +648,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
-    match api::requests::sent_account_transfer("SEI", "100", "INTERNAL", "MARGIN", "MARGIN").await {
+    match api::requests::sent_account_transfer("USDT", "0.5", "INTERNAL", "MARGIN", "TRADE").await {
+        Ok(_) => {}
+        Err(e) => {
+            let msg: String = format!(
+                "Failed send {} to MARGIN from MARGIN on {} {}",
+                "SEI", "100", e
+            );
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
+    match api::requests::sent_account_transfer("SEI", "0.1", "INTERNAL", "MARGIN", "TRADE").await {
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!(
