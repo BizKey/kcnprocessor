@@ -653,9 +653,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Err(e) => {
             let msg: String = format!(
                 "Failed send {} to MARGIN from MARGIN on {} {}",
-                &account.currency,
-                &available.to_string(),
-                e
+                "SEI", "100", e
             );
             error!("{}", msg);
             insert_db_error(&pool, &exchange, &msg).await;
