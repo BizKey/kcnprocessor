@@ -690,11 +690,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     account.transfer_in_enabled,
                 );
                 let debt: f64 = account.liability.parse().unwrap_or(0.0);
-                let hold: f64 = account.hold.parse().unwrap_or(0.0);
                 let available: f64 = account.available.parse().unwrap_or(0.0);
-                let avail_hold: f64 = available + hold;
                 if debt > 0.0 {
-                    if avail_hold >= debt {
+                    if available >= debt {
                         info!(
                             "Can repay {} {} debt with available {}",
                             debt, &account.currency, available
@@ -707,8 +705,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             error!("Failed to repay debt: {}", e);
                             insert_db_error(&pool, &exchange, &e.to_string()).await;
                         };
-                        let msg = format!("Stopping bot. {} {}", debt, account.currency);
-                        return Err(msg.into());
                     } else {
                         let msg = format!(
                             "Critical: debt of {} {} cannot be repaid full debt. Stopping bot.",
@@ -720,10 +716,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         // exit with error
                         return Err(msg.into());
                     }
-                } else if avail_hold > 0.0 {
+                } else if available > 0.0 && &account.currency == "USDT" {
                     match api::requests::sent_account_transfer(
                         &account.currency,
-                        &avail_hold.to_string(),
+                        &available.to_string(),
                         "INTERNAL",
                         "MARGIN_V2",
                         "TRADE",
