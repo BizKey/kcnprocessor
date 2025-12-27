@@ -538,30 +538,6 @@ async fn handle_position_event(
                                     error!("Failed to repay debt: {}", e);
                                     insert_db_error(pool, exchange, &e.to_string()).await;
                                 };
-                                if asset == "USDT" {
-                                    let for_transfer = available_clear - debt;
-                                    match api::requests::sent_account_transfer(
-                                        asset,
-                                        &for_transfer.to_string(),
-                                        "INTERNAL",
-                                        "MARGIN_V2",
-                                        "TRADE",
-                                    )
-                                    .await
-                                    {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!(
-                                                "Failed send {} to TRADE from MARGIN on {} {}",
-                                                asset,
-                                                &for_transfer.to_string(),
-                                                e
-                                            );
-                                            error!("{}", msg);
-                                            insert_db_error(&pool, &exchange, &msg).await;
-                                        }
-                                    }
-                                }
                             } else if available_clear > 0.0 {
                                 info!(
                                     "Can partially repay {} {} debt with available_clear {}",
@@ -688,31 +664,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     // websocket return orders to MARGIN_V2
     // position return data from MARGIN
-    match api::requests::sent_account_transfer("USDT", "20.82493", "INTERNAL", "MARGIN_V2", "TRADE")
-        .await
-    {
-        Ok(_) => {}
-        Err(e) => {
-            let msg: String = format!(
-                "Failed send {} to MARGIN_V2 from TRADE on {} {}",
-                "SEI", "100", e
-            );
-            error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
-        }
-    }
-    match api::requests::sent_account_transfer("SEI", "300", "INTERNAL", "MARGIN_V2", "TRADE").await
-    {
-        Ok(_) => {}
-        Err(e) => {
-            let msg: String = format!(
-                "Failed send {} to MARGIN_V2 from TRADE on {} {}",
-                "SEI", "100", e
-            );
-            error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
-        }
-    }
     // get all asset
     // try repay all
     match api::requests::get_all_margin_accounts().await {
@@ -754,28 +705,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             error!("Failed to repay debt: {}", e);
                             insert_db_error(&pool, &exchange, &e.to_string()).await;
                         };
-                        let for_transfer = available - debt;
-                        match api::requests::sent_account_transfer(
-                            &account.currency,
-                            &for_transfer.to_string(),
-                            "INTERNAL",
-                            "MARGIN_V2",
-                            "TRADE",
-                        )
-                        .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!(
-                                    "Failed send {} to TRADE from MARGIN on {} {}",
-                                    &account.currency,
-                                    &for_transfer.to_string(),
-                                    e
-                                );
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
-                            }
-                        }
                     } else {
                         let msg = format!(
                             "Critical: debt of {} {} cannot be repaid full debt. Stopping bot.",
