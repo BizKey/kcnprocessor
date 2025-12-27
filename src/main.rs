@@ -555,7 +555,7 @@ async fn handle_position_event(
                             asset,
                             &available.to_string(),
                             "INTERNAL",
-                            "MARGIN",
+                            "MARGIN_V2",
                             "TRADE",
                         )
                         .await
@@ -650,14 +650,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     // websocket return orders to MARGIN_V2
     // position return data from MARGIN
-    // repay allow only on MARGIN
     match api::requests::sent_account_transfer("USDT", "20.82493", "INTERNAL", "MARGIN_V2", "TRADE")
         .await
     {
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!(
-                "Failed send {} to MARGIN from MARGIN on {} {}",
+                "Failed send {} to MARGIN_V2 from TRADE on {} {}",
                 "SEI", "100", e
             );
             error!("{}", msg);
@@ -669,7 +668,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!(
-                "Failed send {} to MARGIN from MARGIN on {} {}",
+                "Failed send {} to MARGIN_V2 from TRADE on {} {}",
                 "SEI", "100", e
             );
             error!("{}", msg);
@@ -733,7 +732,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         &account.currency,
                         &available.to_string(),
                         "INTERNAL",
-                        "MARGIN",
+                        "MARGIN_V2",
                         "TRADE",
                     )
                     .await
