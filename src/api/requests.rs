@@ -5,6 +5,7 @@ use base64::Engine;
 use hmac::{Hmac, Mac};
 use log::{error, info};
 use reqwest::{Client, Response};
+use serde_json::json;
 use urlencoding::encode as url_encode;
 use uuid::Uuid;
 
@@ -249,16 +250,14 @@ impl KuCoinClient {
         from_account_type: &str,
         to_account_type: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let body = {
-            let mut map = std::collections::HashMap::new();
-            map.insert("currency", currency);
-            map.insert("clientOid", client_oid);
-            map.insert("amount", amount);
-            map.insert("type", type_);
-            map.insert("fromAccountType", from_account_type);
-            map.insert("toAccountType", to_account_type);
-            map
-        };
+        let body: serde_json::Value = json!({
+            "currency": currency,
+            "clientOid": client_oid,
+            "amount": amount,
+            "type": type_,
+            "fromAccountType": from_account_type,
+            "toAccountType": to_account_type
+        });
 
         match self
             .make_request(
@@ -293,12 +292,12 @@ impl KuCoinClient {
         currency: &str,
         size: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let body = {
-            let mut map = std::collections::HashMap::new();
-            map.insert("currency", currency);
-            map.insert("size", size);
-            map
-        };
+        let body: serde_json::Value = json!({
+            "currency": currency,
+            "size": size,
+            "isIsolated": false,
+            "isHf": true
+        });
 
         match self
             .make_request(
@@ -370,7 +369,7 @@ impl KuCoinClient {
         method: reqwest::Method,
         endpoint: &str,
         query_params: Option<HashMap<&str, &str>>,
-        body: Option<HashMap<&str, &str>>,
+        body: Option<serde_json::Value>,
         authenticated: bool,
     ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}{}", self.base_url, endpoint);
