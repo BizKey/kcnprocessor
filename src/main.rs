@@ -476,6 +476,33 @@ async fn handle_trade_order_event(
     }
 }
 
+fn count_decimal_places(value: f64) -> u32 {
+    let s = value.to_string();
+
+    if let Some(idx) = s.find('.') {
+        let after = &s[idx + 1..];
+        let trimmed = after.trim_end_matches('0');
+        trimmed.len() as u32
+    } else {
+        0
+    }
+}
+
+fn round_to_max_decimals_of_three(a: f64, b: f64, c: f64, value_to_round: f64) -> f64 {
+    let decimals_a = count_decimal_places(a);
+    let decimals_b = count_decimal_places(b);
+    let decimals_c = count_decimal_places(c);
+
+    let max_decimals = decimals_a.max(decimals_b).max(decimals_c);
+
+    if max_decimals == 0 {
+        value_to_round.round()
+    } else {
+        let multiplier = 10f64.powi(max_decimals as i32);
+        (value_to_round * multiplier).round() / multiplier
+    }
+}
+
 async fn handle_position_event(
     position: PositionData,
     pool: &sqlx::Pool<sqlx::Postgres>,
@@ -523,7 +550,12 @@ async fn handle_position_event(
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available_raw) = asset_info.available.parse::<f64>() {
                     if let Ok(hold_raw) = asset_info.hold.parse::<f64>() {
-                        let available_clear = available_raw + hold_raw - debt;
+                        let available_clear = round_to_max_decimals_of_three(
+                            available_raw,
+                            hold_raw,
+                            debt,
+                            available_raw + hold_raw - debt,
+                        );
                         if debt > 0.0 {
                             if available_clear >= debt {
                                 info!(
