@@ -40,14 +40,9 @@ async fn cancel_order(
     symbol: &str,
     order_id: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let id_msg = Uuid::new_v4().to_string();
-    let op = "margin.cancel";
-
     insert_db_msgsend(
         pool,
         exchange,
-        Some(&id_msg),
-        Some(&op),
         Some(&symbol),
         None,
         None,
@@ -62,12 +57,8 @@ async fn cancel_order(
     .await;
     // cancel other orders by symbol
     let msg = serde_json::json!({
-      "id": id_msg,
-      "op": op,
-      "args": {
         "symbol": symbol,
         "orderId": order_id
-    }
     });
     // make cancel order
     // if let Err(e) = tx_out.send(msg.to_string()).await {
@@ -86,8 +77,6 @@ async fn make_order(
     price: String,
     size: String,
 ) {
-    let id_msg = Uuid::new_v4().to_string();
-    let op = "margin.order";
     let args_time_in_force = "GTC";
     let type_ = "limit";
     let auto_borrow = true;
@@ -97,8 +86,6 @@ async fn make_order(
     insert_db_msgsend(
         pool,
         exchange,
-        Some(&id_msg),
-        Some(&op),
         Some(&symbol),
         Some(&side),
         Some(&size),
@@ -119,14 +106,16 @@ async fn make_order(
         "price": price,
         "autoBorrow": auto_borrow,
         "autoRepay": auto_repay,
-        "timeInForce":args_time_in_force,
-        "size": size,
+        "timeInForce": args_time_in_force,
+        "size": size
     });
-    // make order
-    // if let Err(e) = tx_out.send(msg.to_string()).await {
-    //     error!("Failed to send order: {}", e);
-    //     insert_db_error(pool, exchange, &e.to_string()).await;
-    // }
+    match api::requests::add_order(msg).await {
+        Ok(_) => {}
+        Err(e) => {
+            error!("Failed to send order: {}", e);
+            insert_db_error(pool, exchange, &e.to_string()).await;
+        }
+    }
 }
 
 fn format_size(size: f64, increment: f64) -> String {
