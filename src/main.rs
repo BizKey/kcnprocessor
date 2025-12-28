@@ -661,6 +661,86 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
+    while true {
+        match api::requests::get_all_margin_accounts().await {
+            Ok(accounts) => {
+                info!(
+                    "debtRatio: {}, status: {}, totalAssetOfQuoteCurrency: {}, totalLiabilityOfQuoteCurrency: {}",
+                    accounts.debt_ratio,
+                    accounts.status,
+                    accounts.total_asset_of_quote_currency,
+                    accounts.total_liability_of_quote_currency
+                );
+                for account in accounts.accounts.iter() {
+                    info!(
+                        "available: {}, borrow_enabled: {}, currency: {}, hold: {}, liability: {}, liability_interest: {}, liability_principal: {}, max_borrow_size: {}, total: {}, transfer_in_enabled: {}",
+                        account.available,
+                        account.borrow_enabled,
+                        account.currency,
+                        account.hold,
+                        account.liability,
+                        account.liability_interest,
+                        account.liability_principal,
+                        account.max_borrow_size,
+                        account.total,
+                        account.transfer_in_enabled,
+                    );
+                    let liability: f64 = account.liability.parse().unwrap_or(0.0);
+                    let available: f64 = account.available.parse().unwrap_or(0.0);
+                    if liability > 0.0 {
+                        if available >= liability {
+                            info!(
+                                "Can repay {} {} liability with available {}",
+                                liability, &account.currency, available
+                            );
+
+                            if let Err(e) = api::requests::create_repay_order(
+                                &account.currency,
+                                &liability.to_string(),
+                            )
+                            .await
+                            {
+                                error!("Failed to repay liability: {}", e);
+                                insert_db_error(&pool, &exchange, &e.to_string()).await;
+                            };
+                        }
+                        continue;
+                    } else if available > 0.0 && &account.currency != "USDC" {
+                        match api::requests::sent_account_transfer(
+                            &account.currency,
+                            &available.to_string(),
+                            "INTERNAL",
+                            "MARGIN",
+                            "TRADE",
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed send {} to TRADE from MARGIN on {} {}",
+                                    &account.currency,
+                                    &available.to_string(),
+                                    e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                            }
+                        }
+                        continue;
+                    }
+                    break;
+                }
+            }
+            Err(e) => {
+                let msg: String = format!("Failed to get margin accounts {}", e);
+                error!("{}", msg);
+                insert_db_error(&pool, &exchange, &msg).await;
+                // exit with error
+                return Err(msg.into());
+            }
+        }
+    }
 
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info
