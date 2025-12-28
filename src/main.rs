@@ -516,7 +516,6 @@ async fn handle_position_event(
         }
     }
     // repay borrow
-    info!("Position data: {:.?}", &position);
     for (asset, liability_str) in &position.debt_list {
         if let Ok(liability) = liability_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
