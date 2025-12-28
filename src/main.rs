@@ -881,7 +881,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 continue;
             }
         };
-        info!("{}", event_ws_url);
 
         let event_ws_stream = match connect_async(event_ws_url).await {
             Ok((stream, _)) => stream,
@@ -895,23 +894,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let (mut event_ws_write, mut event_ws_read) = event_ws_stream.split();
 
+        match event_ws_read.next().await {
+            Some(Ok(Message::Text(text))) => {
+                info!("{:?}", text);
+            }
+            None => {
+                info!("Trading WS stream dont sent welcome");
+                sleep(RECONNECT_DELAY).await;
+                continue;
+            }
+            _ => {}
+        }
+
         // subscribtion
         for sub in build_subscription() {
             if let Err(e) = event_ws_write.send(Message::text(sub.to_string())).await {
                 error!("Failed to subscribe: {}", e);
                 insert_db_error(&pool, &exchange, &e.to_string()).await;
                 break;
-            }
-            match event_ws_read.next().await {
-                Some(Ok(Message::Text(text))) => {
-                    info!("{:?}", text);
-                }
-                None => {
-                    info!("Trading WS stream dont sent welcome");
-                    sleep(RECONNECT_DELAY).await;
-                    continue;
-                }
-                _ => {}
             }
         }
 
