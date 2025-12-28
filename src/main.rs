@@ -901,17 +901,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 insert_db_error(&pool, &exchange, &e.to_string()).await;
                 break;
             }
-        }
-        match event_ws_read.next().await {
-            Some(Ok(Message::Text(text))) => {
-                info!("{:?}", text);
+            match event_ws_read.next().await {
+                Some(Ok(Message::Text(text))) => {
+                    info!("{:?}", text);
+                }
+                None => {
+                    info!("Trading WS stream dont sent welcome");
+                    sleep(RECONNECT_DELAY).await;
+                    continue;
+                }
+                _ => {}
             }
-            None => {
-                info!("Trading WS stream dont sent welcome");
-                sleep(RECONNECT_DELAY).await;
-                continue;
-            }
-            _ => {}
         }
 
         let _ = tokio::spawn(outgoing_message_handler(rx_out, trade_ws_write));
