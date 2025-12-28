@@ -665,27 +665,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut all_asset_transfer: bool = true;
         match api::requests::get_all_margin_accounts().await {
             Ok(accounts) => {
-                info!(
-                    "debtRatio: {}, status: {}, totalAssetOfQuoteCurrency: {}, totalLiabilityOfQuoteCurrency: {}",
-                    accounts.debt_ratio,
-                    accounts.status,
-                    accounts.total_asset_of_quote_currency,
-                    accounts.total_liability_of_quote_currency
-                );
                 for account in accounts.accounts.iter() {
-                    info!(
-                        "available: {}, borrow_enabled: {}, currency: {}, hold: {}, liability: {}, liability_interest: {}, liability_principal: {}, max_borrow_size: {}, total: {}, transfer_in_enabled: {}",
-                        account.available,
-                        account.borrow_enabled,
-                        account.currency,
-                        account.hold,
-                        account.liability,
-                        account.liability_interest,
-                        account.liability_principal,
-                        account.max_borrow_size,
-                        account.total,
-                        account.transfer_in_enabled,
-                    );
                     let liability: f64 = account.liability.parse().unwrap_or(0.0);
                     let available: f64 = account.available.parse().unwrap_or(0.0);
                     if liability > 0.0 {
