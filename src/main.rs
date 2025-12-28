@@ -661,6 +661,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
+    match api::requests::sent_account_transfer(
+        "USDT",
+        "11.81493821",
+        "INTERNAL",
+        "MARGIN_V2",
+        "TRADE",
+    )
+    .await
+    {
+        Ok(()) => {
+            info!("Successfully transfer USDT");
+        }
+        Err(e) => {
+            let msg: String = format!("Failed to transfer USDT: {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
+    match api::requests::sent_account_transfer(
+        "SEI",
+        "200.03659963",
+        "INTERNAL",
+        "MARGIN_V2",
+        "TRADE",
+    )
+    .await
+    {
+        Ok(()) => {
+            info!("Successfully transfer SEI");
+        }
+        Err(e) => {
+            let msg: String = format!("Failed to transfer SEI: {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+        }
+    }
 
     let symbol_info = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info
