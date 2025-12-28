@@ -1,21 +1,15 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-#[derive(Debug, Deserialize)]
-pub struct ApiV3BulletPrivateDataInstanceServers {
-    pub endpoint: String,
-}
 
 #[derive(Debug, Deserialize)]
-pub struct ApiV3BulletPrivateData {
+pub struct ApiV2BulletPrivateData {
     pub token: String,
-    #[serde(rename = "instanceServers")]
-    pub instance_servers: Vec<ApiV3BulletPrivateDataInstanceServers>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApiV3BulletPrivate {
+pub struct ApiV2BulletPrivate {
     pub code: String,
-    pub data: ApiV3BulletPrivateData,
+    pub data: ApiV2BulletPrivateData,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -153,19 +147,14 @@ pub struct ActualPrice {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(tag = "type")]
-pub enum KuCoinMessage {
-    #[serde(rename = "welcome")]
-    Welcome(WelcomeData),
-
-    #[serde(rename = "ack")]
-    Ack(AckData),
-
-    #[serde(rename = "message")]
-    Message(MessageData),
-
-    #[serde(rename = "error")]
-    Error(ErrorData),
+pub struct ProWSMessageOrder {
+    pub oi: String,
+}
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "T")]
+pub enum ProWSMessage {
+    #[serde(rename = "orderAll.UNIFIED")]
+    Order(ProWSMessageOrder),
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]

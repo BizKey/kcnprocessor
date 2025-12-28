@@ -1,5 +1,5 @@
 use crate::api::models::{
-    ActualPrice, ApiV3BulletPrivate, MarginAccount, MarginAccountData, SymbolOpenOrder,
+    ActualPrice, ApiV2BulletPrivate, MarginAccount, MarginAccountData, SymbolOpenOrder,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -51,13 +51,13 @@ impl KuCoinClient {
         })
     }
 
-    pub async fn api_v1_bullet_private(
+    pub async fn api_v2_bullet_private(
         &self,
-    ) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<ApiV2BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
         return match self
             .make_request(
                 reqwest::Method::POST,
-                "/api/v1/bullet-private",
+                "/api/v2/bullet-private",
                 None,
                 None,
                 true,
@@ -66,7 +66,7 @@ impl KuCoinClient {
         {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
-                    Ok(text) => match serde_json::from_str::<ApiV3BulletPrivate>(&text) {
+                    Ok(text) => match serde_json::from_str::<ApiV2BulletPrivate>(&text) {
                         Ok(r) => match r.code.as_str() {
                             "200000" => Ok(r),
                             _ => Err(format!("API error: code {}", r.code).into()),
@@ -439,15 +439,15 @@ impl KuCoinClient {
     }
 }
 
-pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn get_private_ws_v2_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    // Get Private Token - Pro API Private Channels
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    let bullet_private: ApiV3BulletPrivate = client.api_v1_bullet_private().await?;
-    bullet_private
-        .data
-        .instance_servers
-        .first()
-        .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
-        .ok_or_else(|| "No instance servers in bullet response".into())
+    let bullet_private: ApiV2BulletPrivate = client.api_v2_bullet_private().await?;
+    let url = format!(
+        "wss://wsapi-push.kucoin.com/?token={}",
+        url_encode(&bullet_private.data.token)
+    );
+    Ok(url)
 }
 pub async fn get_all_margin_accounts()
 -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {

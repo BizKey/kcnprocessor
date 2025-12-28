@@ -5,7 +5,7 @@ use crate::api::db::{
     insert_db_event, insert_db_msgevent, insert_db_msgsend, insert_db_orderevent,
     upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol, TradeMsg};
+use crate::api::models::{BalanceData, OrderData, PositionData, ProWSMessage, Symbol, TradeMsg};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
@@ -29,9 +29,9 @@ const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_subscription() -> Vec<serde_json::Value> {
     vec![
-        serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}),
-        serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}),
-        serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}),
+        serde_json::json!({"id":"subscribe_orders","action":"SUBSCRIBE","channel":"orderAll","tradeType":"UNIFIED"}),
+        serde_json::json!({"id":"subscribe_balance","action":"SUBSCRIBE","channel":"balance","accountType":"UNIFIED"}),
+        serde_json::json!({"id":"subscribe_position","action":"SUBSCRIBE","channel":"positionAll","tradeType":"UNIFIED"}),
     ]
 }
 
@@ -546,34 +546,34 @@ async fn handle_position_event(
     // repay borrow
     info!("Position data: {:.?}", &position);
     for (asset, debt_str) in &position.debt_list {
-        if let Ok(debt) = debt_str.parse::<f64>() {
+        if let Ok(liability) = debt_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available_raw) = asset_info.available.parse::<f64>() {
                     if let Ok(hold_raw) = asset_info.hold.parse::<f64>() {
                         let available_clear = round_to_max_decimals_of_three(
                             available_raw,
                             hold_raw,
-                            debt,
-                            available_raw + hold_raw - debt,
+                            liability,
+                            available_raw + hold_raw - liability,
                         );
-                        if debt > 0.0 {
-                            if available_clear >= debt {
+                        if liability > 0.0 {
+                            if available_clear >= liability {
                                 info!(
-                                    "Can repay {} {} debt with available_clear {}",
-                                    debt, asset, available_clear
+                                    "Can repay {} {} liability with available_clear {}",
+                                    liability, asset, available_clear
                                 );
 
                                 if let Err(e) =
-                                    api::requests::create_repay_order(asset, &debt.to_string())
+                                    api::requests::create_repay_order(asset, &liability.to_string())
                                         .await
                                 {
-                                    error!("Failed to repay debt: {}", e);
+                                    error!("Failed to repay liability: {}", e);
                                     insert_db_error(pool, exchange, &e.to_string()).await;
                                 };
                             } else if available_clear > 0.0 {
                                 info!(
-                                    "Can partially repay {} {} debt with available_clear {}",
-                                    debt, asset, available_clear
+                                    "Can partially repay {} {} liability with available_clear {}",
+                                    liability, asset, available_clear
                                 );
 
                                 if let Err(e) = api::requests::create_repay_order(
@@ -582,7 +582,7 @@ async fn handle_position_event(
                                 )
                                 .await
                                 {
-                                    error!("Failed to partially repay debt: {}", e);
+                                    error!("Failed to partially repay liability: {}", e);
                                     insert_db_error(pool, exchange, &e.to_string()).await;
                                 }
                             }
@@ -671,7 +671,7 @@ async fn outgoing_message_handler(
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute = false;
+    let mut init_order_execute = true;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
@@ -806,107 +806,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Work with income events
         let _ = tokio::spawn(async move {
             while let Some(msg) = rx_in.recv().await {
-                match serde_json::from_str::<KuCoinMessage>(&msg) {
-                    Ok(kc_msg) => match kc_msg {
-                        KuCoinMessage::Welcome(data) => {
-                            info!("{:?}", data);
-                            insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
-                        }
-                        KuCoinMessage::Message(data) => {
-                            if data.topic == "/account/balance" {
-                                match BalanceData::deserialize(&data.data) {
-                                    Ok(balance) => {
-                                        // sent balance to pg
-                                        insert_db_balance(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            balance,
-                                        )
-                                        .await;
-                                    }
-                                    Err(e) => {
-                                        info!("{:?}", data.data);
-                                        error!("Failed to parse message {}", e);
-                                        // sent balance error to pg
-                                        insert_db_error(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &e.to_string(),
-                                        )
-                                        .await;
-                                    }
-                                }
-                            } else if data.topic == "/spotMarket/tradeOrdersV2" {
-                                match OrderData::deserialize(&data.data) {
-                                    Ok(order) => {
-                                        // order magic
-                                        handle_trade_order_event(
-                                            order,
-                                            &tx_out_clone,
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &symbol_map_for_handler,
-                                        )
-                                        .await
-                                    }
-                                    Err(e) => {
-                                        info!("{:?}", data.data);
-                                        error!("Failed to parse message {}", e);
-                                        // sent order error to pg
-                                        insert_db_error(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &e.to_string(),
-                                        )
-                                        .await;
-                                    }
-                                }
-                            } else if data.topic == "/margin/position" {
-                                // save to db position
-                                match PositionData::deserialize(&data.data) {
-                                    Ok(position) => {
-                                        handle_position_event(
-                                            position,
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                        )
-                                        .await
-                                    }
-                                    Err(e) => {
-                                        info!("{:?}", data.data);
-                                        error!("Failed to parse message {}", e);
-                                        // sent order error to pg
-                                        insert_db_error(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &e.to_string(),
-                                        )
-                                        .await;
-                                    }
-                                }
-                            } else {
-                                info!("Unknown topic: {}", data.topic);
-                                // sent error to pg
-                                insert_db_error(
-                                    &pool_for_handler,
-                                    &exchange_for_handler,
-                                    &data.topic,
-                                )
-                                .await;
-                            }
-                        }
-                        KuCoinMessage::Ack(data) => {
-                            info!("{:?}", data);
-                            // sent ack to pg
-                            insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
-                        }
-                        KuCoinMessage::Error(data) => {
-                            info!("{:?}", data);
-                            // sent error to pg
-                            insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data)
-                                .await;
-                        }
-                    },
+                info!("{}", msg);
+                match serde_json::from_str::<ProWSMessage>(&msg) {
+                    Ok(pro_ws_msg) => {
+                        info!("{:.?}", pro_ws_msg)
+                    }
                     Err(e) => {
                         error!("Failed to parse message: {} | Raw: {}", e, msg);
                         // sent error to pg
@@ -967,8 +871,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             _ => {}
         }
 
-        // Position/Orders WS
-        let event_ws_url: String = match api::requests::get_private_ws_url().await {
+        // Position/Orders/Balance WS
+        let event_ws_url: String = match api::requests::get_private_ws_v2_url().await {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get WebSocket URL: {}", e);
