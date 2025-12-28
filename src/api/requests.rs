@@ -287,6 +287,35 @@ impl KuCoinClient {
             Err(e) => Err(format!("Account transfer request failed: {}", e).into()),
         }
     }
+    pub async fn add_order(
+        &self,
+        body: serde_json::Value,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        match self
+            .make_request(
+                reqwest::Method::POST,
+                "/api/v3/hf/margin/order",
+                None,
+                Some(body.clone()),
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => {
+                    info!("Successfully create order {}", body);
+                    Ok(())
+                }
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
+        }
+    }
     pub async fn margin_repay(
         &self,
         currency: &str,
@@ -487,6 +516,13 @@ pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + 
         let client2: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
         client2.cancel_all_orders_by_symbol(symbol).await;
     }
+    Ok(())
+}
+pub async fn add_order(
+    body: serde_json::Value,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.add_order(body).await?;
     Ok(())
 }
 pub async fn create_repay_order(

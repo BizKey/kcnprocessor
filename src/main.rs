@@ -35,7 +35,6 @@ fn build_subscription() -> Vec<serde_json::Value> {
 }
 
 async fn cancel_order(
-    tx_out: &mpsc::Sender<String>,
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     symbol: &str,
@@ -70,16 +69,16 @@ async fn cancel_order(
         "orderId": order_id
     }
     });
-    if let Err(e) = tx_out.send(msg.to_string()).await {
-        error!("Failed to send order: {}", e);
-        insert_db_error(pool, exchange, &e.to_string()).await;
-        return Err(e.into());
-    }
+    // make cancel order
+    // if let Err(e) = tx_out.send(msg.to_string()).await {
+    //     error!("Failed to send order: {}", e);
+    //     insert_db_error(pool, exchange, &e.to_string()).await;
+    //     return Err(e.into());
+    // }
     Ok(())
 }
 
 async fn make_order(
-    tx_out: &mpsc::Sender<String>,
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     side: &str,
@@ -113,24 +112,21 @@ async fn make_order(
     )
     .await;
     let msg = serde_json::json!({
-        "id": id_msg,
-        "op": op,
-        "args": {
-            "price": price,
-            "size": size,
-            "side": side,
-            "symbol": symbol,
-            "timeInForce":args_time_in_force,
-            "type": type_,
-            "autoBorrow": auto_borrow,
-            "autoRepay": auto_repay,
-            "clientOid": client_oid,
-        }
+        "clientOid": client_oid,
+        "symbol": symbol,
+        "side": side,
+        "type": type_,
+        "price": price,
+        "autoBorrow": auto_borrow,
+        "autoRepay": auto_repay,
+        "timeInForce":args_time_in_force,
+        "size": size,
     });
-    if let Err(e) = tx_out.send(msg.to_string()).await {
-        error!("Failed to send order: {}", e);
-        insert_db_error(pool, exchange, &e.to_string()).await;
-    }
+    // make order
+    // if let Err(e) = tx_out.send(msg.to_string()).await {
+    //     error!("Failed to send order: {}", e);
+    //     insert_db_error(pool, exchange, &e.to_string()).await;
+    // }
 }
 
 fn format_size(size: f64, increment: f64) -> String {
@@ -159,7 +155,6 @@ fn calculate_size(notional: f64, price: f64, base_increment: f64, min_size: f64)
     Some(format_size(size, base_increment))
 }
 async fn create_order_safely(
-    tx_out: &mpsc::Sender<String>,
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     side: &str,
@@ -238,7 +233,6 @@ async fn create_order_safely(
         },
     };
     make_order(
-        tx_out,
         pool,
         exchange,
         side,
@@ -281,7 +275,6 @@ fn calculate_price(
 
 async fn handle_trade_order_event(
     order: OrderData,
-    tx_out: &mpsc::Sender<String>,
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     symbol_map: &HashMap<String, Symbol>,
@@ -320,7 +313,6 @@ async fn handle_trade_order_event(
                         |a, _b| a * 1.01, // price + 1%
                     ) {
                         create_order_safely(
-                            tx_out,
                             pool,
                             exchange,
                             &order.side,
@@ -341,7 +333,6 @@ async fn handle_trade_order_event(
                         delete_oldest_orderactive(pool, exchange, &order.symbol, "buy").await
                     {
                         let _ = cancel_order(
-                            tx_out,
                             pool,
                             exchange,
                             &oldest_order.symbol,
@@ -366,7 +357,6 @@ async fn handle_trade_order_event(
                         |a, _b| a * 100.0 / 101.0, // price - 1%
                     ) {
                         create_order_safely(
-                            tx_out,
                             pool,
                             exchange,
                             &order.side,
@@ -387,7 +377,6 @@ async fn handle_trade_order_event(
                         delete_oldest_orderactive(pool, exchange, &order.symbol, "sell").await
                     {
                         let _ = cancel_order(
-                            tx_out,
                             pool,
                             exchange,
                             &oldest_order.symbol,
@@ -435,7 +424,6 @@ async fn handle_trade_order_event(
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
                 create_order_safely(
-                    tx_out,
                     pool,
                     exchange,
                     "buy",
@@ -457,7 +445,6 @@ async fn handle_trade_order_event(
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
                 create_order_safely(
-                    tx_out,
                     pool,
                     exchange,
                     "sell",
@@ -654,7 +641,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
-    while true {
+    loop {
         let mut all_asset_transfer: bool = true;
         match api::requests::get_all_margin_accounts().await {
             Ok(accounts) => {
@@ -768,6 +755,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 match OrderData::deserialize(&data.data) {
                                     Ok(order) => {
                                         // order magic
+                                        handle_trade_order_event(
+                                            order,
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &symbol_map_for_handler,
+                                        )
+                                        .await
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
