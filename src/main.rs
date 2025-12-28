@@ -875,7 +875,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_ws_url: String = match api::requests::get_private_ws_v2_url().await {
             Ok(url) => url,
             Err(e) => {
-                error!("Failed to get WebSocket URL: {}", e);
+                error!("Failed to get Pro WebSocket URL: {}", e);
                 // sent error to pg
                 sleep(RECONNECT_DELAY).await;
                 continue;
