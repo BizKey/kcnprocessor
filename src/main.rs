@@ -881,6 +881,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 continue;
             }
         };
+        info!("{}", event_ws_url);
 
         let event_ws_stream = match connect_async(event_ws_url).await {
             Ok((stream, _)) => stream,
