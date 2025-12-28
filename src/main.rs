@@ -985,6 +985,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 event_msg = event_ws_read.next() => {
                     match event_msg {
                         Some(Ok(Message::Text(text))) => {
+                            info!("{}", text);
                             if tx_in.send(text.to_string()).await.is_err() {
                                 error!("Failed to send to handler, reconnecting...");
                                 should_reconnect = true;
