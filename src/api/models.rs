@@ -181,6 +181,18 @@ pub struct Symbol {
 pub struct SymbolOpenOrderData {
     pub symbols: Vec<String>,
 }
+#[derive(Debug, Deserialize)]
+pub struct MakeOrderResData {
+    pub orderId: String,
+    pub clientOid: String,
+    pub borrowSize: Option<String>,
+    pub loanApplyId: Option<String>,
+}
+#[derive(Debug, Deserialize)]
+pub struct MakeOrderRes {
+    pub code: String,
+    pub data: MakeOrderResData,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SymbolOpenOrder {

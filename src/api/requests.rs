@@ -1,5 +1,6 @@
 use crate::api::models::{
-    ActualPrice, ApiV3BulletPrivate, MarginAccount, MarginAccountData, SymbolOpenOrder,
+    ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MarginAccount, MarginAccountData,
+    SymbolOpenOrder,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -290,7 +291,7 @@ impl KuCoinClient {
     pub async fn add_order(
         &self,
         body: serde_json::Value,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -302,10 +303,17 @@ impl KuCoinClient {
             .await
         {
             Ok(response) => match response.status().as_str() {
-                "200" => {
-                    info!("Successfully create order {}", body);
-                    Ok(())
-                }
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<MakeOrderRes>(&text) {
+                        Ok(res) => Ok(res),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
                 status => match response.text().await {
                     Ok(text) => {
                         Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
