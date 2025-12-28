@@ -662,26 +662,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
     match api::requests::sent_account_transfer(
-        "USDT",
-        "11.81493821",
-        "INTERNAL",
-        "MARGIN_V2",
-        "TRADE",
-    )
-    .await
-    {
-        Ok(()) => {
-            info!("Successfully transfer USDT");
-        }
-        Err(e) => {
-            let msg: String = format!("Failed to transfer USDT: {}", e);
-            error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
-        }
-    }
-    match api::requests::sent_account_transfer(
         "SEI",
-        "200.03659963",
+        "0.57151053",
         "INTERNAL",
         "MARGIN_V2",
         "TRADE",
