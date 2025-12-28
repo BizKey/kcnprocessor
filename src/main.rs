@@ -546,34 +546,34 @@ async fn handle_position_event(
     // repay borrow
     info!("Position data: {:.?}", &position);
     for (asset, debt_str) in &position.debt_list {
-        if let Ok(debt) = debt_str.parse::<f64>() {
+        if let Ok(liability) = debt_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available_raw) = asset_info.available.parse::<f64>() {
                     if let Ok(hold_raw) = asset_info.hold.parse::<f64>() {
                         let available_clear = round_to_max_decimals_of_three(
                             available_raw,
                             hold_raw,
-                            debt,
-                            available_raw + hold_raw - debt,
+                            liability,
+                            available_raw + hold_raw - liability,
                         );
-                        if debt > 0.0 {
-                            if available_clear >= debt {
+                        if liability > 0.0 {
+                            if available_clear >= liability {
                                 info!(
-                                    "Can repay {} {} debt with available_clear {}",
-                                    debt, asset, available_clear
+                                    "Can repay {} {} liability with available_clear {}",
+                                    liability, asset, available_clear
                                 );
 
                                 if let Err(e) =
-                                    api::requests::create_repay_order(asset, &debt.to_string())
+                                    api::requests::create_repay_order(asset, &liability.to_string())
                                         .await
                                 {
-                                    error!("Failed to repay debt: {}", e);
+                                    error!("Failed to repay liability: {}", e);
                                     insert_db_error(pool, exchange, &e.to_string()).await;
                                 };
                             } else if available_clear > 0.0 {
                                 info!(
-                                    "Can partially repay {} {} debt with available_clear {}",
-                                    debt, asset, available_clear
+                                    "Can partially repay {} {} liability with available_clear {}",
+                                    liability, asset, available_clear
                                 );
 
                                 if let Err(e) = api::requests::create_repay_order(
@@ -582,7 +582,7 @@ async fn handle_position_event(
                                 )
                                 .await
                                 {
-                                    error!("Failed to partially repay debt: {}", e);
+                                    error!("Failed to partially repay liability: {}", e);
                                     insert_db_error(pool, exchange, &e.to_string()).await;
                                 }
                             }
