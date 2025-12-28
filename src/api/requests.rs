@@ -445,7 +445,7 @@ pub async fn get_private_ws_v2_url() -> Result<String, Box<dyn std::error::Error
     let bullet_private: ApiV2BulletPrivate = client.api_v2_bullet_private().await?;
     let url = format!(
         "wss://wsapi-push.kucoin.com/?token={}",
-        url_encode(&bullet_private.data.token)
+        bullet_private.data.token
     );
     Ok(url)
 }
