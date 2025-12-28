@@ -662,6 +662,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
     while true {
+        let mut all_asset_transfer: bool = true;
         match api::requests::get_all_margin_accounts().await {
             Ok(accounts) => {
                 info!(
@@ -691,12 +692,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         if available >= liability {
                             info!(
                                 "Can repay {} {} liability with available {}",
-                                liability, &account.currency, available
+                                account.liability, &account.currency, account.available
                             );
 
                             if let Err(e) = api::requests::create_repay_order(
                                 &account.currency,
-                                &liability.to_string(),
+                                &account.liability,
                             )
                             .await
                             {
@@ -704,11 +705,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 insert_db_error(&pool, &exchange, &e.to_string()).await;
                             };
                         }
-                        continue;
+                        all_asset_transfer = false;
                     } else if available > 0.0 && &account.currency != "USDC" {
                         match api::requests::sent_account_transfer(
                             &account.currency,
-                            &available.to_string(),
+                            &account.available,
                             "INTERNAL",
                             "MARGIN",
                             "TRADE",
@@ -727,9 +728,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 insert_db_error(&pool, &exchange, &msg).await;
                             }
                         }
-                        continue;
+                        all_asset_transfer = false;
                     }
-                    break;
                 }
             }
             Err(e) => {
@@ -739,6 +739,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 // exit with error
                 return Err(msg.into());
             }
+        }
+        if all_asset_transfer {
+            break;
         }
     }
 
