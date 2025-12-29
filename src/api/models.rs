@@ -186,6 +186,10 @@ pub struct MakeOrderRes {
     pub code: String,
     pub msg: Option<String>,
 }
+#[derive(Debug, Deserialize)]
+pub struct CancelOrderRes {
+    pub code: String,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SymbolOpenOrder {

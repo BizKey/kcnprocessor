@@ -59,16 +59,19 @@ async fn cancel_order(
     )
     .await;
     // cancel other orders by symbol
-    let msg = serde_json::json!({
-        "symbol": symbol,
-        "orderId": order_id
-    });
-    // make cancel order
-    // if let Err(e) = tx_out.send(msg.to_string()).await {
-    //     error!("Failed to send order: {}", e);
-    //     insert_db_error(pool, exchange, &e.to_string()).await;
-    //     return Err(e.into());
-    // }
+    match api::requests::cancel_order(symbol, order_id).await {
+        Ok(data) => {
+            if data.code != "200000" {
+                let msg_err = format!("Cancel order: {} {}", order_id, symbol);
+                error!("{}", msg_err);
+                insert_db_error(pool, exchange, &msg_err).await;
+            }
+        }
+        Err(e) => {
+            error!("Failed to cancel order: {}", e);
+            insert_db_error(pool, exchange, &e.to_string()).await;
+        }
+    }
     Ok(())
 }
 

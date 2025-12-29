@@ -1,6 +1,6 @@
 use crate::api::models::{
-    ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MarginAccount, MarginAccountData,
-    SymbolOpenOrder,
+    ActualPrice, ApiV3BulletPrivate, CancelOrderRes, MakeOrderRes, MarginAccount,
+    MarginAccountData, SymbolOpenOrder,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -292,7 +292,7 @@ impl KuCoinClient {
         &self,
         symbol: &str,
         order_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<CancelOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
 
         query_params.insert("symbol", symbol);
@@ -308,7 +308,14 @@ impl KuCoinClient {
         {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
-                    Ok(text) => Ok(()),
+                    Ok(text) => match serde_json::from_str::<CancelOrderRes>(&text) {
+                        Ok(res) => Ok(res),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
@@ -568,10 +575,9 @@ pub async fn add_order(
 pub async fn cancel_order(
     symbol: &str,
     order_id: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<CancelOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.cancel_order(symbol, order_id).await?;
-    Ok(())
+    client.cancel_order(symbol, order_id).await
 }
 pub async fn create_repay_order(
     currency: &str,
