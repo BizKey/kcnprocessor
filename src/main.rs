@@ -915,6 +915,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     &symbol_info.price_increment,
                                     |a, _b| a * 1.01, // price + 1%
                                 ) {
+                                    create_order_safely(
+                                        &pool,
+                                        &exchange,
+                                        "sell",
+                                        &trd_order.symbol,
+                                        &price_str,
+                                        Some(&trd_order.size),
+                                        &symbol_info,
+                                    )
+                                    .await;
                                 } else {
                                     error!(
                                         "Failed to calculate price for init order {}",
@@ -929,6 +939,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     &symbol_info.price_increment,
                                     |a, _b| a * 100.0 / 101.0, // price - 1%
                                 ) {
+                                    create_order_safely(
+                                        &pool,
+                                        &exchange,
+                                        "buy",
+                                        &trd_order.symbol,
+                                        &price_str,
+                                        Some(&trd_order.size),
+                                        &symbol_info,
+                                    )
+                                    .await;
                                 } else {
                                     error!(
                                         "Failed to calculate price for init order {}",

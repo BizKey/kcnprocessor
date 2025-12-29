@@ -7,7 +7,6 @@ use hmac::{Hmac, Mac};
 use log::{error, info};
 use reqwest::{Client, Response};
 use serde_json::json;
-use urlencoding::encode as url_encode;
 use uuid::Uuid;
 
 use sha2::Sha256;
@@ -134,12 +133,7 @@ impl KuCoinClient {
         let result = mac.finalize();
         base64::engine::general_purpose::STANDARD.encode(result.into_bytes())
     }
-    pub fn generate_signature_for_websocket(&self, prehash: &str) -> String {
-        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
-            .expect("HMAC can take key of any size");
-        mac.update(prehash.as_bytes());
-        base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
-    }
+
     pub async fn get_margin_accounts(
         &self,
     ) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
@@ -597,38 +591,4 @@ pub async fn create_repay_order(
     client.margin_repay(currency, size).await?;
 
     Ok(())
-}
-
-pub fn get_trading_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)?
-        .as_millis()
-        .to_string();
-
-    let str_to_sign = format!("{}{}", client.api_key, timestamp);
-    let sign = client.generate_signature_for_websocket(&str_to_sign);
-    let passphrase_sign = client.generate_signature_for_websocket(&client.api_passphrase);
-
-    let url = format!(
-        "wss://wsapi.kucoin.com/v1/private?apikey={}&sign={}&passphrase={}&timestamp={}",
-        url_encode(&client.api_key),
-        url_encode(&sign),
-        url_encode(&passphrase_sign),
-        url_encode(&timestamp),
-    );
-
-    Ok(url)
-}
-
-pub fn sign_kucoin(prehash: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let api_secret = match env::var("KUCOIN_SECRET") {
-        Ok(val) => val,
-        Err(e) => return Err(e.into()),
-    };
-    let mut mac =
-        HmacSha256::new_from_slice(api_secret.as_bytes()).expect("HMAC can take key of any size");
-    mac.update(prehash.as_bytes());
-    Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
 }
