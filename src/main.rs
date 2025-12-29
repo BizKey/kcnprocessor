@@ -81,7 +81,7 @@ async fn make_order(
     let args_time_in_force = "GTC";
     let type_ = "limit";
     let auto_borrow = true;
-    let auto_repay = true;
+    let auto_repay = false;
     let client_oid = Uuid::new_v4().to_string();
 
     insert_db_msgsend(
