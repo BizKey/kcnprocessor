@@ -25,6 +25,7 @@ mod api {
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const REPAY_CHECK_INTERVAL: Duration = Duration::from_millis(100);
+const RE_CREATE_ORDER: Duration = Duration::from_millis(100);
 const REPAY_DELAY: Duration = Duration::from_secs(5);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -111,12 +112,27 @@ async fn make_order(
         "timeInForce": args_time_in_force,
         "size": size
     });
-    match api::requests::add_order(msg).await {
-        Ok(_) => {}
-        Err(e) => {
-            error!("Failed to send order: {}", e);
-            insert_db_error(pool, exchange, &e.to_string()).await;
+    let mut success_create_order: bool = false;
+    loop {
+        match api::requests::add_order(msg.clone()).await {
+            Ok(code) => {
+                if code != "200000" {
+                    let msg_err = format!("Make order was error: {}", code);
+                    error!("{}", msg_err);
+                    insert_db_error(pool, exchange, &msg_err).await;
+                } else {
+                    success_create_order = true;
+                }
+            }
+            Err(e) => {
+                error!("Failed to send order: {}", e);
+                insert_db_error(pool, exchange, &e.to_string()).await;
+            }
         }
+        if success_create_order {
+            break;
+        }
+        sleep(RE_CREATE_ORDER).await;
     }
 }
 

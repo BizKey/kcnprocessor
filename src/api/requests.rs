@@ -324,7 +324,7 @@ impl KuCoinClient {
     pub async fn add_order(
         &self,
         body: serde_json::Value,
-    ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -338,7 +338,7 @@ impl KuCoinClient {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MakeOrderRes>(&text) {
-                        Ok(res) => Ok(res),
+                        Ok(res) => Ok(res.code),
                         Err(e) => Err(format!(
                             "Error JSON deserialize:'{}' with data: '{}'",
                             e, text
@@ -561,10 +561,9 @@ pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + 
 }
 pub async fn add_order(
     body: serde_json::Value,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.add_order(body).await?;
-    Ok(())
+    client.add_order(body).await
 }
 pub async fn cancel_order(
     symbol: &str,
