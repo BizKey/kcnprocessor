@@ -81,7 +81,7 @@ async fn make_order(
     let args_time_in_force = "GTC";
     let type_ = "limit";
     let auto_borrow = true;
-    let auto_repay = false;
+    let auto_repay = true;
     let client_oid = Uuid::new_v4().to_string();
 
     insert_db_msgsend(
@@ -406,6 +406,11 @@ async fn handle_trade_order_event(
 
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
 
+        let parts: Vec<&str> = order.symbol.split('-').collect();
+        let (base, quote) = (parts[0], parts[1]);
+
+        let target_currency: &str = if order.side == "sell" { quote } else { base };
+
         if order.side == "sell" {
             // create new buy order
             if let Some(price_str) = calculate_price(
@@ -413,7 +418,32 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
-                // need repay
+                loop {
+                    let mut available_zero: bool = false;
+                    let mut found: bool = false;
+                    match api::requests::get_all_margin_accounts().await {
+                        Ok(accounts) => {
+                            for account in accounts.accounts.iter() {
+                                if account.currency == target_currency {
+                                    found = true;
+                                    if account.available == "0" {
+                                        available_zero = true
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed to get margin accounts {}", e);
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                        }
+                    }
+                    if found && available_zero {
+                        break;
+                    } else {
+                        sleep(REPAY_DELAY).await;
+                    }
+                }
                 create_order_safely(
                     pool,
                     exchange,
@@ -435,7 +465,32 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
-                // need repay
+                loop {
+                    let mut available_zero: bool = false;
+                    let mut found: bool = false;
+                    match api::requests::get_all_margin_accounts().await {
+                        Ok(accounts) => {
+                            for account in accounts.accounts.iter() {
+                                if account.currency == target_currency {
+                                    found = true;
+                                    if account.available == "0" {
+                                        available_zero = true
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed to get margin accounts {}", e);
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                        }
+                    }
+                    if found && available_zero {
+                        break;
+                    } else {
+                        sleep(REPAY_DELAY).await;
+                    }
+                }
                 create_order_safely(
                     pool,
                     exchange,
