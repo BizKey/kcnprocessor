@@ -80,44 +80,48 @@ async fn make_order(
     price: String,
     size: String,
 ) {
-    let args_time_in_force = "GTC";
-    let type_ = "limit";
-    let auto_borrow = true;
-    let auto_repay = true;
-    let client_oid = Uuid::new_v4().to_string();
-
-    insert_db_msgsend(
-        pool,
-        exchange,
-        Some(&symbol),
-        Some(&side),
-        Some(&size),
-        Some(&price),
-        Some(&args_time_in_force),
-        Some(&type_),
-        Some(&auto_borrow),
-        Some(&auto_repay),
-        Some(&client_oid),
-        None,
-    )
-    .await;
-    let msg = serde_json::json!({
-        "clientOid": client_oid,
-        "symbol": symbol,
-        "side": side,
-        "type": type_,
-        "price": price,
-        "autoBorrow": auto_borrow,
-        "autoRepay": auto_repay,
-        "timeInForce": args_time_in_force,
-        "size": size
-    });
-    let mut success_create_order: bool = false;
     loop {
+        let args_time_in_force = "GTC";
+        let type_ = "limit";
+        let auto_borrow = true;
+        let auto_repay = true;
+        let client_oid = Uuid::new_v4().to_string();
+
+        insert_db_msgsend(
+            pool,
+            exchange,
+            Some(&symbol),
+            Some(&side),
+            Some(&size),
+            Some(&price),
+            Some(&args_time_in_force),
+            Some(&type_),
+            Some(&auto_borrow),
+            Some(&auto_repay),
+            Some(&client_oid),
+            None,
+        )
+        .await;
+        let msg = serde_json::json!({
+            "clientOid": client_oid,
+            "symbol": symbol,
+            "side": side,
+            "type": type_,
+            "price": price,
+            "autoBorrow": auto_borrow,
+            "autoRepay": auto_repay,
+            "timeInForce": args_time_in_force,
+            "size": size
+        });
+        let mut success_create_order: bool = false;
+
         match api::requests::add_order(msg.clone()).await {
-            Ok(code) => {
-                if code != "200000" {
-                    let msg_err = format!("Make order was error: {}", code);
+            Ok(data) => {
+                if data.code != "200000" {
+                    let msg_err = format!(
+                        "Make order was error: {} {} {:?}",
+                        symbol, data.code, data.msg
+                    );
                     error!("{}", msg_err);
                     insert_db_error(pool, exchange, &msg_err).await;
                 } else {

@@ -184,6 +184,7 @@ pub struct SymbolOpenOrderData {
 #[derive(Debug, Deserialize)]
 pub struct MakeOrderRes {
     pub code: String,
+    pub msg: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
