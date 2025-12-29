@@ -1,6 +1,5 @@
 use crate::api::models::{
-    ActiveOrder, BalanceData, BalanceRelationContext, MsgSend, OrderData, Symbol, TradeMsg,
-    TradeMsgData, TradeMsgRateLimit, TradeSymbol,
+    ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeSymbol,
 };
 use log::error;
 use serde::Serialize;
@@ -104,53 +103,7 @@ pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceDa
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn insert_db_msgevent(pool: &PgPool, exchange: &str, order: &TradeMsg) {
-    let order_data = match &order.data {
-        Some(ctx) => ctx,
-        None => {
-            error!("Missing order.data for TradeMsg");
-            &TradeMsgData {
-                borrow_size: None,
-                client_oid: None,
-                order_id: None,
-                loan_apply_id: None,
-            }
-        }
-    };
-    let order_user_rate_limit = match &order.user_rate_limit {
-        Some(ctx) => ctx,
-        None => {
-            error!("Missing user_rate_limit for TradeMsg");
-            &TradeMsgRateLimit {
-                limit: None,
-                reset: None,
-                remaining: None,
-            }
-        }
-    };
-    if let Err(e) = sqlx::query("INSERT INTO msgevent (exchange, idmsg, op, msg, code, borrow_size, client_oid, order_id, loan_apply_id, limit_rate, reset_rate, remaining_rate, in_time, out_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)")
-            .bind(exchange)
-            .bind(&order.id)
-            .bind(&order.op)
-            .bind(&order.msg)
-            .bind(&order.code)
-            .bind(&order_data.borrow_size)
-            .bind(&order_data.client_oid)
-            .bind(&order_data.order_id)
-            .bind(&order_data.loan_apply_id)
-            .bind(&order_user_rate_limit.limit)
-            .bind(&order_user_rate_limit.reset)
-            .bind(&order_user_rate_limit.remaining)
-            .bind(&order.in_time)
-            .bind(&order.out_time)
-            .execute(pool)
-            .await
-    {
-        let err_msg = format!("Failed to insert msg event into DB: {}", e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
-}
+
 pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderData) {
     if let Err(e) = sqlx::query("INSERT INTO orderevent (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)")
             .bind(exchange)
@@ -302,26 +255,7 @@ pub async fn get_all_symbol_for_trade(pool: &PgPool, exchange: &str) -> Vec<Trad
         }
     }
 }
-pub async fn get_sended_msg_to_trade(
-    pool: &PgPool,
-    exchange: &str,
-    id_msg: &str,
-) -> Option<MsgSend> {
-    match sqlx::query_as::<_, MsgSend>("SELECT args_symbol, args_side, args_size, args_price FROM msgsend WHERE exchange = $1 AND id_msg = $2")
-        .bind(exchange)
-        .bind(id_msg)
-        .fetch_optional(pool)
-        .await
-    {
-        Ok(order) => order,
-        Err(e) => {
-            let err_msg = format!("Failed to fetch order from msgsend: {}", e);
-            error!("{}", err_msg);
-            insert_db_error(pool, exchange, &err_msg).await;
-            None
-        }
-    }
-}
+
 pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
     match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, price_increment, base_min_size FROM symbol WHERE exchange = $1")
         .bind(exchange)

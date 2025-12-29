@@ -24,6 +24,9 @@ mod api {
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
+const REPAY_CHECK_INTERVAL: Duration = Duration::from_millis(100);
+const RE_CREATE_ORDER: Duration = Duration::from_millis(100);
+const REPAY_DELAY: Duration = Duration::from_secs(5);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_subscription() -> Vec<serde_json::Value> {
@@ -56,16 +59,19 @@ async fn cancel_order(
     )
     .await;
     // cancel other orders by symbol
-    let msg = serde_json::json!({
-        "symbol": symbol,
-        "orderId": order_id
-    });
-    // make cancel order
-    // if let Err(e) = tx_out.send(msg.to_string()).await {
-    //     error!("Failed to send order: {}", e);
-    //     insert_db_error(pool, exchange, &e.to_string()).await;
-    //     return Err(e.into());
-    // }
+    match api::requests::cancel_order(symbol, order_id).await {
+        Ok(data) => {
+            if data.code != "200000" {
+                let msg_err = format!("Cancel order: {} {}", order_id, symbol);
+                error!("{}", msg_err);
+                insert_db_error(pool, exchange, &msg_err).await;
+            }
+        }
+        Err(e) => {
+            error!("Failed to cancel order: {}", e);
+            insert_db_error(pool, exchange, &e.to_string()).await;
+        }
+    }
     Ok(())
 }
 
@@ -77,44 +83,63 @@ async fn make_order(
     price: String,
     size: String,
 ) {
-    let args_time_in_force = "GTC";
-    let type_ = "limit";
-    let auto_borrow = true;
-    let auto_repay = true;
-    let client_oid = Uuid::new_v4().to_string();
+    loop {
+        let args_time_in_force = "GTC";
+        let type_ = "limit";
+        let auto_borrow = true;
+        let auto_repay = true;
+        let client_oid = Uuid::new_v4().to_string();
 
-    insert_db_msgsend(
-        pool,
-        exchange,
-        Some(&symbol),
-        Some(&side),
-        Some(&size),
-        Some(&price),
-        Some(&args_time_in_force),
-        Some(&type_),
-        Some(&auto_borrow),
-        Some(&auto_repay),
-        Some(&client_oid),
-        None,
-    )
-    .await;
-    let msg = serde_json::json!({
-        "clientOid": client_oid,
-        "symbol": symbol,
-        "side": side,
-        "type": type_,
-        "price": price,
-        "autoBorrow": auto_borrow,
-        "autoRepay": auto_repay,
-        "timeInForce": args_time_in_force,
-        "size": size
-    });
-    match api::requests::add_order(msg).await {
-        Ok(_) => {}
-        Err(e) => {
-            error!("Failed to send order: {}", e);
-            insert_db_error(pool, exchange, &e.to_string()).await;
+        insert_db_msgsend(
+            pool,
+            exchange,
+            Some(&symbol),
+            Some(&side),
+            Some(&size),
+            Some(&price),
+            Some(&args_time_in_force),
+            Some(&type_),
+            Some(&auto_borrow),
+            Some(&auto_repay),
+            Some(&client_oid),
+            None,
+        )
+        .await;
+        let msg = serde_json::json!({
+            "clientOid": client_oid,
+            "symbol": symbol,
+            "side": side,
+            "type": type_,
+            "price": price,
+            "autoBorrow": auto_borrow,
+            "autoRepay": auto_repay,
+            "timeInForce": args_time_in_force,
+            "size": size
+        });
+        let mut success_create_order: bool = false;
+
+        match api::requests::add_order(msg.clone()).await {
+            Ok(data) => {
+                if data.code != "200000" {
+                    let msg_err = format!(
+                        "Make order was error: {} {} {:?}",
+                        symbol, data.code, data.msg
+                    );
+                    error!("{}", msg_err);
+                    insert_db_error(pool, exchange, &msg_err).await;
+                } else {
+                    success_create_order = true;
+                }
+            }
+            Err(e) => {
+                error!("Failed to send order: {}", e);
+                insert_db_error(pool, exchange, &e.to_string()).await;
+            }
         }
+        if success_create_order {
+            break;
+        }
+        sleep(RE_CREATE_ORDER).await;
     }
 }
 
@@ -405,6 +430,11 @@ async fn handle_trade_order_event(
 
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
 
+        let parts: Vec<&str> = order.symbol.split('-').collect();
+        let (base, quote) = (parts[0], parts[1]);
+
+        let target_currency: &str = if order.side == "sell" { quote } else { base };
+
         if order.side == "sell" {
             // create new buy order
             if let Some(price_str) = calculate_price(
@@ -412,6 +442,32 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
+                loop {
+                    let mut available_zero: bool = false;
+                    let mut found: bool = false;
+                    match api::requests::get_all_margin_accounts().await {
+                        Ok(accounts) => {
+                            for account in accounts.accounts.iter() {
+                                if account.currency == target_currency {
+                                    found = true;
+                                    if account.available == "0" {
+                                        available_zero = true
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed to get margin accounts {}", e);
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                        }
+                    }
+                    if found && available_zero {
+                        break;
+                    } else {
+                        sleep(REPAY_CHECK_INTERVAL).await;
+                    }
+                }
                 create_order_safely(
                     pool,
                     exchange,
@@ -433,6 +489,32 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
+                loop {
+                    let mut available_zero: bool = false;
+                    let mut found: bool = false;
+                    match api::requests::get_all_margin_accounts().await {
+                        Ok(accounts) => {
+                            for account in accounts.accounts.iter() {
+                                if account.currency == target_currency {
+                                    found = true;
+                                    if account.available == "0" {
+                                        available_zero = true
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed to get margin accounts {}", e);
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                        }
+                    }
+                    if found && available_zero {
+                        break;
+                    } else {
+                        sleep(REPAY_CHECK_INTERVAL).await;
+                    }
+                }
                 create_order_safely(
                     pool,
                     exchange,
@@ -496,64 +578,54 @@ async fn handle_position_event(
         if let Ok(liability) = liability_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available) = asset_info.available.parse::<f64>() {
-                    if let Ok(hold) = asset_info.hold.parse::<f64>() {
-                        if liability > 0.0 {
-                            if available >= liability {
-                                info!(
-                                    "Can repay {} {} liability with available {}",
-                                    liability, asset, available
-                                );
+                    if liability > 0.0 {
+                        if available >= liability {
+                            info!(
+                                "Can repay {} {} liability with available {}",
+                                liability, asset, available
+                            );
 
-                                if let Err(e) =
-                                    api::requests::create_repay_order(asset, &liability_str).await
-                                {
-                                    error!("Failed to repay liability: {}", e);
-                                    insert_db_error(pool, exchange, &e.to_string()).await;
-                                };
-                            } else if available > 0.0 {
-                                info!(
-                                    "Can partially repay {} {} liability with available {}",
-                                    liability, asset, available
-                                );
-
-                                if let Err(e) =
-                                    api::requests::create_repay_order(asset, &asset_info.available)
-                                        .await
-                                {
-                                    error!("Failed to partially repay debt: {}", e);
-                                    insert_db_error(pool, exchange, &e.to_string()).await;
-                                }
-                            }
-                        } else if available > 0.0 && asset != "USDC" {
-                            // transfer available from margin
-                            match api::requests::sent_account_transfer(
-                                asset,
-                                &asset_info.available,
-                                "INTERNAL",
-                                "MARGIN",
-                                "TRADE",
-                            )
-                            .await
+                            if let Err(e) =
+                                api::requests::create_repay_order(asset, &liability_str).await
                             {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!(
-                                        "Failed send {} to TRADE from MARGIN on {} {}",
-                                        asset, &asset_info.available, e
-                                    );
-                                    error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
-                                }
+                                error!("Failed to repay liability: {}", e);
+                                insert_db_error(pool, exchange, &e.to_string()).await;
+                            };
+                        } else if available > 0.0 {
+                            info!(
+                                "Can partially repay {} {} liability with available {}",
+                                liability, asset, available
+                            );
+
+                            if let Err(e) =
+                                api::requests::create_repay_order(asset, &asset_info.available)
+                                    .await
+                            {
+                                error!("Failed to partially repay debt: {}", e);
+                                insert_db_error(pool, exchange, &e.to_string()).await;
                             }
                         }
-                    } else {
-                        error!("Failed to parse hold for {}", asset);
-                        insert_db_error(
-                            pool,
-                            exchange,
-                            &format!("Parse error: hold={}", asset_info.hold),
+                    } else if available > 0.0 && asset != "USDC" {
+                        // transfer available from margin
+                        match api::requests::sent_account_transfer(
+                            asset,
+                            &asset_info.available,
+                            "INTERNAL",
+                            "MARGIN",
+                            "TRADE",
                         )
-                        .await;
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed send {} to TRADE from MARGIN on {} {}",
+                                    asset, &asset_info.available, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                            }
+                        }
                     }
                 } else {
                     error!("Failed to parse available balance for {}", asset);
@@ -567,40 +639,6 @@ async fn handle_position_event(
             }
         }
     }
-}
-
-async fn outgoing_message_handler(
-    mut rx_out: mpsc::Receiver<String>,
-    mut ws_write: futures_util::stream::SplitSink<
-        tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
-        Message,
-    >,
-) {
-    let mut ping_interval = interval(Duration::from_secs(5));
-
-    loop {
-        tokio::select! {
-            // Send orders from channel
-            Some(message) = rx_out.recv() => {
-                info!("Sending outgoing message: {}", message);
-                if let Err(e) = ws_write.send(Message::text(message)).await {
-                    error!("Failed to send outgoing message: {}", e);
-                    break;
-                }
-            },
-
-            // Send periodic ping frame
-            _ = ping_interval.tick() => {
-                if let Err(e) = ws_write.send(Message::Ping(vec![].into())).await {
-                    error!("Failed to send ping: {}", e);
-                    break;
-                }
-            }
-        }
-    }
-    info!("Outgoing message handler finished");
 }
 
 #[tokio::main]
@@ -691,6 +729,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         if all_asset_transfer {
             break;
+        } else {
+            sleep(REPAY_DELAY).await;
         }
     }
 
@@ -875,6 +915,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     &symbol_info.price_increment,
                                     |a, _b| a * 1.01, // price + 1%
                                 ) {
+                                    create_order_safely(
+                                        &pool,
+                                        &exchange,
+                                        "sell",
+                                        &trd_order.symbol,
+                                        &price_str,
+                                        Some(&trd_order.size),
+                                        &symbol_info,
+                                    )
+                                    .await;
                                 } else {
                                     error!(
                                         "Failed to calculate price for init order {}",
@@ -889,6 +939,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     &symbol_info.price_increment,
                                     |a, _b| a * 100.0 / 101.0, // price - 1%
                                 ) {
+                                    create_order_safely(
+                                        &pool,
+                                        &exchange,
+                                        "buy",
+                                        &trd_order.symbol,
+                                        &price_str,
+                                        Some(&trd_order.size),
+                                        &symbol_info,
+                                    )
+                                    .await;
                                 } else {
                                     error!(
                                         "Failed to calculate price for init order {}",

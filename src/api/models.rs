@@ -182,16 +182,13 @@ pub struct SymbolOpenOrderData {
     pub symbols: Vec<String>,
 }
 #[derive(Debug, Deserialize)]
-pub struct MakeOrderResData {
-    pub orderId: String,
-    pub clientOid: String,
-    pub borrowSize: Option<String>,
-    pub loanApplyId: Option<String>,
-}
-#[derive(Debug, Deserialize)]
 pub struct MakeOrderRes {
     pub code: String,
-    pub data: MakeOrderResData,
+    pub msg: Option<String>,
+}
+#[derive(Debug, Deserialize)]
+pub struct CancelOrderRes {
+    pub code: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -201,74 +198,14 @@ pub struct SymbolOpenOrder {
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountDataAccount {
     pub currency: String,
-    pub total: String,
     pub available: String,
-    pub hold: String,
     pub liability: String, // borrow
-    #[serde(rename = "liabilityPrincipal")]
-    pub liability_principal: String,
-    #[serde(rename = "liabilityInterest")]
-    pub liability_interest: String,
-    #[serde(rename = "maxBorrowSize")]
-    pub max_borrow_size: String,
-    #[serde(rename = "borrowEnabled")]
-    pub borrow_enabled: bool,
-    #[serde(rename = "transferInEnabled")]
-    pub transfer_in_enabled: bool,
 }
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountData {
-    #[serde(rename = "totalAssetOfQuoteCurrency")]
-    pub total_asset_of_quote_currency: String,
-    #[serde(rename = "totalLiabilityOfQuoteCurrency")]
-    pub total_liability_of_quote_currency: String,
-    #[serde(rename = "debtRatio")]
-    pub debt_ratio: String,
-    pub status: String,
     pub accounts: Vec<MarginAccountDataAccount>,
 }
 #[derive(Debug, Deserialize)]
 pub struct MarginAccount {
     pub data: MarginAccountData,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct TradeMsgData {
-    #[serde(rename = "borrowSize")]
-    pub borrow_size: Option<String>,
-    #[serde(rename = "clientOid")]
-    pub client_oid: Option<String>,
-    #[serde(rename = "orderId")]
-    pub order_id: Option<String>,
-    #[serde(rename = "loanApplyId")]
-    pub loan_apply_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct TradeMsgRateLimit {
-    pub limit: Option<i64>,
-    pub reset: Option<i64>,
-    pub remaining: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct TradeMsg {
-    pub id: Option<String>,
-    pub op: Option<String>,
-    pub msg: Option<String>,
-    pub code: Option<String>,
-    pub data: Option<TradeMsgData>,
-    #[serde(rename = "inTime")]
-    pub in_time: i64,
-    #[serde(rename = "outTime")]
-    pub out_time: i64,
-    #[serde(rename = "userRateLimit")]
-    pub user_rate_limit: Option<TradeMsgRateLimit>,
-}
-#[derive(sqlx::FromRow, Debug)]
-pub struct MsgSend {
-    pub args_symbol: Option<String>,
-    pub args_side: Option<String>,
-    pub args_size: Option<String>,
-    pub args_price: Option<String>,
 }

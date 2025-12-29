@@ -1,13 +1,12 @@
 use crate::api::models::{
-    ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MarginAccount, MarginAccountData,
-    SymbolOpenOrder,
+    ActualPrice, ApiV3BulletPrivate, CancelOrderRes, MakeOrderRes, MarginAccount,
+    MarginAccountData, SymbolOpenOrder,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use log::{error, info};
 use reqwest::{Client, Response};
 use serde_json::json;
-use urlencoding::encode as url_encode;
 use uuid::Uuid;
 
 use sha2::Sha256;
@@ -134,12 +133,7 @@ impl KuCoinClient {
         let result = mac.finalize();
         base64::engine::general_purpose::STANDARD.encode(result.into_bytes())
     }
-    pub fn generate_signature_for_websocket(&self, prehash: &str) -> String {
-        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
-            .expect("HMAC can take key of any size");
-        mac.update(prehash.as_bytes());
-        base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
-    }
+
     pub async fn get_margin_accounts(
         &self,
     ) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
@@ -286,6 +280,46 @@ impl KuCoinClient {
                 },
             },
             Err(e) => Err(format!("Account transfer request failed: {}", e).into()),
+        }
+    }
+    pub async fn cancel_order(
+        &self,
+        symbol: &str,
+        order_id: &str,
+    ) -> Result<CancelOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+
+        query_params.insert("symbol", symbol);
+        match self
+            .make_request(
+                reqwest::Method::DELETE,
+                format!("/api/v3/hf/margin/orders/{}", order_id).as_str(),
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<CancelOrderRes>(&text) {
+                        Ok(res) => Ok(res),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
     pub async fn add_order(
@@ -528,10 +562,16 @@ pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + 
 }
 pub async fn add_order(
     body: serde_json::Value,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.add_order(body).await?;
-    Ok(())
+    client.add_order(body).await
+}
+pub async fn cancel_order(
+    symbol: &str,
+    order_id: &str,
+) -> Result<CancelOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.cancel_order(symbol, order_id).await
 }
 pub async fn create_repay_order(
     currency: &str,
@@ -551,38 +591,4 @@ pub async fn create_repay_order(
     client.margin_repay(currency, size).await?;
 
     Ok(())
-}
-
-pub fn get_trading_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)?
-        .as_millis()
-        .to_string();
-
-    let str_to_sign = format!("{}{}", client.api_key, timestamp);
-    let sign = client.generate_signature_for_websocket(&str_to_sign);
-    let passphrase_sign = client.generate_signature_for_websocket(&client.api_passphrase);
-
-    let url = format!(
-        "wss://wsapi.kucoin.com/v1/private?apikey={}&sign={}&passphrase={}&timestamp={}",
-        url_encode(&client.api_key),
-        url_encode(&sign),
-        url_encode(&passphrase_sign),
-        url_encode(&timestamp),
-    );
-
-    Ok(url)
-}
-
-pub fn sign_kucoin(prehash: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let api_secret = match env::var("KUCOIN_SECRET") {
-        Ok(val) => val,
-        Err(e) => return Err(e.into()),
-    };
-    let mut mac =
-        HmacSha256::new_from_slice(api_secret.as_bytes()).expect("HMAC can take key of any size");
-    mac.update(prehash.as_bytes());
-    Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
 }
