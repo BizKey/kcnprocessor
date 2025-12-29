@@ -24,6 +24,7 @@ mod api {
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
+const REPAY_DELAY: Duration = Duration::from_secs(5);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_subscription() -> Vec<serde_json::Value> {
@@ -569,40 +570,6 @@ async fn handle_position_event(
     }
 }
 
-async fn outgoing_message_handler(
-    mut rx_out: mpsc::Receiver<String>,
-    mut ws_write: futures_util::stream::SplitSink<
-        tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
-        Message,
-    >,
-) {
-    let mut ping_interval = interval(Duration::from_secs(5));
-
-    loop {
-        tokio::select! {
-            // Send orders from channel
-            Some(message) = rx_out.recv() => {
-                info!("Sending outgoing message: {}", message);
-                if let Err(e) = ws_write.send(Message::text(message)).await {
-                    error!("Failed to send outgoing message: {}", e);
-                    break;
-                }
-            },
-
-            // Send periodic ping frame
-            _ = ping_interval.tick() => {
-                if let Err(e) = ws_write.send(Message::Ping(vec![].into())).await {
-                    error!("Failed to send ping: {}", e);
-                    break;
-                }
-            }
-        }
-    }
-    info!("Outgoing message handler finished");
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
@@ -691,6 +658,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         if all_asset_transfer {
             break;
+        } else {
+            sleep(REPAY_DELAY).await;
         }
     }
 
