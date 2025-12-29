@@ -413,6 +413,7 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
+                // need repay
                 create_order_safely(
                     pool,
                     exchange,
@@ -434,6 +435,7 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
+                // need repay
                 create_order_safely(
                     pool,
                     exchange,
@@ -497,64 +499,54 @@ async fn handle_position_event(
         if let Ok(liability) = liability_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available) = asset_info.available.parse::<f64>() {
-                    if let Ok(hold) = asset_info.hold.parse::<f64>() {
-                        if liability > 0.0 {
-                            if available >= liability {
-                                info!(
-                                    "Can repay {} {} liability with available {}",
-                                    liability, asset, available
-                                );
+                    if liability > 0.0 {
+                        if available >= liability {
+                            info!(
+                                "Can repay {} {} liability with available {}",
+                                liability, asset, available
+                            );
 
-                                if let Err(e) =
-                                    api::requests::create_repay_order(asset, &liability_str).await
-                                {
-                                    error!("Failed to repay liability: {}", e);
-                                    insert_db_error(pool, exchange, &e.to_string()).await;
-                                };
-                            } else if available > 0.0 {
-                                info!(
-                                    "Can partially repay {} {} liability with available {}",
-                                    liability, asset, available
-                                );
-
-                                if let Err(e) =
-                                    api::requests::create_repay_order(asset, &asset_info.available)
-                                        .await
-                                {
-                                    error!("Failed to partially repay debt: {}", e);
-                                    insert_db_error(pool, exchange, &e.to_string()).await;
-                                }
-                            }
-                        } else if available > 0.0 && asset != "USDC" {
-                            // transfer available from margin
-                            match api::requests::sent_account_transfer(
-                                asset,
-                                &asset_info.available,
-                                "INTERNAL",
-                                "MARGIN",
-                                "TRADE",
-                            )
-                            .await
+                            if let Err(e) =
+                                api::requests::create_repay_order(asset, &liability_str).await
                             {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!(
-                                        "Failed send {} to TRADE from MARGIN on {} {}",
-                                        asset, &asset_info.available, e
-                                    );
-                                    error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
-                                }
+                                error!("Failed to repay liability: {}", e);
+                                insert_db_error(pool, exchange, &e.to_string()).await;
+                            };
+                        } else if available > 0.0 {
+                            info!(
+                                "Can partially repay {} {} liability with available {}",
+                                liability, asset, available
+                            );
+
+                            if let Err(e) =
+                                api::requests::create_repay_order(asset, &asset_info.available)
+                                    .await
+                            {
+                                error!("Failed to partially repay debt: {}", e);
+                                insert_db_error(pool, exchange, &e.to_string()).await;
                             }
                         }
-                    } else {
-                        error!("Failed to parse hold for {}", asset);
-                        insert_db_error(
-                            pool,
-                            exchange,
-                            &format!("Parse error: hold={}", asset_info.hold),
+                    } else if available > 0.0 && asset != "USDC" {
+                        // transfer available from margin
+                        match api::requests::sent_account_transfer(
+                            asset,
+                            &asset_info.available,
+                            "INTERNAL",
+                            "MARGIN",
+                            "TRADE",
                         )
-                        .await;
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed send {} to TRADE from MARGIN on {} {}",
+                                    asset, &asset_info.available, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                            }
+                        }
                     }
                 } else {
                     error!("Failed to parse available balance for {}", asset);
