@@ -24,6 +24,7 @@ mod api {
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
+const REPAY_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const REPAY_DELAY: Duration = Duration::from_secs(5);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -441,7 +442,7 @@ async fn handle_trade_order_event(
                     if found && available_zero {
                         break;
                     } else {
-                        sleep(REPAY_DELAY).await;
+                        sleep(REPAY_CHECK_INTERVAL).await;
                     }
                 }
                 create_order_safely(
@@ -488,7 +489,7 @@ async fn handle_trade_order_event(
                     if found && available_zero {
                         break;
                     } else {
-                        sleep(REPAY_DELAY).await;
+                        sleep(REPAY_CHECK_INTERVAL).await;
                     }
                 }
                 create_order_safely(
