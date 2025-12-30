@@ -87,7 +87,7 @@ async fn make_order(
         let args_time_in_force = "GTC";
         let type_ = "limit";
         let auto_borrow = true;
-        let auto_repay = true;
+        let auto_repay = false;
         let client_oid = Uuid::new_v4().to_string();
 
         insert_db_msgsend(
@@ -448,6 +448,13 @@ async fn handle_trade_order_event(
                     match api::requests::get_all_margin_accounts().await {
                         Ok(accounts) => {
                             for account in accounts.accounts.iter() {
+                                info!(
+                                    "symbol: {} available:'{}' hold:'{}' liability:'{}'",
+                                    account.available,
+                                    account.hold,
+                                    account.liability,
+                                    account.currency
+                                );
                                 if account.currency == target_currency {
                                     found = true;
                                     if account.available == "0" {
@@ -468,16 +475,16 @@ async fn handle_trade_order_event(
                         sleep(REPAY_CHECK_INTERVAL).await;
                     }
                 }
-                create_order_safely(
-                    pool,
-                    exchange,
-                    "buy",
-                    &order.symbol,
-                    &price_str,
-                    order.origin_size.as_deref(),
-                    &symbol_info,
-                )
-                .await;
+                // create_order_safely(
+                //     pool,
+                //     exchange,
+                //     "buy",
+                //     &order.symbol,
+                //     &price_str,
+                //     order.origin_size.as_deref(),
+                //     &symbol_info,
+                // )
+                // .await;
             } else {
                 error!("Failed to calculate price for order {}", order.order_id);
                 insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -495,6 +502,13 @@ async fn handle_trade_order_event(
                     match api::requests::get_all_margin_accounts().await {
                         Ok(accounts) => {
                             for account in accounts.accounts.iter() {
+                                info!(
+                                    "symbol: {} available:'{}' hold:'{}' liability:'{}'",
+                                    account.available,
+                                    account.hold,
+                                    account.liability,
+                                    account.currency
+                                );
                                 if account.currency == target_currency {
                                     found = true;
                                     if account.available == "0" {
@@ -515,16 +529,16 @@ async fn handle_trade_order_event(
                         sleep(REPAY_CHECK_INTERVAL).await;
                     }
                 }
-                create_order_safely(
-                    pool,
-                    exchange,
-                    "sell",
-                    &order.symbol,
-                    &price_str,
-                    order.origin_size.as_deref(),
-                    &symbol_info,
-                )
-                .await;
+                // create_order_safely(
+                //     pool,
+                //     exchange,
+                //     "sell",
+                //     &order.symbol,
+                //     &price_str,
+                //     order.origin_size.as_deref(),
+                //     &symbol_info,
+                // )
+                // .await;
             } else {
                 error!("Failed to calculate price for order {}", order.order_id);
                 insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -574,6 +588,7 @@ async fn handle_position_event(
         }
     }
     // repay borrow
+    info!("Position:'{:.?}'", position);
     for (asset, liability_str) in &position.debt_list {
         if let Ok(liability) = liability_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
@@ -645,7 +660,7 @@ async fn handle_position_event(
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute = false;
+    let mut init_order_execute = true;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
