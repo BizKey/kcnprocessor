@@ -448,14 +448,14 @@ async fn handle_trade_order_event(
                     match api::requests::get_all_margin_accounts().await {
                         Ok(accounts) => {
                             for account in accounts.accounts.iter() {
-                                info!(
-                                    "symbol: {} available:'{}' hold:'{}' liability:'{}'",
-                                    account.currency,
-                                    account.available,
-                                    account.hold,
-                                    account.liability,
-                                );
                                 if account.currency == target_currency {
+                                    info!(
+                                        "symbol: {} available:'{}' hold:'{}' liability:'{}'",
+                                        account.currency,
+                                        account.available,
+                                        account.hold,
+                                        account.liability,
+                                    );
                                     found = true;
                                     if account.available == "0" {
                                         available_zero = true
