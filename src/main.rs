@@ -26,7 +26,7 @@ mod api {
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const REPAY_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const RE_CREATE_ORDER: Duration = Duration::from_millis(100);
-const REPAY_DELAY: Duration = Duration::from_secs(10);
+const REPAY_DELAY: Duration = Duration::from_secs(1);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_subscription() -> Vec<serde_json::Value> {
