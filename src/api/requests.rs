@@ -25,6 +25,12 @@ pub struct KuCoinClient {
     base_url: String,
 }
 
+fn get_current_timestamp() -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+    let now = std::time::SystemTime::now();
+    let since_epoch = now.duration_since(UNIX_EPOCH)?;
+    Ok(since_epoch.as_millis() as u64)
+}
+
 impl KuCoinClient {
     pub fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let api_passphrase = match env::var("KUCOIN_PASS") {
@@ -435,6 +441,20 @@ impl KuCoinClient {
         }
     }
 
+    pub async fn get_server_time(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        let response = self
+            .client
+            .get("https://api.kucoin.com/api/v1/timestamp")
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+        let json: serde_json::Value = serde_json::from_str(&text)?;
+
+        Ok(json["data"]
+            .as_u64()
+            .ok_or("Invalid server time response")?)
+    }
     async fn make_request(
         &self,
         method: reqwest::Method,
@@ -456,10 +476,7 @@ impl KuCoinClient {
         }
 
         if authenticated {
-            let timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64;
+            let server_timestamp = self.get_server_time().await?;
 
             let query_string = query_params
                 .as_ref()
@@ -475,7 +492,7 @@ impl KuCoinClient {
                 .map(|b| serde_json::to_string(b).unwrap())
                 .unwrap_or_default();
             let signature = self.generate_signature(
-                timestamp,
+                server_timestamp,
                 method.as_ref(),
                 endpoint,
                 &query_string,
@@ -487,7 +504,7 @@ impl KuCoinClient {
             request_builder = request_builder
                 .header("KC-API-KEY", &self.api_key)
                 .header("KC-API-SIGN", signature)
-                .header("KC-API-TIMESTAMP", timestamp.to_string())
+                .header("KC-API-TIMESTAMP", server_timestamp.to_string())
                 .header("KC-API-PASSPHRASE", passphrase_signature)
                 .header("KC-API-KEY-VERSION", "2");
         }
