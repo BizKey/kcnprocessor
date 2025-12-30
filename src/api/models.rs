@@ -199,6 +199,7 @@ pub struct SymbolOpenOrder {
 pub struct MarginAccountDataAccount {
     pub currency: String,
     pub available: String,
+    pub hold: String,
     pub liability: String, // borrow
 }
 #[derive(Debug, Deserialize)]
