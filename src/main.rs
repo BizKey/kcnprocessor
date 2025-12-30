@@ -448,14 +448,14 @@ async fn handle_trade_order_event(
                     match api::requests::get_all_margin_accounts().await {
                         Ok(accounts) => {
                             for account in accounts.accounts.iter() {
-                                info!(
-                                    "symbol: {} available:'{}' hold:'{}' liability:'{}'",
-                                    account.available,
-                                    account.hold,
-                                    account.liability,
-                                    account.currency
-                                );
                                 if account.currency == target_currency {
+                                    info!(
+                                        "symbol: {} available:'{}' hold:'{}' liability:'{}'",
+                                        account.currency,
+                                        account.available,
+                                        account.hold,
+                                        account.liability,
+                                    );
                                     found = true;
                                     if account.available == "0" {
                                         available_zero = true
@@ -690,7 +690,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 for account in accounts.accounts.iter() {
                     info!(
                         "symbol: {} available:'{}' hold:'{}' liability:'{}'",
-                        account.available, account.hold, account.liability, account.currency
+                        account.currency, account.available, account.hold, account.liability,
                     );
                     let liability: f64 = account.liability.parse().unwrap_or(0.0);
                     let available: f64 = account.available.parse().unwrap_or(0.0);
