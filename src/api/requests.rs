@@ -138,8 +138,8 @@ impl KuCoinClient {
         &self,
     ) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
-        query_params.insert("queryType", "MARGIN");
         query_params.insert("quoteCurrency", "USDT");
+        query_params.insert("queryType", "MARGIN");
         match self
             .make_request(
                 reqwest::Method::GET,
