@@ -26,7 +26,7 @@ mod api {
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const REPAY_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const RE_CREATE_ORDER: Duration = Duration::from_millis(100);
-const REPAY_DELAY: Duration = Duration::from_secs(5);
+const REPAY_DELAY: Duration = Duration::from_secs(10);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_subscription() -> Vec<serde_json::Value> {
@@ -688,6 +688,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match api::requests::get_all_margin_accounts().await {
             Ok(accounts) => {
                 for account in accounts.accounts.iter() {
+                    info!(
+                        "symbol: {} available:'{}' hold:'{}' liability:'{}'",
+                        account.available, account.hold, account.liability, account.currency
+                    );
                     let liability: f64 = account.liability.parse().unwrap_or(0.0);
                     let available: f64 = account.available.parse().unwrap_or(0.0);
                     if liability > 0.0 {
@@ -739,7 +743,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 error!("{}", msg);
                 insert_db_error(&pool, &exchange, &msg).await;
                 // exit with error
-                return Err(msg.into());
+                all_asset_transfer = false;
             }
         }
         if all_asset_transfer {
