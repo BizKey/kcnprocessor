@@ -683,15 +683,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
-    match api::requests::sent_account_transfer("SEI", "200", "INTERNAL", "MARGIN_V2", "MARGIN").await
+    match api::requests::sent_account_transfer("SEI", "200", "INTERNAL", "MARGIN_V2", "TRADE").await
     {
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!(
                 "Failed send {} to TRADE from MARGIN on {} {}",
-                &account.currency,
-                &available.to_string(),
-                e
+                "SEI", "200", e
             );
             error!("{}", msg);
             insert_db_error(&pool, &exchange, &msg).await;
@@ -699,10 +697,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     match api::requests::sent_account_transfer(
         "USDT",
-        "11.4044156",
+        "11.4044256",
         "INTERNAL",
         "MARGIN_V2",
-        "MARGIN",
+        "TRADE",
     )
     .await
     {
@@ -710,9 +708,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Err(e) => {
             let msg: String = format!(
                 "Failed send {} to TRADE from MARGIN on {} {}",
-                &account.currency,
-                &available.to_string(),
-                e
+                "USDT", "11.4044256", e
             );
             error!("{}", msg);
             insert_db_error(&pool, &exchange, &msg).await;
