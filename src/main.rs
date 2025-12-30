@@ -710,6 +710,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("Failed to repay liability: {}", e);
                                 insert_db_error(&pool, &exchange, &e.to_string()).await;
                             };
+                        } else if available > 0.0 {
+                            info!(
+                                "Can partially repay {} {} liability with available {}",
+                                account.liability, &account.currency, account.available
+                            );
+
+                            if let Err(e) = api::requests::create_repay_order(
+                                &account.currency,
+                                &account.available,
+                            )
+                            .await
+                            {
+                                error!("Failed to partially repay debt: {}", e);
+                                insert_db_error(&pool, &exchange, &e.to_string()).await;
+                            }
                         }
                         all_asset_transfer = false;
                     } else if available > 0.0 && &account.currency != "USDC" {
