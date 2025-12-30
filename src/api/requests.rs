@@ -475,7 +475,6 @@ impl KuCoinClient {
                 .map(|b| serde_json::to_string(b).unwrap())
                 .unwrap_or_default();
 
-            info!("body_str: {}", body_str);
             let signature = self.generate_signature(
                 timestamp,
                 method.as_ref(),
