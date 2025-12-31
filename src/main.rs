@@ -586,13 +586,13 @@ async fn handle_position_event(
         }
     }
     // repay borrow
-    info!("Position:'{:.?}'", position);
     for (asset, liability_str) in &position.debt_list {
         if let Ok(liability) = liability_str.parse::<f64>() {
             if let Some(asset_info) = &position.asset_list.get(asset) {
                 if let Ok(available) = asset_info.available.parse::<f64>() {
                     if liability > 0.0 {
                         if available >= liability {
+                            info!("Position:'{:.?}'", position);
                             info!(
                                 "Can repay {} {} liability with available {}",
                                 liability, asset, available
@@ -605,6 +605,7 @@ async fn handle_position_event(
                                 insert_db_error(pool, exchange, &e.to_string()).await;
                             };
                         } else if available > 0.0 {
+                            info!("Position:'{:.?}'", position);
                             info!(
                                 "Can partially repay {} {} liability with available {}",
                                 liability, asset, available
@@ -619,6 +620,7 @@ async fn handle_position_event(
                             }
                         }
                     } else if available > 0.0 && asset != "USDC" {
+                        info!("Position:'{:.?}'", position);
                         // transfer available from margin
                         match api::requests::sent_account_transfer(
                             asset,
