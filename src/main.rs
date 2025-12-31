@@ -118,7 +118,7 @@ async fn make_order(
         });
         let mut success_create_order: bool = false;
 
-        match api::requests::add_order(msg.clone()).await {
+        match api::requests::add_v1_order(msg.clone()).await {
             Ok(data) => {
                 if data.code != "200000" {
                     let msg_err = format!(
@@ -443,6 +443,7 @@ async fn handle_trade_order_event(
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
                 loop {
+                    sleep(REPAY_CHECK_INTERVAL).await;
                     let mut available_zero: bool = false;
                     let mut found: bool = false;
                     match api::requests::get_all_margin_accounts().await {
@@ -471,20 +472,18 @@ async fn handle_trade_order_event(
                     }
                     if found && available_zero {
                         break;
-                    } else {
-                        sleep(REPAY_CHECK_INTERVAL).await;
                     }
                 }
-                // create_order_safely(
-                //     pool,
-                //     exchange,
-                //     "buy",
-                //     &order.symbol,
-                //     &price_str,
-                //     order.origin_size.as_deref(),
-                //     &symbol_info,
-                // )
-                // .await;
+                create_order_safely(
+                    pool,
+                    exchange,
+                    "buy",
+                    &order.symbol,
+                    &price_str,
+                    order.origin_size.as_deref(),
+                    &symbol_info,
+                )
+                .await;
             } else {
                 error!("Failed to calculate price for order {}", order.order_id);
                 insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -497,6 +496,7 @@ async fn handle_trade_order_event(
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
                 loop {
+                    sleep(REPAY_CHECK_INTERVAL).await;
                     let mut available_zero: bool = false;
                     let mut found: bool = false;
                     match api::requests::get_all_margin_accounts().await {
@@ -525,20 +525,18 @@ async fn handle_trade_order_event(
                     }
                     if found && available_zero {
                         break;
-                    } else {
-                        sleep(REPAY_CHECK_INTERVAL).await;
                     }
                 }
-                // create_order_safely(
-                //     pool,
-                //     exchange,
-                //     "sell",
-                //     &order.symbol,
-                //     &price_str,
-                //     order.origin_size.as_deref(),
-                //     &symbol_info,
-                // )
-                // .await;
+                create_order_safely(
+                    pool,
+                    exchange,
+                    "sell",
+                    &order.symbol,
+                    &price_str,
+                    order.origin_size.as_deref(),
+                    &symbol_info,
+                )
+                .await;
             } else {
                 error!("Failed to calculate price for order {}", order.order_id);
                 insert_db_error(pool, exchange, "Price calculation failed").await;
@@ -660,7 +658,7 @@ async fn handle_position_event(
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute = true;
+    let mut init_order_execute = false;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
