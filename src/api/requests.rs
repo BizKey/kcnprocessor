@@ -1,6 +1,6 @@
 use crate::api::models::{
     ActualPrice, ApiV3BulletPrivate, CancelOrderRes, MakeOrderRes, MarginAccount,
-    MarginAccountData, SymbolOpenOrder,
+    MarginAccountData, OldActiveOrders, OldActiveOrdersData, SymbolOpenOrder,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -172,6 +172,44 @@ impl KuCoinClient {
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
+    pub async fn get_old_active_orders_list(
+        &self,
+    ) -> Result<OldActiveOrdersData, Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("status", "active");
+        query_params.insert("tradeType", "MARGIN_TRADE");
+        match self
+            .make_request(
+                reqwest::Method::GET,
+                "/api/v1/orders",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<OldActiveOrders>(&text) {
+                        Ok(res) => Ok(res.data),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
     pub async fn get_symbols_with_open_order(
         &self,
     ) -> Result<SymbolOpenOrder, Box<dyn std::error::Error + Send + Sync>> {
@@ -280,6 +318,32 @@ impl KuCoinClient {
                 },
             },
             Err(e) => Err(format!("Account transfer request failed: {}", e).into()),
+        }
+    }
+    pub async fn old_cancel_order(
+        &self,
+        order_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        match self
+            .make_request(
+                reqwest::Method::DELETE,
+                format!("/api/v1/orders/{}", order_id).as_str(),
+                None,
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => Ok(()),
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
     pub async fn cancel_order(
@@ -597,6 +661,11 @@ pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + 
     }
     Ok(())
 }
+pub async fn get_old_active_orders_list()
+-> Result<OldActiveOrdersData, Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.get_old_active_orders_list().await
+}
 pub async fn add_order(
     body: serde_json::Value,
 ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
@@ -615,6 +684,12 @@ pub async fn cancel_order(
 ) -> Result<CancelOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.cancel_order(symbol, order_id).await
+}
+pub async fn old_cancel_order(
+    order_id: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.old_cancel_order(order_id).await
 }
 pub async fn create_repay_order(
     currency: &str,

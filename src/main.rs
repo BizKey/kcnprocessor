@@ -603,14 +603,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     delete_all_orderactive_from_db(&pool, &exchange).await;
 
-    match api::requests::cancel_all_open_orders().await {
-        Ok(()) => {
-            info!("Successfully cancelled all open orders");
-        }
-        Err(e) => {
-            let msg: String = format!("Failed to fetch margin accounts: {}", e);
-            error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+    loop {
+        match api::requests::get_old_active_orders_list().await {
+            Ok(active_orders) => {
+                info!(
+                    "Successfully get active orders:{}",
+                    active_orders.items.len()
+                );
+                if active_orders.items.len() == 0 {
+                    break;
+                } else {
+                    for order_ in active_orders.items.iter() {
+                        match api::requests::old_cancel_order(&order_.id).await {
+                            Ok(active_orders) => {
+                                info!("Successfully cancel order :{}", &order_.id);
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed cancel order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                let msg: String = format!("Failed to fetch margin accounts: {}", e);
+                error!("{}", msg);
+                insert_db_error(&pool, &exchange, &msg).await;
+            }
         }
     }
     loop {
