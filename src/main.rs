@@ -58,17 +58,14 @@ async fn cancel_order(
     )
     .await;
     // cancel other orders by symbol
-    match api::requests::cancel_order(symbol, order_id).await {
-        Ok(data) => {
-            if data.code != "200000" {
-                let msg_err = format!("Cancel order: {} {}", order_id, symbol);
-                error!("{}", msg_err);
-                insert_db_error(pool, exchange, &msg_err).await;
-            }
+    match api::requests::old_cancel_order(&order_id).await {
+        Ok(_) => {
+            info!("Successfully cancel order :{}", &order_id);
         }
         Err(e) => {
-            error!("Failed to cancel order: {}", e);
-            insert_db_error(pool, exchange, &e.to_string()).await;
+            let msg: String = format!("Failed cancel order: {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
         }
     }
     Ok(())
@@ -615,7 +612,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 } else {
                     for order_ in active_orders.items.iter() {
                         match api::requests::old_cancel_order(&order_.id).await {
-                            Ok(active_orders) => {
+                            Ok(_) => {
                                 info!("Successfully cancel order :{}", &order_.id);
                             }
                             Err(e) => {
