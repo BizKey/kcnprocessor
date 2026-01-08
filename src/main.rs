@@ -24,7 +24,6 @@ mod api {
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
-const REPAY_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const RE_CREATE_ORDER: Duration = Duration::from_millis(100);
 const REPAY_DELAY: Duration = Duration::from_secs(1);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
@@ -430,11 +429,6 @@ async fn handle_trade_order_event(
 
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
 
-        let parts: Vec<&str> = order.symbol.split('-').collect();
-        let (base, quote) = (parts[0], parts[1]);
-
-        let target_currency: &str = if order.side == "sell" { quote } else { base };
-
         if order.side == "sell" {
             // create new buy order
             if let Some(price_str) = calculate_price(
@@ -442,38 +436,6 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 100.0 / 101.0, // match_price - 1%
             ) {
-                loop {
-                    sleep(REPAY_CHECK_INTERVAL).await;
-                    let mut available_zero: bool = false;
-                    let mut found: bool = false;
-                    match api::requests::get_all_margin_accounts().await {
-                        Ok(accounts) => {
-                            for account in accounts.accounts.iter() {
-                                if account.currency == target_currency {
-                                    info!(
-                                        "symbol: {} available:'{}' hold:'{}' liability:'{}'",
-                                        account.currency,
-                                        account.available,
-                                        account.hold,
-                                        account.liability,
-                                    );
-                                    found = true;
-                                    if account.available == "0" {
-                                        available_zero = true
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            let msg: String = format!("Failed to get margin accounts {}", e);
-                            error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
-                        }
-                    }
-                    if found && available_zero {
-                        break;
-                    }
-                }
                 create_order_safely(
                     pool,
                     exchange,
@@ -495,38 +457,6 @@ async fn handle_trade_order_event(
                 &symbol_info.price_increment,
                 |a, _b| a * 1.01, // match_price + 1%
             ) {
-                loop {
-                    sleep(REPAY_CHECK_INTERVAL).await;
-                    let mut available_zero: bool = false;
-                    let mut found: bool = false;
-                    match api::requests::get_all_margin_accounts().await {
-                        Ok(accounts) => {
-                            for account in accounts.accounts.iter() {
-                                info!(
-                                    "symbol: {} available:'{}' hold:'{}' liability:'{}'",
-                                    account.available,
-                                    account.hold,
-                                    account.liability,
-                                    account.currency
-                                );
-                                if account.currency == target_currency {
-                                    found = true;
-                                    if account.available == "0" {
-                                        available_zero = true
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            let msg: String = format!("Failed to get margin accounts {}", e);
-                            error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
-                        }
-                    }
-                    if found && available_zero {
-                        break;
-                    }
-                }
                 create_order_safely(
                     pool,
                     exchange,
