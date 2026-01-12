@@ -117,19 +117,20 @@ async fn make_order(
         match api::requests::add_v1_order(msg.clone()).await {
             Ok(data) => {
                 if data.code != "200000" {
-                    let msg_err = format!(
+                    let msg = format!(
                         "Make order was error: {} {} {:?}",
                         symbol, data.code, data.msg
                     );
-                    error!("{}", msg_err);
-                    insert_db_error(pool, exchange, &msg_err).await;
+                    error!("{}", msg);
+                    insert_db_error(pool, exchange, &msg).await;
                 } else {
                     success_create_order = true;
                 }
             }
             Err(e) => {
-                error!("Failed to send order: {}", e);
-                insert_db_error(pool, exchange, &e.to_string()).await;
+                let msg: String = format!("Failed to send order: {}", e);
+                error!("{}", msg);
+                insert_db_error(&pool, &exchange, &msg).await;
             }
         }
         if success_create_order {
@@ -322,13 +323,10 @@ async fn handle_trade_order_event(
     let symbol_info = match symbol_map.get(&order.symbol) {
         Some(info) => info,
         None => {
-            error!("Symbol info not found for: {}", order.symbol);
-            insert_db_error(
-                pool,
-                exchange,
-                &format!("Missing symbol info for {}", order.symbol),
-            )
-            .await;
+            let msg: String = format!("Symbol info not found for: {}", order.symbol);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+
             return;
         }
     };
@@ -361,8 +359,10 @@ async fn handle_trade_order_event(
                         )
                         .await;
                     } else {
-                        error!("Failed to calculate price for order {}", order.order_id);
-                        insert_db_error(pool, exchange, "Price calculation failed").await;
+                        let msg: String =
+                            format!("Failed to calculate price for order {}", order.order_id);
+                        error!("{}", msg);
+                        insert_db_error(&pool, &exchange, &msg).await;
                     }
                 }
 
@@ -405,8 +405,10 @@ async fn handle_trade_order_event(
                         )
                         .await;
                     } else {
-                        error!("Failed to calculate price for order {}", order.order_id);
-                        insert_db_error(pool, exchange, "Price calculation failed").await;
+                        let msg: String =
+                            format!("Failed to calculate price for order {}", order.order_id);
+                        error!("{}", msg);
+                        insert_db_error(&pool, &exchange, &msg).await;
                     }
                 }
 
@@ -507,8 +509,9 @@ async fn handle_trade_order_event(
                 )
                 .await;
             } else {
-                error!("Failed to calculate price for order {}", order.order_id);
-                insert_db_error(pool, exchange, "Price calculation failed").await;
+                let msg: String = format!("Failed to calculate price for order {}", order.order_id);
+                error!("{}", msg);
+                insert_db_error(&pool, &exchange, &msg).await;
             }
         } else if order.side == "buy" {
             // filled buy (cancel all sell orders)
@@ -528,8 +531,9 @@ async fn handle_trade_order_event(
                 )
                 .await;
             } else {
-                error!("Failed to calculate price for order {}", order.order_id);
-                insert_db_error(pool, exchange, "Price calculation failed").await;
+                let msg: String = format!("Failed to calculate price for order {}", order.order_id);
+                error!("{}", msg);
+                insert_db_error(&pool, &exchange, &msg).await;
             }
         }
     }
@@ -551,13 +555,15 @@ async fn handle_position_event(
     .await
     {
         info!("{:?}", position);
-        error!("Failed to upsert margin account state: {}", e);
-        insert_db_error(pool, exchange, &e.to_string()).await;
+        let msg: String = format!("Failed to upsert margin account state: {}", e);
+        error!("{}", msg);
+        insert_db_error(&pool, &exchange, &msg).await;
     }
     for (symbol, amount) in &position.debt_list {
         if let Err(e) = upsert_position_debt(pool, exchange, symbol, amount).await {
-            error!("Failed to insert debt margin account state: {}", e);
-            insert_db_error(pool, exchange, &e.to_string()).await;
+            let msg: String = format!("Failed to insert debt margin account state: {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
         }
     }
     for (symbol, symbol_info) in &position.asset_list {
@@ -571,8 +577,9 @@ async fn handle_position_event(
         )
         .await
         {
-            error!("Failed to insert asset margin account state: {}", e);
-            insert_db_error(pool, exchange, &e.to_string()).await;
+            let msg: String = format!("Failed to insert asset margin account state: {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
         }
     }
     // repay borrow
@@ -591,8 +598,9 @@ async fn handle_position_event(
                             if let Err(e) =
                                 api::requests::create_repay_order(asset, &liability_str).await
                             {
-                                error!("Failed to repay liability: {}", e);
-                                insert_db_error(pool, exchange, &e.to_string()).await;
+                                let msg: String = format!("Failed to repay liability: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
                             };
                         } else if available > 0.0 {
                             info!("Position:'{:.?}'", position);
@@ -605,41 +613,16 @@ async fn handle_position_event(
                                 api::requests::create_repay_order(asset, &asset_info.available)
                                     .await
                             {
-                                error!("Failed to partially repay debt: {}", e);
-                                insert_db_error(pool, exchange, &e.to_string()).await;
-                            }
-                        }
-                    } else if available > 0.0 && asset != "USDC" {
-                        info!("Position:'{:.?}'", position);
-                        // transfer available from margin
-                        match api::requests::sent_account_transfer(
-                            asset,
-                            &asset_info.available,
-                            "INTERNAL",
-                            "MARGIN",
-                            "TRADE",
-                        )
-                        .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!(
-                                    "Failed send {} to TRADE from MARGIN on {} {}",
-                                    asset, &asset_info.available, e
-                                );
+                                let msg: String = format!("Failed to partially repay debt: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
                             }
                         }
                     }
                 } else {
-                    error!("Failed to parse available balance for {}", asset);
-                    insert_db_error(
-                        pool,
-                        exchange,
-                        &format!("Parse error: available={}", asset_info.available),
-                    )
-                    .await;
+                    let msg: String = format!("Failed to parse available balance for {}", asset);
+                    error!("{}", msg);
+                    insert_db_error(&pool, &exchange, &msg).await;
                 }
             }
         }
@@ -718,8 +701,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             )
                             .await
                             {
-                                error!("Failed to repay liability: {}", e);
-                                insert_db_error(&pool, &exchange, &e.to_string()).await;
+                                let msg: String = format!("Failed to repay liability: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
                             };
                         } else if available > 0.0 {
                             info!(
@@ -733,8 +717,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             )
                             .await
                             {
-                                error!("Failed to partially repay debt: {}", e);
-                                insert_db_error(&pool, &exchange, &e.to_string()).await;
+                                let msg: String = format!("Failed to partially repay debt: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
                             }
                         }
                         all_asset_transfer = false;
@@ -815,12 +800,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
-                                        error!("Failed to parse message {}", e);
                                         // sent balance error to pg
+                                        let msg: String = format!("Failed to parse message {}", e);
+                                        error!("{}", msg);
                                         insert_db_error(
                                             &pool_for_handler,
                                             &exchange_for_handler,
-                                            &e.to_string(),
+                                            &msg,
                                         )
                                         .await;
                                     }
@@ -839,12 +825,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
-                                        error!("Failed to parse message {}", e);
+
                                         // sent order error to pg
+                                        let msg: String = format!("Failed to parse message {}", e);
+                                        error!("{}", msg);
                                         insert_db_error(
                                             &pool_for_handler,
                                             &exchange_for_handler,
-                                            &e.to_string(),
+                                            &msg,
                                         )
                                         .await;
                                     }
@@ -862,12 +850,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
-                                        error!("Failed to parse message {}", e);
                                         // sent order error to pg
+                                        let msg: String = format!("Failed to parse message {}", e);
+                                        error!("{}", msg);
                                         insert_db_error(
                                             &pool_for_handler,
                                             &exchange_for_handler,
-                                            &e.to_string(),
+                                            &msg,
                                         )
                                         .await;
                                     }
@@ -896,10 +885,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                     },
                     Err(e) => {
-                        error!("Failed to parse message: {} | Raw: {}", e, msg);
                         // sent error to pg
-                        insert_db_error(&pool_for_handler, &exchange_for_handler, &e.to_string())
-                            .await;
+                        let msg: String = format!("Failed to parse message: {} | Raw: {}", e, msg);
+                        error!("{}", msg);
+                        insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await;
                     }
                 }
             }
@@ -932,8 +921,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // subscribtion
         for sub in build_subscription() {
             if let Err(e) = event_ws_write.send(Message::text(sub.to_string())).await {
-                error!("Failed to subscribe: {}", e);
-                insert_db_error(&pool, &exchange, &e.to_string()).await;
+                let msg: String = format!("Failed to subscribe: {}", e);
+                error!("{}", msg);
+                insert_db_error(&pool, &exchange, &msg).await;
+
                 break;
             }
         }
@@ -971,12 +962,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     )
                                     .await;
                                 } else {
-                                    error!(
+                                    let msg: String = format!(
                                         "Failed to calculate price for init order {}",
                                         &trd_order.symbol
                                     );
-                                    insert_db_error(&pool, &exchange, "Price calculation failed")
-                                        .await;
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
                                 }
                                 // buy order
                                 if let Some(price_str) = calculate_price(
@@ -995,17 +986,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     )
                                     .await;
                                 } else {
-                                    error!(
+                                    let msg: String = format!(
                                         "Failed to calculate price for init order {}",
                                         &trd_order.symbol
                                     );
-                                    insert_db_error(&pool, &exchange, "Price calculation failed")
-                                        .await;
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
                                 }
                             }
                             Err(e) => {
-                                error!("Failed to get price for {}: {}", trd_order.symbol, e);
-                                insert_db_error(&pool, &exchange, &e.to_string()).await;
+                                let msg: String =
+                                    format!("Failed to get price for {}: {}", trd_order.symbol, e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
                             }
                         };
                     }
