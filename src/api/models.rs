@@ -202,19 +202,10 @@ pub struct OldActiveOrdersDataItem {
 }
 #[derive(Debug, Deserialize)]
 pub struct OldActiveOrdersData {
-    #[serde(rename = "currentPage")]
-    pub current_page: u64,
-    #[serde(rename = "pageSize")]
-    pub page_size: u64,
-    #[serde(rename = "totalNum")]
-    pub total_num: u64,
-    #[serde(rename = "totalPage")]
-    pub total_page: u64,
     pub items: Vec<OldActiveOrdersDataItem>,
 }
 #[derive(Debug, Deserialize)]
 pub struct OldActiveOrders {
-    pub code: String,
     pub data: OldActiveOrdersData,
 }
 #[derive(Debug, Deserialize)]

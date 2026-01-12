@@ -45,7 +45,7 @@ async fn cancel_order(
     insert_db_msgsend(
         pool,
         exchange,
-        Some(&symbol),
+        Some(symbol),
         None,
         None,
         None,
@@ -54,18 +54,18 @@ async fn cancel_order(
         None,
         None,
         None,
-        Some(&order_id),
+        Some(order_id),
     )
     .await;
     // cancel other orders by symbol
-    match api::requests::old_cancel_order(&order_id).await {
+    match api::requests::old_cancel_order(order_id).await {
         Ok(_) => {
             info!("Successfully cancel order :{}", &order_id);
         }
         Err(e) => {
             let msg: String = format!("Failed cancel order: {}", e);
             error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+            insert_db_error(pool, exchange, &msg).await;
         }
     }
     Ok(())
@@ -89,12 +89,12 @@ async fn make_order(
         insert_db_msgsend(
             pool,
             exchange,
-            Some(&symbol),
-            Some(&side),
+            Some(symbol),
+            Some(side),
             Some(&size),
             Some(&price),
-            Some(&args_time_in_force),
-            Some(&type_),
+            Some(args_time_in_force),
+            Some(type_),
             Some(&auto_borrow),
             Some(&auto_repay),
             Some(&client_oid),
@@ -130,7 +130,7 @@ async fn make_order(
             Err(e) => {
                 let msg: String = format!("Failed to send order: {}", e);
                 error!("{}", msg);
-                insert_db_error(&pool, &exchange, &msg).await;
+                insert_db_error(pool, exchange, &msg).await;
             }
         }
         if success_create_order {
@@ -325,7 +325,7 @@ async fn handle_trade_order_event(
         None => {
             let msg: String = format!("Symbol info not found for: {}", order.symbol);
             error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+            insert_db_error(pool, exchange, &msg).await;
 
             return;
         }
@@ -355,14 +355,14 @@ async fn handle_trade_order_event(
                             &order.symbol,
                             &price_str,
                             order.origin_size.as_deref(),
-                            &symbol_info,
+                            symbol_info,
                         )
                         .await;
                     } else {
                         let msg: String =
                             format!("Failed to calculate price for order {}", order.order_id);
                         error!("{}", msg);
-                        insert_db_error(&pool, &exchange, &msg).await;
+                        insert_db_error(pool, exchange, &msg).await;
                     }
                 }
 
@@ -385,54 +385,44 @@ async fn handle_trade_order_event(
                     }
                 }
             }
-        } else if order.side == "sell" {
-            if active_buy_orders.is_empty() {
-                // buy orders unexist
-                if active_sell_orders.len() == 2 {
-                    if let Some(price_str) = calculate_price(
-                        &order.price,
-                        &symbol_info.price_increment,
-                        |a, _b| a * 100.0 / 101.0, // price - 1%
-                    ) {
-                        create_order_safely(
-                            pool,
-                            exchange,
-                            &order.side,
-                            &order.symbol,
-                            &price_str,
-                            order.origin_size.as_deref(),
-                            &symbol_info,
-                        )
-                        .await;
-                    } else {
-                        let msg: String =
-                            format!("Failed to calculate price for order {}", order.order_id);
-                        error!("{}", msg);
-                        insert_db_error(&pool, &exchange, &msg).await;
-                    }
+        } else if order.side == "sell" && active_buy_orders.is_empty() {
+            // buy orders unexist
+            if active_sell_orders.len() == 2 {
+                if let Some(price_str) = calculate_price(
+                    &order.price,
+                    &symbol_info.price_increment,
+                    |a, _b| a * 100.0 / 101.0, // price - 1%
+                ) {
+                    create_order_safely(
+                        pool,
+                        exchange,
+                        &order.side,
+                        &order.symbol,
+                        &price_str,
+                        order.origin_size.as_deref(),
+                        symbol_info,
+                    )
+                    .await;
+                } else {
+                    let msg: String =
+                        format!("Failed to calculate price for order {}", order.order_id);
+                    error!("{}", msg);
+                    insert_db_error(pool, exchange, &msg).await;
                 }
+            }
 
-                while active_sell_orders.len() >= 3 {
-                    if let Some(oldest_order) =
-                        delete_oldest_orderactive(pool, exchange, &order.symbol, "sell").await
-                    {
-                        let _ = cancel_order(
-                            pool,
-                            exchange,
-                            &oldest_order.symbol,
-                            &oldest_order.order_id,
-                        )
-                        .await;
-                        active_sell_orders = fetch_all_active_orders_by_symbol(
-                            pool,
-                            exchange,
-                            &order.symbol,
-                            "sell",
-                        )
-                        .await;
-                    } else {
-                        break;
-                    }
+            while active_sell_orders.len() >= 3 {
+                if let Some(oldest_order) =
+                    delete_oldest_orderactive(pool, exchange, &order.symbol, "sell").await
+                {
+                    let _ =
+                        cancel_order(pool, exchange, &oldest_order.symbol, &oldest_order.order_id)
+                            .await;
+                    active_sell_orders =
+                        fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell")
+                            .await;
+                } else {
+                    break;
                 }
             }
         }
@@ -480,7 +470,7 @@ async fn handle_trade_order_event(
                                 "USDT", &size_for_transfer, e
                             );
                             error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
+                            insert_db_error(pool, exchange, &msg).await;
                         }
                     }
                 }
@@ -488,7 +478,7 @@ async fn handle_trade_order_event(
                     let msg =
                         "Failed to calculate transfer amount from MARGIN to TRADE".to_string();
                     error!("{}", msg);
-                    insert_db_error(&pool, &exchange, &msg).await;
+                    insert_db_error(pool, exchange, &msg).await;
                 }
             }
 
@@ -505,13 +495,13 @@ async fn handle_trade_order_event(
                     &order.symbol,
                     &price_str,
                     order.origin_size.as_deref(),
-                    &symbol_info,
+                    symbol_info,
                 )
                 .await;
             } else {
                 let msg: String = format!("Failed to calculate price for order {}", order.order_id);
                 error!("{}", msg);
-                insert_db_error(&pool, &exchange, &msg).await;
+                insert_db_error(pool, exchange, &msg).await;
             }
         } else if order.side == "buy" {
             // filled buy (cancel all sell orders)
@@ -527,13 +517,13 @@ async fn handle_trade_order_event(
                     &order.symbol,
                     &price_str,
                     order.origin_size.as_deref(),
-                    &symbol_info,
+                    symbol_info,
                 )
                 .await;
             } else {
                 let msg: String = format!("Failed to calculate price for order {}", order.order_id);
                 error!("{}", msg);
-                insert_db_error(&pool, &exchange, &msg).await;
+                insert_db_error(pool, exchange, &msg).await;
             }
         }
     }
@@ -557,13 +547,13 @@ async fn handle_position_event(
         info!("{:?}", position);
         let msg: String = format!("Failed to upsert margin account state: {}", e);
         error!("{}", msg);
-        insert_db_error(&pool, &exchange, &msg).await;
+        insert_db_error(pool, exchange, &msg).await;
     }
     for (symbol, amount) in &position.debt_list {
         if let Err(e) = upsert_position_debt(pool, exchange, symbol, amount).await {
             let msg: String = format!("Failed to insert debt margin account state: {}", e);
             error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+            insert_db_error(pool, exchange, &msg).await;
         }
     }
     for (symbol, symbol_info) in &position.asset_list {
@@ -579,51 +569,50 @@ async fn handle_position_event(
         {
             let msg: String = format!("Failed to insert asset margin account state: {}", e);
             error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+            insert_db_error(pool, exchange, &msg).await;
         }
     }
     // repay borrow
     for (asset, liability_str) in &position.debt_list {
-        if let Ok(liability) = liability_str.parse::<f64>() {
-            if let Some(asset_info) = &position.asset_list.get(asset) {
-                if let Ok(available) = asset_info.available.parse::<f64>() {
-                    if liability > 0.0 {
-                        if available >= liability {
-                            info!("Position:'{:.?}'", position);
-                            info!(
-                                "Can repay {} {} liability with available {}",
-                                liability, asset, available
-                            );
+        if let Ok(liability) = liability_str.parse::<f64>()
+            && let Some(asset_info) = &position.asset_list.get(asset)
+        {
+            if let Ok(available) = asset_info.available.parse::<f64>() {
+                if liability > 0.0 {
+                    if available >= liability {
+                        info!("Position:'{:.?}'", position);
+                        info!(
+                            "Can repay {} {} liability with available {}",
+                            liability, asset, available
+                        );
 
-                            if let Err(e) =
-                                api::requests::create_repay_order(asset, &liability_str).await
-                            {
-                                let msg: String = format!("Failed to repay liability: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
-                            };
-                        } else if available > 0.0 {
-                            info!("Position:'{:.?}'", position);
-                            info!(
-                                "Can partially repay {} {} liability with available {}",
-                                liability, asset, available
-                            );
+                        if let Err(e) =
+                            api::requests::create_repay_order(asset, liability_str).await
+                        {
+                            let msg: String = format!("Failed to repay liability: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                        };
+                    } else if available > 0.0 {
+                        info!("Position:'{:.?}'", position);
+                        info!(
+                            "Can partially repay {} {} liability with available {}",
+                            liability, asset, available
+                        );
 
-                            if let Err(e) =
-                                api::requests::create_repay_order(asset, &asset_info.available)
-                                    .await
-                            {
-                                let msg: String = format!("Failed to partially repay debt: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
-                            }
+                        if let Err(e) =
+                            api::requests::create_repay_order(asset, &asset_info.available).await
+                        {
+                            let msg: String = format!("Failed to partially repay debt: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
                         }
                     }
-                } else {
-                    let msg: String = format!("Failed to parse available balance for {}", asset);
-                    error!("{}", msg);
-                    insert_db_error(&pool, &exchange, &msg).await;
                 }
+            } else {
+                let msg: String = format!("Failed to parse available balance for {}", asset);
+                error!("{}", msg);
+                insert_db_error(pool, exchange, &msg).await;
             }
         }
     }
@@ -653,7 +642,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     "Successfully get active orders:{}",
                     active_orders.items.len()
                 );
-                if active_orders.items.len() == 0 {
+                if active_orders.items.is_empty() {
                     break;
                 } else {
                     for order_ in active_orders.items.iter() {
@@ -958,7 +947,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         &trd_order.symbol,
                                         &price_str,
                                         Some(&trd_order.size),
-                                        &symbol_info,
+                                        symbol_info,
                                     )
                                     .await;
                                 } else {
@@ -982,7 +971,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         &trd_order.symbol,
                                         &price_str,
                                         Some(&trd_order.size),
-                                        &symbol_info,
+                                        symbol_info,
                                     )
                                     .await;
                                 } else {
