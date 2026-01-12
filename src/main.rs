@@ -261,7 +261,35 @@ fn format_price(price: f64, increment: f64) -> String {
     };
     format!("{:.decimals$}", price)
 }
+fn calculate_transfer_amount(
+    match_price: &Option<String>,
+    origin_size: &Option<String>,
+    increment: &str,
+) -> Option<String> {
+    let price = match match_price {
+        Some(p) => p.parse::<f64>().ok()?,
+        None => return None,
+    };
 
+    let size = match origin_size {
+        Some(s) => s.parse::<f64>().ok()?,
+        None => return None,
+    };
+
+    let inc = match increment.parse::<f64>() {
+        Ok(v) if v > 0.0 => v,
+        _ => return None,
+    };
+
+    if price <= 0.0 || size <= 0.0 {
+        return None;
+    }
+
+    let raw_amount = price * size * 0.01;
+    let rounded = (raw_amount / inc).round() * inc;
+
+    Some(format_price(rounded, inc))
+}
 fn calculate_price(
     base_price: &Option<String>,
     increment: &str,
@@ -427,6 +455,41 @@ async fn handle_trade_order_event(
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
 
         if order.side == "sell" {
+            // transfer profit to TRADE
+            match calculate_transfer_amount(
+                &order.match_price,
+                &order.origin_size,
+                &symbol_info.quote_increment,
+            ) {
+                Some(size_for_transfer) => {
+                    match api::requests::sent_account_transfer(
+                        "USDT",
+                        &size_for_transfer, // match_price * origin_size * 0.01
+                        "INTERNAL",
+                        "MARGIN",
+                        "TRADE",
+                    )
+                    .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!(
+                                "Failed send {} from MARGIN to TRADE on {} {}",
+                                "USDT", &size_for_transfer, e
+                            );
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                        }
+                    }
+                }
+                None => {
+                    let msg =
+                        "Failed to calculate transfer amount from MARGIN to TRADE".to_string();
+                    error!("{}", msg);
+                    insert_db_error(&pool, &exchange, &msg).await;
+                }
+            }
+
             // create new buy order
             if let Some(price_str) = calculate_price(
                 &order.match_price,

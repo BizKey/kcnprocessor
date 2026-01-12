@@ -174,6 +174,7 @@ pub struct Symbol {
     pub symbol: String,
     pub base_increment: String,
     pub price_increment: String,
+    pub quote_increment: String,
     pub base_min_size: String,
 }
 
