@@ -108,15 +108,13 @@ impl KuCoinClient {
             } else {
                 format!("{}{}{}", timestamp, method_upper, endpoint)
             }
+        } else if !query_string.is_empty() {
+            format!(
+                "{}{}{}?{}{}",
+                timestamp, method_upper, endpoint, query_string, body
+            )
         } else {
-            if !query_string.is_empty() {
-                format!(
-                    "{}{}{}?{}{}",
-                    timestamp, method_upper, endpoint, query_string, body
-                )
-            } else {
-                format!("{}{}{}{}", timestamp, method_upper, endpoint, body)
-            }
+            format!("{}{}{}{}", timestamp, method_upper, endpoint, body)
         };
 
         let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
@@ -306,7 +304,7 @@ impl KuCoinClient {
                 "200" => match response.text().await {
                     Ok(text) => {
                         info!("flex transfer {}", text);
-                        return Ok(());
+                        Ok(())
                     }
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },

@@ -257,7 +257,7 @@ pub async fn get_all_symbol_for_trade(pool: &PgPool, exchange: &str) -> Vec<Trad
 }
 
 pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
-    match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, price_increment, base_min_size FROM symbol WHERE exchange = $1")
+    match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, price_increment, quote_increment, base_min_size FROM symbol WHERE exchange = $1")
         .bind(exchange)
         .fetch_all(pool)
         .await
