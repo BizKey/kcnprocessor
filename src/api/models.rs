@@ -103,7 +103,7 @@ pub struct OrderData {
     #[serde(rename = "orderId")]
     pub order_id: String,
     #[serde(rename = "clientOid")]
-    pub client_oid: String,
+    pub client_oid: Option<String>,
     #[serde(rename = "tradeId")]
     pub trade_id: Option<String>,
     #[serde(rename = "originSize")]
