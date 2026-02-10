@@ -1,5 +1,5 @@
 use crate::api::db::{
-    delete_all_orderactive_from_db, delete_current_orderactive_from_db, delete_oldest_orderactive,
+    clear_orders_ids_for_bots, delete_current_orderactive_from_db, delete_oldest_orderactive,
     fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_symbol_for_trade,
     insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
     insert_db_msgsend, insert_db_orderevent, upsert_position_asset, upsert_position_debt,
@@ -25,7 +25,7 @@ mod api {
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const RE_CREATE_ORDER: Duration = Duration::from_millis(100);
-const REPAY_DELAY: Duration = Duration::from_secs(1);
+const REPAY_DELAY: Duration = Duration::from_secs(10);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_subscription() -> Vec<serde_json::Value> {
@@ -633,48 +633,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .await
         .expect("Failed to create pool");
 
-    delete_all_orderactive_from_db(&pool, &exchange).await;
+    // clear orders ids for bots
+    clear_orders_ids_for_bots(&pool, &exchange).await;
 
-    loop {
-        match api::requests::get_old_active_orders_list().await {
-            Ok(active_orders) => {
-                info!(
-                    "Successfully get active orders:{}",
-                    active_orders.items.len()
-                );
-                if active_orders.items.is_empty() {
-                    break;
-                } else {
-                    for order_ in active_orders.items.iter() {
-                        match api::requests::old_cancel_order(&order_.id).await {
-                            Ok(_) => {
-                                info!("Successfully cancel order :{}", &order_.id);
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed cancel order: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
-                            }
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                let msg: String = format!("Failed to fetch margin accounts: {}", e);
-                error!("{}", msg);
-                insert_db_error(&pool, &exchange, &msg).await;
-            }
+    // cancel all stop orders
+    match api::requests::batch_cancel_stop_orders().await {
+        Ok(_) => {}
+        Err(e) => {
+            let msg: String = format!("Failed batch cancel stop orders: {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
         }
     }
+    // repay all liability assets
     loop {
         let mut all_asset_transfer: bool = true;
         match api::requests::get_all_margin_accounts().await {
             Ok(accounts) => {
                 for account in accounts.accounts.iter() {
-                    info!(
-                        "symbol: {} available:'{}' hold:'{}' liability:'{}'",
-                        account.currency, account.available, account.hold, account.liability,
-                    );
                     let liability: f64 = account.liability.parse().unwrap_or(0.0);
                     let available: f64 = account.available.parse().unwrap_or(0.0);
                     if liability > 0.0 {
@@ -707,29 +683,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             .await
                             {
                                 let msg: String = format!("Failed to partially repay debt: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
-                            }
-                        }
-                        all_asset_transfer = false;
-                    } else if available > 0.0 && &account.currency != "USDC" {
-                        match api::requests::sent_account_transfer(
-                            &account.currency,
-                            &account.available,
-                            "INTERNAL",
-                            "MARGIN",
-                            "TRADE",
-                        )
-                        .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!(
-                                    "Failed send {} to TRADE from MARGIN on {} {}",
-                                    &account.currency,
-                                    &available.to_string(),
-                                    e
-                                );
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
                             }
@@ -789,7 +742,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
-                                        // sent balance error to pg
+                                        // sent balance parse error to pg
                                         let msg: String = format!("Failed to parse message {}", e);
                                         error!("{}", msg);
                                         insert_db_error(

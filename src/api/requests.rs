@@ -208,6 +208,33 @@ impl KuCoinClient {
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
+    pub async fn batch_cancel_stop_orders(
+        &self,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("tradeType", "MARGIN_TRADE");
+        match self
+            .make_request(
+                reqwest::Method::DELETE,
+                "api/v3/hf/margin/stop-order/cancel",
+                Some(query_params),
+                None,
+                true,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => Ok(()),
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
     pub async fn get_symbols_with_open_order(
         &self,
     ) -> Result<SymbolOpenOrder, Box<dyn std::error::Error + Send + Sync>> {
@@ -663,6 +690,11 @@ pub async fn get_old_active_orders_list()
 -> Result<OldActiveOrdersData, Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.get_old_active_orders_list().await
+}
+
+pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.batch_cancel_stop_orders().await
 }
 pub async fn add_order(
     body: serde_json::Value,
