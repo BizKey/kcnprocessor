@@ -645,7 +645,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             insert_db_error(&pool, &exchange, &msg).await;
         }
     }
-    // repay all liability assets
+    // repay all liability assets and sell
     loop {
         let mut all_asset_transfer: bool = true;
         match api::requests::get_all_margin_accounts().await {
