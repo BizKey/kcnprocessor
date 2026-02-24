@@ -670,6 +670,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
                             };
+                            all_asset_transfer = false;
                         } else if available > 0.0 {
                             info!(
                                 "Can partially repay {} {} liability with available {}",
@@ -685,13 +686,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 let msg: String = format!("Failed to partially repay debt: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
-                            }
-                        } else if available == 0.0 {
+                            };
+                            all_asset_transfer = false;
+                        } else if account.currency != "USDT" && available == 0.0 {
                             // buy stock by market liability
+                            all_asset_transfer = false;
                         }
                         all_asset_transfer = false;
-                    } else if available > 0.0 {
+                    } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available
+
+                        all_asset_transfer = false;
                     }
                 }
             }
@@ -761,13 +766,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 match OrderData::deserialize(&data.data) {
                                     Ok(order) => {
                                         // order magic
-                                        handle_trade_order_event(
-                                            order,
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &symbol_map_for_handler,
-                                        )
-                                        .await
+                                        // handle_trade_order_event(
+                                        //     order,
+                                        //     &pool_for_handler,
+                                        //     &exchange_for_handler,
+                                        //     &symbol_map_for_handler,
+                                        // )
+                                        // .await
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
