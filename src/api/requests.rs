@@ -216,7 +216,7 @@ impl KuCoinClient {
         match self
             .make_request(
                 reqwest::Method::DELETE,
-                "api/v3/hf/margin/stop-order/cancel",
+                "/api/v3/hf/margin/stop-order/cancel",
                 Some(query_params),
                 None,
                 true,
