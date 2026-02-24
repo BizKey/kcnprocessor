@@ -686,8 +686,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
                             }
+                        } else if available == 0.0 {
+                            // buy stock by market liability
                         }
                         all_asset_transfer = false;
+                    } else if available > 0.0 {
+                        // sell stocks by market available
                     }
                 }
             }
