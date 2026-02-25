@@ -24,7 +24,6 @@ mod api {
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
-const RE_CREATE_ORDER: Duration = Duration::from_millis(100);
 const REPAY_DELAY: Duration = Duration::from_secs(10);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -71,72 +70,62 @@ async fn cancel_order(
     Ok(())
 }
 
-async fn make_order(
+async fn make_hf_margin_order(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     side: &str,
     symbol: &str,
-    price: String,
     size: String,
+    type_: String,
 ) {
-    loop {
-        let args_time_in_force = "GTC";
-        let type_ = "limit";
-        let auto_borrow = true;
-        let auto_repay = false;
-        let client_oid = Uuid::new_v4().to_string();
+    let args_time_in_force = "GTC";
+    let auto_borrow = true;
+    let auto_repay = true;
+    let client_oid = Uuid::new_v4().to_string();
 
-        insert_db_msgsend(
-            pool,
-            exchange,
-            Some(symbol),
-            Some(side),
-            Some(&size),
-            Some(&price),
-            Some(args_time_in_force),
-            Some(type_),
-            Some(&auto_borrow),
-            Some(&auto_repay),
-            Some(&client_oid),
-            None,
-        )
-        .await;
-        let msg = serde_json::json!({
-            "clientOid": client_oid,
-            "symbol": symbol,
-            "side": side,
-            "type": type_,
-            "price": price,
-            "autoBorrow": auto_borrow,
-            "autoRepay": auto_repay,
-            "timeInForce": args_time_in_force,
-            "size": size
-        });
-        let mut success_create_order: bool = false;
+    insert_db_msgsend(
+        pool,
+        exchange,
+        Some(symbol),
+        Some(side),
+        Some(&size),
+        None,
+        Some(args_time_in_force),
+        Some(&type_),
+        Some(&auto_borrow),
+        Some(&auto_repay),
+        Some(&client_oid),
+        None,
+    )
+    .await;
+    let msg = serde_json::json!({
+        "clientOid": client_oid,
+        "symbol": symbol,
+        "side": side,
+        "type": type_,
+        "autoBorrow": auto_borrow,
+        "autoRepay": auto_repay,
+        "timeInForce": args_time_in_force,
+        "size": size
+    });
 
-        match api::requests::add_v1_order(msg.clone()).await {
-            Ok(data) => {
-                if data.code != "200000" {
-                    let msg = format!(
-                        "Make order was error: {} {} {:?}",
-                        symbol, data.code, data.msg
-                    );
-                    error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
-                } else {
-                    success_create_order = true;
-                }
-            }
-            Err(e) => {
-                let msg: String = format!("Failed to send order: {}", e);
+    match api::requests::add_hf_margin_order(msg.clone()).await {
+        Ok(data) => {
+            if data.code != "200000" {
+                let msg = format!(
+                    "Make order was error: {} {} {:?}",
+                    symbol, data.code, data.msg
+                );
                 error!("{}", msg);
                 insert_db_error(pool, exchange, &msg).await;
+            } else {
             }
         }
-        if success_create_order {
-            break;
+        Err(e) => {
+            let msg: String = format!("Failed to send order: {}", e);
+            error!("{}", msg);
+            insert_db_error(pool, exchange, &msg).await;
         }
-        sleep(RE_CREATE_ORDER).await;
     }
 }
 
@@ -243,7 +232,7 @@ async fn create_order_safely(
             }
         },
     };
-    make_order(
+    make_hf_margin_order(
         pool,
         exchange,
         side,
@@ -670,7 +659,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
                             };
-                            all_asset_transfer = false;
                         } else if available > 0.0 {
                             info!(
                                 "Can partially repay {} {} liability with available {}",
@@ -687,14 +675,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
                             };
-                            all_asset_transfer = false;
                         } else if account.currency != "USDT" && available == 0.0 {
                             // buy stock by market liability
-                            all_asset_transfer = false;
+                            make_hf_margin_order(
+                                &pool,
+                                &exchange,
+                                "buy",
+                                &account.currency, // cancatinate with USDT
+                                liability.to_string(),
+                                "market".to_string(),
+                            )
+                            .await;
                         }
                         all_asset_transfer = false;
                     } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available
+
+                        make_hf_margin_order(
+                            &pool,
+                            &exchange,
+                            "sell",
+                            &account.currency, // cancatinate with USDT
+                            available.to_string(),
+                            "market".to_string(),
+                        )
+                        .await;
 
                         all_asset_transfer = false;
                     }
