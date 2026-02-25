@@ -982,7 +982,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     )
                     .await
                     {
-                        Ok(order_oid) => {}
+                        Ok(order_oid) => {
+                            // update bots info by
+                        }
                         Err(e) => {}
                     };
                 }
