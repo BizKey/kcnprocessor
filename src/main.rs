@@ -681,7 +681,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 &pool,
                                 &exchange,
                                 "buy",
-                                &account.currency, // cancatinate with USDT
+                                &(account.currency.clone() + "-USDT"),
                                 liability.to_string(),
                                 "market".to_string(),
                             )
@@ -695,7 +695,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             &pool,
                             &exchange,
                             "sell",
-                            &account.currency, // cancatinate with USDT
+                            &(account.currency.clone() + "-USDT"),
                             available.to_string(),
                             "market".to_string(),
                         )
