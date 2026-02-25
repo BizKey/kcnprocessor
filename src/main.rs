@@ -3,7 +3,7 @@ use crate::api::db::{
     fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_bots_for_trade,
     get_all_symbol_for_trade, get_list_tradeable_symbols, insert_current_orderactive_to_db,
     insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
-    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
+    update_bots_entry_id, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use dotenv::dotenv;
@@ -75,6 +75,7 @@ async fn cancel_order(
 async fn make_hf_funds_margin_order(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
+    client_oid: &str,
     side: &str,
     symbol: &str,
     funds: String,
@@ -83,7 +84,6 @@ async fn make_hf_funds_margin_order(
     let args_time_in_force = "GTC";
     let auto_borrow = true;
     let auto_repay = true;
-    let client_oid = Uuid::new_v4().to_string();
 
     insert_db_msgsend(
         pool,
@@ -123,7 +123,7 @@ async fn make_hf_funds_margin_order(
                 insert_db_error(pool, exchange, &msg).await;
                 return Err(msg.into());
             } else {
-                return Ok(client_oid);
+                return Ok(client_oid.to_string());
             }
         }
         Err(e) => {
@@ -972,21 +972,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     let side = if fastrand::bool() { "buy" } else { "sell" };
                     info!("Choice symbol {} on side {}", symbol_choice.symbol, side);
                     // make order
-                    match make_hf_funds_margin_order(
-                        &pool,
-                        &exchange,
-                        side,
-                        &symbol_choice.symbol,
-                        trade_bot.balance.clone(),
-                        "market".to_string(),
-                    )
-                    .await
+                    let client_oid = Uuid::new_v4().to_string();
+                    match update_bots_entry_id(&pool, &exchange, Some(&client_oid), trade_bot.id)
+                        .await
                     {
-                        Ok(order_oid) => {
-                            // update bots info by
+                        Ok(_) => {
+                            match make_hf_funds_margin_order(
+                                &pool,
+                                &exchange,
+                                &client_oid,
+                                side,
+                                &symbol_choice.symbol,
+                                trade_bot.balance.clone(),
+                                "market".to_string(),
+                            )
+                            .await
+                            {
+                                Ok(_) => {
+                                    // update bots info by
+                                }
+                                Err(_) => {
+                                    update_bots_entry_id(&pool, &exchange, None, trade_bot.id)
+                                        .await;
+                                }
+                            };
                         }
                         Err(e) => {}
-                    };
+                    }
                 }
                 init_order_execute = true;
             }

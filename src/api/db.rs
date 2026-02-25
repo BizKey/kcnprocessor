@@ -167,6 +167,25 @@ pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn update_bots_entry_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    entry_id: Option<&str>,
+    trade_bot_id: i32,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if let Err(e) = sqlx::query("UPDATE bots SET entry_id = $1 WHERE exchange = $2 AND id = $3;")
+        .bind(entry_id)
+        .bind(exchange)
+        .bind(trade_bot_id)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed update bots entry_id: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+    Ok(())
+}
 pub async fn delete_all_orderactive_from_db(pool: &sqlx::PgPool, exchange: &str) {
     if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE exchange = $1")
         .bind(exchange)
