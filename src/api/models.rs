@@ -61,6 +61,15 @@ pub struct ActiveOrder {
     pub symbol: String,
 }
 #[derive(sqlx::FromRow, Debug)]
+pub struct TradeAbleSymbol {
+    pub symbol: String,
+}
+#[derive(sqlx::FromRow, Debug)]
+pub struct TradeBot {
+    pub id: i32,
+    pub balance: String,
+}
+#[derive(sqlx::FromRow, Debug)]
 pub struct TradeSymbol {
     pub symbol: String,
     pub size: String,

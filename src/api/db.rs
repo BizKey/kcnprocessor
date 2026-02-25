@@ -1,5 +1,6 @@
 use crate::api::models::{
-    ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeSymbol,
+    ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeAbleSymbol, TradeBot,
+    TradeSymbol,
 };
 use log::error;
 use serde::Serialize;
@@ -243,6 +244,36 @@ pub async fn fetch_all_active_orders_by_symbol(
                 "Failed to fetch active orders by symbol '{}': {}",
                 symbol, e
             );
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            vec![]
+        }
+    }
+}
+pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeBot> {
+    match sqlx::query_as::<_, TradeBot>("SELECT id, balance FROM bots WHERE exchange = $1")
+        .bind(exchange)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(bots) => bots,
+        Err(e) => {
+            let err_msg = format!("Failed to fetch bots for trade '{}': {}", exchange, e);
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            vec![]
+        }
+    }
+}
+pub async fn get_list_tradeable_symbols(pool: &PgPool, exchange: &str) -> Vec<TradeAbleSymbol> {
+    match sqlx::query_as::<_, TradeAbleSymbol>("SELECT symbol FROM symbol WHERE is_margin_enabled = true AND enable_trading = true AND fee_category = 1 AND quote_currency = 'USDT' AND exchange = $1;")
+        .bind(exchange)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(bots) => bots,
+        Err(e) => {
+            let err_msg = format!("Failed to fetch symbols for trade '{}': {}", exchange, e);
             error!("{}", err_msg);
             insert_db_error(pool, exchange, &err_msg).await;
             vec![]

@@ -1,12 +1,13 @@
 use crate::api::db::{
     clear_orders_ids_for_bots, delete_current_orderactive_from_db, delete_oldest_orderactive,
-    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_symbol_for_trade,
-    insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
-    insert_db_msgsend, insert_db_orderevent, upsert_position_asset, upsert_position_debt,
-    upsert_position_ratio,
+    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_bots_for_trade,
+    get_all_symbol_for_trade, get_list_tradeable_symbols, insert_current_orderactive_to_db,
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
+    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use dotenv::dotenv;
+use fastrand;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use serde::Deserialize;
@@ -24,7 +25,7 @@ mod api {
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
-const REPAY_DELAY: Duration = Duration::from_secs(10);
+const CLEAR_DELAY: Duration = Duration::from_secs(10);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_subscription() -> Vec<serde_json::Value> {
@@ -636,7 +637,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     // repay all liability assets and sell
     loop {
-        let mut all_asset_transfer: bool = true;
+        let mut all_asset_clear: bool = true;
         match api::requests::get_all_margin_accounts().await {
             Ok(accounts) => {
                 for account in accounts.accounts.iter() {
@@ -687,7 +688,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             )
                             .await;
                         }
-                        all_asset_transfer = false;
+                        all_asset_clear = false;
                     } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available
 
@@ -701,7 +702,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         )
                         .await;
 
-                        all_asset_transfer = false;
+                        all_asset_clear = false;
                     }
                 }
             }
@@ -710,13 +711,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 error!("{}", msg);
                 insert_db_error(&pool, &exchange, &msg).await;
                 // exit with error
-                all_asset_transfer = false;
+                all_asset_clear = false;
             }
         }
-        if all_asset_transfer {
+        if all_asset_clear {
             break;
         } else {
-            sleep(REPAY_DELAY).await;
+            sleep(CLEAR_DELAY).await;
         }
     }
 
@@ -895,69 +896,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         loop {
             if !init_order_execute {
                 info!("Initializing start orders...");
-                let trade_orders = get_all_symbol_for_trade(&pool, &exchange).await;
-
-                for trd_order in trade_orders.iter() {
-                    if let Some(symbol_info) = symbol_map.get(&trd_order.symbol) {
-                        match api::requests::get_ticker_price(&trd_order.symbol).await {
-                            Ok(actual_price_str) => {
-                                // sell order
-                                if let Some(price_str) = calculate_price(
-                                    &Some(actual_price_str.clone()),
-                                    &symbol_info.price_increment,
-                                    |a, _b| a * 1.01, // price + 1%
-                                ) {
-                                    create_order_safely(
-                                        &pool,
-                                        &exchange,
-                                        "sell",
-                                        &trd_order.symbol,
-                                        &price_str,
-                                        Some(&trd_order.size),
-                                        symbol_info,
-                                    )
-                                    .await;
-                                } else {
-                                    let msg: String = format!(
-                                        "Failed to calculate price for init order {}",
-                                        &trd_order.symbol
-                                    );
-                                    error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
-                                }
-                                // buy order
-                                if let Some(price_str) = calculate_price(
-                                    &Some(actual_price_str.clone()),
-                                    &symbol_info.price_increment,
-                                    |a, _b| a * 100.0 / 101.0, // price - 1%
-                                ) {
-                                    create_order_safely(
-                                        &pool,
-                                        &exchange,
-                                        "buy",
-                                        &trd_order.symbol,
-                                        &price_str,
-                                        Some(&trd_order.size),
-                                        symbol_info,
-                                    )
-                                    .await;
-                                } else {
-                                    let msg: String = format!(
-                                        "Failed to calculate price for init order {}",
-                                        &trd_order.symbol
-                                    );
-                                    error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
-                                }
-                            }
-                            Err(e) => {
-                                let msg: String =
-                                    format!("Failed to get price for {}: {}", trd_order.symbol, e);
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
-                            }
-                        };
-                    }
+                let trade_bots = get_all_bots_for_trade(&pool, &exchange).await;
+                let tradeable_symbols = get_list_tradeable_symbols(&pool, &exchange).await;
+                for trade_bot in trade_bots.iter() {
+                    let symbol_choice =
+                        &tradeable_symbols[fastrand::usize(..tradeable_symbols.len())];
+                    let side = if fastrand::bool() { "buy" } else { "sell" };
+                    info!("Choice symbol {} on side {}", symbol_choice.symbol, side);
+                    // make order
                 }
                 init_order_execute = true;
             }
