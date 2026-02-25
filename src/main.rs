@@ -977,6 +977,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         .await
                     {
                         Ok(_) => {
+                            info!("Update bot info:{} {}", client_oid, trade_bot.id);
                             match make_hf_funds_margin_order(
                                 &pool,
                                 &exchange,
@@ -992,8 +993,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     // update bots info by
                                 }
                                 Err(_) => {
-                                    update_bots_entry_id(&pool, &exchange, None, trade_bot.id)
-                                        .await;
+                                    match update_bots_entry_id(&pool, &exchange, None, trade_bot.id)
+                                        .await
+                                    {
+                                        Ok(_) => {
+                                            info!("Update bot info:None {}", trade_bot.id);
+                                        }
+                                        Err(_) => {}
+                                    }
                                 }
                             };
                         }
