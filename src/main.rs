@@ -967,9 +967,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let trade_bots = get_all_bots_for_trade(&pool, &exchange).await;
                 let tradeable_symbols = get_list_tradeable_symbols(&pool, &exchange).await;
                 for trade_bot in trade_bots.iter() {
+                    // random sections
                     let symbol_choice =
                         &tradeable_symbols[fastrand::usize(..tradeable_symbols.len())];
                     let side = if fastrand::bool() { "buy" } else { "sell" };
+                    // end random sections
                     info!("Choice symbol {} on side {}", symbol_choice.symbol, side);
                     // make order
                     let client_oid = Uuid::new_v4().to_string();
