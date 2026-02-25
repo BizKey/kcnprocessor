@@ -54,6 +54,7 @@ async fn cancel_order(
         None,
         None,
         None,
+        None,
         Some(order_id),
     )
     .await;
@@ -71,12 +72,12 @@ async fn cancel_order(
     Ok(())
 }
 
-async fn make_hf_margin_order(
+async fn make_hf_funds_margin_order(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     side: &str,
     symbol: &str,
-    size: String,
+    funds: String,
     type_: String,
 ) {
     let args_time_in_force = "GTC";
@@ -89,7 +90,68 @@ async fn make_hf_margin_order(
         exchange,
         Some(symbol),
         Some(side),
+        None,
+        Some(&funds),
+        None,
+        Some(args_time_in_force),
+        Some(&type_),
+        Some(&auto_borrow),
+        Some(&auto_repay),
+        Some(&client_oid),
+        None,
+    )
+    .await;
+    let msg = serde_json::json!({
+        "clientOid": client_oid,
+        "symbol": symbol,
+        "side": side,
+        "type": type_,
+        "autoBorrow": auto_borrow,
+        "autoRepay": auto_repay,
+        "timeInForce": args_time_in_force,
+        "funds": funds
+    });
+
+    match api::requests::add_hf_margin_order(msg.clone()).await {
+        Ok(data) => {
+            if data.code != "200000" {
+                let msg = format!(
+                    "Make order was error: {} {} {:?}",
+                    symbol, data.code, data.msg
+                );
+                error!("{}", msg);
+                insert_db_error(pool, exchange, &msg).await;
+            } else {
+            }
+        }
+        Err(e) => {
+            let msg: String = format!("Failed to send order: {}", e);
+            error!("{}", msg);
+            insert_db_error(pool, exchange, &msg).await;
+        }
+    }
+}
+
+async fn make_hf_size_margin_order(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    side: &str,
+    symbol: &str,
+    size: String,
+    type_: String,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let args_time_in_force = "GTC";
+    let auto_borrow = true;
+    let auto_repay = true;
+    let client_oid = Uuid::new_v4().to_string();
+
+    insert_db_msgsend(
+        pool,
+        exchange,
+        Some(symbol),
+        Some(side),
         Some(&size),
+        None,
         None,
         Some(args_time_in_force),
         Some(&type_),
@@ -119,13 +181,16 @@ async fn make_hf_margin_order(
                 );
                 error!("{}", msg);
                 insert_db_error(pool, exchange, &msg).await;
+                return Err(msg.into());
             } else {
+                return Ok(client_oid);
             }
         }
         Err(e) => {
             let msg: String = format!("Failed to send order: {}", e);
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
+            return Err(msg.into());
         }
     }
 }
@@ -233,7 +298,7 @@ async fn create_order_safely(
             }
         },
     };
-    make_hf_margin_order(
+    make_hf_size_margin_order(
         pool,
         exchange,
         side,
@@ -678,7 +743,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             };
                         } else if account.currency != "USDT" && available == 0.0 {
                             // buy stock by market liability
-                            make_hf_margin_order(
+                            make_hf_size_margin_order(
                                 &pool,
                                 &exchange,
                                 "buy",
@@ -692,7 +757,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available
 
-                        make_hf_margin_order(
+                        make_hf_size_margin_order(
                             &pool,
                             &exchange,
                             "sell",
@@ -904,6 +969,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     let side = if fastrand::bool() { "buy" } else { "sell" };
                     info!("Choice symbol {} on side {}", symbol_choice.symbol, side);
                     // make order
+                    make_hf_funds_margin_order(
+                        &pool,
+                        &exchange,
+                        side,
+                        &symbol_choice.symbol,
+                        trade_bot.balance.clone(),
+                        "market".to_string(),
+                    )
+                    .await;
                 }
                 init_order_execute = true;
             }

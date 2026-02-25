@@ -41,6 +41,7 @@ pub async fn insert_db_msgsend(
     args_symbol: Option<&str>,
     args_side: Option<&str>,
     args_size: Option<&str>,
+    args_funds: Option<&str>,
     args_price: Option<&str>,
     args_time_in_force: Option<&str>,
     args_type: Option<&str>,
@@ -49,11 +50,12 @@ pub async fn insert_db_msgsend(
     args_client_oid: Option<&str>,
     args_order_id: Option<&str>,
 ) {
-    if let Err(e) = sqlx::query("INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);")
+    if let Err(e) = sqlx::query("INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);")
             .bind(exchange)
             .bind(args_symbol)
             .bind(args_side)
             .bind(args_size)
+            .bind(args_funds)
             .bind(args_price)
             .bind(args_time_in_force)
             .bind(args_type)
