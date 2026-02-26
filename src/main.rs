@@ -816,6 +816,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                         KuCoinMessage::Message(data) => {
                             if data.topic == "/account/balance" {
+                                info!("{}", &data.data);
                                 match BalanceData::deserialize(&data.data) {
                                     Ok(balance) => {
                                         // sent balance to pg
@@ -840,6 +841,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 }
                             } else if data.topic == "/spotMarket/advancedOrders" {
+                                info!("{}", &data.data);
+
                                 match StopOrderData::deserialize(&data.data) {
                                     Ok(order) => {}
                                     Err(e) => {
@@ -857,6 +860,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 }
                             } else if data.topic == "/spotMarket/tradeOrdersV2" {
+                                info!("{}", &data.data);
                                 match OrderData::deserialize(&data.data) {
                                     Ok(order) => {
                                         // order magic
@@ -883,6 +887,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 }
                             } else if data.topic == "/margin/position" {
+                                info!("{}", &data.data);
                                 // save to db position
                                 match PositionData::deserialize(&data.data) {
                                     Ok(position) => {
