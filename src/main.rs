@@ -1006,7 +1006,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 }
                             };
                         }
-                        Err(e) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed to send order: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                        }
                     }
                 }
                 init_order_execute = true;
