@@ -1,5 +1,6 @@
 use crate::api::models::{
-    ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeSymbol,
+    ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeAbleSymbol, TradeBot,
+    TradeSymbol,
 };
 use log::error;
 use serde::Serialize;
@@ -40,6 +41,7 @@ pub async fn insert_db_msgsend(
     args_symbol: Option<&str>,
     args_side: Option<&str>,
     args_size: Option<&str>,
+    args_funds: Option<&str>,
     args_price: Option<&str>,
     args_time_in_force: Option<&str>,
     args_type: Option<&str>,
@@ -48,11 +50,12 @@ pub async fn insert_db_msgsend(
     args_client_oid: Option<&str>,
     args_order_id: Option<&str>,
 ) {
-    if let Err(e) = sqlx::query("INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);")
+    if let Err(e) = sqlx::query("INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);")
             .bind(exchange)
             .bind(args_symbol)
             .bind(args_side)
             .bind(args_size)
+            .bind(args_funds)
             .bind(args_price)
             .bind(args_time_in_force)
             .bind(args_type)
@@ -164,6 +167,25 @@ pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn update_bots_entry_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    entry_id: Option<&str>,
+    trade_bot_id: i32,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if let Err(e) = sqlx::query("UPDATE bots SET entry_id = $1 WHERE exchange = $2 AND id = $3;")
+        .bind(entry_id)
+        .bind(exchange)
+        .bind(trade_bot_id)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed update bots entry_id: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+    Ok(())
+}
 pub async fn delete_all_orderactive_from_db(pool: &sqlx::PgPool, exchange: &str) {
     if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE exchange = $1")
         .bind(exchange)
@@ -243,6 +265,36 @@ pub async fn fetch_all_active_orders_by_symbol(
                 "Failed to fetch active orders by symbol '{}': {}",
                 symbol, e
             );
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            vec![]
+        }
+    }
+}
+pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeBot> {
+    match sqlx::query_as::<_, TradeBot>("SELECT id, balance FROM bots WHERE exchange = $1")
+        .bind(exchange)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(bots) => bots,
+        Err(e) => {
+            let err_msg = format!("Failed to fetch bots for trade '{}': {}", exchange, e);
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            vec![]
+        }
+    }
+}
+pub async fn get_list_tradeable_symbols(pool: &PgPool, exchange: &str) -> Vec<TradeAbleSymbol> {
+    match sqlx::query_as::<_, TradeAbleSymbol>("SELECT symbol FROM symbol WHERE is_margin_enabled = true AND enable_trading = true AND fee_category = 1 AND quote_currency = 'USDT' AND exchange = $1;")
+        .bind(exchange)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(bots) => bots,
+        Err(e) => {
+            let err_msg = format!("Failed to fetch symbols for trade '{}': {}", exchange, e);
             error!("{}", err_msg);
             insert_db_error(pool, exchange, &err_msg).await;
             vec![]

@@ -137,7 +137,7 @@ impl KuCoinClient {
     ) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("quoteCurrency", "USDT");
-        query_params.insert("queryType", "MARGIN");
+        query_params.insert("queryType", "MARGIN_V2");
         match self
             .make_request(
                 reqwest::Method::GET,
@@ -411,46 +411,12 @@ impl KuCoinClient {
             Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
-    pub async fn add_v1_order(
+
+    pub async fn add_hf_margin_order(
         &self,
         body: serde_json::Value,
     ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-        match self
-            .make_request(
-                reqwest::Method::POST,
-                "/api/v1/margin/order",
-                None,
-                Some(body.clone()),
-                true,
-            )
-            .await
-        {
-            Ok(response) => match response.status().as_str() {
-                "200" => match response.text().await {
-                    Ok(text) => match serde_json::from_str::<MakeOrderRes>(&text) {
-                        Ok(res) => Ok(res),
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
-                    },
-                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-                },
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
-            },
-            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
-        }
-    }
-    pub async fn add_order(
-        &self,
-        body: serde_json::Value,
-    ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+        // add margin hf order
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -492,7 +458,7 @@ impl KuCoinClient {
             "currency": currency,
             "size": size,
             "isIsolated": false,
-            "isHf": false
+            "isHf": true
         });
 
         match self
@@ -696,18 +662,13 @@ pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error 
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.batch_cancel_stop_orders().await
 }
-pub async fn add_order(
+pub async fn add_hf_margin_order(
     body: serde_json::Value,
 ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.add_order(body).await
+    client.add_hf_margin_order(body).await
 }
-pub async fn add_v1_order(
-    body: serde_json::Value,
-) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.add_v1_order(body).await
-}
+
 pub async fn cancel_order(
     symbol: &str,
     order_id: &str,

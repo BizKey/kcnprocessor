@@ -61,6 +61,15 @@ pub struct ActiveOrder {
     pub symbol: String,
 }
 #[derive(sqlx::FromRow, Debug)]
+pub struct TradeAbleSymbol {
+    pub symbol: String,
+}
+#[derive(sqlx::FromRow, Debug)]
+pub struct TradeBot {
+    pub id: i32,
+    pub balance: String,
+}
+#[derive(sqlx::FromRow, Debug)]
 pub struct TradeSymbol {
     pub symbol: String,
     pub size: String,
@@ -86,6 +95,28 @@ pub struct PositionData {
     #[serde(rename = "debtList")]
     pub debt_list: HashMap<String, String>, // ключ: актив, значение: строка долга
     pub timestamp: i64,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct StopOrderData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "orderPrice")]
+    pub order_price: String,
+    #[serde(rename = "orderType")]
+    pub order_type: String,
+    pub side: String,
+    pub size: Option<String>,
+    pub stop: String, // loss entry
+    #[serde(rename = "stopPrice")]
+    pub stop_price: String,
+    pub symbol: String,
+    #[serde(rename = "tradeType")]
+    pub trade_type: String, // MARGIN_TRADE
+    #[serde(rename = "type")]
+    pub type_: String, // open match update filled cancel received
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    pub ts: i64,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {
