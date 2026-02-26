@@ -97,6 +97,46 @@ pub struct PositionData {
     pub timestamp: i64,
 }
 #[derive(Debug, Deserialize, Serialize)]
+pub struct StopOrderData {
+    pub status: String, // new open match done
+    #[serde(rename = "type")]
+    pub type_: String, // open match update filled canceled received
+    pub symbol: String, // BTC-USDT ETH-USDT KCS-USDT
+    pub side: String,   // buy sell
+    #[serde(rename = "orderType")]
+    pub order_type: String, // limit market
+    #[serde(rename = "feeType")]
+    pub fee_type: Option<String>, // takerFee makerFee
+    pub liquidity: Option<String>, // taker maker
+    pub price: Option<String>,
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "clientOid")]
+    pub client_oid: Option<String>,
+    #[serde(rename = "tradeId")]
+    pub trade_id: Option<String>,
+    #[serde(rename = "originSize")]
+    pub origin_size: Option<String>,
+    pub size: Option<String>,
+    #[serde(rename = "filledSize")]
+    pub filled_size: Option<String>,
+    #[serde(rename = "matchSize")]
+    pub match_size: Option<String>,
+    #[serde(rename = "matchPrice")]
+    pub match_price: Option<String>,
+    #[serde(rename = "canceledSize")]
+    pub canceled_size: Option<String>,
+    #[serde(rename = "oldSize")]
+    pub old_size: Option<String>,
+    #[serde(rename = "remainSize")]
+    pub remain_size: Option<String>, // only on limit order
+    #[serde(rename = "remainFunds")]
+    pub remain_funds: Option<String>, // only on market order
+    #[serde(rename = "orderTime")]
+    pub order_time: i64,
+    pub ts: i64,
+}
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OrderData {
     pub status: String, // new open match done
     #[serde(rename = "type")]

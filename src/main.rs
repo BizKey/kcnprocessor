@@ -5,7 +5,9 @@ use crate::api::db::{
     insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
     update_bots_entry_id, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
+use crate::api::models::{
+    BalanceData, KuCoinMessage, OrderData, PositionData, StopOrderData, Symbol,
+};
 use dotenv::dotenv;
 use fastrand;
 use futures_util::{SinkExt, StreamExt};
@@ -827,6 +829,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     Err(e) => {
                                         info!("{:?}", data.data);
                                         // sent balance parse error to pg
+                                        let msg: String = format!("Failed to parse message {}", e);
+                                        error!("{}", msg);
+                                        insert_db_error(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &msg,
+                                        )
+                                        .await;
+                                    }
+                                }
+                            } else if data.topic == "/spotMarket/advancedOrders" {
+                                match StopOrderData::deserialize(&data.data) {
+                                    Ok(order) => {}
+                                    Err(e) => {
+                                        info!("{:?}", data.data);
+
+                                        // sent stop order error to pg
                                         let msg: String = format!("Failed to parse message {}", e);
                                         error!("{}", msg);
                                         insert_db_error(
