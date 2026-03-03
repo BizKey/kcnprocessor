@@ -2,6 +2,7 @@ use crate::api::models::{
     ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeAbleSymbol, TradeBot,
     TradeSymbol,
 };
+use fastrand;
 use log::error;
 use serde::Serialize;
 use sqlx::PgPool;
@@ -286,6 +287,21 @@ pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeB
         }
     }
 }
+
+pub async fn get_random_tradeable_symbol(pool: &PgPool, exchange: &str) -> String {
+    let tradeable_symbols = get_list_tradeable_symbols(&pool, &exchange).await;
+    let symbol_choice = &tradeable_symbols[fastrand::usize(..tradeable_symbols.len())];
+    symbol_choice.symbol.clone()
+}
+
+pub fn get_random_side() -> String {
+    if fastrand::bool() {
+        "buy".to_string()
+    } else {
+        "sell".to_string()
+    }
+}
+
 pub async fn get_list_tradeable_symbols(pool: &PgPool, exchange: &str) -> Vec<TradeAbleSymbol> {
     match sqlx::query_as::<_, TradeAbleSymbol>("SELECT symbol FROM symbol WHERE is_margin_enabled = true AND enable_trading = true AND fee_category = 1 AND quote_currency = 'USDT' AND exchange = $1;")
         .bind(exchange)

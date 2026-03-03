@@ -1,8 +1,8 @@
 use crate::api::db::{
     clear_orders_ids_for_bots, delete_current_orderactive_from_db, delete_oldest_orderactive,
-    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_bots_for_trade,
-    get_all_symbol_for_trade, get_list_tradeable_symbols, insert_current_orderactive_to_db,
-    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
+    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_bots_for_trade, get_random_side,
+    get_random_tradeable_symbol, insert_current_orderactive_to_db, insert_db_balance,
+    insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
     update_bots_entry_id, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
@@ -990,14 +990,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if !init_order_execute {
                 info!("Initializing start orders...");
                 let trade_bots = get_all_bots_for_trade(&pool, &exchange).await;
-                let tradeable_symbols = get_list_tradeable_symbols(&pool, &exchange).await;
+
                 for trade_bot in trade_bots.iter() {
                     // random sections
-                    let symbol_choice =
-                        &tradeable_symbols[fastrand::usize(..tradeable_symbols.len())];
-                    let side = if fastrand::bool() { "buy" } else { "sell" };
+                    let random_symbol = get_random_tradeable_symbol(&pool, &exchange).await;
+
+                    let side = get_random_side();
                     // end random sections
-                    info!("Choice symbol {} on side {}", symbol_choice.symbol, side);
+                    info!("Choice symbol {} on side {}", random_symbol.clone(), side);
                     // make order
                     let client_oid = Uuid::new_v4().to_string();
                     match update_bots_entry_id(&pool, &exchange, Some(&client_oid), trade_bot.id)
@@ -1009,8 +1009,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 &pool,
                                 &exchange,
                                 &client_oid,
-                                side,
-                                &symbol_choice.symbol,
+                                &side,
+                                &random_symbol,
                                 trade_bot.balance.clone(),
                                 "market".to_string(),
                             )
