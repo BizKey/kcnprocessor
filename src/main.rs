@@ -1,8 +1,8 @@
 use crate::api::db::{
     clear_orders_ids_for_bots, delete_current_orderactive_from_db, delete_oldest_orderactive,
-    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_bots_for_trade,
-    get_all_symbol_for_trade, get_list_tradeable_symbols, insert_current_orderactive_to_db,
-    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
+    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_bots_for_trade, get_random_side,
+    get_random_tradeable_symbol, insert_current_orderactive_to_db, insert_db_balance,
+    insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
     update_bots_entry_id, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
@@ -381,212 +381,16 @@ async fn handle_trade_order_event(
 ) {
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
-    let symbol_info = match symbol_map.get(&order.symbol) {
-        Some(info) => info,
-        None => {
-            let msg: String = format!("Symbol info not found for: {}", order.symbol);
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
 
-            return;
-        }
-    };
     if order.type_ == "received" {
         // order in order book
         insert_current_orderactive_to_db(pool, exchange, &order).await;
-
-        let mut active_buy_orders =
-            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy").await;
-        let mut active_sell_orders =
-            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell").await;
-
-        if order.side == "buy" {
-            if active_sell_orders.is_empty() {
-                // sell orders unexist
-                if active_buy_orders.len() == 2 {
-                    if let Some(price_str) = calculate_price(
-                        &order.price,
-                        &symbol_info.price_increment,
-                        |a, _b| a * 1.01, // price + 1%
-                    ) {
-                        create_order_safely(
-                            pool,
-                            exchange,
-                            &order.side,
-                            &order.symbol,
-                            &price_str,
-                            order.origin_size.as_deref(),
-                            symbol_info,
-                        )
-                        .await;
-                    } else {
-                        let msg: String =
-                            format!("Failed to calculate price for order {}", order.order_id);
-                        error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
-                    }
-                }
-
-                while active_buy_orders.len() >= 3 {
-                    if let Some(oldest_order) =
-                        delete_oldest_orderactive(pool, exchange, &order.symbol, "buy").await
-                    {
-                        let _ = cancel_order(
-                            pool,
-                            exchange,
-                            &oldest_order.symbol,
-                            &oldest_order.order_id,
-                        )
-                        .await;
-                        active_buy_orders =
-                            fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "buy")
-                                .await;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        } else if order.side == "sell" && active_buy_orders.is_empty() {
-            // buy orders unexist
-            if active_sell_orders.len() == 2 {
-                if let Some(price_str) = calculate_price(
-                    &order.price,
-                    &symbol_info.price_increment,
-                    |a, _b| a * 100.0 / 101.0, // price - 1%
-                ) {
-                    create_order_safely(
-                        pool,
-                        exchange,
-                        &order.side,
-                        &order.symbol,
-                        &price_str,
-                        order.origin_size.as_deref(),
-                        symbol_info,
-                    )
-                    .await;
-                } else {
-                    let msg: String =
-                        format!("Failed to calculate price for order {}", order.order_id);
-                    error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
-                }
-            }
-
-            while active_sell_orders.len() >= 3 {
-                if let Some(oldest_order) =
-                    delete_oldest_orderactive(pool, exchange, &order.symbol, "sell").await
-                {
-                    let _ =
-                        cancel_order(pool, exchange, &oldest_order.symbol, &oldest_order.order_id)
-                            .await;
-                    active_sell_orders =
-                        fetch_all_active_orders_by_symbol(pool, exchange, &order.symbol, "sell")
-                            .await;
-                } else {
-                    break;
-                }
-            }
-        }
     } else if order.type_ == "canceled" {
         // cancel order
         delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
     } else if order.type_ == "match" && order.remain_size == Some("0".to_string()) {
         // get last event on match size of position
         // next msg will filled, but it don't have match price
-
-        // filled sell (cancel all buy orders)
-        //     check if order on sell exist
-        //         unexist - add buy order
-        //                 - add buy order - 1%
-        //         exist 	- add buy order - 1%
-        // filled buy (cancel all sell orders)
-        //     check if order on buy exist
-        //         unexist - add sell order
-        //                 - add sell order + 1%
-        //         exist	- add sell order + 1%
-
-        delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-
-        if order.side == "sell" {
-            // transfer profit to TRADE
-            match calculate_transfer_amount(
-                &order.match_price,
-                &order.origin_size,
-                &symbol_info.quote_increment,
-            ) {
-                Some(size_for_transfer) => {
-                    match api::requests::sent_account_transfer(
-                        "USDT",
-                        &size_for_transfer, // match_price * origin_size * 0.01
-                        "INTERNAL",
-                        "MARGIN",
-                        "TRADE",
-                    )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!(
-                                "Failed send {} from MARGIN to TRADE on {} {}",
-                                "USDT", &size_for_transfer, e
-                            );
-                            error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
-                        }
-                    }
-                }
-                None => {
-                    let msg =
-                        "Failed to calculate transfer amount from MARGIN to TRADE".to_string();
-                    error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
-                }
-            }
-
-            // create new buy order
-            if let Some(price_str) = calculate_price(
-                &order.match_price,
-                &symbol_info.price_increment,
-                |a, _b| a * 100.0 / 101.0, // match_price - 1%
-            ) {
-                create_order_safely(
-                    pool,
-                    exchange,
-                    "buy",
-                    &order.symbol,
-                    &price_str,
-                    order.origin_size.as_deref(),
-                    symbol_info,
-                )
-                .await;
-            } else {
-                let msg: String = format!("Failed to calculate price for order {}", order.order_id);
-                error!("{}", msg);
-                insert_db_error(pool, exchange, &msg).await;
-            }
-        } else if order.side == "buy" {
-            // filled buy (cancel all sell orders)
-            if let Some(price_str) = calculate_price(
-                &order.match_price,
-                &symbol_info.price_increment,
-                |a, _b| a * 1.01, // match_price + 1%
-            ) {
-                create_order_safely(
-                    pool,
-                    exchange,
-                    "sell",
-                    &order.symbol,
-                    &price_str,
-                    order.origin_size.as_deref(),
-                    symbol_info,
-                )
-                .await;
-            } else {
-                let msg: String = format!("Failed to calculate price for order {}", order.order_id);
-                error!("{}", msg);
-                insert_db_error(pool, exchange, &msg).await;
-            }
-        }
     }
 }
 
@@ -683,7 +487,7 @@ async fn handle_position_event(
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute = true;
+    let mut init_order_execute = false;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
@@ -864,13 +668,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 match OrderData::deserialize(&data.data) {
                                     Ok(order) => {
                                         // order magic
-                                        // handle_trade_order_event(
-                                        //     order,
-                                        //     &pool_for_handler,
-                                        //     &exchange_for_handler,
-                                        //     &symbol_map_for_handler,
-                                        // )
-                                        // .await
+                                        handle_trade_order_event(
+                                            order,
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &symbol_map_for_handler,
+                                        )
+                                        .await
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
@@ -990,16 +794,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if !init_order_execute {
                 info!("Initializing start orders...");
                 let trade_bots = get_all_bots_for_trade(&pool, &exchange).await;
-                let tradeable_symbols = get_list_tradeable_symbols(&pool, &exchange).await;
+
                 for trade_bot in trade_bots.iter() {
                     // random sections
-                    let symbol_choice =
-                        &tradeable_symbols[fastrand::usize(..tradeable_symbols.len())];
-                    let side = if fastrand::bool() { "buy" } else { "sell" };
+                    let random_symbol = get_random_tradeable_symbol(&pool, &exchange).await;
+
+                    let side = get_random_side();
                     // end random sections
-                    info!("Choice symbol {} on side {}", symbol_choice.symbol, side);
+                    info!("Choice symbol {} on side {}", random_symbol.clone(), side);
                     // make order
                     let client_oid = Uuid::new_v4().to_string();
+                    // save entry_id for bots
                     match update_bots_entry_id(&pool, &exchange, Some(&client_oid), trade_bot.id)
                         .await
                     {
@@ -1009,8 +814,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 &pool,
                                 &exchange,
                                 &client_oid,
-                                side,
-                                &symbol_choice.symbol,
+                                &side,
+                                &random_symbol,
                                 trade_bot.balance.clone(),
                                 "market".to_string(),
                             )
@@ -1020,6 +825,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     // update bots info by
                                 }
                                 Err(_) => {
+                                    // delete if order fail
                                     match update_bots_entry_id(&pool, &exchange, None, trade_bot.id)
                                         .await
                                     {
