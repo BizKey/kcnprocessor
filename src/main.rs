@@ -157,7 +157,6 @@ async fn make_hf_size_margin_order_safe(
     size: String,
     type_: String,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    
     let symbol_info = match fetch_symbol_info_for_symbol(pool, exchange, symbol).await {
         Some(info) => info,
         None => {
