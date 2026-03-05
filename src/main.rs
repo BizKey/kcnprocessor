@@ -1,15 +1,14 @@
 use crate::api::db::{
-    clear_orders_ids_for_bots, delete_current_orderactive_from_db, delete_oldest_orderactive,
-    fetch_all_active_orders_by_symbol, fetch_symbol_info, get_all_bots_for_trade, get_random_side,
-    get_random_tradeable_symbol, insert_current_orderactive_to_db, insert_db_balance,
-    insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
-    update_bots_entry_id, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
+    clear_orders_ids_for_bots, delete_current_orderactive_from_db, fetch_symbol_info,
+    get_all_bots_for_trade, get_random_side, get_random_tradeable_symbol,
+    insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
+    insert_db_msgsend, insert_db_orderevent, update_bots_entry_id, upsert_position_asset,
+    upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
     BalanceData, KuCoinMessage, OrderData, PositionData, StopOrderData, Symbol,
 };
 use dotenv::dotenv;
-use fastrand;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use serde::Deserialize;
