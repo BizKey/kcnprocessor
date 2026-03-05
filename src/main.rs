@@ -613,7 +613,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                         all_asset_clear = false;
                     } else if account.currency != "USDT" && available > 0.0 {
-                        // sell stocks by market available
+                        // sell stocks by market available/ works
 
                         let _ = make_hf_size_margin_order_safe(
                             &pool,
