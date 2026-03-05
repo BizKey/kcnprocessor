@@ -136,6 +136,56 @@ async fn make_hf_funds_margin_order(
         }
     }
 }
+async fn fetch_symbol_info_for_symbol(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    symbol: &str,
+) -> Option<Symbol> {
+    sqlx::query_as::<_, Symbol>("SELECT * FROM symbols WHERE exchange = $1 AND symbol = $2")
+        .bind(exchange)
+        .bind(symbol)
+        .fetch_optional(pool)
+        .await
+        .ok()?
+}
+
+async fn make_hf_size_margin_order_safe(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    side: &str,
+    symbol: &str,
+    size: String,
+    type_: String,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    
+    let symbol_info = match fetch_symbol_info_for_symbol(pool, exchange, symbol).await {
+        Some(info) => info,
+        None => {
+            let msg = format!("Symbol info not found for {}", symbol);
+            error!("{}", msg);
+            insert_db_error(pool, exchange, &msg).await;
+            return Err(msg.into());
+        }
+    };
+
+    let base_increment = symbol_info.base_increment.parse::<f64>()?;
+    let size_f64 = size.parse::<f64>()?;
+    let rounded_size = (size_f64 / base_increment).floor() * base_increment;
+    let rounded_size_str = format_size(rounded_size, base_increment);
+
+    let min_size = symbol_info.base_min_size.parse::<f64>()?;
+    if rounded_size < min_size {
+        let msg = format!(
+            "Size {} below min_size {} for symbol {}",
+            rounded_size, min_size, symbol
+        );
+        error!("{}", msg);
+        insert_db_error(pool, exchange, &msg).await;
+        return Err(msg.into());
+    }
+
+    make_hf_size_margin_order(pool, exchange, side, symbol, rounded_size_str, type_).await
+}
 
 async fn make_hf_size_margin_order(
     pool: &sqlx::Pool<sqlx::Postgres>,
@@ -303,7 +353,7 @@ async fn create_order_safely(
             }
         },
     };
-    let _ = make_hf_size_margin_order(
+    let _ = make_hf_size_margin_order_safe(
         pool,
         exchange,
         side,
@@ -552,7 +602,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             };
                         } else if account.currency != "USDT" && available == 0.0 {
                             // buy stock by market liability
-                            let _ = make_hf_size_margin_order(
+                            let _ = make_hf_size_margin_order_safe(
                                 &pool,
                                 &exchange,
                                 "buy",
@@ -566,7 +616,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available
 
-                        let _ = make_hf_size_margin_order(
+                        let _ = make_hf_size_margin_order_safe(
                             &pool,
                             &exchange,
                             "sell",
