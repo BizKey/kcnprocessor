@@ -225,6 +225,7 @@ async fn make_hf_size_margin_order(
         "timeInForce": args_time_in_force,
         "size": size
     });
+    info!("{}", msg);
 
     match api::requests::add_hf_margin_order(msg.clone()).await {
         Ok(data) => {
@@ -606,21 +607,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 &exchange,
                                 "buy",
                                 &(account.currency.clone() + "-USDT"), // e.t. ADA-USDT
-                                liability.to_string(),
+                                liability.to_string(),                 // always in
                                 "market".to_string(),
                             )
                             .await;
                         }
                         all_asset_clear = false;
                     } else if account.currency != "USDT" && available > 0.0 {
-                        // sell stocks by market available
+                        // sell stocks by market available/ works
 
                         let _ = make_hf_size_margin_order_safe(
                             &pool,
                             &exchange,
                             "sell",
                             &(account.currency.clone() + "-USDT"), // e.t. ADA-USDT
-                            available.to_string(),
+                            available.to_string(),                 // always in base currency
                             "market".to_string(),
                         )
                         .await;
