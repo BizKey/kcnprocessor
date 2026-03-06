@@ -207,6 +207,7 @@ pub struct Symbol {
     pub price_increment: String,
     pub quote_increment: String,
     pub base_min_size: String,
+    pub quote_min_size: String,
 }
 
 #[derive(Debug, Deserialize)]

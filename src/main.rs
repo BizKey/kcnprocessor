@@ -167,16 +167,16 @@ async fn make_hf_buy_margin_order_safe(
         }
     };
 
-    let base_increment = symbol_info.base_increment.parse::<f64>()?;
-    let size_f64 = funds.parse::<f64>()?;
-    let rounded_size = (size_f64 / base_increment).floor() * base_increment;
-    let rounded_size_str = format_size(rounded_size, base_increment);
+    let quote_increment = symbol_info.quote_increment.parse::<f64>()?;
+    let funds_f64 = funds.parse::<f64>()?;
+    let rounded_funds = (funds_f64 / quote_increment).floor() * quote_increment;
+    let rounded_funds_str = format_size(rounded_funds, quote_increment);
 
-    let min_size = symbol_info.base_min_size.parse::<f64>()?;
-    if rounded_size < min_size {
+    let min_funds = symbol_info.quote_min_size.parse::<f64>()?;
+    if rounded_funds < min_funds {
         let msg = format!(
-            "Size {} below min_size {} for symbol {}",
-            rounded_size, min_size, symbol
+            "Size {} below min_funds {} for symbol {}",
+            rounded_funds, min_funds, symbol
         );
         error!("{}", msg);
         insert_db_error(pool, exchange, &msg).await;
@@ -189,7 +189,7 @@ async fn make_hf_buy_margin_order_safe(
         client_oid,
         "buy",
         symbol,
-        rounded_size_str,
+        rounded_funds_str,
         type_,
     )
     .await
