@@ -152,8 +152,9 @@ async fn fetch_symbol_info_for_symbol(
 async fn make_hf_buy_margin_order_safe(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
+    client_oid: &str,
     symbol: &str,
-    size: String,
+    funds: String,
     type_: String,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let symbol_info = match fetch_symbol_info_for_symbol(pool, exchange, symbol).await {
@@ -167,7 +168,7 @@ async fn make_hf_buy_margin_order_safe(
     };
 
     let base_increment = symbol_info.base_increment.parse::<f64>()?;
-    let size_f64 = size.parse::<f64>()?;
+    let size_f64 = funds.parse::<f64>()?;
     let rounded_size = (size_f64 / base_increment).floor() * base_increment;
     let rounded_size_str = format_size(rounded_size, base_increment);
 
@@ -182,12 +183,22 @@ async fn make_hf_buy_margin_order_safe(
         return Err(msg.into());
     }
 
-    make_hf_size_margin_order(pool, exchange, "buy", symbol, rounded_size_str, type_).await
+    make_hf_funds_margin_order(
+        pool,
+        exchange,
+        client_oid,
+        "buy",
+        symbol,
+        rounded_size_str,
+        type_,
+    )
+    .await
 }
 
 async fn make_hf_sell_margin_order_safe(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
+    client_oid: &str,
     symbol: &str,
     size: String,
     type_: String,
@@ -218,12 +229,22 @@ async fn make_hf_sell_margin_order_safe(
         return Err(msg.into());
     }
 
-    make_hf_size_margin_order(pool, exchange, "sell", symbol, rounded_size_str, type_).await
+    make_hf_size_margin_order(
+        pool,
+        exchange,
+        client_oid,
+        "sell",
+        symbol,
+        rounded_size_str,
+        type_,
+    )
+    .await
 }
 
 async fn make_hf_size_margin_order(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
+    client_oid: &str,
     side: &str,
     symbol: &str,
     size: String,
@@ -232,7 +253,6 @@ async fn make_hf_size_margin_order(
     let args_time_in_force = "GTC";
     let auto_borrow = true;
     let auto_repay = true;
-    let client_oid = Uuid::new_v4().to_string();
 
     insert_db_msgsend(
         pool,
@@ -273,7 +293,7 @@ async fn make_hf_size_margin_order(
                 insert_db_error(pool, exchange, &msg).await;
                 return Err(msg.into());
             } else {
-                return Ok(client_oid);
+                return Ok(client_oid.to_string());
             }
         }
         Err(e) => {
@@ -549,9 +569,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             };
                         } else if account.currency != "USDT" && available == 0.0 {
                             // buy stock by market liability
+                            let client_oid = Uuid::new_v4().to_string();
                             let _ = make_hf_buy_margin_order_safe(
                                 &pool,
                                 &exchange,
+                                &client_oid,
                                 &(account.currency.clone() + "-USDT"), // e.t. ADA-USDT
                                 liability.to_string(),                 // always in USDT
                                 "market".to_string(),
@@ -561,10 +583,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         all_asset_clear = false;
                     } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available/ works
-
+                        let client_oid = Uuid::new_v4().to_string();
                         let _ = make_hf_sell_margin_order_safe(
                             &pool,
                             &exchange,
+                            &client_oid,
                             &(account.currency.clone() + "-USDT"), // e.t. ADA-USDT
                             available.to_string(),                 // always in base currency
                             "market".to_string(),
