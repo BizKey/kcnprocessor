@@ -149,98 +149,6 @@ async fn fetch_symbol_info_for_symbol(
         .ok()?
 }
 
-async fn make_hf_buy_margin_order_safe(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    client_oid: &str,
-    symbol: &str,
-    funds: String,
-    type_: String,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let symbol_info = match fetch_symbol_info_for_symbol(pool, exchange, symbol).await {
-        Some(info) => info,
-        None => {
-            let msg = format!("Symbol info not found for {}", symbol);
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
-            return Err(msg.into());
-        }
-    };
-
-    let quote_increment = symbol_info.quote_increment.parse::<f64>()?;
-    let funds_f64 = funds.parse::<f64>()?;
-    let rounded_funds = (funds_f64 / quote_increment).floor() * quote_increment;
-    let rounded_funds_str = format_size(rounded_funds, quote_increment);
-
-    let min_funds = symbol_info.quote_min_size.parse::<f64>()?;
-    if rounded_funds < min_funds {
-        let msg = format!(
-            "Size {} below min_funds {} for symbol {}",
-            rounded_funds, min_funds, symbol
-        );
-        error!("{}", msg);
-        insert_db_error(pool, exchange, &msg).await;
-        return Err(msg.into());
-    }
-
-    make_hf_funds_margin_order(
-        pool,
-        exchange,
-        client_oid,
-        "buy",
-        symbol,
-        rounded_funds_str,
-        type_,
-    )
-    .await
-}
-
-async fn make_hf_sell_margin_order_safe(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    client_oid: &str,
-    symbol: &str,
-    size: String,
-    type_: String,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let symbol_info = match fetch_symbol_info_for_symbol(pool, exchange, symbol).await {
-        Some(info) => info,
-        None => {
-            let msg = format!("Symbol info not found for {}", symbol);
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
-            return Err(msg.into());
-        }
-    };
-
-    let base_increment = symbol_info.base_increment.parse::<f64>()?;
-    let size_f64 = size.parse::<f64>()?;
-    let rounded_size = (size_f64 / base_increment).floor() * base_increment;
-    let rounded_size_str = format_size(rounded_size, base_increment);
-
-    let min_size = symbol_info.base_min_size.parse::<f64>()?;
-    if rounded_size < min_size {
-        let msg = format!(
-            "Size {} below min_size {} for symbol {}",
-            rounded_size, min_size, symbol
-        );
-        error!("{}", msg);
-        insert_db_error(pool, exchange, &msg).await;
-        return Err(msg.into());
-    }
-
-    make_hf_size_margin_order(
-        pool,
-        exchange,
-        client_oid,
-        "sell",
-        symbol,
-        rounded_size_str,
-        type_,
-    )
-    .await
-}
-
 async fn make_hf_size_margin_order(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
@@ -569,13 +477,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             };
                         } else if account.currency != "USDT" && available == 0.0 {
                             // buy stock by market liability
+                            let trade_symbol = &(account.currency.clone() + "-USDT");
                             let client_oid = Uuid::new_v4().to_string();
-                            let _ = make_hf_buy_margin_order_safe(
+                            let symbol_info =
+                                match fetch_symbol_info_for_symbol(&pool, &exchange, trade_symbol)
+                                    .await
+                                {
+                                    Some(info) => info,
+                                    None => {
+                                        let msg =
+                                            format!("Symbol info not found for {}", trade_symbol);
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        return Err(msg.into());
+                                    }
+                                };
+
+                            let quote_increment = symbol_info.quote_increment.parse::<f64>()?;
+                            let funds_f64 = liability.to_string().parse::<f64>()?;
+                            let rounded_funds =
+                                (funds_f64 / quote_increment).floor() * quote_increment;
+                            let rounded_funds_str = format_size(rounded_funds, quote_increment);
+
+                            let min_funds = symbol_info.quote_min_size.parse::<f64>()?;
+                            if rounded_funds < min_funds {
+                                let msg = format!(
+                                    "Size {} below min_funds {} for symbol {}",
+                                    rounded_funds, min_funds, trade_symbol
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return Err(msg.into());
+                            }
+
+                            make_hf_funds_margin_order(
                                 &pool,
                                 &exchange,
                                 &client_oid,
-                                &(account.currency.clone() + "-USDT"), // e.t. ADA-USDT
-                                liability.to_string(),                 // always in USDT
+                                "buy",
+                                trade_symbol,
+                                rounded_funds_str,
                                 "market".to_string(),
                             )
                             .await;
@@ -584,12 +525,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available/ works
                         let client_oid = Uuid::new_v4().to_string();
-                        let _ = make_hf_sell_margin_order_safe(
+                        let trade_symbol = &(account.currency.clone() + "-USDT");
+                        let symbol_info = match fetch_symbol_info_for_symbol(
+                            &pool,
+                            &exchange,
+                            trade_symbol,
+                        )
+                        .await
+                        {
+                            Some(info) => info,
+                            None => {
+                                let msg = format!("Symbol info not found for {}", trade_symbol);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return Err(msg.into());
+                            }
+                        };
+
+                        let base_increment = symbol_info.base_increment.parse::<f64>()?;
+                        let size_f64 = available.to_string().parse::<f64>()?;
+                        let rounded_size = (size_f64 / base_increment).floor() * base_increment;
+                        let rounded_size_str = format_size(rounded_size, base_increment);
+
+                        let min_size = symbol_info.base_min_size.parse::<f64>()?;
+                        if rounded_size < min_size {
+                            let msg = format!(
+                                "Size {} below min_size {} for symbol {}",
+                                rounded_size, min_size, trade_symbol
+                            );
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                            return Err(msg.into());
+                        }
+
+                        make_hf_size_margin_order(
                             &pool,
                             &exchange,
                             &client_oid,
-                            &(account.currency.clone() + "-USDT"), // e.t. ADA-USDT
-                            available.to_string(),                 // always in base currency
+                            "sell",
+                            trade_symbol,
+                            rounded_size_str,
                             "market".to_string(),
                         )
                         .await;
