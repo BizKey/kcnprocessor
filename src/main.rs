@@ -524,6 +524,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 .await;
                             }
                         }
+                        all_asset_clear = false;
                         continue;
                     } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available/ works
