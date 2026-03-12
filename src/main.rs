@@ -10,7 +10,7 @@ use crate::api::models::{
 };
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{error, info, warn};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
@@ -149,46 +149,10 @@ async fn fetch_symbol_info_for_symbol(
         .ok()?
 }
 
-async fn make_hf_size_margin_order_safe(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    side: &str,
-    symbol: &str,
-    size: String,
-    type_: String,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let symbol_info = match fetch_symbol_info_for_symbol(pool, exchange, symbol).await {
-        Some(info) => info,
-        None => {
-            let msg = format!("Symbol info not found for {}", symbol);
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
-            return Err(msg.into());
-        }
-    };
-
-    let base_increment = symbol_info.base_increment.parse::<f64>()?;
-    let size_f64 = size.parse::<f64>()?;
-    let rounded_size = (size_f64 / base_increment).floor() * base_increment;
-    let rounded_size_str = format_size(rounded_size, base_increment);
-
-    let min_size = symbol_info.base_min_size.parse::<f64>()?;
-    if rounded_size < min_size {
-        let msg = format!(
-            "Size {} below min_size {} for symbol {}",
-            rounded_size, min_size, symbol
-        );
-        error!("{}", msg);
-        insert_db_error(pool, exchange, &msg).await;
-        return Err(msg.into());
-    }
-
-    make_hf_size_margin_order(pool, exchange, side, symbol, rounded_size_str, type_).await
-}
-
 async fn make_hf_size_margin_order(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
+    client_oid: &str,
     side: &str,
     symbol: &str,
     size: String,
@@ -197,7 +161,6 @@ async fn make_hf_size_margin_order(
     let args_time_in_force = "GTC";
     let auto_borrow = true;
     let auto_repay = true;
-    let client_oid = Uuid::new_v4().to_string();
 
     insert_db_msgsend(
         pool,
@@ -238,7 +201,7 @@ async fn make_hf_size_margin_order(
                 insert_db_error(pool, exchange, &msg).await;
                 return Err(msg.into());
             } else {
-                return Ok(client_oid);
+                return Ok(client_oid.to_string());
             }
         }
         Err(e) => {
@@ -274,94 +237,6 @@ fn calculate_size(notional: f64, price: f64, base_increment: f64, min_size: f64)
     }
 
     Some(format_size(size, base_increment))
-}
-async fn create_order_safely(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    side: &str,
-    symbol: &str,
-    price_str: &str,
-    size_option: Option<&str>,
-    symbol_info: &Symbol,
-) {
-    let price_f64 = match price_str.parse::<f64>() {
-        Ok(v) if v > 0.0 => v,
-        _ => {
-            let msg = format!("Invalid price '{}' for symbol {}", price_str, symbol);
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
-            return;
-        }
-    };
-
-    let base_increment = match symbol_info.base_increment.parse::<f64>() {
-        Ok(v) if v > 0.0 => v,
-        _ => {
-            let msg = format!(
-                "Invalid base_increment '{}' for symbol {}",
-                symbol_info.base_increment, symbol,
-            );
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
-            return;
-        }
-    };
-
-    let min_size = match symbol_info.base_min_size.parse::<f64>() {
-        Ok(v) if v > 0.0 => v,
-        _ => {
-            let msg = format!(
-                "Invalid min_size '{}' for symbol {}",
-                symbol_info.base_min_size, symbol
-            );
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
-            return;
-        }
-    };
-
-    let size_str = match size_option {
-        Some(size_str) => match size_str.parse::<f64>() {
-            Ok(size_f64) => {
-                if size_f64 >= min_size {
-                    let rounded_size = (size_f64 / base_increment).floor() * base_increment;
-                    format_size(rounded_size, base_increment)
-                } else {
-                    let msg = format!(
-                        "Size {} below min_size {} for symbol {}",
-                        size_str, min_size, symbol
-                    );
-                    error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
-                    return;
-                }
-            }
-            Err(_) => {
-                let msg = format!("Invalid size '{}' for symbol {}", size_str, symbol);
-                error!("{}", msg);
-                insert_db_error(pool, exchange, &msg).await;
-                return;
-            }
-        },
-        None => match calculate_size(10.0, price_f64, base_increment, min_size) {
-            Some(size) => size,
-            None => {
-                let msg = format!("Failed to calculate size for symbol {}", symbol);
-                error!("{}", msg);
-                insert_db_error(pool, exchange, &msg).await;
-                return;
-            }
-        },
-    };
-    let _ = make_hf_size_margin_order_safe(
-        pool,
-        exchange,
-        side,
-        symbol,
-        price_str.to_string(),
-        size_str,
-    )
-    .await;
 }
 
 fn format_price(price: f64, increment: f64) -> String {
@@ -602,30 +477,113 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             };
                         } else if account.currency != "USDT" && available == 0.0 {
                             // buy stock by market liability
-                            let _ = make_hf_size_margin_order_safe(
-                                &pool,
-                                &exchange,
-                                "buy",
-                                &(account.currency.clone() + "-USDT"), // e.t. ADA-USDT
-                                liability.to_string(),                 // always in
-                                "market".to_string(),
-                            )
-                            .await;
+                            let trade_symbol = &(account.currency.clone() + "-USDT");
+                            let client_oid = Uuid::new_v4().to_string();
+                            let symbol_info =
+                                match fetch_symbol_info_for_symbol(&pool, &exchange, trade_symbol)
+                                    .await
+                                {
+                                    Some(info) => info,
+                                    None => {
+                                        let msg =
+                                            format!("Symbol info not found for {}", trade_symbol);
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        continue;
+                                    }
+                                };
+
+                            let quote_increment = symbol_info.quote_increment.parse::<f64>()?;
+                            let funds_f64 = liability.to_string().parse::<f64>()?;
+                            let rounded_funds =
+                                (funds_f64 / quote_increment).floor() * quote_increment;
+
+                            let min_funds = symbol_info.quote_min_size.parse::<f64>()?;
+
+                            if rounded_funds < min_funds {
+                                make_hf_funds_margin_order(
+                                    &pool,
+                                    &exchange,
+                                    &client_oid,
+                                    "buy",
+                                    trade_symbol,
+                                    format_size(min_funds, quote_increment),
+                                    "market".to_string(),
+                                )
+                                .await;
+                            } else {
+                                make_hf_funds_margin_order(
+                                    &pool,
+                                    &exchange,
+                                    &client_oid,
+                                    "buy",
+                                    trade_symbol,
+                                    format_size(rounded_funds, quote_increment),
+                                    "market".to_string(),
+                                )
+                                .await;
+                            }
                         }
                         all_asset_clear = false;
                     } else if account.currency != "USDT" && available > 0.0 {
                         // sell stocks by market available/ works
-
-                        let _ = make_hf_size_margin_order_safe(
+                        let client_oid = Uuid::new_v4().to_string();
+                        let trade_symbol = &(account.currency.clone() + "-USDT");
+                        let symbol_info = match fetch_symbol_info_for_symbol(
                             &pool,
                             &exchange,
-                            "sell",
-                            &(account.currency.clone() + "-USDT"), // e.t. ADA-USDT
-                            available.to_string(),                 // always in base currency
-                            "market".to_string(),
+                            trade_symbol,
                         )
-                        .await;
+                        .await
+                        {
+                            Some(info) => info,
+                            None => {
+                                let msg = format!("Symbol info not found for {}", trade_symbol);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return Err(msg.into());
+                            }
+                        };
 
+                        let base_increment = symbol_info.base_increment.parse::<f64>()?;
+                        let size_f64 = available.to_string().parse::<f64>()?;
+                        let rounded_size = (size_f64 / base_increment).floor() * base_increment;
+
+                        let min_size = symbol_info.base_min_size.parse::<f64>()?;
+                        if rounded_size < min_size {
+                            match api::requests::sent_account_transfer(
+                                &account.currency.clone(),
+                                &rounded_size.to_string(),
+                                "INTERNAL",
+                                "MARGIN_V2",
+                                "TRADE",
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!(
+                                        "Failed send {} to TRADE from MARGIN_V2 on {} {}",
+                                        &account.currency.clone(),
+                                        &rounded_size.to_string(),
+                                        e
+                                    );
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                }
+                            }
+                        } else {
+                            make_hf_size_margin_order(
+                                &pool,
+                                &exchange,
+                                &client_oid,
+                                "sell",
+                                trade_symbol,
+                                format_size(rounded_size, base_increment),
+                                "market".to_string(),
+                            )
+                            .await;
+                        }
                         all_asset_clear = false;
                     }
                 }
