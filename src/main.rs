@@ -489,7 +489,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             format!("Symbol info not found for {}", trade_symbol);
                                         error!("{}", msg);
                                         insert_db_error(&pool, &exchange, &msg).await;
-                                        return Err(msg.into());
+                                        continue;
                                     }
                                 };
 
