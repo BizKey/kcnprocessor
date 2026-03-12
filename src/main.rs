@@ -553,7 +553,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         if rounded_size < min_size {
                             match api::requests::sent_account_transfer(
                                 &account.currency.clone(),
-                                &rounded_size.to_string(),
+                                &available.to_string(),
                                 "INTERNAL",
                                 "MARGIN_V2",
                                 "TRADE",
@@ -565,7 +565,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     let msg: String = format!(
                                         "Failed send {} to TRADE from MARGIN_V2 on {} {}",
                                         &account.currency.clone(),
-                                        &rounded_size.to_string(),
+                                        &available.to_string(),
                                         e
                                     );
                                     error!("{}", msg);
