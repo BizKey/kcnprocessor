@@ -10,7 +10,7 @@ use crate::api::models::{
 };
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{error, info, warn};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
@@ -497,29 +497,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let funds_f64 = liability.to_string().parse::<f64>()?;
                             let rounded_funds =
                                 (funds_f64 / quote_increment).floor() * quote_increment;
-                            let rounded_funds_str = format_size(rounded_funds, quote_increment);
 
                             let min_funds = symbol_info.quote_min_size.parse::<f64>()?;
-                            if rounded_funds < min_funds {
-                                let msg = format!(
-                                    "Size {} below min_funds {} for symbol {}",
-                                    rounded_funds, min_funds, trade_symbol
-                                );
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
-                                return Err(msg.into());
-                            }
 
-                            make_hf_funds_margin_order(
-                                &pool,
-                                &exchange,
-                                &client_oid,
-                                "buy",
-                                trade_symbol,
-                                rounded_funds_str,
-                                "market".to_string(),
-                            )
-                            .await;
+                            if rounded_funds < min_funds {
+                                make_hf_funds_margin_order(
+                                    &pool,
+                                    &exchange,
+                                    &client_oid,
+                                    "buy",
+                                    trade_symbol,
+                                    format_size(min_funds, quote_increment),
+                                    "market".to_string(),
+                                )
+                                .await;
+                            } else {
+                                make_hf_funds_margin_order(
+                                    &pool,
+                                    &exchange,
+                                    &client_oid,
+                                    "buy",
+                                    trade_symbol,
+                                    format_size(rounded_funds, quote_increment),
+                                    "market".to_string(),
+                                )
+                                .await;
+                            }
                         }
                         all_asset_clear = false;
                     } else if account.currency != "USDT" && available > 0.0 {
@@ -545,29 +548,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         let base_increment = symbol_info.base_increment.parse::<f64>()?;
                         let size_f64 = available.to_string().parse::<f64>()?;
                         let rounded_size = (size_f64 / base_increment).floor() * base_increment;
-                        let rounded_size_str = format_size(rounded_size, base_increment);
 
                         let min_size = symbol_info.base_min_size.parse::<f64>()?;
                         if rounded_size < min_size {
-                            let msg = format!(
-                                "Size {} below min_size {} for symbol {}",
-                                rounded_size, min_size, trade_symbol
-                            );
-                            error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
-                            return Err(msg.into());
+                            match api::requests::sent_account_transfer(
+                                &account.currency.clone(),
+                                &rounded_size.to_string(),
+                                "INTERNAL",
+                                "MARGIN_V2",
+                                "TRADE",
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!(
+                                        "Failed send {} to TRADE from MARGIN_V2 on {} {}",
+                                        &account.currency.clone(),
+                                        &rounded_size.to_string(),
+                                        e
+                                    );
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                }
+                            }
+                        } else {
+                            make_hf_size_margin_order(
+                                &pool,
+                                &exchange,
+                                &client_oid,
+                                "sell",
+                                trade_symbol,
+                                format_size(rounded_size, base_increment),
+                                "market".to_string(),
+                            )
+                            .await;
                         }
-
-                        make_hf_size_margin_order(
-                            &pool,
-                            &exchange,
-                            &client_oid,
-                            "sell",
-                            trade_symbol,
-                            rounded_size_str,
-                            "market".to_string(),
-                        )
-                        .await;
 
                         all_asset_clear = false;
                     }
