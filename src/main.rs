@@ -115,7 +115,7 @@ async fn make_hf_funds_margin_order(
     });
     info!("{}", msg);
 
-    match api::requests::add_hf_margin_order(msg.clone()).await {
+    match api::requests::add_api_v3_hf_margin_order(msg.clone()).await {
         Ok(data) => {
             if data.code != "200000" {
                 let msg = format!(
@@ -191,7 +191,7 @@ async fn make_hf_size_margin_order(
     });
     info!("{}", msg);
 
-    match api::requests::add_hf_margin_order(msg.clone()).await {
+    match api::requests::add_api_v3_hf_margin_order(msg.clone()).await {
         Ok(data) => {
             if data.code != "200000" {
                 let msg = format!(

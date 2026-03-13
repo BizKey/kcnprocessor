@@ -412,7 +412,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn add_hf_margin_order(
+    pub async fn add_api_v3_hf_margin_order(
         &self,
         body: serde_json::Value,
     ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
@@ -662,11 +662,11 @@ pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error 
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.batch_cancel_stop_orders().await
 }
-pub async fn add_hf_margin_order(
+pub async fn add_api_v3_hf_margin_order(
     body: serde_json::Value,
 ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.add_hf_margin_order(body).await
+    client.add_api_v3_hf_margin_order(body).await
 }
 
 pub async fn cancel_order(
