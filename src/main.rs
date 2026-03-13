@@ -113,6 +113,7 @@ async fn make_hf_funds_margin_order(
         "timeInForce": args_time_in_force,
         "funds": funds
     });
+    info!("{}", msg);
 
     match api::requests::add_hf_margin_order(msg.clone()).await {
         Ok(data) => {
@@ -549,6 +550,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     continue;
                                 }
                             };
+                            // buy min funds or full
                             if token_funds < min_funds {
                                 let _ = make_hf_funds_margin_order(
                                     &pool,
