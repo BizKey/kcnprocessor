@@ -1,6 +1,6 @@
 use crate::api::models::{
-    ActualPrice, ApiV3BulletPrivate, CancelOrderRes, MakeOrderRes, MarginAccount,
-    MarginAccountData, OldActiveOrders, OldActiveOrdersData, SymbolOpenOrder,
+    ActualPrice, ApiV1TimestampRes, ApiV3BulletPrivate, CancelOrderRes, MakeOrderRes,
+    MarginAccount, MarginAccountData, OldActiveOrders, OldActiveOrdersData, SymbolOpenOrder,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -411,6 +411,35 @@ impl KuCoinClient {
             Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
+    pub async fn get_api_v1_timestamp(
+        &self,
+    ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
+        match self
+            .make_request(reqwest::Method::GET, "/api/v1/timestamp", None, None, false)
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<ApiV1TimestampRes>(&text) {
+                        Ok(res) => Ok(res.data),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
+        }
+    }
 
     pub async fn add_api_v3_hf_margin_order(
         &self,
@@ -534,7 +563,7 @@ impl KuCoinClient {
         body: Option<serde_json::Value>,
         authenticated: bool,
     ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        let url = format!("{}{}", self.base_url, endpoint);
+        let url: String = format!("{}{}", self.base_url, endpoint);
 
         let mut request_builder = self.client.request(method.clone(), &url);
 
@@ -547,12 +576,13 @@ impl KuCoinClient {
         }
 
         if authenticated {
-            let timestamp = SystemTime::now()
+            // get_api_v1_timestamp
+            let timestamp: u64 = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as u64;
 
-            let query_string = query_params
+            let query_string: String = query_params
                 .as_ref()
                 .map(|params| {
                     let mut pairs: Vec<String> =

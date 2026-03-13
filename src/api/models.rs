@@ -223,6 +223,11 @@ pub struct MakeOrderRes {
 pub struct CancelOrderRes {
     pub code: String,
 }
+#[derive(Debug, Deserialize)]
+pub struct ApiV1TimestampRes {
+    pub code: String,
+    pub data: i64,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SymbolOpenOrder {
