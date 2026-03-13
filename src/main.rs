@@ -83,6 +83,7 @@ async fn make_hf_funds_margin_order(
     funds: String,
     type_: String,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    // only for buy orders
     let args_time_in_force = "GTC";
     let auto_borrow = true;
     let auto_repay = true;
@@ -159,6 +160,7 @@ async fn make_hf_size_margin_order(
     size: String,
     type_: String,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    // only for sell orders
     let args_time_in_force = "GTC";
     let auto_borrow = true;
     let auto_repay = true;
@@ -876,10 +878,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 for trade_bot in trade_bots.iter() {
                     // random sections
                     let random_symbol = get_random_tradeable_symbol(&pool, &exchange).await;
+                    // get property of symbol
+                    let symbol_info = match fetch_symbol_info_for_symbol(
+                        &pool,
+                        &exchange,
+                        &random_symbol,
+                    )
+                    .await
+                    {
+                        Some(info) => info,
+                        None => {
+                            let msg = format!("Symbol info not found for {}", random_symbol);
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                            continue;
+                        }
+                    };
 
-                    let side = get_random_side();
+                    let trade_side: String = get_random_side();
                     // end random sections
-                    info!("Choice symbol {} on side {}", random_symbol.clone(), side);
+                    info!(
+                        "Choice symbol {} on side {}",
+                        random_symbol.clone(),
+                        trade_side
+                    );
                     // make order
                     let client_oid = Uuid::new_v4().to_string();
                     // save entry_id for bots
@@ -887,36 +909,162 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         .await
                     {
                         Ok(_) => {
-                            info!("Update bot info:{} {}", client_oid, trade_bot.id);
-                            match make_hf_funds_margin_order(
-                                &pool,
-                                &exchange,
-                                &client_oid,
-                                &side,
-                                &random_symbol,
-                                trade_bot.balance.clone(),
-                                "market".to_string(),
-                            )
-                            .await
-                            {
-                                Ok(_) => {
-                                    // update bots info by
-                                }
-                                Err(_) => {
-                                    // delete if order fail
-                                    match update_bots_entry_id(&pool, &exchange, None, trade_bot.id)
-                                        .await
-                                    {
-                                        Ok(_) => {
-                                            info!("Update bot info:None {}", trade_bot.id);
-                                        }
-                                        Err(_) => {}
-                                    }
+                            // parse balance of bot
+                            let balance_funds: f64 = match trade_bot.balance.parse::<f64>() {
+                                Ok(token_funds) => token_funds,
+                                Err(e) => {
+                                    let msg: String = format!(
+                                        "Failed parse balance: {} {}",
+                                        trade_bot.balance, e
+                                    );
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    continue;
                                 }
                             };
+                            match trade_side.as_str() {
+                                "sell" => {
+                                    let base_increment: f64 =
+                                        match symbol_info.base_increment.parse::<f64>() {
+                                            Ok(base_increment) => base_increment,
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed parse base_increment: {} {}",
+                                                    symbol_info.base_increment, e
+                                                );
+                                                error!("{}", msg);
+                                                insert_db_error(&pool, &exchange, &msg).await;
+                                                continue;
+                                            }
+                                        };
+                                    // get price token
+                                    let token_price_str =
+                                        match api::requests::get_ticker_price(&random_symbol).await
+                                        {
+                                            Ok(token_price_str) => {
+                                                info!("Successfully get price:{}", &random_symbol);
+                                                token_price_str
+                                            }
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed get price: {} {}",
+                                                    random_symbol, e
+                                                );
+                                                error!("{}", msg);
+                                                insert_db_error(&pool, &exchange, &msg).await;
+                                                continue;
+                                            }
+                                        };
+                                    // convert price from str to int
+                                    let token_price: f64 = match token_price_str.parse::<f64>() {
+                                        Ok(token_price) => token_price,
+                                        Err(e) => {
+                                            let msg: String = format!(
+                                                "Failed parse price: {} {}",
+                                                token_price_str, e
+                                            );
+                                            error!("{}", msg);
+                                            insert_db_error(&pool, &exchange, &msg).await;
+                                            continue;
+                                        }
+                                    };
+
+                                    // calc size token
+                                    let token_size: f64 = balance_funds / token_price;
+
+                                    match make_hf_size_margin_order(
+                                        &pool,
+                                        &exchange,
+                                        &client_oid,
+                                        &trade_side,
+                                        &random_symbol,
+                                        format_size(token_size, base_increment),
+                                        "market".to_string(),
+                                    )
+                                    .await
+                                    {
+                                        Ok(_) => {
+                                            info!(
+                                                "Update bot info:{} {}",
+                                                client_oid, trade_bot.id
+                                            );
+                                        }
+                                        Err(_) => {
+                                            // delete if order fail
+                                            match update_bots_entry_id(
+                                                &pool,
+                                                &exchange,
+                                                None,
+                                                trade_bot.id,
+                                            )
+                                            .await
+                                            {
+                                                Ok(_) => {
+                                                    info!("Update bot info:None {}", trade_bot.id);
+                                                }
+                                                Err(_) => {}
+                                            }
+                                        }
+                                    };
+                                }
+                                "buy" => {
+                                    // parse quote increment for symbol
+                                    let quote_increment: f64 =
+                                        match symbol_info.quote_increment.parse::<f64>() {
+                                            Ok(quote_increment) => quote_increment,
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed parse quote_increment: {} {}",
+                                                    symbol_info.quote_increment, e
+                                                );
+                                                error!("{}", msg);
+                                                insert_db_error(&pool, &exchange, &msg).await;
+                                                continue;
+                                            }
+                                        };
+                                    match make_hf_funds_margin_order(
+                                        &pool,
+                                        &exchange,
+                                        &client_oid,
+                                        &trade_side,
+                                        &random_symbol,
+                                        format_size(balance_funds, quote_increment),
+                                        "market".to_string(),
+                                    )
+                                    .await
+                                    {
+                                        Ok(_) => {
+                                            info!(
+                                                "Update bot info:{} {}",
+                                                client_oid, trade_bot.id
+                                            );
+                                        }
+                                        Err(_) => {
+                                            // delete if order fail
+                                            match update_bots_entry_id(
+                                                &pool,
+                                                &exchange,
+                                                None,
+                                                trade_bot.id,
+                                            )
+                                            .await
+                                            {
+                                                Ok(_) => {
+                                                    info!("Update bot info:None {}", trade_bot.id);
+                                                }
+                                                Err(_) => {}
+                                            }
+                                        }
+                                    };
+                                }
+                                _ => {}
+                            }
                         }
                         Err(e) => {
-                            let msg: String = format!("Failed to send order: {}", e);
+                            let msg: String = format!(
+                                "Failed save bot info: client_oid:{} trade_bot.id:{}, {}",
+                                client_oid, trade_bot.id, e
+                            );
                             error!("{}", msg);
                             insert_db_error(&pool, &exchange, &msg).await;
                         }
