@@ -539,13 +539,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         continue;
                                     }
                                 };
-                            // parse min_funds to int
-                            let min_funds: f64 = match symbol_info.quote_min_size.parse::<f64>() {
-                                Ok(min_funds) => min_funds,
+                            // parse quote_min_size to int
+                            let quote_min_size: f64 =
+                                match symbol_info.quote_min_size.parse::<f64>() {
+                                    Ok(quote_min_size) => quote_min_size,
+                                    Err(e) => {
+                                        let msg: String = format!(
+                                            "Failed parse quote_min_size: {} {}",
+                                            symbol_info.quote_min_size, e
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        continue;
+                                    }
+                                };
+                            let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>()
+                            {
+                                Ok(base_min_size) => base_min_size,
                                 Err(e) => {
                                     let msg: String = format!(
-                                        "Failed parse quote_min_size: {} {}",
-                                        symbol_info.quote_min_size, e
+                                        "Failed parse base_min_size: {} {}",
+                                        symbol_info.base_min_size, e
                                     );
                                     error!("{}", msg);
                                     insert_db_error(&pool, &exchange, &msg).await;
@@ -553,14 +567,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 }
                             };
                             // buy min funds or full
-                            if token_funds < min_funds {
+                            if token_funds <= quote_min_size || token_liability <= base_min_size {
                                 let _ = make_hf_funds_margin_order(
                                     &pool,
                                     &exchange,
                                     &client_oid,
                                     "buy",
                                     trade_symbol,
-                                    format_size(min_funds, quote_increment),
+                                    format_size(quote_min_size, quote_increment),
                                     "market".to_string(),
                                 )
                                 .await;
@@ -610,6 +624,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 continue;
                             }
                         };
+                        // get price token
+                        let token_price_str =
+                            match api::requests::get_ticker_price(trade_symbol).await {
+                                Ok(token_price_str) => {
+                                    info!("Successfully get price:{}", &trade_symbol);
+                                    token_price_str
+                                }
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed get price: {} {}", trade_symbol, e);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    continue;
+                                }
+                            };
+                        // convert price from str to int
+                        let token_price: f64 = match token_price_str.parse::<f64>() {
+                            Ok(token_price) => token_price,
+                            Err(e) => {
+                                let msg: String =
+                                    format!("Failed parse price: {} {}", token_price_str, e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                continue;
+                            }
+                        };
 
                         let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
                             Ok(base_min_size) => base_min_size,
@@ -623,7 +663,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 continue;
                             }
                         };
-                        if token_available < base_min_size {
+                        let quote_min_size: f64 = match symbol_info.quote_min_size.parse::<f64>() {
+                            Ok(quote_min_size) => quote_min_size,
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed parse quote_min_size: {} {}",
+                                    symbol_info.quote_min_size, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                continue;
+                            }
+                        };
+                        if token_available <= base_min_size
+                            || token_price * token_available <= quote_min_size
+                        {
                             match api::requests::sent_account_transfer(
                                 &account.currency.clone(),
                                 &account.available,
