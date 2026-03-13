@@ -440,10 +440,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match api::requests::get_all_margin_accounts().await {
             Ok(accounts) => {
                 for account in accounts.accounts.iter() {
-                    let liability: f64 = account.liability.parse().unwrap_or(0.0);
-                    let available: f64 = account.available.parse().unwrap_or(0.0);
-                    if liability > 0.0 {
-                        if available >= liability {
+                    let token_liability: f64 = account.liability.parse().unwrap_or(0.0);
+                    let token_available: f64 = account.available.parse().unwrap_or(0.0);
+                    if token_liability > 0.0 {
+                        if token_available >= token_liability {
                             info!(
                                 "Can repay {} {} liability with available {}",
                                 account.liability, &account.currency, account.available
@@ -459,7 +459,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
                             };
-                        } else if available > 0.0 {
+                        } else if token_available > 0.0 {
                             info!(
                                 "Can partially repay {} {} liability with available {}",
                                 account.liability, &account.currency, account.available
@@ -475,7 +475,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 insert_db_error(&pool, &exchange, &msg).await;
                             };
-                        } else if account.currency != "USDT" && available == 0.0 {
+                        } else if account.currency != "USDT" && token_available == 0.0 {
                             // buy stock by market liability
                             let trade_symbol = &(account.currency.clone() + "-USDT");
                             let client_oid = Uuid::new_v4().to_string();
@@ -492,16 +492,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         continue;
                                     }
                                 };
+                            // liability debt in tokens
+                            // get price token
+                            let token_price_str =
+                                match api::requests::get_ticker_price(trade_symbol).await {
+                                    Ok(token_price_str) => {
+                                        info!("Successfully get price:{}", &trade_symbol);
+                                        token_price_str
+                                    }
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed get price: {} {}", trade_symbol, e);
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        continue;
+                                    }
+                                };
+                            // convert price from str to int
+                            let token_price: f64 = match token_price_str.parse::<f64>() {
+                                Ok(token_price) => token_price,
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed parse price: {} {}", token_price_str, e);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    continue;
+                                }
+                            };
 
-                            let quote_increment = symbol_info.quote_increment.parse::<f64>()?;
-                            let funds_f64 = liability.to_string().parse::<f64>()?;
-                            let rounded_funds =
-                                (funds_f64 / quote_increment).floor() * quote_increment;
+                            // calc price token on amount liability token
+                            let token_funds: f64 = token_price * token_liability;
 
-                            let min_funds = symbol_info.quote_min_size.parse::<f64>()?;
-
-                            if rounded_funds < min_funds {
-                                make_hf_funds_margin_order(
+                            let quote_increment: f64 =
+                                match symbol_info.quote_increment.parse::<f64>() {
+                                    Ok(quote_increment) => quote_increment,
+                                    Err(e) => {
+                                        let msg: String = format!(
+                                            "Failed parse quote_increment: {} {}",
+                                            symbol_info.quote_increment, e
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        continue;
+                                    }
+                                };
+                            // parse min_funds to int
+                            let min_funds: f64 = match symbol_info.quote_min_size.parse::<f64>() {
+                                Ok(min_funds) => min_funds,
+                                Err(e) => {
+                                    let msg: String = format!(
+                                        "Failed parse quote_min_size: {} {}",
+                                        symbol_info.quote_min_size, e
+                                    );
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    continue;
+                                }
+                            };
+                            if token_funds < min_funds {
+                                let _ = make_hf_funds_margin_order(
                                     &pool,
                                     &exchange,
                                     &client_oid,
@@ -512,13 +561,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 )
                                 .await;
                             } else {
-                                make_hf_funds_margin_order(
+                                let _ = make_hf_funds_margin_order(
                                     &pool,
                                     &exchange,
                                     &client_oid,
                                     "buy",
                                     trade_symbol,
-                                    format_size(rounded_funds, quote_increment),
+                                    format_size(token_funds, quote_increment),
                                     "market".to_string(),
                                 )
                                 .await;
@@ -526,7 +575,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                         all_asset_clear = false;
                         continue;
-                    } else if account.currency != "USDT" && available > 0.0 {
+                    } else if account.currency != "USDT" && token_available > 0.0 {
                         // sell stocks by market available/ works
                         let client_oid = Uuid::new_v4().to_string();
                         let trade_symbol = &(account.currency.clone() + "-USDT");
@@ -546,17 +595,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             }
                         };
 
-                        let base_increment = symbol_info.base_increment.parse::<f64>()?;
-                        let size_f64 = available.to_string().parse::<f64>()?;
-                        let rounded_size = (size_f64 / base_increment).floor() * base_increment;
+                        let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
+                            Ok(base_increment) => base_increment,
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed parse base_increment: {} {}",
+                                    symbol_info.base_increment, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                continue;
+                            }
+                        };
 
-                        let min_size = symbol_info.base_min_size.parse::<f64>()?;
-                        if rounded_size < min_size {
+                        let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
+                            Ok(base_min_size) => base_min_size,
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed parse base_min_size: {} {}",
+                                    symbol_info.base_min_size, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                continue;
+                            }
+                        };
+                        if token_available < base_min_size {
                             match api::requests::sent_account_transfer(
                                 &account.currency.clone(),
-                                &available.to_string(),
+                                &account.available,
                                 "INTERNAL",
-                                "MARGIN_V2",
+                                "MARGIN",
                                 "TRADE",
                             )
                             .await
@@ -564,9 +633,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!(
-                                        "Failed send {} to TRADE from MARGIN_V2 on {} {}",
+                                        "Failed send {} to TRADE from MARGIN on {} {}",
                                         &account.currency.clone(),
-                                        &available.to_string(),
+                                        &account.available,
                                         e
                                     );
                                     error!("{}", msg);
@@ -574,13 +643,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 }
                             }
                         } else {
-                            make_hf_size_margin_order(
+                            let _ = make_hf_size_margin_order(
                                 &pool,
                                 &exchange,
                                 &client_oid,
                                 "sell",
                                 trade_symbol,
-                                format_size(rounded_size, base_increment),
+                                format_size(token_available, base_increment),
                                 "market".to_string(),
                             )
                             .await;
