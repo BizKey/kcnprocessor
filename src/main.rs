@@ -365,21 +365,21 @@ async fn handle_position_event(
         }
     }
     // repay borrow
-    for (asset, liability_str) in &position.debt_list {
-        if let Ok(liability) = liability_str.parse::<f64>()
+    for (asset, token_liability_str) in &position.debt_list {
+        if let Ok(token_liability) = token_liability_str.parse::<f64>()
             && let Some(asset_info) = &position.asset_list.get(asset)
         {
             if let Ok(available) = asset_info.available.parse::<f64>() {
-                if liability > 0.0 {
-                    if available >= liability {
+                if token_liability > 0.0 {
+                    if available >= token_liability {
                         info!("Position:'{:.?}'", position);
                         info!(
                             "Can repay {} {} liability with available {}",
-                            liability, asset, available
+                            token_liability, asset, available
                         );
 
                         if let Err(e) =
-                            api::requests::create_repay_order(asset, liability_str).await
+                            api::requests::create_repay_order(asset, token_liability_str).await
                         {
                             let msg: String = format!("Failed to repay liability: {}", e);
                             error!("{}", msg);
@@ -389,7 +389,7 @@ async fn handle_position_event(
                         info!("Position:'{:.?}'", position);
                         info!(
                             "Can partially repay {} {} liability with available {}",
-                            liability, asset, available
+                            token_liability, asset, available
                         );
 
                         if let Err(e) =
@@ -753,8 +753,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
                         }
                         KuCoinMessage::Message(data) => {
+                            info!("{}", &data.data);
                             if data.topic == "/account/balance" {
-                                info!("{}", &data.data);
                                 match BalanceData::deserialize(&data.data) {
                                     Ok(balance) => {
                                         // sent balance to pg
@@ -779,8 +779,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 }
                             } else if data.topic == "/spotMarket/advancedOrders" {
-                                info!("{}", &data.data);
-
+                                // stop orders and other
                                 match StopOrderData::deserialize(&data.data) {
                                     Ok(order) => {}
                                     Err(e) => {
@@ -798,7 +797,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 }
                             } else if data.topic == "/spotMarket/tradeOrdersV2" {
-                                info!("{}", &data.data);
                                 match OrderData::deserialize(&data.data) {
                                     Ok(order) => {
                                         // order magic
@@ -825,8 +823,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 }
                             } else if data.topic == "/margin/position" {
-                                info!("{}", &data.data);
                                 // save to db position
+                                // repay debt
                                 match PositionData::deserialize(&data.data) {
                                     Ok(position) => {
                                         handle_position_event(
