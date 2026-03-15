@@ -216,30 +216,22 @@ async fn make_hf_size_margin_order(
     }
 }
 
-fn format_size(size: f64, increment: f64) -> String {
+fn format_assert_up(size: f64, increment: f64) -> String {
+    let decimals = if increment >= 1.0 {
+        0
+    } else {
+        (-increment.log10().ceil() as usize).min(10)
+    };
+    format!("{:.decimals$}", size)
+}
+
+fn format_assert_down(size: f64, increment: f64) -> String {
     let decimals = if increment >= 1.0 {
         0
     } else {
         (-increment.log10().floor() as usize).min(10)
     };
     format!("{:.decimals$}", size)
-}
-
-fn calculate_size(notional: f64, price: f64, base_increment: f64, min_size: f64) -> Option<String> {
-    if price <= 0.0 || base_increment <= 0.0 {
-        return None;
-    }
-
-    let raw_size = notional / price;
-
-    let size = (raw_size / base_increment).floor() * base_increment;
-
-    if size < min_size {
-        // size is too low
-        return None;
-    }
-
-    Some(format_size(size, base_increment))
 }
 
 fn format_price(price: f64, increment: f64) -> String {
@@ -278,26 +270,6 @@ fn calculate_transfer_amount(
     let rounded = (raw_amount / inc).round() * inc;
 
     Some(format_price(rounded, inc))
-}
-fn calculate_price(
-    base_price: &Option<String>,
-    increment: &str,
-    operation: fn(f64, f64) -> f64,
-) -> Option<String> {
-    if let Some(match_price) = base_price {
-        match (match_price.parse::<f64>(), increment.parse::<f64>()) {
-            (Ok(price_num), Ok(inc_num)) if inc_num > 0.0 => {
-                let calculated_price = operation(price_num, inc_num);
-
-                let rounded_price = (calculated_price / inc_num).round() * inc_num;
-
-                Some(format_price(rounded_price, inc_num))
-            }
-            _ => base_price.clone(),
-        }
-    } else {
-        None
-    }
 }
 
 async fn handle_trade_order_event(
@@ -574,7 +546,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     &client_oid,
                                     "buy",
                                     trade_symbol,
-                                    format_size(quote_min_size, quote_increment),
+                                    format_assert_up(quote_min_size, quote_increment),
                                     "market".to_string(),
                                 )
                                 .await;
@@ -585,7 +557,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     &client_oid,
                                     "buy",
                                     trade_symbol,
-                                    format_size(token_funds, quote_increment),
+                                    format_assert_up(token_funds, quote_increment),
                                     "market".to_string(),
                                 )
                                 .await;
@@ -706,7 +678,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 &client_oid,
                                 "sell",
                                 trade_symbol,
-                                format_size(token_available, base_increment),
+                                format_assert_down(token_available, base_increment),
                                 "market".to_string(),
                             )
                             .await;
@@ -1030,7 +1002,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         &client_oid,
                                         &trade_side,
                                         &random_symbol,
-                                        format_size(token_size, base_increment),
+                                        format_assert_down(token_size, base_increment),
                                         "market".to_string(),
                                     )
                                     .await
@@ -1080,7 +1052,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         &client_oid,
                                         &trade_side,
                                         &random_symbol,
-                                        format_size(balance_funds, quote_increment),
+                                        format_assert_down(balance_funds, quote_increment),
                                         "market".to_string(),
                                     )
                                     .await
