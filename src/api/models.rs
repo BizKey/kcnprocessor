@@ -260,3 +260,10 @@ pub struct MarginAccountData {
 pub struct MarginAccount {
     pub data: MarginAccountData,
 }
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct Bots {
+    pub entry_id: Option<String>,
+    pub exit_tp_id: Option<String>,
+    pub exit_sl_id: Option<String>,
+    pub balance: Option<String>,
+}

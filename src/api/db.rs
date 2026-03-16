@@ -245,6 +245,32 @@ pub async fn delete_oldest_orderactive(
     }
 }
 
+pub async fn get_bots_by_client_oid(
+    pool: &PgPool,
+    exchange: &str,
+    client_oid: &str,
+) -> Option<Bots> {
+    match sqlx::query_as::<_, Bots>(
+        "SELECT entry_id, exit_tp_id, exit_sl_id, balance FROM bots WHERE exchange = $1 AND entry_id = $2 LIMIT 1",
+    )
+    .bind(exchange)
+    .bind(client_oid)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(bot) => bot,
+        Err(e) => {
+            let err_msg = format!(
+                "Failed to fetch bot by client_oid '{}': {}",
+                client_oid, e
+            );
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            None
+        }
+    }
+}
+
 pub async fn fetch_all_active_orders_by_symbol(
     pool: &PgPool,
     exchange: &str,
