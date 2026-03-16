@@ -272,6 +272,8 @@ async fn handle_trade_order_event(
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
 
+    // if remainSize == '0' and remainFunds = '0'
+
     if order.type_ == "received" {
         // order in order book
         insert_current_orderactive_to_db(pool, exchange, &order).await;
