@@ -54,6 +54,10 @@ impl KuCoinClient {
     pub async fn api_v1_bullet_private(
         &self,
     ) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         return match self
             .make_request(
                 reqwest::Method::POST,
@@ -61,6 +65,7 @@ impl KuCoinClient {
                 None,
                 None,
                 true,
+                timestamp,
             )
             .await
         {
@@ -138,6 +143,10 @@ impl KuCoinClient {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::GET,
@@ -145,6 +154,7 @@ impl KuCoinClient {
                 Some(query_params),
                 None,
                 true,
+                timestamp,
             )
             .await
         {
@@ -176,6 +186,10 @@ impl KuCoinClient {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("status", "active");
         query_params.insert("tradeType", "MARGIN_TRADE");
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::GET,
@@ -183,6 +197,7 @@ impl KuCoinClient {
                 Some(query_params),
                 None,
                 true,
+                timestamp,
             )
             .await
         {
@@ -213,6 +228,10 @@ impl KuCoinClient {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -220,6 +239,7 @@ impl KuCoinClient {
                 Some(query_params),
                 None,
                 true,
+                timestamp,
             )
             .await
         {
@@ -240,6 +260,10 @@ impl KuCoinClient {
     ) -> Result<SymbolOpenOrder, Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::GET,
@@ -247,6 +271,7 @@ impl KuCoinClient {
                 Some(query_params),
                 None,
                 true,
+                timestamp,
             )
             .await
         {
@@ -276,6 +301,10 @@ impl KuCoinClient {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
         query_params.insert("symbol", symbol);
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -283,6 +312,7 @@ impl KuCoinClient {
                 Some(query_params),
                 None,
                 true,
+                timestamp,
             )
             .await
         {
@@ -316,7 +346,10 @@ impl KuCoinClient {
             "fromAccountType": from_account_type,
             "toAccountType": to_account_type
         });
-
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -324,6 +357,7 @@ impl KuCoinClient {
                 None,
                 Some(body),
                 true,
+                timestamp,
             )
             .await
         {
@@ -349,6 +383,10 @@ impl KuCoinClient {
         &self,
         order_id: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -356,6 +394,7 @@ impl KuCoinClient {
                 None,
                 None,
                 true,
+                timestamp,
             )
             .await
         {
@@ -379,6 +418,10 @@ impl KuCoinClient {
         let mut query_params = std::collections::HashMap::new();
 
         query_params.insert("symbol", symbol);
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -386,6 +429,7 @@ impl KuCoinClient {
                 Some(query_params),
                 None,
                 true,
+                timestamp,
             )
             .await
         {
@@ -415,7 +459,14 @@ impl KuCoinClient {
         &self,
     ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
         match self
-            .make_request(reqwest::Method::GET, "/api/v1/timestamp", None, None, false)
+            .make_request(
+                reqwest::Method::GET,
+                "/api/v1/timestamp",
+                None,
+                None,
+                false,
+                0,
+            )
             .await
         {
             Ok(response) => match response.status().as_str() {
@@ -446,6 +497,10 @@ impl KuCoinClient {
         body: serde_json::Value,
     ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add margin hf order
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -453,6 +508,7 @@ impl KuCoinClient {
                 None,
                 Some(body.clone()),
                 true,
+                timestamp,
             )
             .await
         {
@@ -490,6 +546,11 @@ impl KuCoinClient {
             "isHf": true
         });
 
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
+
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -497,6 +558,7 @@ impl KuCoinClient {
                 None,
                 Some(body),
                 true,
+                timestamp,
             )
             .await
         {
@@ -529,6 +591,7 @@ impl KuCoinClient {
                 Some(query_params),
                 None,
                 false,
+                0,
             )
             .await
         {
@@ -562,6 +625,7 @@ impl KuCoinClient {
         query_params: Option<HashMap<&str, &str>>,
         body: Option<serde_json::Value>,
         authenticated: bool,
+        timestamp: u64,
     ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
         let url: String = format!("{}{}", self.base_url, endpoint);
 
@@ -576,12 +640,6 @@ impl KuCoinClient {
         }
 
         if authenticated {
-            // get_api_v1_timestamp
-            let timestamp: u64 = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64;
-
             let query_string: String = query_params
                 .as_ref()
                 .map(|params| {
@@ -697,6 +755,10 @@ pub async fn add_api_v3_hf_margin_order(
 ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.add_api_v3_hf_margin_order(body).await
+}
+pub async fn get_api_v1_timestamp() -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
+    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.get_api_v1_timestamp().await
 }
 
 pub async fn cancel_order(
