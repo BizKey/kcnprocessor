@@ -289,12 +289,43 @@ async fn handle_trade_order_event(
                     // delete exit_tp_id stop order
                     if let Some(exit_tp_id) = bot.exit_tp_id {
                         info!("{}", exit_tp_id);
+                        match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                            &exit_tp_id,
+                        )
+                        .await
+                        {
+                            Ok(_) => {
+                                info!("Successfully cancel stop order :{}", &exit_tp_id);
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed cancel stop order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
+                        // clear exit_tp_id in bots by id !!
                     }
 
                     // delete exit_sl_id stop order
                     if let Some(exit_sl_id) = bot.exit_sl_id {
                         info!("{}", exit_sl_id);
+                        match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                            &exit_sl_id,
+                        )
+                        .await
+                        {
+                            Ok(_) => {
+                                info!("Successfully cancel stop order :{}", &exit_sl_id);
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed cancel stop order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
+                        // clear exit_sl_id in bots by id !!
                     }
+                    // create new stop tp and sl orders
 
                     if let Some(balance) = bot.balance {
                         info!("balace: {}", balance);
@@ -316,12 +347,43 @@ async fn handle_trade_order_event(
                     // delete exit_tp_id stop order
                     if let Some(exit_tp_id) = bot.exit_tp_id {
                         info!("{}", exit_tp_id);
+                        match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                            &exit_tp_id,
+                        )
+                        .await
+                        {
+                            Ok(_) => {
+                                info!("Successfully cancel stop order :{}", &exit_tp_id);
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed cancel stop order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
+                        // clear exit_tp_id in bots by id !!
                     }
 
                     // delete exit_sl_id stop order
                     if let Some(exit_sl_id) = bot.exit_sl_id {
                         info!("{}", exit_sl_id);
+                        match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                            &exit_sl_id,
+                        )
+                        .await
+                        {
+                            Ok(_) => {
+                                info!("Successfully cancel stop order :{}", &exit_sl_id);
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed cancel stop order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
+                        // clear exit_sl_id in bots by id !!
                     }
+                    // create new stop tp and sl orders
 
                     if let Some(balance) = bot.balance {
                         info!("balace: {}", balance);

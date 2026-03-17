@@ -137,6 +137,43 @@ impl KuCoinClient {
         base64::engine::general_purpose::STANDARD.encode(result.into_bytes())
     }
 
+    pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(
+        &self,
+        client_oid: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut query_params = std::collections::HashMap::new();
+        query_params.insert("clientOid", client_oid);
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
+        match self
+            .make_request(
+                reqwest::Method::DELETE,
+                "/api/v3/hf/margin/stop-order/cancel-by-clientOid",
+                Some(query_params),
+                None,
+                true,
+                timestamp,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => Ok(()),
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
+        }
+    }
+
     pub async fn get_margin_accounts(
         &self,
     ) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
@@ -704,6 +741,14 @@ pub async fn get_all_margin_accounts()
 -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.get_margin_accounts().await
+}
+pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(
+    client_oid: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client
+        .api_v3_hf_margin_stop_order_cancel_by_client_oid(client_oid)
+        .await
 }
 pub async fn sent_account_transfer(
     currency: &str,
