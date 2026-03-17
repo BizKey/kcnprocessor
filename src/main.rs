@@ -1,6 +1,7 @@
 use crate::api::db::{
-    clear_orders_ids_for_bots, delete_current_orderactive_from_db, fetch_symbol_info,
-    get_all_bots_for_trade, get_bots_by_entry_id, get_random_side, get_random_tradeable_symbol,
+    clear_exit_sl_id_bot_by_entry_id, clear_exit_tp_id_bot_by_entry_id, clear_orders_ids_for_bots,
+    delete_current_orderactive_from_db, fetch_symbol_info, get_all_bots_for_trade,
+    get_bots_by_entry_id, get_random_side, get_random_tradeable_symbol,
     insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
     insert_db_msgsend, insert_db_orderevent, update_bots_entry_id, upsert_position_asset,
     upsert_position_debt, upsert_position_ratio,
@@ -296,6 +297,8 @@ async fn handle_trade_order_event(
                         {
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_tp_id);
+                                // clear exit_tp_id in bots by id !!
+                                clear_exit_tp_id_bot_by_entry_id(pool, exchange, &exit_tp_id).await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -303,7 +306,6 @@ async fn handle_trade_order_event(
                                 insert_db_error(pool, exchange, &msg).await;
                             }
                         }
-                        // clear exit_tp_id in bots by id !!
                     }
 
                     // delete exit_sl_id stop order
@@ -316,6 +318,8 @@ async fn handle_trade_order_event(
                         {
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_sl_id);
+                                // clear exit_sl_id in bots by id !!
+                                clear_exit_sl_id_bot_by_entry_id(pool, exchange, &exit_sl_id).await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -323,7 +327,6 @@ async fn handle_trade_order_event(
                                 insert_db_error(pool, exchange, &msg).await;
                             }
                         }
-                        // clear exit_sl_id in bots by id !!
                     }
                     // create new stop tp and sl orders
 
@@ -354,6 +357,8 @@ async fn handle_trade_order_event(
                         {
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_tp_id);
+                                // clear exit_tp_id in bots by id !!
+                                clear_exit_tp_id_bot_by_entry_id(pool, exchange, &exit_tp_id).await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -361,7 +366,6 @@ async fn handle_trade_order_event(
                                 insert_db_error(pool, exchange, &msg).await;
                             }
                         }
-                        // clear exit_tp_id in bots by id !!
                     }
 
                     // delete exit_sl_id stop order
@@ -374,6 +378,8 @@ async fn handle_trade_order_event(
                         {
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_sl_id);
+                                // clear exit_sl_id in bots by id !!
+                                clear_exit_sl_id_bot_by_entry_id(pool, exchange, &exit_sl_id).await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -381,7 +387,6 @@ async fn handle_trade_order_event(
                                 insert_db_error(pool, exchange, &msg).await;
                             }
                         }
-                        // clear exit_sl_id in bots by id !!
                     }
                     // create new stop tp and sl orders
 
