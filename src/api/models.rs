@@ -260,7 +260,7 @@ pub struct MarginAccountData {
 pub struct MarginAccount {
     pub data: MarginAccountData,
 }
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(sqlx::FromRow, Debug)]
 pub struct Bots {
     pub entry_id: Option<String>,
     pub exit_tp_id: Option<String>,

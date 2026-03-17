@@ -1,6 +1,6 @@
 use crate::api::db::{
     clear_orders_ids_for_bots, delete_current_orderactive_from_db, fetch_symbol_info,
-    get_all_bots_for_trade, get_bots_by_client_oid, get_random_side, get_random_tradeable_symbol,
+    get_all_bots_for_trade, get_bots_by_entry_id, get_random_side, get_random_tradeable_symbol,
     insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
     insert_db_msgsend, insert_db_orderevent, update_bots_entry_id, upsert_position_asset,
     upsert_position_debt, upsert_position_ratio,
@@ -272,54 +272,67 @@ async fn handle_trade_order_event(
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
 
-    if order.type_ == "match"
-        && (order.remain_size == Some("0".to_string())
-            || order.remain_funds == Some("0".to_string()))
-    {
-        if order.side == "buy" {
-            // side buy
-            // remainFunds == "0" and type = "match"
+    if let Some(client_oid) = &order.client_oid {
+        // client_oid exist
+        if order.type_ == "match"
+            && (order.remain_size == Some("0".to_string())
+                || order.remain_funds == Some("0".to_string()))
+        {
+            if order.side == "buy" {
+                // side buy
+                // remainFunds == "0" and type = "match"
 
-            // if clientOid in bots entry_id
-            if let Some(bot) = get_bots_by_client_oid(&pool, "kucoin", order.client_oid).await {
-                // bot exist
+                // if clientOid in bots entry_id
+                if let Some(bot) = get_bots_by_entry_id(&pool, "kucoin", client_oid).await {
+                    // bot exist
 
-                // delete exit_tp_id and exit_sl_id orders
-                if let Some(exit_tp_id) = bot.exit_tp_id {
-                    info!("{}", exit_tp_id);
+                    // delete exit_tp_id stop order
+                    if let Some(exit_tp_id) = bot.exit_tp_id {
+                        info!("{}", exit_tp_id);
+                    }
+
+                    // delete exit_sl_id stop order
+                    if let Some(exit_sl_id) = bot.exit_sl_id {
+                        info!("{}", exit_sl_id);
+                    }
+
+                    if let Some(balance) = bot.balance {
+                        info!("balace: {}", balance);
+                    }
+                } else {
+                    // bots dont exist
+                    info!("client_oid: {}", client_oid);
                 }
+                // Yes -> clear other side, update balance, random new token
+                // No -> update other side, create stop orders
+            } else if order.side == "sell" {
+                // side sell
+                // remainSize == "0" and type = "match"
 
-                if let Some(balance) = bot.balance {
-                    info!("balace: {}", balance);
+                // if clientOid in bots entry_id
+                if let Some(bot) = get_bots_by_entry_id(&pool, "kucoin", client_oid).await {
+                    // bot exist
+
+                    // delete exit_tp_id stop order
+                    if let Some(exit_tp_id) = bot.exit_tp_id {
+                        info!("{}", exit_tp_id);
+                    }
+
+                    // delete exit_sl_id stop order
+                    if let Some(exit_sl_id) = bot.exit_sl_id {
+                        info!("{}", exit_sl_id);
+                    }
+
+                    if let Some(balance) = bot.balance {
+                        info!("balace: {}", balance);
+                    }
+                } else {
+                    // bots dont exist
+                    info!("client_oid: {}", client_oid);
                 }
-            } else {
-                // bots dont exist
-                info!("client_oid: {}", client_oid);
+                // Yes -> clear other side, update balance, random new token
+                // No -> update other side, create stop orders
             }
-            // Yes -> clear other side, update balance, random new token
-            // No -> update other side, create stop orders
-        } else if order.side == "sell" {
-            // side sell
-            // remainSize == "0" and type = "match"
-
-            // if clientOid in bots entry_id
-            if let Some(bot) = get_bots_by_client_oid(&pool, "kucoin", order.client_oid).await {
-                // bot exist
-
-                // delete exit_tp_id and exit_sl_id orders
-                if let Some(exit_tp_id) = bot.exit_tp_id {
-                    info!("{}", exit_tp_id);
-                }
-
-                if let Some(balance) = bot.balance {
-                    info!("balace: {}", balance);
-                }
-            } else {
-                // bots dont exist
-                info!("client_oid: {}", client_oid);
-            }
-            // Yes -> clear other side, update balance, random new token
-            // No -> update other side, create stop orders
         }
     }
 
