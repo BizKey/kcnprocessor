@@ -220,6 +220,18 @@ pub struct MakeOrderRes {
     pub msg: Option<String>,
 }
 #[derive(Debug, Deserialize)]
+pub struct MakeStopOrderResData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "clientOid")]
+    pub client_oid: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct MakeStopOrderRes {
+    pub code: String,
+    pub data: MakeStopOrderResData,
+}
+#[derive(Debug, Deserialize)]
 pub struct CancelOrderRes {
     pub code: String,
 }

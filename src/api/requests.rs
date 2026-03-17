@@ -1,6 +1,7 @@
 use crate::api::models::{
     ActualPrice, ApiV1TimestampRes, ApiV3BulletPrivate, CancelOrderRes, MakeOrderRes,
-    MarginAccount, MarginAccountData, OldActiveOrders, OldActiveOrdersData, SymbolOpenOrder,
+    MakeStopOrderRes, MarginAccount, MarginAccountData, OldActiveOrders, OldActiveOrdersData,
+    SymbolOpenOrder,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -529,6 +530,49 @@ impl KuCoinClient {
         }
     }
 
+    pub async fn api_v3_hf_margin_stop_order(
+        &self,
+        body: serde_json::Value,
+    ) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+        // add stop margin hf order
+        let timestamp: u64 = match get_api_v1_timestamp().await {
+            Ok(ts) => ts as u64,
+            Err(_) => 0,
+        };
+        match self
+            .make_request(
+                reqwest::Method::POST,
+                "/api/v3/hf/margin/stop-order",
+                None,
+                Some(body.clone()),
+                true,
+                timestamp,
+            )
+            .await
+        {
+            Ok(response) => match response.status().as_str() {
+                "200" => match response.text().await {
+                    Ok(text) => match serde_json::from_str::<MakeStopOrderRes>(&text) {
+                        Ok(res) => Ok(res),
+                        Err(e) => Err(format!(
+                            "Error JSON deserialize:'{}' with data: '{}'",
+                            e, text
+                        )
+                        .into()),
+                    },
+                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+                },
+                status => match response.text().await {
+                    Ok(text) => {
+                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
+                    }
+                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
+                },
+            },
+            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
+        }
+    }
+
     pub async fn add_api_v3_hf_margin_order(
         &self,
         body: serde_json::Value,
@@ -794,6 +838,12 @@ pub async fn get_old_active_orders_list()
 pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.batch_cancel_stop_orders().await
+}
+pub async fn api_v3_hf_margin_stop_order(
+    body: serde_json::Value,
+) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    client.api_v3_hf_margin_stop_order(body).await
 }
 pub async fn add_api_v3_hf_margin_order(
     body: serde_json::Value,

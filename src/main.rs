@@ -329,6 +329,58 @@ async fn handle_trade_order_event(
                         }
                     }
                     // create new stop tp and sl orders
+                    // tp order
+                    let msg_tp_order = serde_json::json!({
+                        "clientOid": client_oid,
+                        "side": "sell",
+                        "symbol": order.symbol,
+                        "type": "market",
+                        "stop": "entry",
+                        "stopPrice": "stopPrice", // price + 6%
+                        "isIsolated": false,
+                        "autoBorrow": true,
+                        "autoRepay": true,
+                        "price": "stopPrice", // price + 6%
+                        "size": order.filled_size,
+                        "timeInForce": "GTC",
+                    });
+                    info!("{}", msg_tp_order);
+                    match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
+                        Ok(_) => {
+                            info!("Successfully add stop order");
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed add stop order: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                        }
+                    }
+                    // sl order
+                    let msg_sl_order = serde_json::json!({
+                     "clientOid": client_oid,
+                        "side": "sell",
+                        "symbol": order.symbol,
+                        "type": "market",
+                        "stop":"loss",
+                        "stopPrice": "stopPrice", // price - 5%
+                        "isIsolated":false,
+                        "autoBorrow": true,
+                        "autoRepay": true,
+                        "price": "stopPrice", // price - 5%
+                        "size": order.filled_size,
+                        "timeInForce":"GTC",
+                    });
+                    info!("{}", msg_sl_order);
+                    match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
+                        Ok(_) => {
+                            info!("Successfully add stop order");
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed add stop order: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                        }
+                    }
 
                     if let Some(balance) = bot.balance {
                         info!("balace: {}", balance);
@@ -389,6 +441,59 @@ async fn handle_trade_order_event(
                         }
                     }
                     // create new stop tp and sl orders
+
+                    // tp order
+                    let msg_tp_order = serde_json::json!({
+                     "clientOid": client_oid,
+                        "side": "buy",
+                        "symbol": order.symbol,
+                        "type": "market",
+                        "stop": "entry",
+                        "stopPrice": "stopPrice", // price + 6%
+                        "isIsolated":false,
+                        "autoBorrow": true,
+                        "autoRepay": true,
+                        "price": "stopPrice", // price + 6%
+                        "timeInForce":"GTC",
+                        "funds":"funds",
+                    });
+                    info!("{}", msg_tp_order);
+                    match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
+                        Ok(_) => {
+                            info!("Successfully add stop order");
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed add stop order: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                        }
+                    }
+                    // sl order
+                    let msg_sl_order = serde_json::json!({
+                       "clientOid": client_oid,
+                        "side": "buy",
+                        "symbol": order.symbol,
+                        "type": "market",
+                        "stop":"loss",
+                        "stopPrice": "stopPrice", // price - 5%
+                        "isIsolated":false,
+                        "autoBorrow": true,
+                        "autoRepay": true,
+                        "price": "stopPrice",  // price - 5%
+                        "timeInForce":"GTC",
+                        "funds": "funds",
+                    });
+                    info!("{}", msg_sl_order);
+                    match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
+                        Ok(_) => {
+                            info!("Successfully add stop order");
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed add stop order: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                        }
+                    }
 
                     if let Some(balance) = bot.balance {
                         info!("balace: {}", balance);
