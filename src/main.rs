@@ -361,14 +361,14 @@ async fn handle_trade_order_event(
                         "side": "sell",
                         "symbol": order.symbol,
                         "type": "market",
-                        "stop":"loss",
+                        "stop": "loss",
                         "stopPrice": "stopPrice", // price - 5%
-                        "isIsolated":false,
+                        "isIsolated": false,
                         "autoBorrow": true,
                         "autoRepay": true,
                         "price": "stopPrice", // price - 5%
                         "size": order.filled_size,
-                        "timeInForce":"GTC",
+                        "timeInForce": "GTC",
                     });
                     info!("{}", msg_sl_order);
                     match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
@@ -450,12 +450,12 @@ async fn handle_trade_order_event(
                         "type": "market",
                         "stop": "entry",
                         "stopPrice": "stopPrice", // price + 6%
-                        "isIsolated":false,
+                        "isIsolated": false,
                         "autoBorrow": true,
                         "autoRepay": true,
                         "price": "stopPrice", // price + 6%
-                        "timeInForce":"GTC",
-                        "funds":"funds",
+                        "timeInForce": "GTC",
+                        "funds": "funds",
                     });
                     info!("{}", msg_tp_order);
                     match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
@@ -474,13 +474,13 @@ async fn handle_trade_order_event(
                         "side": "buy",
                         "symbol": order.symbol,
                         "type": "market",
-                        "stop":"loss",
+                        "stop": "loss",
                         "stopPrice": "stopPrice", // price - 5%
-                        "isIsolated":false,
+                        "isIsolated": false,
                         "autoBorrow": true,
                         "autoRepay": true,
                         "price": "stopPrice",  // price - 5%
-                        "timeInForce":"GTC",
+                        "timeInForce": "GTC",
                         "funds": "funds",
                     });
                     info!("{}", msg_sl_order);
