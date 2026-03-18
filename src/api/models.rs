@@ -139,6 +139,8 @@ pub struct OrderData {
     pub trade_id: Option<String>,
     #[serde(rename = "originSize")]
     pub origin_size: Option<String>,
+    #[serde(rename = "originFunds")]
+    pub origin_funds: Option<String>,
     pub size: Option<String>,
     #[serde(rename = "filledSize")]
     pub filled_size: Option<String>,
