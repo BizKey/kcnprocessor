@@ -275,7 +275,7 @@ async fn handle_trade_order_event(
 
     if let Some(client_oid) = &order.client_oid {
         // client_oid exist
-        if order.type_ == "match"
+        if (order.type_ == "match" || order.type_ == "canceled")
             && (order.remain_size == Some("0".to_string())
                 || order.remain_funds == Some("0".to_string()))
         {
