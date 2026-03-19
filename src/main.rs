@@ -387,7 +387,7 @@ async fn handle_trade_order_event(
 
                         let match_price: f64 = origin_funds_f64 / filled_size_f64;
 
-                        let trigger_tp_price: f64 = match_price * 1.06; // price + 6%
+                        let trigger_tp_price: f64 = match_price * 1.065; // price + 6%
 
                         let exit_tp_id: String = Uuid::new_v4().to_string();
                         // tp order
