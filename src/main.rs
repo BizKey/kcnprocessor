@@ -506,17 +506,18 @@ async fn handle_trade_order_event(
                     // create new stop tp and sl orders
 
                     // tp order
+                    let exit_tp_id = Uuid::new_v4().to_string();
                     let msg_tp_order = serde_json::json!({
-                     "clientOid": client_oid,
+                        "clientOid": exit_tp_id,
                         "side": "buy",
                         "symbol": order.symbol,
                         "type": "market",
                         "stop": "entry",
-                        "stopPrice": "stopPrice", // price + 6%
+                        "stopPrice": "stopPrice", // price - 6%
                         "isIsolated": false,
                         "autoBorrow": true,
                         "autoRepay": true,
-                        "price": "stopPrice", // price + 6%
+                        "price": "stopPrice", // price - 6%
                         "timeInForce": "GTC",
                         "funds": "funds",
                     });
@@ -532,17 +533,18 @@ async fn handle_trade_order_event(
                         }
                     }
                     // sl order
+                    let exit_sl_id = Uuid::new_v4().to_string();
                     let msg_sl_order = serde_json::json!({
-                       "clientOid": client_oid,
+                       "clientOid": exit_sl_id,
                         "side": "buy",
                         "symbol": order.symbol,
                         "type": "market",
                         "stop": "loss",
-                        "stopPrice": "stopPrice", // price - 5%
+                        "stopPrice": "stopPrice", // price + 5%
                         "isIsolated": false,
                         "autoBorrow": true,
                         "autoRepay": true,
-                        "price": "stopPrice",  // price - 5%
+                        "price": "stopPrice",  // price + 5%
                         "timeInForce": "GTC",
                         "funds": "funds",
                     });
