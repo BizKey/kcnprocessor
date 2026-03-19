@@ -115,7 +115,7 @@ pub struct StopOrderData {
     #[serde(rename = "type")]
     pub type_: String, // open match update filled cancel received
     #[serde(rename = "createdAt")]
-    pub created_at: String,
+    pub created_at: i64,
     pub ts: i64,
 }
 #[derive(Debug, Deserialize, Serialize)]
