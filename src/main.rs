@@ -279,6 +279,7 @@ async fn handle_trade_order_event(
             && (order.remain_size == Some("0".to_string())
                 || order.remain_funds == Some("0".to_string()))
         {
+            // order completed filled
             if order.side == "buy" {
                 // side buy
                 // remainFunds == "0" and type = "match"
