@@ -446,7 +446,7 @@ async fn handle_trade_order_event(
                         }
 
                         if let Some(balance) = bot.balance {
-                            info!("balace: {}", balance);
+                            info!("balance: {}", balance);
                         }
                     }
                 } else {
@@ -562,7 +562,7 @@ async fn handle_trade_order_event(
                     // }
 
                     if let Some(balance) = bot.balance {
-                        info!("balace: {}", balance);
+                        info!("balance: {}", balance);
                     }
                 } else {
                     // bots dont exist
