@@ -406,16 +406,16 @@ async fn handle_trade_order_event(
                             "timeInForce": "GTC",
                         });
                         info!("{}", msg_tp_order);
-                        // match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
-                        //     Ok(_) => {
-                        //         info!("Successfully add stop order");
-                        //     }
-                        //     Err(e) => {
-                        //         let msg: String = format!("Failed add stop order: {}", e);
-                        //         error!("{}", msg);
-                        //         insert_db_error(pool, exchange, &msg).await;
-                        //     }
-                        // }
+                        match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
+                            Ok(_) => {
+                                info!("Successfully add stop order");
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed add stop order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
                         // sl order
                         let trigger_sl_price: f64 = match_price * 0.95; // price - 5%
                         let exit_sl_id: String = Uuid::new_v4().to_string();
@@ -434,16 +434,16 @@ async fn handle_trade_order_event(
                             "timeInForce": "GTC",
                         });
                         info!("{}", msg_sl_order);
-                        // match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
-                        //     Ok(_) => {
-                        //         info!("Successfully add stop order");
-                        //     }
-                        //     Err(e) => {
-                        //         let msg: String = format!("Failed add stop order: {}", e);
-                        //         error!("{}", msg);
-                        //         insert_db_error(pool, exchange, &msg).await;
-                        //     }
-                        // }
+                        match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
+                            Ok(_) => {
+                                info!("Successfully add stop order");
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed add stop order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
 
                         if let Some(balance) = bot.balance {
                             info!("balace: {}", balance);
