@@ -139,6 +139,8 @@ pub struct OrderData {
     pub trade_id: Option<String>,
     #[serde(rename = "originSize")]
     pub origin_size: Option<String>,
+    #[serde(rename = "originFunds")]
+    pub origin_funds: Option<String>,
     pub size: Option<String>,
     #[serde(rename = "filledSize")]
     pub filled_size: Option<String>,
@@ -220,6 +222,18 @@ pub struct MakeOrderRes {
     pub msg: Option<String>,
 }
 #[derive(Debug, Deserialize)]
+pub struct MakeStopOrderResData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "clientOid")]
+    pub client_oid: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct MakeStopOrderRes {
+    pub code: String,
+    pub data: MakeStopOrderResData,
+}
+#[derive(Debug, Deserialize)]
 pub struct CancelOrderRes {
     pub code: String,
 }
@@ -259,4 +273,11 @@ pub struct MarginAccountData {
 #[derive(Debug, Deserialize)]
 pub struct MarginAccount {
     pub data: MarginAccountData,
+}
+#[derive(sqlx::FromRow, Debug)]
+pub struct Bots {
+    pub entry_id: Option<String>,
+    pub exit_tp_id: Option<String>,
+    pub exit_sl_id: Option<String>,
+    pub balance: Option<String>,
 }

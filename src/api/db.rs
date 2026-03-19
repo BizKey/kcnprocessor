@@ -1,6 +1,6 @@
 use crate::api::models::{
-    ActiveOrder, BalanceData, BalanceRelationContext, OrderData, Symbol, TradeAbleSymbol, TradeBot,
-    TradeSymbol,
+    ActiveOrder, BalanceData, BalanceRelationContext, Bots, OrderData, Symbol, TradeAbleSymbol,
+    TradeBot, TradeSymbol,
 };
 use fastrand;
 use log::error;
@@ -157,6 +157,30 @@ pub async fn insert_current_orderactive_to_db(pool: &PgPool, exchange: &str, ord
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn clear_exit_sl_id_bot_by_entry_id(pool: &sqlx::PgPool, exchange: &str, entry_id: &str) {
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
+        .bind(entry_id)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed clear all orders_ids for bots: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
+pub async fn clear_exit_tp_id_bot_by_entry_id(pool: &sqlx::PgPool, exchange: &str, entry_id: &str) {
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_id = NULL updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
+        .bind(entry_id)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed clear all orders_ids for bots: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
 pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
     if let Err(e) = sqlx::query("UPDATE bots SET entry_id = NULL, exit_tp_id = NULL, exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exchange = $1;")
         .bind(exchange)
@@ -238,6 +262,78 @@ pub async fn delete_oldest_orderactive(
         Ok(order) => order,
         Err(e) => {
             let err_msg = format!("Failed delete active orders by symbol '{}': {}", symbol, e);
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            None
+        }
+    }
+}
+
+pub async fn get_bots_by_exit_sl_id(
+    pool: &PgPool,
+    exchange: &str,
+    client_oid: &str,
+) -> Option<Bots> {
+    match sqlx::query_as::<_, Bots>(
+        "SELECT entry_id, exit_tp_id, exit_sl_id, balance FROM bots WHERE exchange = $1 AND exit_sl_id = $2 LIMIT 1",
+    )
+    .bind(exchange)
+    .bind(client_oid)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(bot) => bot,
+        Err(e) => {
+            let err_msg = format!(
+                "Failed to fetch bot by exit_sl_id '{}': {}",
+                client_oid, e
+            );
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            None
+        }
+    }
+}
+pub async fn get_bots_by_exit_tp_id(
+    pool: &PgPool,
+    exchange: &str,
+    client_oid: &str,
+) -> Option<Bots> {
+    match sqlx::query_as::<_, Bots>(
+        "SELECT entry_id, exit_tp_id, exit_sl_id, balance FROM bots WHERE exchange = $1 AND exit_tp_id = $2 LIMIT 1",
+    )
+    .bind(exchange)
+    .bind(client_oid)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(bot) => bot,
+        Err(e) => {
+            let err_msg = format!(
+                "Failed to fetch bot by exit_tp_id '{}': {}",
+                client_oid, e
+            );
+            error!("{}", err_msg);
+            insert_db_error(pool, exchange, &err_msg).await;
+            None
+        }
+    }
+}
+pub async fn get_bots_by_entry_id(pool: &PgPool, exchange: &str, client_oid: &str) -> Option<Bots> {
+    match sqlx::query_as::<_, Bots>(
+        "SELECT entry_id, exit_tp_id, exit_sl_id, balance FROM bots WHERE exchange = $1 AND entry_id = $2 LIMIT 1",
+    )
+    .bind(exchange)
+    .bind(client_oid)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(bot) => bot,
+        Err(e) => {
+            let err_msg = format!(
+                "Failed to fetch bot by entry_id '{}': {}",
+                client_oid, e
+            );
             error!("{}", err_msg);
             insert_db_error(pool, exchange, &err_msg).await;
             None
