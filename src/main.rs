@@ -388,9 +388,9 @@ async fn handle_trade_order_event(
 
                         let trigger_tp_price: f64 = match_price * 1.06; // price + 6%
 
-                        let exit_tp_id = Uuid::new_v4().to_string();
+                        let exit_tp_id: String = Uuid::new_v4().to_string();
                         // tp order
-                        let msg_tp_order = serde_json::json!({
+                        let msg_tp_order: serde_json::Value = serde_json::json!({
                             "clientOid": exit_tp_id,
                             "side": "sell",
                             "symbol": order.symbol,
@@ -417,8 +417,8 @@ async fn handle_trade_order_event(
                         }
                         // sl order
                         let trigger_sl_price: f64 = match_price * 0.95; // price - 5%
-                        let exit_sl_id = Uuid::new_v4().to_string();
-                        let msg_sl_order = serde_json::json!({
+                        let exit_sl_id: String = Uuid::new_v4().to_string();
+                        let msg_sl_order: serde_json::Value = serde_json::json!({
                             "clientOid": exit_sl_id,
                             "side": "sell",
                             "symbol": order.symbol,
@@ -506,8 +506,8 @@ async fn handle_trade_order_event(
                     // create new stop tp and sl orders
 
                     // tp order
-                    let exit_tp_id = Uuid::new_v4().to_string();
-                    let msg_tp_order = serde_json::json!({
+                    let exit_tp_id: String = Uuid::new_v4().to_string();
+                    let msg_tp_order: serde_json::Value = serde_json::json!({
                         "clientOid": exit_tp_id,
                         "side": "buy",
                         "symbol": order.symbol,
@@ -533,8 +533,8 @@ async fn handle_trade_order_event(
                         }
                     }
                     // sl order
-                    let exit_sl_id = Uuid::new_v4().to_string();
-                    let msg_sl_order = serde_json::json!({
+                    let exit_sl_id: String = Uuid::new_v4().to_string();
+                    let msg_sl_order: serde_json::Value = serde_json::json!({
                        "clientOid": exit_sl_id,
                         "side": "buy",
                         "symbol": order.symbol,
