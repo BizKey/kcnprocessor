@@ -450,11 +450,14 @@ async fn handle_trade_order_event(
                                 insert_db_error(pool, exchange, &msg).await;
                             }
                         }
+                        // !!! delete entry_id
                     }
                 } else {
                     // bots dont exist
                     info!("client_oid dosn't exist in db: {}", client_oid);
                 }
+                // !!! add get_bots_by_exit_sl_id
+                // !!! add get_bots_by_exit_tp_id
                 // Yes -> clear other side, update balance, random new token
                 // No -> update other side, create stop orders
             } else if order.side == "sell" {
@@ -593,11 +596,14 @@ async fn handle_trade_order_event(
                                 insert_db_error(pool, exchange, &msg).await;
                             }
                         }
+                        // !!! delete entry_id
                     }
                 } else {
                     // bots dont exist
                     info!("client_oid: {}", client_oid);
                 }
+                // !!! add get_bots_by_exit_sl_id
+                // !!! add get_bots_by_exit_tp_id
                 // Yes -> clear other side, update balance, random new token
                 // No -> update other side, create stop orders
             }
