@@ -413,6 +413,7 @@ async fn handle_trade_order_event(
                         match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
+                                // !!! add exit_tp_id by entry_id
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
@@ -441,6 +442,7 @@ async fn handle_trade_order_event(
                         match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
+                                // !!! add exit_sl_id by entry_id
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
@@ -552,6 +554,7 @@ async fn handle_trade_order_event(
                         match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
+                                // !!! add exit_tp_id by entry_id
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
@@ -582,6 +585,7 @@ async fn handle_trade_order_event(
                         match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
+                                // !!! add exit_sl_id by entry_id
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
