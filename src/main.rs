@@ -572,17 +572,6 @@ async fn handle_trade_order_event(
             }
         }
     }
-
-    if order.type_ == "received" {
-        // order in order book
-        insert_current_orderactive_to_db(pool, exchange, &order).await;
-    } else if order.type_ == "canceled" {
-        // cancel order
-        delete_current_orderactive_from_db(pool, exchange, &order.order_id).await;
-    } else if order.type_ == "match" && order.remain_size == Some("0".to_string()) {
-        // get last event on match size of position
-        // next msg will filled, but it don't have match price
-    }
 }
 
 async fn handle_position_event(
