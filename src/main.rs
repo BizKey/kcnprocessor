@@ -1017,7 +1017,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
                         }
                         KuCoinMessage::Message(data) => {
-                            info!("{}", &data.data);
                             if data.topic == "/account/balance" {
                                 match BalanceData::deserialize(&data.data) {
                                     Ok(balance) => {
@@ -1061,6 +1060,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 }
                             } else if data.topic == "/spotMarket/tradeOrdersV2" {
+                                info!("{}", &data.data);
                                 match OrderData::deserialize(&data.data) {
                                     Ok(order) => {
                                         // order magic
