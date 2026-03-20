@@ -456,7 +456,7 @@ pub fn get_random_side() -> String {
 }
 
 pub async fn get_list_tradeable_symbols(pool: &PgPool, exchange: &str) -> Vec<TradeAbleSymbol> {
-    match sqlx::query_as::<_, TradeAbleSymbol>("SELECT symbol FROM symbol WHERE is_margin_enabled = true AND enable_trading = true AND fee_category = 1 AND quote_currency = 'USDT' AND exchange = $1;")
+    match sqlx::query_as::<_, TradeAbleSymbol>("SELECT symbol FROM symbol WHERE is_margin_enabled = true AND enable_trading = true AND fee_category = 1 AND quote_currency = 'USDT' AND base_currency <> 'USDC' AND exchange = $1;")
         .bind(exchange)
         .fetch_all(pool)
         .await
