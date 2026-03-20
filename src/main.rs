@@ -584,7 +584,7 @@ async fn handle_trade_order_event(
                         // sl order
                         let trigger_sl_price: f64 = match_price * 1.05; // price + 5%
                         // !!! check in min_size
-                        let funds_buy: f64 = trigger_tp_price * filled_size_f64;
+                        let funds_buy: f64 = trigger_sl_price * filled_size_f64;
                         let exit_sl_id: String = Uuid::new_v4().to_string();
                         let msg_sl_order: serde_json::Value = serde_json::json!({
                            "clientOid": exit_sl_id,
