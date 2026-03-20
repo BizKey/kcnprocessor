@@ -1089,7 +1089,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 match StopOrderData::deserialize(&data.data) {
                                     Ok(order) => {}
                                     Err(e) => {
-                                        info!("{:?}", data.data);
+                                        // info!("{:?}", data.data);
 
                                         // sent stop order error to pg
                                         let msg: String = format!("Failed to parse message {}", e);
