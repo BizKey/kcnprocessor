@@ -323,7 +323,7 @@ async fn handle_trade_order_event(
                 // remainFunds == "0" and type = "match"
 
                 // if clientOid in bots entry_id
-                if let Some(bot) = get_bots_by_entry_id(&pool, "kucoin", client_oid).await {
+                if let Some(bot) = get_bots_by_entry_id(&pool, exchange, client_oid).await {
                     // bot exist
 
                     // delete exit_tp_id stop order
@@ -414,7 +414,7 @@ async fn handle_trade_order_event(
                         });
                         info!("{}", msg_tp_order);
                         // add exit_tp_id by entry_id
-                        update_exit_tp_id_bot_by_entry_id(pool, "kucoin", client_oid, &exit_tp_id)
+                        update_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid, &exit_tp_id)
                             .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
                             Ok(_) => {
@@ -424,7 +424,8 @@ async fn handle_trade_order_event(
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
-                                // !!! delete exit_tp_id by entry_id
+                                // delete exit_tp_id by entry_id
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await
                             }
                         }
                         // sl order
@@ -446,36 +447,32 @@ async fn handle_trade_order_event(
                         });
                         info!("{}", msg_sl_order);
                         // add exit_sl_id by entry_id
-                        update_exit_sl_id_bot_by_entry_id(pool, "kucoin", client_oid, &exit_sl_id)
+                        update_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid, &exit_sl_id)
                             .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
-                                // !!! add exit_sl_id by entry_id
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await
                             }
                         }
                         // delete entry_id from db
-                        delete_entry_id_bot_by_entry_id(pool, "kucoin", client_oid).await
+                        delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await
                     }
                 } else {
                     // bots dont exist
                     info!("client_oid dosn't exist in db: {}", client_oid);
                 }
-                // !!! add get_bots_by_exit_sl_id
-                // !!! add get_bots_by_exit_tp_id
-                // Yes -> clear other side, update balance, random new token
-                // No -> update other side, create stop orders
             } else if order.side == "sell" {
                 // side sell
                 // remainSize == "0" and type = "match"
 
                 // if clientOid in bots entry_id
-                if let Some(bot) = get_bots_by_entry_id(&pool, "kucoin", client_oid).await {
+                if let Some(bot) = get_bots_by_entry_id(&pool, exchange, client_oid).await {
                     // bot exist
 
                     // delete exit_tp_id stop order
@@ -567,7 +564,7 @@ async fn handle_trade_order_event(
                         });
                         info!("{}", msg_tp_order);
                         // add exit_tp_id by entry_id
-                        update_exit_tp_id_bot_by_entry_id(pool, "kucoin", client_oid, &exit_tp_id)
+                        update_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid, &exit_tp_id)
                             .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
                             Ok(_) => {
@@ -577,7 +574,8 @@ async fn handle_trade_order_event(
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
-                                // !!! delete exit_tp_id by entry_id
+                                // delete exit_tp_id by entry_id
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await
                             }
                         }
                         // sl order
@@ -601,30 +599,27 @@ async fn handle_trade_order_event(
                         });
                         info!("{}", msg_sl_order);
                         // add exit_sl_id by entry_id
-                        update_exit_sl_id_bot_by_entry_id(pool, "kucoin", client_oid, &exit_sl_id)
+                        update_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid, &exit_sl_id)
                             .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
-                                // !!! add exit_sl_id by entry_id
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
+                                // add exit_sl_id by entry_id
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await
                             }
                         }
                         // delete entry_id from db
-                        delete_entry_id_bot_by_entry_id(pool, "kucoin", client_oid).await
+                        delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await
                     }
                 } else {
                     // bots dont exist
                     info!("client_oid: {}", client_oid);
                 }
-                // !!! add get_bots_by_exit_sl_id
-                // !!! add get_bots_by_exit_tp_id
-                // Yes -> clear other side, update balance, random new token
-                // No -> update other side, create stop orders
             }
         }
     }
