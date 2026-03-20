@@ -101,7 +101,7 @@ pub struct StopOrderData {
     #[serde(rename = "orderId")]
     pub order_id: String,
     #[serde(rename = "orderPrice")]
-    pub order_price: String,
+    pub order_price: Option<String>,
     #[serde(rename = "orderType")]
     pub order_type: String,
     pub side: String,
