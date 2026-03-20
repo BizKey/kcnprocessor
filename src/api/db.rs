@@ -226,7 +226,7 @@ pub async fn update_exit_sl_id_bot_by_entry_id(
     entry_id: &str,
     exit_sl_id: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_id = $1 updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_id = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
         .bind(exit_sl_id)
         .bind(entry_id)
         .bind(exchange)
