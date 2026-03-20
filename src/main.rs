@@ -336,8 +336,7 @@ async fn handle_trade_order_event(
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_tp_id);
                                 // clear exit_tp_id in bots by entry_id
-                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, &exit_tp_id)
-                                    .await;
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -358,8 +357,7 @@ async fn handle_trade_order_event(
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_sl_id);
                                 // clear exit_sl_id in bots by id !!
-                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, &exit_sl_id)
-                                    .await;
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -408,7 +406,6 @@ async fn handle_trade_order_event(
                             "isIsolated": false,
                             "autoBorrow": true,
                             "autoRepay": true,
-                            "price": format_assert(trigger_tp_price, price_increment),
                             "size": &order.filled_size,
                             "timeInForce": "GTC",
                         });
@@ -442,7 +439,6 @@ async fn handle_trade_order_event(
                             "isIsolated": false,
                             "autoBorrow": true,
                             "autoRepay": true,
-                            "price": format_assert(trigger_sl_price, price_increment),
                             "size": order.filled_size,
                             "timeInForce": "GTC",
                         });
@@ -487,8 +483,7 @@ async fn handle_trade_order_event(
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_tp_id);
                                 // clear exit_tp_id in bots by id !!
-                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, &exit_tp_id)
-                                    .await;
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -509,8 +504,7 @@ async fn handle_trade_order_event(
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_sl_id);
                                 // clear exit_sl_id in bots by id !!
-                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, &exit_sl_id)
-                                    .await;
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -555,12 +549,11 @@ async fn handle_trade_order_event(
                             "side": "buy",
                             "symbol": order.symbol,
                             "type": "market",
-                            "stop": "entry",
+                            "stop": "loss",
                             "stopPrice": format_assert(trigger_tp_price, price_increment), // price - 6.5%
                             "isIsolated": false,
                             "autoBorrow": true,
                             "autoRepay": true,
-                            "price": format_assert(trigger_tp_price, price_increment), // price - 6.5%
                             "timeInForce": "GTC",
                             "funds": format_assert(funds_buy, quote_increment),
                         });
@@ -591,12 +584,11 @@ async fn handle_trade_order_event(
                             "side": "buy",
                             "symbol": order.symbol,
                             "type": "market",
-                            "stop": "loss",
+                            "stop": "entry",
                             "stopPrice": format_assert(trigger_sl_price, price_increment), // price + 5%
                             "isIsolated": false,
                             "autoBorrow": true,
                             "autoRepay": true,
-                            "price": format_assert(trigger_sl_price, price_increment),  // price + 5%
                             "timeInForce": "GTC",
                             "funds": format_assert(funds_buy, quote_increment),
                         });
