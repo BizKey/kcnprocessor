@@ -328,7 +328,6 @@ async fn handle_trade_order_event(
 
                     // delete exit_tp_id stop order
                     if let Some(exit_tp_id) = bot.exit_tp_id {
-                        info!("{}", exit_tp_id);
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
                             &exit_tp_id,
                         )
@@ -344,13 +343,13 @@ async fn handle_trade_order_event(
                                 let msg: String = format!("Failed cancel stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
+                                return;
                             }
                         }
                     }
 
                     // delete exit_sl_id stop order
                     if let Some(exit_sl_id) = bot.exit_sl_id {
-                        info!("{}", exit_sl_id);
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
                             &exit_sl_id,
                         )
@@ -366,6 +365,7 @@ async fn handle_trade_order_event(
                                 let msg: String = format!("Failed cancel stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
+                                return;
                             }
                         }
                     };
@@ -412,20 +412,21 @@ async fn handle_trade_order_event(
                             "size": &order.filled_size,
                             "timeInForce": "GTC",
                         });
-                        info!("{}", msg_tp_order);
+                        info!("Stop profit order:{}", msg_tp_order);
                         // add exit_tp_id by entry_id
                         update_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid, &exit_tp_id)
                             .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
                             Ok(_) => {
-                                info!("Successfully add stop order");
+                                info!("Successfully add stop profit order:{}", exit_tp_id);
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
                                 // delete exit_tp_id by entry_id
-                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await;
+                                return;
                             }
                         }
                         // sl order
@@ -445,19 +446,20 @@ async fn handle_trade_order_event(
                             "size": order.filled_size,
                             "timeInForce": "GTC",
                         });
-                        info!("{}", msg_sl_order);
+                        info!("Stop loss order:{}", msg_sl_order);
                         // add exit_sl_id by entry_id
                         update_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid, &exit_sl_id)
                             .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
                             Ok(_) => {
-                                info!("Successfully add stop order");
+                                info!("Successfully add stop loss order:{}", exit_sl_id);
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
-                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await;
+                                return;
                             }
                         }
                         // delete entry_id from db
@@ -477,7 +479,6 @@ async fn handle_trade_order_event(
 
                     // delete exit_tp_id stop order
                     if let Some(exit_tp_id) = bot.exit_tp_id {
-                        info!("{}", exit_tp_id);
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
                             &exit_tp_id,
                         )
@@ -493,13 +494,13 @@ async fn handle_trade_order_event(
                                 let msg: String = format!("Failed cancel stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
+                                return;
                             }
                         }
                     }
 
                     // delete exit_sl_id stop order
                     if let Some(exit_sl_id) = bot.exit_sl_id {
-                        info!("{}", exit_sl_id);
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
                             &exit_sl_id,
                         )
@@ -515,6 +516,7 @@ async fn handle_trade_order_event(
                                 let msg: String = format!("Failed cancel stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
+                                return;
                             }
                         }
                     }
@@ -562,20 +564,21 @@ async fn handle_trade_order_event(
                             "timeInForce": "GTC",
                             "funds": format_assert(funds_buy, quote_increment),
                         });
-                        info!("{}", msg_tp_order);
+                        info!("Stop profit order:{}", msg_tp_order);
                         // add exit_tp_id by entry_id
                         update_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid, &exit_tp_id)
                             .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
                             Ok(_) => {
-                                info!("Successfully add stop order");
+                                info!("Successfully add stop profit order:{}", exit_tp_id);
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
                                 // delete exit_tp_id by entry_id
-                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await;
+                                return;
                             }
                         }
                         // sl order
@@ -597,13 +600,13 @@ async fn handle_trade_order_event(
                             "timeInForce": "GTC",
                             "funds": format_assert(funds_buy, quote_increment),
                         });
-                        info!("{}", msg_sl_order);
+                        info!("Stop loss order:{}", msg_sl_order);
                         // add exit_sl_id by entry_id
                         update_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid, &exit_sl_id)
                             .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
                             Ok(_) => {
-                                info!("Successfully add stop order");
+                                info!("Successfully add stop loss order:{}", exit_sl_id);
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
