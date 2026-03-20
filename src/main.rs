@@ -1,9 +1,10 @@
 use crate::api::db::{
-    clear_exit_sl_id_bot_by_entry_id, clear_exit_tp_id_bot_by_entry_id, clear_orders_ids_for_bots,
-    delete_current_orderactive_from_db, fetch_symbol_info, get_all_bots_for_trade,
-    get_bots_by_entry_id, get_random_side, get_random_tradeable_symbol,
+    clear_orders_ids_for_bots, delete_current_orderactive_from_db, delete_entry_id_bot_by_entry_id,
+    delete_exit_sl_id_bot_by_entry_id, delete_exit_tp_id_bot_by_entry_id, fetch_symbol_info,
+    get_all_bots_for_trade, get_bots_by_entry_id, get_random_side, get_random_tradeable_symbol,
     insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
-    insert_db_msgsend, insert_db_orderevent, update_bots_entry_id, upsert_position_asset,
+    insert_db_msgsend, insert_db_orderevent, update_bots_entry_id,
+    update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
     upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
@@ -335,8 +336,9 @@ async fn handle_trade_order_event(
                         {
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_tp_id);
-                                // clear exit_tp_id in bots by id !!
-                                clear_exit_tp_id_bot_by_entry_id(pool, exchange, &exit_tp_id).await;
+                                // clear exit_tp_id in bots by entry_id
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, &exit_tp_id)
+                                    .await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -357,7 +359,8 @@ async fn handle_trade_order_event(
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_sl_id);
                                 // clear exit_sl_id in bots by id !!
-                                clear_exit_sl_id_bot_by_entry_id(pool, exchange, &exit_sl_id).await;
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, &exit_sl_id)
+                                    .await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -410,15 +413,18 @@ async fn handle_trade_order_event(
                             "timeInForce": "GTC",
                         });
                         info!("{}", msg_tp_order);
+                        // add exit_tp_id by entry_id
+                        update_exit_tp_id_bot_by_entry_id(pool, "kucoin", client_oid, &exit_tp_id)
+                            .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
-                                // !!! add exit_tp_id by entry_id
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
+                                // !!! delete exit_tp_id by entry_id
                             }
                         }
                         // sl order
@@ -439,6 +445,9 @@ async fn handle_trade_order_event(
                             "timeInForce": "GTC",
                         });
                         info!("{}", msg_sl_order);
+                        // add exit_sl_id by entry_id
+                        update_exit_sl_id_bot_by_entry_id(pool, "kucoin", client_oid, &exit_sl_id)
+                            .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
@@ -450,7 +459,8 @@ async fn handle_trade_order_event(
                                 insert_db_error(pool, exchange, &msg).await;
                             }
                         }
-                        // !!! delete entry_id
+                        // delete entry_id from db
+                        delete_entry_id_bot_by_entry_id(pool, "kucoin", client_oid).await
                     }
                 } else {
                     // bots dont exist
@@ -479,7 +489,8 @@ async fn handle_trade_order_event(
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_tp_id);
                                 // clear exit_tp_id in bots by id !!
-                                clear_exit_tp_id_bot_by_entry_id(pool, exchange, &exit_tp_id).await;
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, &exit_tp_id)
+                                    .await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -500,7 +511,8 @@ async fn handle_trade_order_event(
                             Ok(_) => {
                                 info!("Successfully cancel stop order :{}", &exit_sl_id);
                                 // clear exit_sl_id in bots by id !!
-                                clear_exit_sl_id_bot_by_entry_id(pool, exchange, &exit_sl_id).await;
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, &exit_sl_id)
+                                    .await;
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
@@ -554,15 +566,18 @@ async fn handle_trade_order_event(
                             "funds": format_assert(funds_buy, quote_increment),
                         });
                         info!("{}", msg_tp_order);
+                        // add exit_tp_id by entry_id
+                        update_exit_tp_id_bot_by_entry_id(pool, "kucoin", client_oid, &exit_tp_id)
+                            .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
-                                // !!! add exit_tp_id by entry_id
                             }
                             Err(e) => {
                                 let msg: String = format!("Failed add stop order: {}", e);
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
+                                // !!! delete exit_tp_id by entry_id
                             }
                         }
                         // sl order
@@ -585,6 +600,9 @@ async fn handle_trade_order_event(
                             "funds": format_assert(funds_buy, quote_increment),
                         });
                         info!("{}", msg_sl_order);
+                        // add exit_sl_id by entry_id
+                        update_exit_sl_id_bot_by_entry_id(pool, "kucoin", client_oid, &exit_sl_id)
+                            .await;
                         match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await {
                             Ok(_) => {
                                 info!("Successfully add stop order");
@@ -596,7 +614,8 @@ async fn handle_trade_order_event(
                                 insert_db_error(pool, exchange, &msg).await;
                             }
                         }
-                        // !!! delete entry_id
+                        // delete entry_id from db
+                        delete_entry_id_bot_by_entry_id(pool, "kucoin", client_oid).await
                     }
                 } else {
                     // bots dont exist

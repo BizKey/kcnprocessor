@@ -157,30 +157,51 @@ pub async fn insert_current_orderactive_to_db(pool: &PgPool, exchange: &str, ord
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn clear_exit_sl_id_bot_by_entry_id(pool: &sqlx::PgPool, exchange: &str, entry_id: &str) {
+pub async fn delete_exit_sl_id_bot_by_entry_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    entry_id: &str,
+) {
     if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
         .bind(entry_id)
         .bind(exchange)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed clear all orders_ids for bots: {}", e);
+        let err_msg = format!("Failed delete all orders_ids for bots: {}", e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn clear_exit_tp_id_bot_by_entry_id(pool: &sqlx::PgPool, exchange: &str, entry_id: &str) {
+pub async fn delete_exit_tp_id_bot_by_entry_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    entry_id: &str,
+) {
     if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_id = NULL updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
         .bind(entry_id)
         .bind(exchange)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed clear all orders_ids for bots: {}", e);
+        let err_msg = format!("Failed delete all orders_ids for bots: {}", e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn delete_entry_id_bot_by_entry_id(pool: &sqlx::PgPool, exchange: &str, entry_id: &str) {
+    if let Err(e) = sqlx::query("UPDATE bots SET entry_id = NULL updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
+        .bind(entry_id)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed delete entry_id:{} by entry_id:{} for bots: {}",entry_id,entry_id, e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
+
 pub async fn update_exit_tp_id_bot_by_entry_id(
     pool: &sqlx::PgPool,
     exchange: &str,
