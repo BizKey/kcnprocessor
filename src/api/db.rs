@@ -189,6 +189,38 @@ pub async fn delete_exit_tp_id_bot_by_entry_id(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn delete_exit_sl_id_bot_by_exit_sl_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    exit_sl_id: &str,
+) {
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_id = $1 AND exchange = $2;")
+        .bind(exit_sl_id)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed delete exit_sl_id:{} by exit_sl_id:{} for bots: {}",exit_sl_id,exit_sl_id, e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
+pub async fn delete_exit_tp_id_bot_by_exit_tp_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    exit_tp_id: &str,
+) {
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_id = $1 AND exchange = $2;")
+        .bind(exit_tp_id)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed delete exit_tp_id:{} by exit_tp_id:{} for bots: {}",exit_tp_id,exit_tp_id, e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
 pub async fn delete_entry_id_bot_by_entry_id(pool: &sqlx::PgPool, exchange: &str, entry_id: &str) {
     if let Err(e) = sqlx::query("UPDATE bots SET entry_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
         .bind(entry_id)
@@ -234,6 +266,42 @@ pub async fn update_exit_sl_id_bot_by_entry_id(
         .await
     {
         let err_msg = format!("Failed update exit_sl_id:{} by entry_id:{} for bots: {}",exit_sl_id,entry_id, e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
+pub async fn update_balance_by_exit_tp_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    exit_tp_id: &str,
+    balance: &str,
+) {
+    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_id = $2 AND exchange = $3;")
+        .bind(balance)
+        .bind(exit_tp_id)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed update balance:{} by exit_tp_id:{} for bots: {}",balance,exit_tp_id, e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
+pub async fn update_balance_by_exit_sl_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    exit_sl_id: &str,
+    balance: &str,
+) {
+    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_id = $2 AND exchange = $3;")
+        .bind(balance)
+        .bind(exit_sl_id)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed update balance:{} by exit_sl_id:{} for bots: {}",balance,exit_sl_id, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
