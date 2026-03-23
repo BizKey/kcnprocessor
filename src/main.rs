@@ -319,9 +319,6 @@ async fn handle_trade_order_event(
             };
             // order completed filled
             if order.side == "buy" {
-                // side buy
-                // remainFunds == "0" and type = "match"
-
                 // if clientOid in bots entry_id (1 phase)
                 if let Some(bot) = get_bots_by_entry_id(&pool, exchange, client_oid).await {
                     // bot exist
@@ -509,9 +506,6 @@ async fn handle_trade_order_event(
                     }
                 }
             } else if order.side == "sell" {
-                // side sell
-                // remainSize == "0" and type = "match"
-
                 // if clientOid in bots entry_id (1 phase)
                 if let Some(bot) = get_bots_by_entry_id(&pool, exchange, client_oid).await {
                     // bot exist
