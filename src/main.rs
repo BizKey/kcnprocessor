@@ -4,8 +4,9 @@ use crate::api::db::{
     get_all_bots_for_trade, get_bots_by_entry_id, get_bots_by_exit_sl_id, get_bots_by_exit_tp_id,
     get_random_side, get_random_tradeable_symbol, insert_current_orderactive_to_db,
     insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
-    update_bots_entry_id, update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id,
-    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
+    update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_id,
+    update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
+    upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
     BalanceData, KuCoinMessage, OrderData, PositionData, StopOrderData, Symbol,
@@ -317,6 +318,28 @@ async fn handle_trade_order_event(
                     return;
                 }
             };
+            let token_price_str = match api::requests::get_ticker_price(&order.symbol).await {
+                Ok(token_price_str) => {
+                    info!("Successfully get price:{}", &order.symbol);
+                    token_price_str
+                }
+                Err(e) => {
+                    let msg: String = format!("Failed get price: {} {}", &order.symbol, e);
+                    error!("{}", msg);
+                    insert_db_error(&pool, &exchange, &msg).await;
+                    return;
+                }
+            };
+            // convert price from str to int
+            let token_price: f64 = match token_price_str.parse::<f64>() {
+                Ok(token_price) => token_price,
+                Err(e) => {
+                    let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
+                    error!("{}", msg);
+                    insert_db_error(&pool, &exchange, &msg).await;
+                    return;
+                }
+            };
             // order completed filled
             if order.side == "buy" {
                 // if clientOid in bots entry_id (1 phase)
@@ -481,6 +504,39 @@ async fn handle_trade_order_event(
                             }
                         }
                     };
+                    if let (Some(filled_size), Some(balance)) = (&order.filled_size, bot.balance) {
+                        let balance_f64: f64 = match balance.parse::<f64>() {
+                            Ok(balance) => balance,
+                            Err(e) => {
+                                let msg: String =
+                                    format!("Failed parse balance: {} {}", balance, e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return;
+                            }
+                        };
+                        let filled_size_f64: f64 = match filled_size.parse::<f64>() {
+                            Ok(filled_size) => filled_size,
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed parse order.filled_size: {} {}",
+                                    filled_size, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return;
+                            }
+                        };
+                        let new_balance: f64 =
+                            balance_f64 - (filled_size_f64 * token_price) + balance_f64;
+                        update_balance_by_exit_tp_id(
+                            pool,
+                            exchange,
+                            client_oid,
+                            &format!("{:.2}", new_balance),
+                        )
+                        .await;
+                    };
                 }
                 // if clientOid in bots entry_id (2 phase)
                 if let Some(bot) = get_bots_by_exit_sl_id(&pool, exchange, client_oid).await {
@@ -503,6 +559,40 @@ async fn handle_trade_order_event(
                                 return;
                             }
                         }
+                    };
+                    if let (Some(filled_size), Some(balance)) = (&order.filled_size, bot.balance) {
+                        let balance_f64: f64 = match balance.parse::<f64>() {
+                            Ok(balance) => balance,
+                            Err(e) => {
+                                let msg: String =
+                                    format!("Failed parse balance: {} {}", balance, e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return;
+                            }
+                        };
+                        let filled_size_f64: f64 = match filled_size.parse::<f64>() {
+                            Ok(filled_size) => filled_size,
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed parse order.filled_size: {} {}",
+                                    filled_size, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return;
+                            }
+                        };
+                        let new_balance: f64 =
+                            balance_f64 - (filled_size_f64 * token_price) + balance_f64;
+
+                        update_balance_by_exit_sl_id(
+                            pool,
+                            exchange,
+                            client_oid,
+                            &format!("{:.2}", new_balance),
+                        )
+                        .await;
                     }
                 }
             } else if order.side == "sell" {
@@ -671,6 +761,39 @@ async fn handle_trade_order_event(
                             }
                         }
                     };
+                    if let (Some(filled_size), Some(balance)) = (&order.filled_size, bot.balance) {
+                        let balance_f64: f64 = match balance.parse::<f64>() {
+                            Ok(balance) => balance,
+                            Err(e) => {
+                                let msg: String =
+                                    format!("Failed parse balance: {} {}", balance, e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return;
+                            }
+                        };
+                        let filled_size_f64: f64 = match filled_size.parse::<f64>() {
+                            Ok(filled_size) => filled_size,
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed parse order.filled_size: {} {}",
+                                    filled_size, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return;
+                            }
+                        };
+                        let new_balance: f64 =
+                            balance_f64 - (filled_size_f64 * token_price) + balance_f64;
+                        update_balance_by_exit_tp_id(
+                            pool,
+                            exchange,
+                            client_oid,
+                            &format!("{:.2}", new_balance),
+                        )
+                        .await;
+                    }
                 }
                 // if clientOid in bots entry_id (2 phase)
                 if let Some(bot) = get_bots_by_exit_sl_id(&pool, exchange, client_oid).await {
@@ -693,6 +816,39 @@ async fn handle_trade_order_event(
                                 return;
                             }
                         }
+                    };
+                    if let (Some(filled_size), Some(balance)) = (&order.filled_size, bot.balance) {
+                        let balance_f64: f64 = match balance.parse::<f64>() {
+                            Ok(balance) => balance,
+                            Err(e) => {
+                                let msg: String =
+                                    format!("Failed parse balance: {} {}", balance, e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return;
+                            }
+                        };
+                        let filled_size_f64: f64 = match filled_size.parse::<f64>() {
+                            Ok(filled_size) => filled_size,
+                            Err(e) => {
+                                let msg: String = format!(
+                                    "Failed parse order.filled_size: {} {}",
+                                    filled_size, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                return;
+                            }
+                        };
+                        let new_balance: f64 =
+                            balance_f64 - (filled_size_f64 * token_price) + balance_f64;
+                        update_balance_by_exit_sl_id(
+                            pool,
+                            exchange,
+                            client_oid,
+                            &format!("{:.2}", new_balance),
+                        )
+                        .await;
                     }
                 }
             }
