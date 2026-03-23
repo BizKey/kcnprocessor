@@ -1,6 +1,7 @@
 use crate::api::db::{
     clear_orders_ids_for_bots, delete_current_orderactive_from_db, delete_entry_id_bot_by_entry_id,
-    delete_exit_sl_id_bot_by_entry_id, delete_exit_tp_id_bot_by_entry_id, fetch_symbol_info,
+    delete_exit_sl_id_bot_by_entry_id, delete_exit_sl_id_bot_by_exit_sl_id,
+    delete_exit_tp_id_bot_by_entry_id, delete_exit_tp_id_bot_by_exit_tp_id, fetch_symbol_info,
     get_all_bots_for_trade, get_bots_by_entry_id, get_bots_by_exit_sl_id, get_bots_by_exit_tp_id,
     get_random_side, get_random_tradeable_symbol, insert_current_orderactive_to_db,
     insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
@@ -537,6 +538,7 @@ async fn handle_trade_order_event(
                         )
                         .await;
                     };
+                    delete_exit_tp_id_bot_by_exit_tp_id(pool, exchange, client_oid).await
                 }
                 // if clientOid in bots entry_id (2 phase)
                 if let Some(bot) = get_bots_by_exit_sl_id(&pool, exchange, client_oid).await {
@@ -593,7 +595,8 @@ async fn handle_trade_order_event(
                             &format!("{:.2}", new_balance),
                         )
                         .await;
-                    }
+                    };
+                    delete_exit_sl_id_bot_by_exit_sl_id(pool, exchange, client_oid).await
                 }
             } else if order.side == "sell" {
                 // if clientOid in bots entry_id (1 phase)
@@ -793,7 +796,8 @@ async fn handle_trade_order_event(
                             &format!("{:.2}", new_balance),
                         )
                         .await;
-                    }
+                    };
+                    delete_exit_tp_id_bot_by_exit_tp_id(pool, exchange, client_oid).await
                 }
                 // if clientOid in bots entry_id (2 phase)
                 if let Some(bot) = get_bots_by_exit_sl_id(&pool, exchange, client_oid).await {
@@ -849,7 +853,8 @@ async fn handle_trade_order_event(
                             &format!("{:.2}", new_balance),
                         )
                         .await;
-                    }
+                    };
+                    delete_exit_sl_id_bot_by_exit_sl_id(pool, exchange, client_oid).await
                 }
             }
         }
