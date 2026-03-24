@@ -6,6 +6,7 @@ use fastrand;
 use log::error;
 use serde::Serialize;
 use sqlx::PgPool;
+use sqlx::Row;
 
 pub async fn insert_db_error(pool: &PgPool, exchange: &str, msg: &str) {
     if let Err(e) = sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
@@ -203,6 +204,31 @@ pub async fn delete_exit_sl_id_bot_by_exit_sl_id(
         let err_msg = format!("Failed delete exit_sl_id:{} by exit_sl_id:{} for bots: {}",exit_sl_id,exit_sl_id, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
+pub async fn get_total_match_value_by_client_oid(
+    pool: &sqlx::PgPool,
+    client_oid: &str,
+    exchange: &str,
+) -> Option<f64> {
+    match sqlx::query(
+        "SELECT SUM(match_size::numeric * match_price::numeric) AS total_match_value FROM orderevent WHERE client_oid = $1 AND exchange = $2 AND match_size IS NOT NULL AND match_price IS NOT NULL;"
+    )
+    .bind(client_oid)
+    .bind(exchange)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(row) => {
+            let total: Option<f64> = row.try_get("total_match_value").ok();
+            total
+        }
+        Err(e) => {
+            let err_msg = format!("Failed to get total match value for client_oid:{}: {}", client_oid, e);
+            error!("{}", err_msg);
+            insert_db_error(pool, "orderevent", &err_msg).await;
+            None
+        }
     }
 }
 pub async fn delete_exit_tp_id_bot_by_exit_tp_id(

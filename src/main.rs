@@ -3,11 +3,12 @@ use crate::api::db::{
     delete_exit_sl_id_bot_by_entry_id, delete_exit_sl_id_bot_by_exit_sl_id,
     delete_exit_tp_id_bot_by_entry_id, delete_exit_tp_id_bot_by_exit_tp_id, fetch_symbol_info,
     get_all_bots_for_trade, get_bots_by_entry_id, get_bots_by_exit_sl_id, get_bots_by_exit_tp_id,
-    get_random_side, get_random_tradeable_symbol, insert_current_orderactive_to_db,
-    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
-    update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_id,
-    update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
-    upsert_position_debt, upsert_position_ratio,
+    get_random_side, get_random_tradeable_symbol, get_total_match_value_by_client_oid,
+    insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
+    insert_db_msgsend, insert_db_orderevent, update_balance_by_exit_sl_id,
+    update_balance_by_exit_tp_id, update_bots_entry_id, update_exit_sl_id_bot_by_entry_id,
+    update_exit_tp_id_bot_by_entry_id, upsert_position_asset, upsert_position_debt,
+    upsert_position_ratio,
 };
 use crate::api::models::{
     BalanceData, KuCoinMessage, OrderData, PositionData, StopOrderData, Symbol,
@@ -528,15 +529,23 @@ async fn handle_trade_order_event(
                                 return;
                             }
                         };
-                        let new_balance: f64 =
-                            balance_f64 - (filled_size_f64 * token_price) + balance_f64;
-                        update_balance_by_exit_tp_id(
-                            pool,
-                            exchange,
-                            client_oid,
-                            &format!("{:.2}", new_balance),
-                        )
-                        .await;
+
+                        match get_total_match_value_by_client_oid(pool, client_oid, exchange).await
+                        {
+                            Some(total) => {
+                                let new_balance: f64 = balance_f64 - total + balance_f64;
+                                update_balance_by_exit_tp_id(
+                                    pool,
+                                    exchange,
+                                    client_oid,
+                                    &format!("{:.4}", new_balance),
+                                )
+                                .await;
+                            }
+                            None => {
+                                error!("No records found or error occurred");
+                            }
+                        }
                     };
                     delete_exit_tp_id_bot_by_exit_tp_id(pool, exchange, client_oid).await
                 }
@@ -592,7 +601,7 @@ async fn handle_trade_order_event(
                             pool,
                             exchange,
                             client_oid,
-                            &format!("{:.2}", new_balance),
+                            &format!("{:.4}", new_balance),
                         )
                         .await;
                     };
@@ -793,7 +802,7 @@ async fn handle_trade_order_event(
                             pool,
                             exchange,
                             client_oid,
-                            &format!("{:.2}", new_balance),
+                            &format!("{:.4}", new_balance),
                         )
                         .await;
                     };
@@ -850,7 +859,7 @@ async fn handle_trade_order_event(
                             pool,
                             exchange,
                             client_oid,
-                            &format!("{:.2}", new_balance),
+                            &format!("{:.4}", new_balance),
                         )
                         .await;
                     };
