@@ -1,6 +1,5 @@
 use crate::api::models::{
-    ActiveOrder, BalanceData, BalanceRelationContext, Bots, OrderData, Symbol, TradeAbleSymbol,
-    TradeBot, TradeSymbol,
+    BalanceData, BalanceRelationContext, Bots, OrderData, Symbol, TradeAbleSymbol, TradeBot,
 };
 use fastrand;
 use log::error;
@@ -138,22 +137,6 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
             .await
     {
         let err_msg = format!("Failed to insert order event into DB: {}", e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
-}
-pub async fn insert_current_orderactive_to_db(pool: &PgPool, exchange: &str, order: &OrderData) {
-    if let Err(e) = sqlx::query(
-        "INSERT INTO orderactive (exchange, order_id, symbol, side) VALUES ($1, $2, $3, $4)",
-    )
-    .bind(exchange)
-    .bind(&order.order_id)
-    .bind(&order.symbol)
-    .bind(&order.side)
-    .execute(pool)
-    .await
-    {
-        let err_msg = format!("Failed to insert order active into DB: {}", e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
@@ -362,63 +345,6 @@ pub async fn update_bots_entry_id(
     }
     Ok(())
 }
-pub async fn delete_all_orderactive_from_db(pool: &sqlx::PgPool, exchange: &str) {
-    if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE exchange = $1")
-        .bind(exchange)
-        .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed delete all active orders from DB: {}", e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
-}
-
-pub async fn delete_current_orderactive_from_db(pool: &PgPool, exchange: &str, order_id: &str) {
-    if let Err(e) = sqlx::query("DELETE FROM orderactive WHERE exchange = $1 AND order_id = $2")
-        .bind(exchange)
-        .bind(order_id)
-        .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed to delete order from orderactive: {}", e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
-}
-
-pub async fn delete_oldest_orderactive(
-    pool: &PgPool,
-    exchange: &str,
-    symbol: &str,
-    side: &str,
-) -> Option<ActiveOrder> {
-    match sqlx::query_as::<_, ActiveOrder>(
-        "DELETE FROM orderactive
-        WHERE id = (
-            SELECT id
-            FROM orderactive
-            WHERE exchange = $1 AND symbol = $2 AND side = $3
-            ORDER BY updated_at ASC
-            LIMIT 1
-        )
-        RETURNING order_id, symbol, updated_at",
-    )
-    .bind(exchange)
-    .bind(symbol)
-    .bind(side)
-    .fetch_optional(pool)
-    .await
-    {
-        Ok(order) => order,
-        Err(e) => {
-            let err_msg = format!("Failed delete active orders by symbol '{}': {}", symbol, e);
-            error!("{}", err_msg);
-            insert_db_error(pool, exchange, &err_msg).await;
-            None
-        }
-    }
-}
 
 pub async fn get_bots_by_exit_sl_id(
     pool: &PgPool,
@@ -492,33 +418,6 @@ pub async fn get_bots_by_entry_id(pool: &PgPool, exchange: &str, client_oid: &st
     }
 }
 
-pub async fn fetch_all_active_orders_by_symbol(
-    pool: &PgPool,
-    exchange: &str,
-    symbol: &str,
-    side: &str,
-) -> Vec<ActiveOrder> {
-    match sqlx::query_as::<_, ActiveOrder>(
-        "SELECT order_id, symbol, updated_at FROM orderactive WHERE exchange = $1 AND symbol = $2 AND side = $3",
-    )
-    .bind(exchange)
-    .bind(symbol)
-    .bind(side)
-    .fetch_all(pool)
-    .await
-    {
-        Ok(orders) => orders,
-        Err(e) => {
-            let err_msg = format!(
-                "Failed to fetch active orders by symbol '{}': {}",
-                symbol, e
-            );
-            error!("{}", err_msg);
-            insert_db_error(pool, exchange, &err_msg).await;
-            vec![]
-        }
-    }
-}
 pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeBot> {
     match sqlx::query_as::<_, TradeBot>("SELECT id, balance FROM bots WHERE exchange = $1")
         .bind(exchange)
@@ -536,7 +435,7 @@ pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeB
 }
 
 pub async fn get_random_tradeable_symbol(pool: &PgPool, exchange: &str) -> String {
-    let tradeable_symbols = get_list_tradeable_symbols(&pool, &exchange).await;
+    let tradeable_symbols = get_list_tradeable_symbols(pool, exchange).await;
     let symbol_choice = &tradeable_symbols[fastrand::usize(..tradeable_symbols.len())];
     symbol_choice.symbol.clone()
 }
@@ -564,24 +463,6 @@ pub async fn get_list_tradeable_symbols(pool: &PgPool, exchange: &str) -> Vec<Tr
         }
     }
 }
-pub async fn get_all_symbol_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeSymbol> {
-    match sqlx::query_as::<_, TradeSymbol>(
-        "SELECT symbol, size FROM symbol_trade WHERE exchange = $1 AND enable = true",
-    )
-    .bind(exchange)
-    .fetch_all(pool)
-    .await
-    {
-        Ok(orders) => orders,
-        Err(e) => {
-            let err_msg = format!("Failed to fetch symbol for trade '{}': {}", exchange, e);
-            error!("{}", err_msg);
-            insert_db_error(pool, exchange, &err_msg).await;
-            vec![]
-        }
-    }
-}
-
 pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
     match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, price_increment, quote_increment, base_min_size, quote_min_size FROM symbol WHERE exchange = $1")
         .bind(exchange)

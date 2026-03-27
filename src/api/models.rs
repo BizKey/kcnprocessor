@@ -56,11 +56,6 @@ pub struct BalanceData {
     pub relation_context: Option<BalanceRelationContext>,
 }
 #[derive(sqlx::FromRow, Debug)]
-pub struct ActiveOrder {
-    pub order_id: String,
-    pub symbol: String,
-}
-#[derive(sqlx::FromRow, Debug)]
 pub struct TradeAbleSymbol {
     pub symbol: String,
 }
@@ -213,10 +208,6 @@ pub struct Symbol {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct SymbolOpenOrderData {
-    pub symbols: Vec<String>,
-}
-#[derive(Debug, Deserialize)]
 pub struct MakeOrderRes {
     pub code: String,
     pub msg: Option<String>,
@@ -234,36 +225,14 @@ pub struct MakeStopOrderRes {
     pub data: MakeStopOrderResData,
 }
 #[derive(Debug, Deserialize)]
-pub struct CancelOrderRes {
-    pub code: String,
-}
-#[derive(Debug, Deserialize)]
 pub struct ApiV1TimestampRes {
     pub code: String,
     pub data: i64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SymbolOpenOrder {
-    pub data: SymbolOpenOrderData,
-}
-#[derive(Debug, Deserialize)]
-pub struct OldActiveOrdersDataItem {
-    pub id: String,
-}
-#[derive(Debug, Deserialize)]
-pub struct OldActiveOrdersData {
-    pub items: Vec<OldActiveOrdersDataItem>,
-}
-#[derive(Debug, Deserialize)]
-pub struct OldActiveOrders {
-    pub data: OldActiveOrdersData,
 }
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountDataAccount {
     pub currency: String,
     pub available: String,
-    pub hold: String,
     pub liability: String, // borrow
 }
 #[derive(Debug, Deserialize)]

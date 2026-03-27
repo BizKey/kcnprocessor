@@ -1,21 +1,20 @@
 use crate::api::db::{
-    clear_orders_ids_for_bots, delete_current_orderactive_from_db, delete_entry_id_bot_by_entry_id,
-    delete_exit_sl_id_bot_by_entry_id, delete_exit_sl_id_bot_by_exit_sl_id,
-    delete_exit_tp_id_bot_by_entry_id, delete_exit_tp_id_bot_by_exit_tp_id, fetch_symbol_info,
-    get_all_bots_for_trade, get_bots_by_entry_id, get_bots_by_exit_sl_id, get_bots_by_exit_tp_id,
-    get_random_side, get_random_tradeable_symbol, get_total_match_value_by_client_oid,
-    insert_current_orderactive_to_db, insert_db_balance, insert_db_error, insert_db_event,
-    insert_db_msgsend, insert_db_orderevent, update_balance_by_exit_sl_id,
-    update_balance_by_exit_tp_id, update_bots_entry_id, update_exit_sl_id_bot_by_entry_id,
-    update_exit_tp_id_bot_by_entry_id, upsert_position_asset, upsert_position_debt,
-    upsert_position_ratio,
+    clear_orders_ids_for_bots, delete_entry_id_bot_by_entry_id, delete_exit_sl_id_bot_by_entry_id,
+    delete_exit_sl_id_bot_by_exit_sl_id, delete_exit_tp_id_bot_by_entry_id,
+    delete_exit_tp_id_bot_by_exit_tp_id, fetch_symbol_info, get_all_bots_for_trade,
+    get_bots_by_entry_id, get_bots_by_exit_sl_id, get_bots_by_exit_tp_id, get_random_side,
+    get_random_tradeable_symbol, get_total_match_value_by_client_oid, insert_db_balance,
+    insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
+    update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_id,
+    update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
+    upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
     BalanceData, KuCoinMessage, OrderData, PositionData, StopOrderData, Symbol,
 };
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
-use log::{error, info, warn};
+use log::{error, info};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
@@ -41,42 +40,6 @@ fn build_subscription() -> Vec<serde_json::Value> {
         serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}),
         serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}),
     ]
-}
-
-async fn cancel_order(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    symbol: &str,
-    order_id: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    insert_db_msgsend(
-        pool,
-        exchange,
-        Some(symbol),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(order_id),
-    )
-    .await;
-    // cancel other orders by symbol
-    match api::requests::old_cancel_order(order_id).await {
-        Ok(_) => {
-            info!("Successfully cancel order :{}", &order_id);
-        }
-        Err(e) => {
-            let msg: String = format!("Failed cancel order: {}", e);
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
-        }
-    }
-    Ok(())
 }
 
 async fn make_hf_funds_margin_order(
@@ -105,7 +68,7 @@ async fn make_hf_funds_margin_order(
         Some(&type_),
         Some(&auto_borrow),
         Some(&auto_repay),
-        Some(&client_oid),
+        Some(client_oid),
         None,
     )
     .await;
@@ -130,16 +93,16 @@ async fn make_hf_funds_margin_order(
                 );
                 error!("{}", msg);
                 insert_db_error(pool, exchange, &msg).await;
-                return Err(msg.into());
+                Err(msg.into())
             } else {
-                return Ok(client_oid.to_string());
+                Ok(client_oid.to_string())
             }
         }
         Err(e) => {
             let msg: String = format!("Failed to send order: {}", e);
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
-            return Err(msg.into());
+            Err(msg.into())
         }
     }
 }
@@ -207,16 +170,16 @@ async fn make_hf_size_margin_order(
                 );
                 error!("{}", msg);
                 insert_db_error(pool, exchange, &msg).await;
-                return Err(msg.into());
+                Err(msg.into())
             } else {
-                return Ok(client_oid.to_string());
+                Ok(client_oid.to_string())
             }
         }
         Err(e) => {
             let msg: String = format!("Failed to send order: {}", e);
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
-            return Err(msg.into());
+            Err(msg.into())
         }
     }
 }
@@ -228,44 +191,6 @@ fn format_assert(size: f64, increment: f64) -> String {
         (-increment.log10().floor() as usize).min(10)
     };
     format!("{:.decimals$}", size)
-}
-
-fn format_price(price: f64, increment: f64) -> String {
-    let decimals = if increment >= 1.0 {
-        0
-    } else {
-        (-increment.log10().floor() as usize).min(10)
-    };
-    format!("{:.decimals$}", price)
-}
-fn calculate_transfer_amount(
-    match_price: &Option<String>,
-    origin_size: &Option<String>,
-    increment: &str,
-) -> Option<String> {
-    let price = match match_price {
-        Some(p) => p.parse::<f64>().ok()?,
-        None => return None,
-    };
-
-    let size = match origin_size {
-        Some(s) => s.parse::<f64>().ok()?,
-        None => return None,
-    };
-
-    let inc = match increment.parse::<f64>() {
-        Ok(v) if v > 0.0 => v,
-        _ => return None,
-    };
-
-    if price <= 0.0 || size <= 0.0 {
-        return None;
-    }
-
-    let raw_amount = price * size * 0.01;
-    let rounded = (raw_amount / inc).round() * inc;
-
-    Some(format_price(rounded, inc))
 }
 
 async fn handle_trade_order_event(
@@ -304,7 +229,7 @@ async fn handle_trade_order_event(
                         symbol_info.price_increment, e
                     );
                     error!("{}", msg);
-                    insert_db_error(&pool, &exchange, &msg).await;
+                    insert_db_error(pool, exchange, &msg).await;
                     return;
                 }
             };
@@ -316,14 +241,14 @@ async fn handle_trade_order_event(
                         symbol_info.quote_increment, e
                     );
                     error!("{}", msg);
-                    insert_db_error(&pool, &exchange, &msg).await;
+                    insert_db_error(pool, exchange, &msg).await;
                     return;
                 }
             };
             // order completed filled
             if order.side == "buy" {
                 // if clientOid in bots entry_id (1 phase)
-                if let Some(bot) = get_bots_by_entry_id(&pool, exchange, client_oid).await {
+                if let Some(bot) = get_bots_by_entry_id(pool, exchange, client_oid).await {
                     // bot exist
 
                     // delete exit_tp_id stop order
@@ -375,7 +300,7 @@ async fn handle_trade_order_event(
                                 let msg: String =
                                     format!("Failed parse balance: {} {}", balance, e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                insert_db_error(pool, exchange, &msg).await;
                                 return;
                             }
                         };
@@ -387,7 +312,7 @@ async fn handle_trade_order_event(
                                     filled_size, e
                                 );
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                insert_db_error(pool, exchange, &msg).await;
                                 return;
                             }
                         };
@@ -463,7 +388,7 @@ async fn handle_trade_order_event(
                     }
                 }
                 // if clientOid in bots entry_id (2 phase)
-                if let Some(bot) = get_bots_by_exit_tp_id(&pool, exchange, client_oid).await {
+                if let Some(bot) = get_bots_by_exit_tp_id(pool, exchange, client_oid).await {
                     // delete exit_sl_id stop order
                     if let Some(exit_sl_id) = bot.exit_sl_id {
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
@@ -491,7 +416,7 @@ async fn handle_trade_order_event(
                                 let msg: String =
                                     format!("Failed parse balance: {} {}", balance, e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                insert_db_error(pool, exchange, &msg).await;
                                 return;
                             }
                         };
@@ -516,7 +441,7 @@ async fn handle_trade_order_event(
                     delete_exit_tp_id_bot_by_exit_tp_id(pool, exchange, client_oid).await
                 }
                 // if clientOid in bots entry_id (2 phase)
-                if let Some(bot) = get_bots_by_exit_sl_id(&pool, exchange, client_oid).await {
+                if let Some(bot) = get_bots_by_exit_sl_id(pool, exchange, client_oid).await {
                     // delete exit_tp_id stop order
                     if let Some(exit_tp_id) = bot.exit_tp_id {
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
@@ -544,7 +469,7 @@ async fn handle_trade_order_event(
                                 let msg: String =
                                     format!("Failed parse balance: {} {}", balance, e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                insert_db_error(pool, exchange, &msg).await;
                                 return;
                             }
                         };
@@ -570,7 +495,7 @@ async fn handle_trade_order_event(
                 }
             } else if order.side == "sell" {
                 // if clientOid in bots entry_id (1 phase)
-                if let Some(bot) = get_bots_by_entry_id(&pool, exchange, client_oid).await {
+                if let Some(bot) = get_bots_by_entry_id(pool, exchange, client_oid).await {
                     // bot exist
 
                     // delete exit_tp_id stop order
@@ -622,7 +547,7 @@ async fn handle_trade_order_event(
                                 let msg: String =
                                     format!("Failed parse balance: {} {}", balance, e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                insert_db_error(pool, exchange, &msg).await;
                                 return;
                             }
                         };
@@ -634,7 +559,7 @@ async fn handle_trade_order_event(
                                     filled_size, e
                                 );
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                insert_db_error(pool, exchange, &msg).await;
                                 return;
                             }
                         };
@@ -713,7 +638,7 @@ async fn handle_trade_order_event(
                     }
                 }
                 // if clientOid in bots entry_id (2 phase)
-                if let Some(bot) = get_bots_by_exit_tp_id(&pool, exchange, client_oid).await {
+                if let Some(bot) = get_bots_by_exit_tp_id(pool, exchange, client_oid).await {
                     // delete exit_sl_id stop order
                     if let Some(exit_sl_id) = bot.exit_sl_id {
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
@@ -741,7 +666,7 @@ async fn handle_trade_order_event(
                                 let msg: String =
                                     format!("Failed parse balance: {} {}", balance, e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                insert_db_error(pool, exchange, &msg).await;
                                 return;
                             }
                         };
@@ -766,7 +691,7 @@ async fn handle_trade_order_event(
                     delete_exit_tp_id_bot_by_exit_tp_id(pool, exchange, client_oid).await
                 }
                 // if clientOid in bots entry_id (2 phase)
-                if let Some(bot) = get_bots_by_exit_sl_id(&pool, exchange, client_oid).await {
+                if let Some(bot) = get_bots_by_exit_sl_id(pool, exchange, client_oid).await {
                     // delete exit_tp_id stop order
                     if let Some(exit_tp_id) = bot.exit_tp_id {
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
@@ -794,7 +719,7 @@ async fn handle_trade_order_event(
                                 let msg: String =
                                     format!("Failed parse balance: {} {}", balance, e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                insert_db_error(pool, exchange, &msg).await;
                                 return;
                             }
                         };
@@ -1282,7 +1207,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             } else if data.topic == "/spotMarket/advancedOrders" {
                                 // stop orders and other
                                 match StopOrderData::deserialize(&data.data) {
-                                    Ok(order) => {}
+                                    Ok(_) => {}
                                     Err(e) => {
                                         // info!("{:?}", data.data);
 
