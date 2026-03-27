@@ -145,7 +145,7 @@ async fn make_hf_size_margin_order(
         Some(&type_),
         Some(&auto_borrow),
         Some(&auto_repay),
-        Some(&client_oid),
+        Some(client_oid),
         None,
     )
     .await;
@@ -1470,18 +1470,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         }
                                         Err(_) => {
                                             // delete if order fail
-                                            match update_bots_entry_id(
+                                            if update_bots_entry_id(
                                                 &pool,
                                                 &exchange,
                                                 None,
                                                 trade_bot.id,
                                             )
                                             .await
+                                            .is_ok()
                                             {
-                                                Ok(_) => {
-                                                    info!("Update bot info:None {}", trade_bot.id);
-                                                }
-                                                Err(_) => {}
+                                                info!("Update bot info:None {}", trade_bot.id);
                                             }
                                         }
                                     };
@@ -1520,18 +1518,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         }
                                         Err(_) => {
                                             // delete if order fail
-                                            match update_bots_entry_id(
+                                            if update_bots_entry_id(
                                                 &pool,
                                                 &exchange,
                                                 None,
                                                 trade_bot.id,
                                             )
                                             .await
+                                            .is_ok()
                                             {
-                                                Ok(_) => {
-                                                    info!("Update bot info:None {}", trade_bot.id);
-                                                }
-                                                Err(_) => {}
+                                                info!("Update bot info:None {}", trade_bot.id);
                                             }
                                         }
                                     };
