@@ -416,7 +416,7 @@ pub async fn get_bots_by_exit_tp_id(
 }
 pub async fn get_bots_by_entry_id(pool: &PgPool, exchange: &str, client_oid: &str) -> Option<Bots> {
     match sqlx::query_as::<_, Bots>(
-        "SELECT entry_id, exit_tp_id, exit_sl_id, balance FROM bots WHERE exchange = $1 AND entry_id = $2 LIMIT 1",
+        "SELECT id, entry_id, exit_tp_id, exit_sl_id, balance FROM bots WHERE exchange = $1 AND entry_id = $2 LIMIT 1",
     )
     .bind(exchange)
     .bind(client_oid)

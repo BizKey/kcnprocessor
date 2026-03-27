@@ -245,6 +245,7 @@ pub struct MarginAccount {
 }
 #[derive(sqlx::FromRow, Debug)]
 pub struct Bots {
+    pub id: i32,
     pub entry_id: Option<String>,
     pub exit_tp_id: Option<String>,
     pub exit_sl_id: Option<String>,

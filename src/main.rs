@@ -10,7 +10,7 @@ use crate::api::db::{
     upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
-    BalanceData, KuCoinMessage, OrderData, PositionData, StopOrderData, Symbol, TradeBot,
+    BalanceData, KuCoinMessage, OrderData, PositionData, StopOrderData, Symbol,
 };
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
@@ -433,6 +433,14 @@ async fn handle_trade_order_event(
                             &format!("{:.4}", new_balance),
                         )
                         .await;
+                        match make_random_tade(pool, exchange, new_balance, bot.id).await {
+                            Ok(()) => {}
+                            Err(e) => {
+                                let msg: String = format!("Error in make_random_tade: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                            }
+                        }
                     }
                     None => {
                         error!("No records found or error occurred");
@@ -472,6 +480,14 @@ async fn handle_trade_order_event(
                             &format!("{:.4}", new_balance),
                         )
                         .await;
+                        match make_random_tade(pool, exchange, new_balance, bot.id).await {
+                            Ok(()) => {}
+                            Err(e) => {
+                                let msg: String = format!("Error in make_random_tade: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                            }
+                        }
                     }
                     None => {
                         error!("No records found or error occurred");
