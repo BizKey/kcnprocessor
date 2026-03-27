@@ -571,9 +571,9 @@ async fn handle_trade_order_event(
                             error!("No records found or error occurred");
                         }
                     }
-
                     // delete entry_id from db
-                    delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await
+                    delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await;
+                    // create new random order
                 }
             }
         }
