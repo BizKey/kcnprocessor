@@ -297,6 +297,24 @@ pub async fn update_balance_by_exit_tp_id(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn update_balance_by_entry_id(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    entry_id: &str,
+    balance: &str,
+) {
+    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $2 AND exchange = $3;")
+        .bind(balance)
+        .bind(entry_id)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed update balance:{} by entry_id:{} for bots: {}",balance,entry_id, e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
 pub async fn update_balance_by_exit_sl_id(
     pool: &sqlx::PgPool,
     exchange: &str,
