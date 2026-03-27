@@ -573,7 +573,6 @@ async fn handle_trade_order_event(
                     }
                     // delete entry_id from db
                     delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await;
-                    // create new random order
                 }
             }
         }
