@@ -245,6 +245,84 @@ async fn handle_trade_order_event(
                     return;
                 }
             };
+            // if clientOid in bots entry_id (2 phase)
+            if let Some(bot) = get_bots_by_exit_tp_id(pool, exchange, client_oid).await {
+                // delete exit_sl_id stop order
+                if let Some(exit_sl_id) = bot.exit_sl_id {
+                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                        &exit_sl_id,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            info!("Successfully cancel stop order :{}", &exit_sl_id);
+                            // clear exit_sl_id in bots by id !!
+                            delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await;
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed cancel stop order: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                            return;
+                        }
+                    }
+                };
+                match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
+                    Some(new_balance) => {
+                        update_balance_by_exit_tp_id(
+                            pool,
+                            exchange,
+                            client_oid,
+                            &format!("{:.4}", new_balance),
+                        )
+                        .await;
+                    }
+                    None => {
+                        error!("No records found or error occurred");
+                    }
+                }
+                delete_exit_tp_id_bot_by_exit_tp_id(pool, exchange, client_oid).await;
+                // create new random order
+            }
+            // if clientOid in bots entry_id (2 phase)
+            if let Some(bot) = get_bots_by_exit_sl_id(pool, exchange, client_oid).await {
+                // delete exit_tp_id stop order
+                if let Some(exit_tp_id) = bot.exit_tp_id {
+                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                        &exit_tp_id,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            info!("Successfully cancel stop order :{}", &exit_tp_id);
+                            // clear exit_tp_id in bots by entry_id
+                            delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await;
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed cancel stop order: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                            return;
+                        }
+                    }
+                };
+                match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
+                    Some(new_balance) => {
+                        update_balance_by_exit_tp_id(
+                            pool,
+                            exchange,
+                            client_oid,
+                            &format!("{:.4}", new_balance),
+                        )
+                        .await;
+                    }
+                    None => {
+                        error!("No records found or error occurred");
+                    }
+                }
+                delete_exit_sl_id_bot_by_exit_sl_id(pool, exchange, client_oid).await;
+                // create new random order
+            }
             // order completed filled
             if order.side == "buy" {
                 // if clientOid in bots entry_id (1 phase)
@@ -271,7 +349,6 @@ async fn handle_trade_order_event(
                             }
                         }
                     }
-
                     // delete exit_sl_id stop order
                     if let Some(exit_sl_id) = bot.exit_sl_id {
                         match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
@@ -410,84 +487,6 @@ async fn handle_trade_order_event(
                         // delete entry_id from db
                         delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await
                     }
-                }
-                // if clientOid in bots entry_id (2 phase)
-                if let Some(bot) = get_bots_by_exit_tp_id(pool, exchange, client_oid).await {
-                    // delete exit_sl_id stop order
-                    if let Some(exit_sl_id) = bot.exit_sl_id {
-                        match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                            &exit_sl_id,
-                        )
-                        .await
-                        {
-                            Ok(_) => {
-                                info!("Successfully cancel stop order :{}", &exit_sl_id);
-                                // clear exit_sl_id in bots by id !!
-                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await;
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed cancel stop order: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
-                                return;
-                            }
-                        }
-                    };
-                    match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
-                        Some(new_balance) => {
-                            update_balance_by_exit_tp_id(
-                                pool,
-                                exchange,
-                                client_oid,
-                                &format!("{:.4}", new_balance),
-                            )
-                            .await;
-                        }
-                        None => {
-                            error!("No records found or error occurred");
-                        }
-                    }
-                    delete_exit_tp_id_bot_by_exit_tp_id(pool, exchange, client_oid).await;
-                    // create new random order
-                }
-                // if clientOid in bots entry_id (2 phase)
-                if let Some(bot) = get_bots_by_exit_sl_id(pool, exchange, client_oid).await {
-                    // delete exit_tp_id stop order
-                    if let Some(exit_tp_id) = bot.exit_tp_id {
-                        match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                            &exit_tp_id,
-                        )
-                        .await
-                        {
-                            Ok(_) => {
-                                info!("Successfully cancel stop order :{}", &exit_tp_id);
-                                // clear exit_tp_id in bots by entry_id
-                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await;
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed cancel stop order: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
-                                return;
-                            }
-                        }
-                    };
-                    match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
-                        Some(new_balance) => {
-                            update_balance_by_exit_tp_id(
-                                pool,
-                                exchange,
-                                client_oid,
-                                &format!("{:.4}", new_balance),
-                            )
-                            .await;
-                        }
-                        None => {
-                            error!("No records found or error occurred");
-                        }
-                    }
-                    delete_exit_sl_id_bot_by_exit_sl_id(pool, exchange, client_oid).await;
-                    // create new random order
                 }
             } else if order.side == "sell" {
                 // if clientOid in bots entry_id (1 phase)
@@ -656,84 +655,6 @@ async fn handle_trade_order_event(
                         // delete entry_id from db
                         delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await
                     }
-                }
-                // if clientOid in bots entry_id (2 phase)
-                if let Some(bot) = get_bots_by_exit_tp_id(pool, exchange, client_oid).await {
-                    // delete exit_sl_id stop order
-                    if let Some(exit_sl_id) = bot.exit_sl_id {
-                        match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                            &exit_sl_id,
-                        )
-                        .await
-                        {
-                            Ok(_) => {
-                                info!("Successfully cancel stop order :{}", &exit_sl_id);
-                                // clear exit_sl_id in bots by id !!
-                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await;
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed cancel stop order: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
-                                return;
-                            }
-                        }
-                    };
-                    match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
-                        Some(new_balance) => {
-                            update_balance_by_exit_tp_id(
-                                pool,
-                                exchange,
-                                client_oid,
-                                &format!("{:.4}", new_balance),
-                            )
-                            .await;
-                        }
-                        None => {
-                            error!("No records found or error occurred");
-                        }
-                    }
-                    delete_exit_tp_id_bot_by_exit_tp_id(pool, exchange, client_oid).await;
-                    // create new random order
-                }
-                // if clientOid in bots entry_id (2 phase)
-                if let Some(bot) = get_bots_by_exit_sl_id(pool, exchange, client_oid).await {
-                    // delete exit_tp_id stop order
-                    if let Some(exit_tp_id) = bot.exit_tp_id {
-                        match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                            &exit_tp_id,
-                        )
-                        .await
-                        {
-                            Ok(_) => {
-                                info!("Successfully cancel stop order :{}", &exit_tp_id);
-                                // clear exit_tp_id in bots by entry_id
-                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await;
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed cancel stop order: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
-                                return;
-                            }
-                        }
-                    };
-                    match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
-                        Some(new_balance) => {
-                            update_balance_by_exit_tp_id(
-                                pool,
-                                exchange,
-                                client_oid,
-                                &format!("{:.4}", new_balance),
-                            )
-                            .await;
-                        }
-                        None => {
-                            error!("No records found or error occurred");
-                        }
-                    }
-                    delete_exit_sl_id_bot_by_exit_sl_id(pool, exchange, client_oid).await;
-                    // create new random order
                 }
             }
         }
