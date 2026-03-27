@@ -424,7 +424,7 @@ async fn handle_trade_order_event(
                         match get_total_match_value_by_client_oid(pool, client_oid, exchange).await
                         {
                             Some(total) => {
-                                let new_balance: f64 = balance_f64 - total + balance_f64;
+                                let new_balance: f64 = balance_f64 + (total - balance_f64);
                                 update_balance_by_exit_tp_id(
                                     pool,
                                     exchange,
@@ -477,7 +477,7 @@ async fn handle_trade_order_event(
                         match get_total_match_value_by_client_oid(pool, client_oid, exchange).await
                         {
                             Some(total) => {
-                                let new_balance: f64 = balance_f64 - total + balance_f64;
+                                let new_balance: f64 = balance_f64 + (total - balance_f64);
                                 update_balance_by_exit_sl_id(
                                     pool,
                                     exchange,
@@ -674,7 +674,7 @@ async fn handle_trade_order_event(
                         match get_total_match_value_by_client_oid(pool, client_oid, exchange).await
                         {
                             Some(total) => {
-                                let new_balance: f64 = balance_f64 - total + balance_f64;
+                                let new_balance: f64 = balance_f64 + (total - balance_f64);
                                 update_balance_by_exit_tp_id(
                                     pool,
                                     exchange,
@@ -727,7 +727,7 @@ async fn handle_trade_order_event(
                         match get_total_match_value_by_client_oid(pool, client_oid, exchange).await
                         {
                             Some(total) => {
-                                let new_balance: f64 = balance_f64 - total + balance_f64;
+                                let new_balance: f64 = balance_f64 + (total - balance_f64);
                                 update_balance_by_exit_sl_id(
                                     pool,
                                     exchange,
