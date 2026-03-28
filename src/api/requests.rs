@@ -1,11 +1,10 @@
 use crate::api::models::{
-    ActualPrice, ApiV1TimestampRes, ApiV3BulletPrivate, CancelOrderRes, MakeOrderRes,
-    MakeStopOrderRes, MarginAccount, MarginAccountData, OldActiveOrders, OldActiveOrdersData,
-    SymbolOpenOrder,
+    ActualPrice, ApiV1TimestampRes, ApiV3BulletPrivate, MakeOrderRes, MakeStopOrderRes,
+    MarginAccount, MarginAccountData,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log::{error, info};
+use log::info;
 use reqwest::{Client, Response};
 use serde_json::json;
 use uuid::Uuid;
@@ -13,7 +12,6 @@ use uuid::Uuid;
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::env;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -28,20 +26,11 @@ pub struct KuCoinClient {
 
 impl KuCoinClient {
     pub fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let api_passphrase = match env::var("KUCOIN_PASS") {
-            Ok(val) => val,
-            Err(e) => return Err(e.into()),
-        };
+        let api_passphrase: String = env::var("KUCOIN_PASS")?;
 
-        let api_key = match env::var("KUCOIN_KEY") {
-            Ok(val) => val,
-            Err(e) => return Err(e.into()),
-        };
+        let api_key: String = env::var("KUCOIN_KEY")?;
 
-        let api_secret = match env::var("KUCOIN_SECRET") {
-            Ok(val) => val,
-            Err(e) => return Err(e.into()),
-        };
+        let api_secret: String = env::var("KUCOIN_SECRET")?;
 
         Ok(Self {
             client: Client::new(),
@@ -161,7 +150,7 @@ impl KuCoinClient {
         {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
-                    Ok(text) => Ok(()),
+                    Ok(_) => Ok(()),
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
@@ -218,49 +207,7 @@ impl KuCoinClient {
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
-    pub async fn get_old_active_orders_list(
-        &self,
-    ) -> Result<OldActiveOrdersData, Box<dyn std::error::Error + Send + Sync>> {
-        let mut query_params = std::collections::HashMap::new();
-        query_params.insert("status", "active");
-        query_params.insert("tradeType", "MARGIN_TRADE");
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
-        match self
-            .make_request(
-                reqwest::Method::GET,
-                "/api/v1/orders",
-                Some(query_params),
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
-            Ok(response) => match response.status().as_str() {
-                "200" => match response.text().await {
-                    Ok(text) => match serde_json::from_str::<OldActiveOrders>(&text) {
-                        Ok(res) => Ok(res.data),
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
-                    },
-                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-                },
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
-            },
-            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
-        }
-    }
+
     pub async fn batch_cancel_stop_orders(
         &self,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -293,80 +240,7 @@ impl KuCoinClient {
             Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
         }
     }
-    pub async fn get_symbols_with_open_order(
-        &self,
-    ) -> Result<SymbolOpenOrder, Box<dyn std::error::Error + Send + Sync>> {
-        let mut query_params = std::collections::HashMap::new();
-        query_params.insert("tradeType", "MARGIN_TRADE");
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
-        match self
-            .make_request(
-                reqwest::Method::GET,
-                "/api/v3/hf/margin/order/active/symbols",
-                Some(query_params),
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
-            Ok(response) => match response.status().as_str() {
-                "200" => match response.text().await {
-                    Ok(text) => match serde_json::from_str::<SymbolOpenOrder>(&text) {
-                        Ok(res) => Ok(res),
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
-                    },
-                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-                },
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
-            },
-            Err(e) => Err(format!("Error HTTP:'{}'", e).into()),
-        }
-    }
-    pub async fn cancel_all_orders_by_symbol(&self, symbol: &str) {
-        let mut query_params = std::collections::HashMap::new();
-        query_params.insert("tradeType", "MARGIN_TRADE");
-        query_params.insert("symbol", symbol);
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
-        match self
-            .make_request(
-                reqwest::Method::DELETE,
-                "/api/v3/hf/margin/orders",
-                Some(query_params),
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
-            Ok(response) => match response.text().await {
-                Ok(text) => {
-                    info!("{:.?}", text);
-                }
-                Err(e) => {
-                    error!("Error get text response from HTTP: {}", e);
-                }
-            },
-            Err(e) => {
-                error!("Error HTTP: {}", e);
-            }
-        }
-    }
+
     pub async fn account_transfer(
         &self,
         currency: &str,
@@ -415,82 +289,6 @@ impl KuCoinClient {
                 },
             },
             Err(e) => Err(format!("Account transfer request failed: {}", e).into()),
-        }
-    }
-    pub async fn old_cancel_order(
-        &self,
-        order_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
-        match self
-            .make_request(
-                reqwest::Method::DELETE,
-                format!("/api/v1/orders/{}", order_id).as_str(),
-                None,
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
-            Ok(response) => match response.status().as_str() {
-                "200" => Ok(()),
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
-            },
-            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
-        }
-    }
-    pub async fn cancel_order(
-        &self,
-        symbol: &str,
-        order_id: &str,
-    ) -> Result<CancelOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-        let mut query_params = std::collections::HashMap::new();
-
-        query_params.insert("symbol", symbol);
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
-        match self
-            .make_request(
-                reqwest::Method::DELETE,
-                format!("/api/v3/hf/margin/orders/{}", order_id).as_str(),
-                Some(query_params),
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
-            Ok(response) => match response.status().as_str() {
-                "200" => match response.text().await {
-                    Ok(text) => match serde_json::from_str::<CancelOrderRes>(&text) {
-                        Ok(res) => Ok(res),
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
-                    },
-                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-                },
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
-            },
-            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
     pub async fn get_api_v1_timestamp(
@@ -819,21 +617,6 @@ pub async fn get_ticker_price(
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.get_ticker_price(symbol).await
 }
-pub async fn cancel_all_open_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    let symbols = client.get_symbols_with_open_order().await?;
-    for symbol in symbols.data.symbols.iter() {
-        info!("Open orders for:{:.?}", symbol);
-        let client2: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-        client2.cancel_all_orders_by_symbol(symbol).await;
-    }
-    Ok(())
-}
-pub async fn get_old_active_orders_list()
--> Result<OldActiveOrdersData, Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.get_old_active_orders_list().await
-}
 
 pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
@@ -854,20 +637,6 @@ pub async fn add_api_v3_hf_margin_order(
 pub async fn get_api_v1_timestamp() -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.get_api_v1_timestamp().await
-}
-
-pub async fn cancel_order(
-    symbol: &str,
-    order_id: &str,
-) -> Result<CancelOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.cancel_order(symbol, order_id).await
-}
-pub async fn old_cancel_order(
-    order_id: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.old_cancel_order(order_id).await
 }
 pub async fn create_repay_order(
     currency: &str,
