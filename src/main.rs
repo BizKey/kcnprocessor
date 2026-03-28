@@ -759,7 +759,6 @@ async fn handle_position_event(
             if let Ok(available) = asset_info.available.parse::<f64>() {
                 if token_liability > 0.0 {
                     if available >= token_liability {
-                        info!("Position:'{:.?}'", position);
                         info!(
                             "Can repay {} {} liability with available {}",
                             token_liability, asset, available
@@ -773,7 +772,6 @@ async fn handle_position_event(
                             insert_db_error(pool, exchange, &msg).await;
                         };
                     } else if available > 0.0 {
-                        info!("Position:'{:.?}'", position);
                         info!(
                             "Can partially repay {} {} liability with available {}",
                             token_liability, asset, available
