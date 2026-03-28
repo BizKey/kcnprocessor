@@ -188,15 +188,23 @@ pub async fn get_total_match_value_by_client_oid(
     .await
     {
         Ok(row) => {
-            match row.try_get::<Option<f64>, _>("total_match_value"){
-                Ok(value) => {
-                    if value.is_none() {
-                        info!("No records found for client_oid: {}", client_oid);
+            match row.try_get::<Option<String>, _>("total_match_value"){
+                Ok(Some(value_str)) => {
+                    match value_str.parse::<f64>(){
+                        Ok(value) => Some(value),
+                        Err(e) => {
+                            let err_msg = format!("Failed to parse numeric value '{}' to f64: {}", value_str, e);
+                            error!("{}", err_msg);
+                            insert_db_error(pool, exchange, &err_msg).await;
+                            None
+                        }
                     }
-                    value
+                }
+                Ok(None) => {
+                    None
                 }
                 Err(e) => {
-                    let err_msg = format!("Failed to parse total_match_value: {}", e);
+                    let err_msg = format!("Failed to get total_match_value: {}", e);
                     error!("{}", err_msg);
                     insert_db_error(pool, exchange, &err_msg).await;
                     None
