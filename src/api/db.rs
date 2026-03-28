@@ -173,22 +173,6 @@ pub async fn delete_exit_tp_id_bot_by_entry_id(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn delete_exit_sl_id_bot_by_exit_sl_id(
-    pool: &sqlx::PgPool,
-    exchange: &str,
-    exit_sl_id: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_id = $1 AND exchange = $2;")
-        .bind(exit_sl_id)
-        .bind(exchange)
-        .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed delete exit_sl_id:{} by exit_sl_id:{} for bots: {}",exit_sl_id,exit_sl_id, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
-}
 pub async fn get_total_match_value_by_client_oid(
     pool: &sqlx::PgPool,
     client_oid: &str,
@@ -212,22 +196,6 @@ pub async fn get_total_match_value_by_client_oid(
             insert_db_error(pool, "orderevent", &err_msg).await;
             None
         }
-    }
-}
-pub async fn delete_exit_tp_id_bot_by_exit_tp_id(
-    pool: &sqlx::PgPool,
-    exchange: &str,
-    exit_tp_id: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_id = $1 AND exchange = $2;")
-        .bind(exit_tp_id)
-        .bind(exchange)
-        .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed delete exit_tp_id:{} by exit_tp_id:{} for bots: {}",exit_tp_id,exit_tp_id, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
     }
 }
 pub async fn delete_entry_id_bot_by_entry_id(pool: &sqlx::PgPool, exchange: &str, entry_id: &str) {
