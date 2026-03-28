@@ -3,6 +3,7 @@ use crate::api::models::{
 };
 use fastrand;
 use log::error;
+use log::info;
 use serde::Serialize;
 use sqlx::PgPool;
 use sqlx::Row;
@@ -187,8 +188,20 @@ pub async fn get_total_match_value_by_client_oid(
     .await
     {
         Ok(row) => {
-            let total: Option<f64> = row.try_get("total_match_value").ok();
-            total
+            match row.try_get::<Option<f64>, _>("total_match_value"){
+                Ok(value) => {
+                    if value.is_none() {
+                        info!("No records found for client_oid: {}", client_oid);
+                    }
+                    value
+                }
+                Err(e) => {
+                    let err_msg = format!("Failed to parse total_match_value: {}", e);
+                    error!("{}", err_msg);
+                    insert_db_error(pool, exchange, &err_msg).await;
+                    None
+                }
+            }
         }
         Err(e) => {
             let err_msg = format!("Failed to get total match value for client_oid:{}: {}", client_oid, e);
