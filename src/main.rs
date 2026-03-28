@@ -510,6 +510,7 @@ async fn handle_trade_order_event(
                             return;
                         }
                     };
+                    info!("{}", client_oid);
                     match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
                         Some(new_balance) => {
                             update_balance_by_entry_id(
@@ -723,7 +724,6 @@ async fn handle_position_event(
     )
     .await
     {
-        info!("{:?}", position);
         let msg: String = format!("Failed to upsert margin account state: {}", e);
         error!("{}", msg);
         insert_db_error(pool, exchange, &msg).await;
