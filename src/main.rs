@@ -403,22 +403,63 @@ async fn handle_trade_order_event(
             };
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bots_by_exit_tp_id(pool, exchange, client_oid).await {
-                match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
-                    Some(new_balance) => {
-                        update_balance_by_exit_tp_id(
-                            pool,
-                            exchange,
-                            client_oid,
-                            &format!("{:.4}", new_balance),
-                        )
-                        .await;
-                        // create new random order
-                        match make_random_tade(pool, exchange, new_balance, bot.id).await {
-                            Ok(()) => {}
-                            Err(e) => {
-                                let msg: String = format!("Error in make_random_tade: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+                    Some(return_balance) => {
+                        if order.side == "buy" {
+                            match bot.balance {
+                                Some(balance_str) => match balance_str.parse::<f64>() {
+                                    Ok(old_balance) => {
+                                        let new_balance: f64 =
+                                            old_balance + old_balance - return_balance;
+                                        update_balance_by_exit_tp_id(
+                                            pool,
+                                            exchange,
+                                            client_oid,
+                                            &format!("{:.4}", new_balance),
+                                        )
+                                        .await;
+                                        // create new random order
+                                        match make_random_tade(pool, exchange, new_balance, bot.id)
+                                            .await
+                                        {
+                                            Ok(()) => {}
+                                            Err(e) => {
+                                                let msg: String =
+                                                    format!("Error in make_random_tade: {}", e);
+                                                error!("{}", msg);
+                                                insert_db_error(&pool, &exchange, &msg).await;
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        let msg =
+                                            format!("Failed parse balance: {} {}", balance_str, e);
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                    }
+                                },
+                                None => {
+                                    let msg = format!("Balance is None for {}", exchange);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                }
+                            }
+                        } else if order.side == "sell" {
+                            update_balance_by_exit_tp_id(
+                                pool,
+                                exchange,
+                                client_oid,
+                                &format!("{:.4}", return_balance),
+                            )
+                            .await;
+                            // create new random order
+                            match make_random_tade(pool, exchange, return_balance, bot.id).await {
+                                Ok(()) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Error in make_random_tade: {}", e);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                }
                             }
                         }
                     }
@@ -429,23 +470,64 @@ async fn handle_trade_order_event(
             }
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bots_by_exit_sl_id(pool, exchange, client_oid).await {
-                match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
-                    Some(new_balance) => {
-                        update_balance_by_exit_sl_id(
-                            pool,
-                            exchange,
-                            client_oid,
-                            &format!("{:.4}", new_balance),
-                        )
-                        .await;
+                match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+                    Some(return_balance) => {
+                        if order.side == "buy" {
+                            match bot.balance {
+                                Some(balance_str) => match balance_str.parse::<f64>() {
+                                    Ok(old_balance) => {
+                                        let new_balance: f64 =
+                                            old_balance + old_balance - return_balance;
+                                        update_balance_by_exit_sl_id(
+                                            pool,
+                                            exchange,
+                                            client_oid,
+                                            &format!("{:.4}", new_balance),
+                                        )
+                                        .await;
+                                        // create new random order
+                                        match make_random_tade(pool, exchange, new_balance, bot.id)
+                                            .await
+                                        {
+                                            Ok(()) => {}
+                                            Err(e) => {
+                                                let msg: String =
+                                                    format!("Error in make_random_tade: {}", e);
+                                                error!("{}", msg);
+                                                insert_db_error(&pool, &exchange, &msg).await;
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        let msg =
+                                            format!("Failed parse balance: {} {}", balance_str, e);
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                    }
+                                },
+                                None => {
+                                    let msg = format!("Balance is None for {}", exchange);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                }
+                            }
+                        } else if order.side == "sell" {
+                            update_balance_by_exit_sl_id(
+                                pool,
+                                exchange,
+                                client_oid,
+                                &format!("{:.4}", return_balance),
+                            )
+                            .await;
 
-                        // create new random order
-                        match make_random_tade(pool, exchange, new_balance, bot.id).await {
-                            Ok(()) => {}
-                            Err(e) => {
-                                let msg: String = format!("Error in make_random_tade: {}", e);
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                            // create new random order
+                            match make_random_tade(pool, exchange, return_balance, bot.id).await {
+                                Ok(()) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Error in make_random_tade: {}", e);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                }
                             }
                         }
                     }
@@ -510,7 +592,7 @@ async fn handle_trade_order_event(
                             return;
                         }
                     };
-                    match get_total_match_value_by_client_oid(pool, client_oid, exchange).await {
+                    match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                         Some(new_balance) => {
                             update_balance_by_entry_id(
                                 pool,
