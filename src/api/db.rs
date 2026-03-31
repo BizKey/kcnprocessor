@@ -3,7 +3,6 @@ use crate::api::models::{
 };
 use fastrand;
 use log::error;
-use log::info;
 use serde::Serialize;
 use sqlx::PgPool;
 use sqlx::Row;

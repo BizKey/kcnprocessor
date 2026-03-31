@@ -199,14 +199,14 @@ async fn make_random_tade(
     trade_bot_id: i32,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // random sections
-    let random_symbol = get_random_tradeable_symbol(&pool, &exchange).await;
+    let random_symbol = get_random_tradeable_symbol(pool, exchange).await;
     // get property of symbol
-    let symbol_info = match fetch_symbol_info_for_symbol(&pool, &exchange, &random_symbol).await {
+    let symbol_info = match fetch_symbol_info_for_symbol(pool, exchange, &random_symbol).await {
         Some(info) => info,
         None => {
             let msg = format!("Symbol info not found for {}", random_symbol);
             error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+            insert_db_error(pool, exchange, &msg).await;
             return Ok(());
         }
     };
@@ -221,7 +221,7 @@ async fn make_random_tade(
     // make order
     let client_oid = Uuid::new_v4().to_string();
     // save entry_id for bots
-    match update_bots_entry_id(&pool, &exchange, Some(&client_oid), trade_bot_id).await {
+    match update_bots_entry_id(pool, exchange, Some(&client_oid), trade_bot_id).await {
         Ok(_) => {
             match trade_side.as_str() {
                 "sell" => {
@@ -233,7 +233,7 @@ async fn make_random_tade(
                                 symbol_info.base_increment, e
                             );
                             error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
+                            insert_db_error(pool, exchange, &msg).await;
                             return Ok(());
                         }
                     };
@@ -248,7 +248,7 @@ async fn make_random_tade(
                         Err(e) => {
                             let msg: String = format!("Failed get price: {} {}", random_symbol, e);
                             error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
+                            insert_db_error(pool, exchange, &msg).await;
                             return Ok(());
                         }
                     };
@@ -259,7 +259,7 @@ async fn make_random_tade(
                             let msg: String =
                                 format!("Failed parse price: {} {}", token_price_str, e);
                             error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
+                            insert_db_error(pool, exchange, &msg).await;
                             return Ok(());
                         }
                     };
@@ -268,8 +268,8 @@ async fn make_random_tade(
                     let token_size: f64 = balance_funds / token_price;
 
                     match make_hf_size_margin_order(
-                        &pool,
-                        &exchange,
+                        pool,
+                        exchange,
                         &client_oid,
                         &trade_side,
                         &random_symbol,
@@ -283,7 +283,7 @@ async fn make_random_tade(
                         }
                         Err(_) => {
                             // delete if order fail
-                            if update_bots_entry_id(&pool, &exchange, None, trade_bot_id)
+                            if update_bots_entry_id(pool, exchange, None, trade_bot_id)
                                 .await
                                 .is_ok()
                             {
@@ -302,13 +302,13 @@ async fn make_random_tade(
                                 symbol_info.quote_increment, e
                             );
                             error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
+                            insert_db_error(pool, exchange, &msg).await;
                             return Ok(());
                         }
                     };
                     match make_hf_funds_margin_order(
-                        &pool,
-                        &exchange,
+                        pool,
+                        exchange,
                         &client_oid,
                         &trade_side,
                         &random_symbol,
@@ -322,7 +322,7 @@ async fn make_random_tade(
                         }
                         Err(_) => {
                             // delete if order fail
-                            if update_bots_entry_id(&pool, &exchange, None, trade_bot_id)
+                            if update_bots_entry_id(pool, exchange, None, trade_bot_id)
                                 .await
                                 .is_ok()
                             {
@@ -342,11 +342,11 @@ async fn make_random_tade(
                 client_oid, trade_bot_id, e
             );
             error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+            insert_db_error(pool, exchange, &msg).await;
             return Ok(());
         }
     }
-    return Ok(());
+    Ok(())
 }
 
 async fn handle_trade_order_event(
@@ -427,7 +427,7 @@ async fn handle_trade_order_event(
                                                 let msg: String =
                                                     format!("Error in make_random_tade: {}", e);
                                                 error!("{}", msg);
-                                                insert_db_error(&pool, &exchange, &msg).await;
+                                                insert_db_error(pool, exchange, &msg).await;
                                             }
                                         }
                                     }
@@ -435,13 +435,13 @@ async fn handle_trade_order_event(
                                         let msg =
                                             format!("Failed parse balance: {} {}", balance_str, e);
                                         error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        insert_db_error(pool, exchange, &msg).await;
                                     }
                                 },
                                 None => {
                                     let msg = format!("Balance is None for {}", exchange);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    insert_db_error(pool, exchange, &msg).await;
                                 }
                             }
                         } else if order.side == "sell" {
@@ -458,7 +458,7 @@ async fn handle_trade_order_event(
                                 Err(e) => {
                                     let msg: String = format!("Error in make_random_tade: {}", e);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    insert_db_error(pool, exchange, &msg).await;
                                 }
                             }
                         }
@@ -494,7 +494,7 @@ async fn handle_trade_order_event(
                                                 let msg: String =
                                                     format!("Error in make_random_tade: {}", e);
                                                 error!("{}", msg);
-                                                insert_db_error(&pool, &exchange, &msg).await;
+                                                insert_db_error(pool, exchange, &msg).await;
                                             }
                                         }
                                     }
@@ -502,13 +502,13 @@ async fn handle_trade_order_event(
                                         let msg =
                                             format!("Failed parse balance: {} {}", balance_str, e);
                                         error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        insert_db_error(pool, exchange, &msg).await;
                                     }
                                 },
                                 None => {
                                     let msg = format!("Balance is None for {}", exchange);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    insert_db_error(pool, exchange, &msg).await;
                                 }
                             }
                         } else if order.side == "sell" {
@@ -526,7 +526,7 @@ async fn handle_trade_order_event(
                                 Err(e) => {
                                     let msg: String = format!("Error in make_random_tade: {}", e);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    insert_db_error(pool, exchange, &msg).await;
                                 }
                             }
                         }
@@ -604,7 +604,7 @@ async fn handle_trade_order_event(
 
                             if order.side == "buy" {
                                 let match_price: f64 = new_balance / filled_size_f64;
-                                let trigger_tp_price: f64 = match_price * 1.065; // price + 6.5%
+                                let trigger_tp_price: f64 = match_price * 1.07; // price + 7%
                                 let exit_tp_id: String = Uuid::new_v4().to_string();
                                 // tp order
                                 let msg_tp_order: serde_json::Value = serde_json::json!({
@@ -690,7 +690,7 @@ async fn handle_trade_order_event(
                             } else if order.side == "sell" {
                                 // tp order
                                 let match_price: f64 = new_balance / filled_size_f64;
-                                let trigger_tp_price: f64 = match_price * 0.935; // price - 6.5%
+                                let trigger_tp_price: f64 = match_price * 0.93; // price - 7%
                                 // !!! check in min_size
                                 let funds_buy: f64 = trigger_tp_price * filled_size_f64;
                                 let exit_tp_id: String = Uuid::new_v4().to_string();
@@ -700,7 +700,7 @@ async fn handle_trade_order_event(
                                     "symbol": order.symbol,
                                     "type": "market",
                                     "stop": "loss",
-                                    "stopPrice": format_assert(trigger_tp_price, price_increment), // price - 6.5%
+                                    "stopPrice": format_assert(trigger_tp_price, price_increment), // price - 7%
                                     "isIsolated": false,
                                     "autoBorrow": true,
                                     "autoRepay": true,
