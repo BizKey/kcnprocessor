@@ -64,11 +64,7 @@ pub struct TradeBot {
     pub id: i32,
     pub balance: String,
 }
-#[derive(sqlx::FromRow, Debug)]
-pub struct TradeSymbol {
-    pub symbol: String,
-    pub size: String,
-}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {
     pub total: String,
@@ -213,20 +209,9 @@ pub struct MakeOrderRes {
     pub msg: Option<String>,
 }
 #[derive(Debug, Deserialize)]
-pub struct MakeStopOrderResData {
-    #[serde(rename = "orderId")]
-    pub order_id: String,
-    #[serde(rename = "clientOid")]
-    pub client_oid: String,
-}
-#[derive(Debug, Deserialize)]
-pub struct MakeStopOrderRes {
-    pub code: String,
-    pub data: MakeStopOrderResData,
-}
+pub struct MakeStopOrderRes {}
 #[derive(Debug, Deserialize)]
 pub struct ApiV1TimestampRes {
-    pub code: String,
     pub data: i64,
 }
 #[derive(Debug, Deserialize)]
@@ -246,7 +231,6 @@ pub struct MarginAccount {
 #[derive(sqlx::FromRow, Debug)]
 pub struct Bots {
     pub id: i32,
-    pub entry_id: Option<String>,
     pub exit_tp_id: Option<String>,
     pub exit_sl_id: Option<String>,
     pub balance: Option<String>,

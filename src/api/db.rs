@@ -3,7 +3,6 @@ use crate::api::models::{
 };
 use fastrand;
 use log::error;
-use log::info;
 use serde::Serialize;
 use sqlx::PgPool;
 use sqlx::Row;
@@ -176,8 +175,8 @@ pub async fn delete_exit_tp_id_bot_by_entry_id(
 }
 pub async fn get_total_match_value_by_client_oid(
     pool: &sqlx::PgPool,
-    client_oid: &str,
     exchange: &str,
+    client_oid: &str,
 ) -> Option<f64> {
     match sqlx::query(
         "SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value FROM orderevent WHERE client_oid = $1 AND exchange = $2 AND match_size IS NOT NULL AND match_price IS NOT NULL;"
