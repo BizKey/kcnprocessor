@@ -273,7 +273,7 @@ pub async fn update_balance_by_exit_tp_id(
     exit_tp_id: &str,
     balance: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_id = $2 AND exchange = $3;")
+    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_id = $2 AND exchange = $3;")
         .bind(balance)
         .bind(exit_tp_id)
         .bind(exchange)
@@ -309,7 +309,7 @@ pub async fn update_balance_by_exit_sl_id(
     exit_sl_id: &str,
     balance: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_id = $2 AND exchange = $3;")
+    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_id = $2 AND exchange = $3;")
         .bind(balance)
         .bind(exit_sl_id)
         .bind(exchange)
@@ -322,7 +322,7 @@ pub async fn update_balance_by_exit_sl_id(
     }
 }
 pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
-    if let Err(e) = sqlx::query("UPDATE bots SET entry_id = NULL, exit_tp_id = NULL, exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exchange = $1;")
+    if let Err(e) = sqlx::query("UPDATE bots SET entry_id = NULL, symbol = NULL, exit_tp_id = NULL, exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exchange = $1;")
         .bind(exchange)
         .execute(pool)
         .await
@@ -335,15 +335,18 @@ pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
 pub async fn update_bots_entry_id(
     pool: &sqlx::PgPool,
     exchange: &str,
+    symbol: Option<&str>,
     entry_id: Option<&str>,
     trade_bot_id: i32,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if let Err(e) = sqlx::query("UPDATE bots SET entry_id = $1 WHERE exchange = $2 AND id = $3;")
-        .bind(entry_id)
-        .bind(exchange)
-        .bind(trade_bot_id)
-        .execute(pool)
-        .await
+    if let Err(e) =
+        sqlx::query("UPDATE bots SET entry_id = $1, symbol = $2 WHERE exchange = $3 AND id = $4;")
+            .bind(entry_id)
+            .bind(symbol)
+            .bind(exchange)
+            .bind(trade_bot_id)
+            .execute(pool)
+            .await
     {
         let err_msg = format!("Failed update bots entry_id: {}", e);
         error!("{}", err_msg);
@@ -440,12 +443,6 @@ pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeB
     }
 }
 
-pub async fn get_random_tradeable_symbol(pool: &PgPool, exchange: &str) -> String {
-    let tradeable_symbols = get_list_tradeable_symbols(pool, exchange).await;
-    let symbol_choice = &tradeable_symbols[fastrand::usize(..tradeable_symbols.len())];
-    symbol_choice.symbol.clone()
-}
-
 pub fn get_random_side() -> String {
     if fastrand::bool() {
         "buy".to_string()
@@ -454,18 +451,40 @@ pub fn get_random_side() -> String {
     }
 }
 
-pub async fn get_list_tradeable_symbols(pool: &PgPool, exchange: &str) -> Vec<TradeAbleSymbol> {
-    match sqlx::query_as::<_, TradeAbleSymbol>("SELECT symbol FROM symbol WHERE is_margin_enabled = true AND enable_trading = true AND fee_category = 1 AND quote_currency = 'USDT' AND base_currency <> 'USDC' AND base_currency <> 'KCS' AND exchange = $1;")
-        .bind(exchange)
-        .fetch_all(pool)
-        .await
+pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Option<TradeAbleSymbol> {
+    match sqlx::query_as::<_, TradeAbleSymbol>(
+        "SELECT s.symbol
+        FROM symbol s
+        LEFT JOIN (
+            SELECT symbol, COUNT(*) as bot_count
+            FROM bots
+            GROUP BY symbol
+        ) b ON s.symbol = b.symbol
+        WHERE s.is_margin_enabled = true 
+        AND s.enable_trading = true 
+        AND s.fee_category = 1 
+        AND s.quote_currency = 'USDT' 
+        AND s.base_currency <> 'USDC' 
+        AND s.base_currency <> 'KCS' 
+        AND s.exchange = $1
+        AND (b.bot_count IS NULL OR b.bot_count <= 10)
+        ORDER BY RANDOM()
+        LIMIT 1;",
+    )
+    .bind(exchange)
+    .fetch_optional(pool)
+    .await
     {
-        Ok(bots) => bots,
+        Ok(Some(symbol)) => Some(symbol),
+        Ok(None) => {
+            error!("No available symbols for exchange: {}", exchange);
+            None
+        }
         Err(e) => {
             let err_msg = format!("Failed to fetch symbols for trade '{}': {}", exchange, e);
             error!("{}", err_msg);
             insert_db_error(pool, exchange, &err_msg).await;
-            vec![]
+            None
         }
     }
 }
