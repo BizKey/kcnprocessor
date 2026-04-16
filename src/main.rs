@@ -1420,37 +1420,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let mut should_reconnect: bool = false;
 
-        loop {
-            if !init_order_execute {
+        if !init_order_execute {
+            init_order_execute = true;
+            let pool_clone = pool.clone();
+            let exchange_clone = exchange.clone();
+
+            tokio::spawn(async move {
+                sleep(Duration::from_millis(5000)).await;
                 info!("Initializing start orders...");
-                let trade_bots = get_all_bots_for_trade(&pool, &exchange).await;
+                let trade_bots = get_all_bots_for_trade(&pool_clone, &exchange_clone).await;
 
                 for trade_bot in trade_bots.iter() {
-                    // parse balance of bot
                     match trade_bot.balance.parse::<f64>() {
                         Ok(token_funds) => {
-                            match make_random_trade(&pool, &exchange, token_funds, trade_bot.id)
-                                .await
+                            match make_random_trade(
+                                &pool_clone,
+                                &exchange_clone,
+                                token_funds,
+                                trade_bot.id,
+                            )
+                            .await
                             {
                                 Ok(()) => {}
                                 Err(e) => {
                                     let msg: String = format!("Error in make_random_trade: {}", e);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    insert_db_error(&pool_clone, &exchange_clone, &msg).await;
                                 }
                             }
+                            sleep(Duration::from_millis(500)).await;
                         }
                         Err(e) => {
                             let msg: String =
                                 format!("Failed parse balance: {} {}", trade_bot.balance, e);
                             error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
-                            return Ok(());
+                            insert_db_error(&pool_clone, &exchange_clone, &msg).await;
                         }
-                    };
+                    }
                 }
-                init_order_execute = true;
-            }
+                info!("All bots initialized!");
+            });
+        }
+
+        loop {
             tokio::select! {
                 // Events
                 event_msg = event_ws_read.next() => {
