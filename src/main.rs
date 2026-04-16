@@ -1234,6 +1234,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .map(|s| (s.symbol.clone(), s))
         .collect();
 
+    let trade_bots = get_all_bots_for_trade(&pool, &exchange).await;
+    let total_bots = trade_bots.len();
+    let mut bot_index = 0;
+    let mut init_started = false;
+
     loop {
         let exchange_for_handler: String = exchange.clone();
         let pool_for_handler = pool.clone();
@@ -1415,80 +1420,92 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         info!("Subscribed and listening for messages...");
 
+        sleep(Duration::from_secs(3)).await;
+
         let event_ping_interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
 
         let mut should_reconnect: bool = false;
 
-        loop {
-            if !init_order_execute {
-                info!("Initializing start orders...");
-                let trade_bots = get_all_bots_for_trade(&pool, &exchange).await;
+        if !init_order_execute && !init_started {
+            init_started = true;
+            info!("Starting initialization of {} bots", total_bots);
+        }
 
-                for trade_bot in trade_bots.iter() {
-                    // parse balance of bot
+        loop {
+            tokio::select! {
+            _ = async {
+                if !init_order_execute && init_started && bot_index < total_bots {
+                    let trade_bot = &trade_bots[bot_index];
                     match trade_bot.balance.parse::<f64>() {
                         Ok(token_funds) => {
-                            match make_random_trade(&pool, &exchange, token_funds, trade_bot.id)
-                                .await
-                            {
-                                Ok(()) => {}
+                            info!("Creating order {}/{} for bot {}", bot_index + 1, total_bots, trade_bot.id);
+                            match make_random_trade(&pool, &exchange, token_funds, trade_bot.id).await {
+                                Ok(()) => {
+                                    info!("Order created successfully for bot {}", trade_bot.id);
+                                }
                                 Err(e) => {
                                     let msg: String = format!("Error in make_random_trade: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(&pool, &exchange, &msg).await;
                                 }
                             }
-                        }
-                        Err(e) => {
-                            let msg: String =
-                                format!("Failed parse balance: {} {}", trade_bot.balance, e);
-                            error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
-                            return Ok(());
-                        }
-                    };
-                }
-                init_order_execute = true;
-            }
-            tokio::select! {
-                // Events
-                event_msg = event_ws_read.next() => {
-                    match event_msg {
-                        Some(Ok(Message::Text(text))) => {
-                            if tx_in.send(text.to_string()).await.is_err() {
-                                error!("Failed to send to handler, reconnecting...");
-                                should_reconnect = true;
-                                break;
+                            bot_index += 1;
+
+                            // Ждем между ордерами
+                            sleep(Duration::from_millis(500)).await;
+
+                            if bot_index >= total_bots {
+                                info!("All {} bots initialized!", total_bots);
+                                init_order_execute = true;
                             }
                         }
-                        Some(Ok(Message::Ping(data))) => {
-                            let _ = event_ws_write.send(Message::Pong(data)).await;
+                        Err(e) => {
+                            let msg: String = format!("Failed parse balance: {} {}", trade_bot.balance, e);
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                            bot_index += 1;
                         }
-                        Some(Ok(Message::Close(close))) => {
-                            error!("Connection closed by server: {:?}", close);
-                            // sent error to pg
-                            should_reconnect = true;
-                            break;
-                        }
-                        Some(Err(e)) => {
-                            error!("WebSocket read error: {}", e);
-                            // sent error to pg
-                            should_reconnect = true;
-                            break;
-                        }
-                        Some(Ok(_)) => {}
-                        None => {
-                            info!("WebSocket stream ended");
-                            // sent error to pg
+                    }
+                }
+            } => {},
+            // Events
+            event_msg = event_ws_read.next() => {
+                match event_msg {
+                    Some(Ok(Message::Text(text))) => {
+                        if tx_in.send(text.to_string()).await.is_err() {
+                            error!("Failed to send to handler, reconnecting...");
                             should_reconnect = true;
                             break;
                         }
                     }
+                    Some(Ok(Message::Ping(data))) => {
+                        let _ = event_ws_write.send(Message::Pong(data)).await;
+                    }
+                    Some(Ok(Message::Close(close))) => {
+                        error!("Connection closed by server: {:?}", close);
+                        // sent error to pg
+                        should_reconnect = true;
+                        break;
+                    }
+                    Some(Err(e)) => {
+                        error!("WebSocket read error: {}", e);
+                        // sent error to pg
+                        should_reconnect = true;
+                        break;
+                    }
+                    Some(Ok(_)) => {}
+                    None => {
+                        info!("WebSocket stream ended");
+                        // sent error to pg
+                        should_reconnect = true;
+                        break;
+                    }
                 }
-                _ = event_ping_interval.tick() => {
-                    let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
-                }
+            }
+            _ = event_ping_interval.tick() => {
+                let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
+            }
             }
         }
 
