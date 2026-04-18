@@ -1274,24 +1274,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await;
                                     }
                                 }
-                            } else if data.topic == "/spotMarket/advancedOrders" {
-                                // stop orders and other
-                                match StopOrderData::deserialize(&data.data) {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        // info!("{:?}", data.data);
-
-                                        // sent stop order error to pg
-                                        let msg: String = format!("Failed to parse message {}", e);
-                                        error!("{}", msg);
-                                        insert_db_error(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &msg,
-                                        )
-                                        .await;
-                                    }
-                                }
                             } else if data.topic == "/spotMarket/tradeOrdersV2" {
                                 info!("{}", &data.data);
                                 match OrderData::deserialize(&data.data) {
