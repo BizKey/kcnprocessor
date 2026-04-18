@@ -1431,6 +1431,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let trade_bots = get_all_bots_for_trade(&pool_clone, &exchange_clone).await;
 
                 for trade_bot in trade_bots.iter() {
+                    sleep(Duration::from_millis(30000)).await;
                     match trade_bot.balance.parse::<f64>() {
                         Ok(token_funds) => {
                             match make_random_trade(
@@ -1448,7 +1449,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     insert_db_error(&pool_clone, &exchange_clone, &msg).await;
                                 }
                             }
-                            sleep(Duration::from_millis(30000)).await;
                         }
                         Err(e) => {
                             let msg: String =
