@@ -199,9 +199,8 @@ async fn make_random_trade(
     trade_bot_id: i32,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // random sections
-    let random_symbol = get_random_symbol(pool, exchange).await;
 
-    match random_symbol {
+    match get_random_symbol(pool, exchange).await {
         Some(tradeable) => {
             // get property of symbol
             let symbol_info =
@@ -1275,24 +1274,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await;
                                     }
                                 }
-                            } else if data.topic == "/spotMarket/advancedOrders" {
-                                // stop orders and other
-                                match StopOrderData::deserialize(&data.data) {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        // info!("{:?}", data.data);
-
-                                        // sent stop order error to pg
-                                        let msg: String = format!("Failed to parse message {}", e);
-                                        error!("{}", msg);
-                                        insert_db_error(
-                                            &pool_for_handler,
-                                            &exchange_for_handler,
-                                            &msg,
-                                        )
-                                        .await;
-                                    }
-                                }
                             } else if data.topic == "/spotMarket/tradeOrdersV2" {
                                 info!("{}", &data.data);
                                 match OrderData::deserialize(&data.data) {
@@ -1431,6 +1412,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let trade_bots = get_all_bots_for_trade(&pool_clone, &exchange_clone).await;
 
                 for trade_bot in trade_bots.iter() {
+                    sleep(Duration::from_millis(30000)).await;
                     match trade_bot.balance.parse::<f64>() {
                         Ok(token_funds) => {
                             match make_random_trade(
@@ -1448,7 +1430,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     insert_db_error(&pool_clone, &exchange_clone, &msg).await;
                                 }
                             }
-                            sleep(Duration::from_millis(500)).await;
                         }
                         Err(e) => {
                             let msg: String =

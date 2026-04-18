@@ -466,8 +466,9 @@ pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Option<TradeAbl
         AND s.quote_currency = 'USDT' 
         AND s.base_currency <> 'USDC' 
         AND s.base_currency <> 'KCS' 
+        AND s.base_currency <> 'ASTER' 
         AND s.exchange = $1
-        AND (b.bot_count IS NULL OR b.bot_count <= 10)
+        AND (b.bot_count IS NULL OR b.bot_count < 10)
         ORDER BY RANDOM()
         LIMIT 1;",
     )
