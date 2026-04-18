@@ -199,9 +199,8 @@ async fn make_random_trade(
     trade_bot_id: i32,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // random sections
-    let random_symbol = get_random_symbol(pool, exchange).await;
 
-    match random_symbol {
+    match get_random_symbol(pool, exchange).await {
         Some(tradeable) => {
             // get property of symbol
             let symbol_info =
