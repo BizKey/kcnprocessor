@@ -1448,7 +1448,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     insert_db_error(&pool_clone, &exchange_clone, &msg).await;
                                 }
                             }
-                            sleep(Duration::from_millis(500)).await;
+                            sleep(Duration::from_millis(30000)).await;
                         }
                         Err(e) => {
                             let msg: String =
