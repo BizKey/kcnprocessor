@@ -1036,20 +1036,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         continue;
                                     }
                                 };
-                            // parse quote_min_size to int
-                            let quote_min_size: f64 =
-                                match symbol_info.quote_min_size.parse::<f64>() {
-                                    Ok(quote_min_size) => quote_min_size,
-                                    Err(e) => {
-                                        let msg: String = format!(
-                                            "Failed parse quote_min_size: {} {}",
-                                            symbol_info.quote_min_size, e
-                                        );
-                                        error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
-                                        continue;
-                                    }
-                                };
+                            // parse min_funds	 to int
+                            let min_funds: f64 = match symbol_info.min_funds.parse::<f64>() {
+                                Ok(min_funds) => min_funds,
+                                Err(e) => {
+                                    let msg: String = format!(
+                                        "Failed parse min_funds	: {} {}",
+                                        symbol_info.min_funds, e
+                                    );
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    continue;
+                                }
+                            };
                             let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>()
                             {
                                 Ok(base_min_size) => base_min_size,
@@ -1064,14 +1063,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 }
                             };
                             // buy min funds or full
-                            if token_funds <= quote_min_size || token_liability <= base_min_size {
+                            if token_funds <= min_funds || token_liability <= base_min_size {
                                 let _ = make_hf_funds_margin_order(
                                     &pool,
                                     &exchange,
                                     &client_oid,
                                     "buy",
                                     trade_symbol,
-                                    format_assert(quote_min_size, quote_increment),
+                                    format_assert(min_funds, quote_increment),
                                     "market".to_string(),
                                 )
                                 .await;
