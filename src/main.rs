@@ -1062,15 +1062,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     continue;
                                 }
                             };
-                            // buy min funds or full
-                            if token_funds <= min_funds || token_liability <= base_min_size {
+
+                            // calc price token on amount base_min_size token
+                            let min_funds_by_size: f64 = token_price * base_min_size;
+
+                            if token_funds <= min_funds.max(min_funds_by_size) {
                                 let _ = make_hf_funds_margin_order(
                                     &pool,
                                     &exchange,
                                     &client_oid,
                                     "buy",
                                     trade_symbol,
-                                    format_assert(min_funds, quote_increment),
+                                    format_assert(
+                                        min_funds.max(min_funds_by_size),
+                                        quote_increment,
+                                    ),
                                     "market".to_string(),
                                 )
                                 .await;
