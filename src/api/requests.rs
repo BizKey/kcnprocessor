@@ -7,11 +7,11 @@ use hmac::{Hmac, Mac};
 use log::info;
 use reqwest::{Client, Response};
 use serde_json::json;
-use uuid::Uuid;
-
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::env;
+use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -44,10 +44,7 @@ impl KuCoinClient {
     pub async fn api_v1_bullet_private(
         &self,
     ) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
+        let timestamp = self.get_system_timestamp_ms();
         return match self
             .make_request(
                 reqwest::Method::POST,
@@ -133,10 +130,7 @@ impl KuCoinClient {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("clientOid", client_oid);
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
+        let timestamp = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -170,10 +164,7 @@ impl KuCoinClient {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
+        let timestamp = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::GET,
@@ -213,10 +204,7 @@ impl KuCoinClient {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
+        let timestamp = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -258,10 +246,7 @@ impl KuCoinClient {
             "fromAccountType": from_account_type,
             "toAccountType": to_account_type
         });
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
+        let timestamp = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -333,10 +318,7 @@ impl KuCoinClient {
         body: serde_json::Value,
     ) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add stop margin hf order
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
+        let timestamp = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -376,10 +358,7 @@ impl KuCoinClient {
         body: serde_json::Value,
     ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add margin hf order
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
+        let timestamp = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -413,6 +392,12 @@ impl KuCoinClient {
             Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
+    fn get_system_timestamp_ms(&self) -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
+    }
     pub async fn margin_repay(
         &self,
         currency: &str,
@@ -425,10 +410,7 @@ impl KuCoinClient {
             "isHf": true
         });
 
-        let timestamp: u64 = match get_api_v1_timestamp().await {
-            Ok(ts) => ts as u64,
-            Err(_) => 0,
-        };
+        let timestamp = self.get_system_timestamp_ms();
 
         match self
             .make_request(
