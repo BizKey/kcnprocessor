@@ -1037,16 +1037,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 };
                             // parse min_funds	 to int
-                            let min_funds: f64 = match symbol_info.min_funds.parse::<f64>() {
-                                Ok(min_funds) => min_funds,
-                                Err(e) => {
-                                    let msg: String = format!(
-                                        "Failed parse min_funds	: {} {}",
-                                        symbol_info.min_funds, e
-                                    );
+                            let min_funds: f64 = match &symbol_info.min_funds {
+                                Some(val) => match val.parse::<f64>() {
+                                    Ok(v) => v,
+                                    Err(e) => {
+                                        let msg = format!(
+                                            "Failed parse min_funds: {:?} {}",
+                                            symbol_info.min_funds, e
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        continue;
+                                    }
+                                },
+                                None => {
+                                    // Если поле может быть null в БД — задайте дефолт или обработайте как ошибку
+                                    let msg =
+                                        format!("min_funds is None for symbol {}", trade_symbol);
                                     error!("{}", msg);
                                     insert_db_error(&pool, &exchange, &msg).await;
                                     continue;
+                                    // Или, если допустимо: 0.1 (замените на ваше значение по умолчанию)
+                                    // 0.1
                                 }
                             };
                             let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>()

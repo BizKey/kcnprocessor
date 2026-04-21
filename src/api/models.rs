@@ -197,7 +197,7 @@ pub struct Symbol {
     pub exchange: String,
     pub symbol: String,
     pub base_increment: String,
-    pub min_funds: String,
+    pub min_funds: Option<String>,
     pub price_increment: String,
     pub quote_increment: String,
     pub base_min_size: String,
