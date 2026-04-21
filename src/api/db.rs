@@ -490,7 +490,7 @@ pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Option<TradeAbl
     }
 }
 pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
-    match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, price_increment, quote_increment, base_min_size, quote_min_size FROM symbol WHERE exchange = $1")
+    match sqlx::query_as::<_, Symbol>("SELECT * FROM symbol WHERE exchange = $1")
         .bind(exchange)
         .fetch_all(pool)
         .await
