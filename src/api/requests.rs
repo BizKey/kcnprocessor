@@ -483,27 +483,28 @@ impl KuCoinClient {
         authenticated: bool,
         timestamp: u64,
     ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        let url: String = format!("{}{}", self.base_url, endpoint);
+        let query_string: String = query_params
+            .as_ref()
+            .map(|params| {
+                let mut pairs: Vec<_> = params.iter().collect();
+                pairs.sort_by(|a, b| a.0.cmp(b.0));
+                pairs
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", encode(k), encode(v)))
+                    .collect::<Vec<_>>()
+                    .join("&")
+            })
+            .unwrap_or_default();
+
+        let url = if !query_string.is_empty() {
+            format!("{}{}?{}", self.base_url, endpoint, query_string)
+        } else {
+            format!("{}{}", self.base_url, endpoint)
+        };
 
         let mut request_builder = self.client.request(method.clone(), &url);
 
-        if let Some(params) = &query_params {
-            request_builder = request_builder.query(&params);
-        }
-
         if authenticated {
-            let query_string: String = query_params
-                .as_ref()
-                .map(|params| {
-                    let mut pairs: Vec<String> = params
-                        .iter()
-                        .map(|(k, v)| format!("{}={}", encode(k), encode(v)))
-                        .collect();
-                    pairs.sort();
-                    pairs.join("&")
-                })
-                .unwrap_or_default();
-
             let body_str = body
                 .as_ref()
                 .map(|b| {

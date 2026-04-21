@@ -1051,14 +1051,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     }
                                 },
                                 None => {
-                                    // Если поле может быть null в БД — задайте дефолт или обработайте как ошибку
                                     let msg =
                                         format!("min_funds is None for symbol {}", trade_symbol);
                                     error!("{}", msg);
                                     insert_db_error(&pool, &exchange, &msg).await;
                                     continue;
-                                    // Или, если допустимо: 0.1 (замените на ваше значение по умолчанию)
-                                    // 0.1
                                 }
                             };
                             let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>()
