@@ -11,6 +11,7 @@ use sha2::Sha256;
 use std::collections::HashMap;
 use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
+use urlencoding::encode;
 use uuid::Uuid;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -26,11 +27,11 @@ pub struct KuCoinClient {
 
 impl KuCoinClient {
     pub fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let api_passphrase: String = env::var("KUCOIN_PASS")?;
+        let api_passphrase: String = env::var("KUCOIN_PASS")?.trim().to_string();
 
-        let api_key: String = env::var("KUCOIN_KEY")?;
+        let api_key: String = env::var("KUCOIN_KEY")?.trim().to_string();
 
-        let api_secret: String = env::var("KUCOIN_SECRET")?;
+        let api_secret: String = env::var("KUCOIN_SECRET")?.trim().to_string();
 
         Ok(Self {
             client: Client::new(),
@@ -94,26 +95,20 @@ impl KuCoinClient {
     ) -> String {
         let method_upper = method.to_uppercase();
 
-        let string_to_sign = if method_upper == "DELETE" {
-            if !query_string.is_empty() {
-                format!("{}{}{}?{}", timestamp, method_upper, endpoint, query_string)
-            } else {
-                format!("{}{}{}", timestamp, method_upper, endpoint)
-            }
-        } else if !query_string.is_empty() {
-            format!(
-                "{}{}{}?{}{}",
-                timestamp, method_upper, endpoint, query_string, body
-            )
-        } else {
-            format!("{}{}{}{}", timestamp, method_upper, endpoint, body)
-        };
+        let mut str_to_sign = format!("{}{}{}", timestamp, method_upper, endpoint);
+
+        if !query_string.is_empty() {
+            str_to_sign.push('?');
+            str_to_sign.push_str(query_string);
+        }
+        if !body.is_empty() {
+            str_to_sign.push_str(body);
+        }
 
         let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
             .expect("HMAC can take key of any size");
-        mac.update(string_to_sign.as_bytes());
-        let result = mac.finalize();
-        base64::engine::general_purpose::STANDARD.encode(result.into_bytes())
+        mac.update(str_to_sign.as_bytes());
+        base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
 
     fn generate_passphrase_signature(&self) -> String {
@@ -496,23 +491,25 @@ impl KuCoinClient {
             request_builder = request_builder.query(&params);
         }
 
-        if let Some(body_data) = &body {
-            request_builder = request_builder.json(&body_data);
-        }
-
         if authenticated {
             let query_string: String = query_params
                 .as_ref()
                 .map(|params| {
-                    let mut pairs: Vec<String> =
-                        params.iter().map(|(k, v)| format!("{}={}", k, v)).collect();
+                    let mut pairs: Vec<String> = params
+                        .iter()
+                        .map(|(k, v)| format!("{}={}", encode(k), encode(v)))
+                        .collect();
                     pairs.sort();
                     pairs.join("&")
                 })
                 .unwrap_or_default();
+
             let body_str = body
                 .as_ref()
-                .map(|b| serde_json::to_string(b).unwrap())
+                .map(|b| {
+                    serde_json::to_string(b).map_err(|e| format!("JSON serialization error: {}", e))
+                })
+                .transpose()?
                 .unwrap_or_default();
 
             let signature = self.generate_signature(
@@ -531,6 +528,12 @@ impl KuCoinClient {
                 .header("KC-API-TIMESTAMP", timestamp.to_string())
                 .header("KC-API-PASSPHRASE", passphrase_signature)
                 .header("KC-API-KEY-VERSION", "2");
+
+            if !body_str.is_empty() {
+                request_builder = request_builder
+                    .header("Content-Type", "application/json")
+                    .body(body_str);
+            }
         }
 
         let response = request_builder.send().await.map_err(|e| {
