@@ -8,9 +8,7 @@ use crate::api::db::{
     update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
     upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{
-    BalanceData, KuCoinMessage, OrderData, PositionData, StopOrderData, Symbol,
-};
+use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
@@ -35,7 +33,7 @@ const PING_INTERVAL: Duration = Duration::from_secs(5);
 fn build_subscription() -> Vec<serde_json::Value> {
     vec![
         serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}),
-        // serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}),
+        serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}),
         serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}),
         serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}),
     ]
@@ -917,7 +915,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let exchange: String = "kucoin".to_string();
 
     let pool = PgPoolOptions::new()
-        .max_connections(10)
+        .max_connections(40)
         .connect(&database_url)
         .await
         .expect("Failed to create pool");
@@ -1315,6 +1313,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await;
                                     }
                                 }
+                            } else if data.topic == "/spotMarket/advancedOrders" {
+                                // stop orders and other
+                                info!("{}", &data.data);
                             } else if data.topic == "/margin/position" {
                                 // save to db position
                                 // repay debt
