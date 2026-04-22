@@ -1,6 +1,6 @@
 use crate::api::models::{
-    ActualPrice, ApiV1TimestampRes, ApiV3BulletPrivate, MakeOrderRes, MakeStopOrderRes,
-    MarginAccount, MarginAccountData,
+    ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MakeStopOrderRes, MarginAccount,
+    MarginAccountData,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -269,42 +269,6 @@ impl KuCoinClient {
                 },
             },
             Err(e) => Err(format!("Account transfer request failed: {}", e).into()),
-        }
-    }
-    pub async fn get_api_v1_timestamp(
-        &self,
-    ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
-        match self
-            .make_request(
-                reqwest::Method::GET,
-                "/api/v1/timestamp",
-                None,
-                None,
-                false,
-                0,
-            )
-            .await
-        {
-            Ok(response) => match response.status().as_str() {
-                "200" => match response.text().await {
-                    Ok(text) => match serde_json::from_str::<ApiV1TimestampRes>(&text) {
-                        Ok(res) => Ok(res.data),
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
-                    },
-                    Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-                },
-                status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
-                    Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-                },
-            },
-            Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
 
@@ -620,10 +584,7 @@ pub async fn add_api_v3_hf_margin_order(
     let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.add_api_v3_hf_margin_order(body).await
 }
-pub async fn get_api_v1_timestamp() -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
-    client.get_api_v1_timestamp().await
-}
+
 pub async fn create_repay_order(
     currency: &str,
     size: &str,
