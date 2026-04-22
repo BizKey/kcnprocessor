@@ -702,12 +702,16 @@ async fn handle_trade_order_event(
                                     info!("Successfully add stop loss order:{}", exit_sl_id);
                                 }
                             } else if order.side == "sell" {
-                                // tp order
                                 let match_price: f64 = new_balance / filled_size_f64;
                                 let trigger_tp_price: f64 = match_price * 0.93; // price - 7%
-                                // !!! check in min_size
-                                let funds_buy: f64 = trigger_tp_price * filled_size_f64;
+                                let trigger_sl_price: f64 = match_price * 1.05; // price + 5%
+
+                                let funds_tp: f64 = trigger_tp_price * filled_size_f64;
+                                let funds_sl: f64 = trigger_sl_price * filled_size_f64;
+
                                 let exit_tp_id: String = Uuid::new_v4().to_string();
+                                let exit_sl_id: String = Uuid::new_v4().to_string();
+
                                 let msg_tp_order: serde_json::Value = serde_json::json!({
                                     "clientOid": exit_tp_id,
                                     "side": "buy",
@@ -719,39 +723,8 @@ async fn handle_trade_order_event(
                                     "autoBorrow": true,
                                     "autoRepay": true,
                                     "timeInForce": "GTC",
-                                    "funds": format_assert(funds_buy, quote_increment),
+                                    "funds": format_assert(funds_tp, quote_increment),
                                 });
-                                info!("Stop profit order:{}", msg_tp_order);
-                                // add exit_tp_id by entry_id
-                                update_exit_tp_id_bot_by_entry_id(
-                                    pool,
-                                    exchange,
-                                    client_oid,
-                                    &exit_tp_id,
-                                )
-                                .await;
-                                match api::requests::api_v3_hf_margin_stop_order(msg_tp_order).await
-                                {
-                                    Ok(_) => {
-                                        info!("Successfully add stop profit order:{}", exit_tp_id);
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed add stop order: {}", e);
-                                        error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
-                                        // delete exit_tp_id by entry_id
-                                        delete_exit_tp_id_bot_by_entry_id(
-                                            pool, exchange, client_oid,
-                                        )
-                                        .await;
-                                        return;
-                                    }
-                                }
-                                // sl order
-                                let trigger_sl_price: f64 = match_price * 1.05; // price + 5%
-                                // !!! check in min_size
-                                let funds_buy: f64 = trigger_sl_price * filled_size_f64;
-                                let exit_sl_id: String = Uuid::new_v4().to_string();
                                 let msg_sl_order: serde_json::Value = serde_json::json!({
                                    "clientOid": exit_sl_id,
                                     "side": "buy",
@@ -763,9 +736,20 @@ async fn handle_trade_order_event(
                                     "autoBorrow": true,
                                     "autoRepay": true,
                                     "timeInForce": "GTC",
-                                    "funds": format_assert(funds_buy, quote_increment),
+                                    "funds": format_assert(funds_sl, quote_increment),
                                 });
+
+                                info!("Stop profit order:{}", msg_tp_order);
                                 info!("Stop loss order:{}", msg_sl_order);
+
+                                // add exit_tp_id by entry_id
+                                update_exit_tp_id_bot_by_entry_id(
+                                    pool,
+                                    exchange,
+                                    client_oid,
+                                    &exit_tp_id,
+                                )
+                                .await;
                                 // add exit_sl_id by entry_id
                                 update_exit_sl_id_bot_by_entry_id(
                                     pool,
@@ -774,21 +758,31 @@ async fn handle_trade_order_event(
                                     &exit_sl_id,
                                 )
                                 .await;
-                                match api::requests::api_v3_hf_margin_stop_order(msg_sl_order).await
-                                {
-                                    Ok(_) => {
-                                        info!("Successfully add stop loss order:{}", exit_sl_id);
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed add stop order: {}", e);
-                                        error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
-                                        // add exit_sl_id by entry_id
-                                        delete_exit_sl_id_bot_by_entry_id(
-                                            pool, exchange, client_oid,
-                                        )
-                                        .await
-                                    }
+
+                                let tp_fut =
+                                    api::requests::api_v3_hf_margin_stop_order(msg_tp_order);
+                                let sl_fut =
+                                    api::requests::api_v3_hf_margin_stop_order(msg_sl_order);
+                                let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
+
+                                if let Err(e) = tp_res {
+                                    let msg = format!("Failed add TP order: {}", e);
+                                    error!("{}", msg);
+                                    insert_db_error(pool, exchange, &msg).await;
+                                    delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid)
+                                        .await;
+                                } else {
+                                    info!("Successfully add stop profit order:{}", exit_tp_id);
+                                }
+
+                                if let Err(e) = sl_res {
+                                    let msg = format!("Failed add SL order: {}", e);
+                                    error!("{}", msg);
+                                    insert_db_error(pool, exchange, &msg).await;
+                                    delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid)
+                                        .await;
+                                } else {
+                                    info!("Successfully add stop loss order:{}", exit_sl_id);
                                 }
                             }
                         }
