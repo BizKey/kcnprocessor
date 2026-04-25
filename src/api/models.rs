@@ -184,12 +184,31 @@ pub struct Symbol {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct MakeOrderResData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "orderOid")]
+    pub client_oid: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct MakeOrderRes {
     pub code: String,
     pub msg: Option<String>,
+    pub data: MakeOrderResData,
 }
 #[derive(Debug, Deserialize)]
-pub struct MakeStopOrderRes {}
+pub struct MakeStopOrderResData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "orderOid")]
+    pub client_oid: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct MakeStopOrderRes {
+    pub code: String,
+    pub data: MakeStopOrderResData,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountDataAccount {

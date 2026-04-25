@@ -119,17 +119,17 @@ impl KuCoinClient {
         base64::engine::general_purpose::STANDARD.encode(result.into_bytes())
     }
 
-    pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(
+    pub async fn api_v3_hf_margin_stop_order_cancel_by_order_id(
         &self,
-        client_oid: &str,
+        order_id: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
-        query_params.insert("clientOid", client_oid);
+        query_params.insert("orderId", order_id);
         let timestamp = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::DELETE,
-                "/api/v3/hf/margin/stop-order/cancel-by-clientOid",
+                "/api/v3/hf/margin/stop-order/cancel-by-id",
                 Some(query_params),
                 None,
                 true,
@@ -534,12 +534,12 @@ pub async fn get_all_margin_accounts()
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client.get_margin_accounts().await
 }
-pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(
-    client_oid: &str,
+pub async fn api_v3_hf_margin_stop_order_cancel_by_order_id(
+    order_id: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
     client
-        .api_v3_hf_margin_stop_order_cancel_by_client_oid(client_oid)
+        .api_v3_hf_margin_stop_order_cancel_by_order_id(order_id)
         .await
 }
 pub async fn sent_account_transfer(

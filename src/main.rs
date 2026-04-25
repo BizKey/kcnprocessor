@@ -2,7 +2,7 @@ use crate::api::db::{
     clear_orders_ids_for_bots, delete_entry_id_bot_by_entry_id, delete_exit_sl_id_bot_by_entry_id,
     delete_exit_tp_id_bot_by_entry_id, fetch_symbol_info, get_all_bots_for_trade,
     get_bots_by_entry_id, get_bots_by_exit_sl_id, get_bots_by_exit_tp_id, get_random_side,
-    get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance, insert_db_error,
+    get_random_symbol, get_total_match_value_by_order_id, insert_db_balance, insert_db_error,
     insert_db_event, insert_db_msgsend, insert_db_orderevent, update_balance_by_entry_id,
     update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_id,
     update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
@@ -374,425 +374,414 @@ async fn handle_trade_order_event(
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
 
-    if let Some(client_oid) = &order.client_oid {
-        // client_oid exist
-        if (order.type_ == "match" || order.type_ == "canceled")
-            && (order.remain_size == Some("0".to_string())
-                || order.remain_funds == Some("0".to_string()))
-        {
-            let symbol_info = match symbol_map.get(&order.symbol) {
-                Some(info) => info,
+    if (order.type_ == "match" || order.type_ == "canceled")
+        && (order.remain_size == Some("0".to_string())
+            || order.remain_funds == Some("0".to_string()))
+    {
+        let symbol_info = match symbol_map.get(&order.symbol) {
+            Some(info) => info,
+            None => {
+                error!("Symbol info not found for: {}", order.symbol);
+                insert_db_error(
+                    pool,
+                    exchange,
+                    &format!("Missing symbol info for {}", order.symbol),
+                )
+                .await;
+                return;
+            }
+        };
+        let price_increment: f64 = match symbol_info.price_increment.parse::<f64>() {
+            Ok(price_increment) => price_increment,
+            Err(e) => {
+                let msg: String = format!(
+                    "Failed parse price_increment: {} {}",
+                    symbol_info.price_increment, e
+                );
+                error!("{}", msg);
+                insert_db_error(pool, exchange, &msg).await;
+                return;
+            }
+        };
+        let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
+            Ok(quote_increment) => quote_increment,
+            Err(e) => {
+                let msg: String = format!(
+                    "Failed parse quote_increment: {} {}",
+                    symbol_info.quote_increment, e
+                );
+                error!("{}", msg);
+                insert_db_error(pool, exchange, &msg).await;
+                return;
+            }
+        };
+        // if clientOid in bots entry_id (2 phase)
+        if let Some(bot) = get_bots_by_exit_tp_id(pool, exchange, &order.order_id).await {
+            match get_total_match_value_by_order_id(pool, exchange, &order.order_id).await {
+                Some(return_balance) => {
+                    if order.side == "buy" {
+                        match bot.balance {
+                            Some(balance_str) => match balance_str.parse::<f64>() {
+                                Ok(old_balance) => {
+                                    let new_balance: f64 =
+                                        old_balance + old_balance - return_balance;
+                                    update_balance_by_exit_tp_id(
+                                        pool,
+                                        exchange,
+                                        &order.order_id,
+                                        &format!("{:.4}", new_balance),
+                                    )
+                                    .await;
+                                    // create new random order
+                                    match make_random_trade(pool, exchange, new_balance, bot.id)
+                                        .await
+                                    {
+                                        Ok(()) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Error in make_random_trade: {}", e);
+                                            error!("{}", msg);
+                                            insert_db_error(pool, exchange, &msg).await;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    let msg =
+                                        format!("Failed parse balance: {} {}", balance_str, e);
+                                    error!("{}", msg);
+                                    insert_db_error(pool, exchange, &msg).await;
+                                }
+                            },
+                            None => {
+                                let msg = format!("Balance is None for {}", exchange);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
+                    } else if order.side == "sell" {
+                        update_balance_by_exit_tp_id(
+                            pool,
+                            exchange,
+                            &order.order_id,
+                            &format!("{:.4}", return_balance),
+                        )
+                        .await;
+                        // create new random order
+                        match make_random_trade(pool, exchange, return_balance, bot.id).await {
+                            Ok(()) => {}
+                            Err(e) => {
+                                let msg: String = format!("Error in make_random_trade: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
+                    }
+                }
                 None => {
-                    error!("Symbol info not found for: {}", order.symbol);
-                    insert_db_error(
-                        pool,
-                        exchange,
-                        &format!("Missing symbol info for {}", order.symbol),
-                    )
-                    .await;
-                    return;
+                    error!("No records found or error occurred");
                 }
-            };
-            let price_increment: f64 = match symbol_info.price_increment.parse::<f64>() {
-                Ok(price_increment) => price_increment,
-                Err(e) => {
-                    let msg: String = format!(
-                        "Failed parse price_increment: {} {}",
-                        symbol_info.price_increment, e
-                    );
-                    error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
-                    return;
-                }
-            };
-            let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
-                Ok(quote_increment) => quote_increment,
-                Err(e) => {
-                    let msg: String = format!(
-                        "Failed parse quote_increment: {} {}",
-                        symbol_info.quote_increment, e
-                    );
-                    error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
-                    return;
-                }
-            };
-            // if clientOid in bots entry_id (2 phase)
-            if let Some(bot) = get_bots_by_exit_tp_id(pool, exchange, client_oid).await {
-                match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                    Some(return_balance) => {
-                        if order.side == "buy" {
-                            match bot.balance {
-                                Some(balance_str) => match balance_str.parse::<f64>() {
-                                    Ok(old_balance) => {
-                                        let new_balance: f64 =
-                                            old_balance + old_balance - return_balance;
-                                        update_balance_by_exit_tp_id(
-                                            pool,
-                                            exchange,
-                                            client_oid,
-                                            &format!("{:.4}", new_balance),
-                                        )
-                                        .await;
-                                        // create new random order
-                                        match make_random_trade(pool, exchange, new_balance, bot.id)
-                                            .await
-                                        {
-                                            Ok(()) => {}
-                                            Err(e) => {
-                                                let msg: String =
-                                                    format!("Error in make_random_trade: {}", e);
-                                                error!("{}", msg);
-                                                insert_db_error(pool, exchange, &msg).await;
-                                            }
+            }
+        }
+        // if clientOid in bots entry_id (2 phase)
+        if let Some(bot) = get_bots_by_exit_sl_id(pool, exchange, &order.order_id).await {
+            match get_total_match_value_by_order_id(pool, exchange, &order.order_id).await {
+                Some(return_balance) => {
+                    if order.side == "buy" {
+                        match bot.balance {
+                            Some(balance_str) => match balance_str.parse::<f64>() {
+                                Ok(old_balance) => {
+                                    let new_balance: f64 =
+                                        old_balance + old_balance - return_balance;
+                                    update_balance_by_exit_sl_id(
+                                        pool,
+                                        exchange,
+                                        &order.order_id,
+                                        &format!("{:.4}", new_balance),
+                                    )
+                                    .await;
+                                    // create new random order
+                                    match make_random_trade(pool, exchange, new_balance, bot.id)
+                                        .await
+                                    {
+                                        Ok(()) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Error in make_random_trade: {}", e);
+                                            error!("{}", msg);
+                                            insert_db_error(pool, exchange, &msg).await;
                                         }
                                     }
-                                    Err(e) => {
-                                        let msg =
-                                            format!("Failed parse balance: {} {}", balance_str, e);
-                                        error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
-                                    }
-                                },
-                                None => {
-                                    let msg = format!("Balance is None for {}", exchange);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
                                 }
-                            }
-                        } else if order.side == "sell" {
-                            update_balance_by_exit_tp_id(
-                                pool,
-                                exchange,
-                                client_oid,
-                                &format!("{:.4}", return_balance),
-                            )
-                            .await;
-                            // create new random order
-                            match make_random_trade(pool, exchange, return_balance, bot.id).await {
-                                Ok(()) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Error in make_random_trade: {}", e);
+                                    let msg =
+                                        format!("Failed parse balance: {} {}", balance_str, e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
                                 }
+                            },
+                            None => {
+                                let msg = format!("Balance is None for {}", exchange);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
+                        }
+                    } else if order.side == "sell" {
+                        update_balance_by_exit_sl_id(
+                            pool,
+                            exchange,
+                            &order.order_id,
+                            &format!("{:.4}", return_balance),
+                        )
+                        .await;
+
+                        // create new random order
+                        match make_random_trade(pool, exchange, return_balance, bot.id).await {
+                            Ok(()) => {}
+                            Err(e) => {
+                                let msg: String = format!("Error in make_random_trade: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
                             }
                         }
                     }
-                    None => {
-                        error!("No records found or error occurred");
+                }
+                None => {
+                    error!("No records found or error occurred");
+                }
+            }
+        }
+        // if clientOid in bots entry_id (1 phase)
+        if let Some(bot) = get_bots_by_entry_id(pool, exchange, &order.order_id).await {
+            // delete exit_tp_id stop order
+            if let Some(exit_tp_id) = bot.exit_tp_id {
+                // clear exit_tp_id in bots by entry_id
+                delete_exit_tp_id_bot_by_entry_id(pool, exchange, &order.order_id).await;
+                match api::requests::api_v3_hf_margin_stop_order_cancel_by_order_id(&exit_tp_id)
+                    .await
+                {
+                    Ok(_) => {
+                        info!("Successfully cancel stop order :{}", &exit_tp_id);
+                    }
+                    Err(e) => {
+                        let msg: String = format!("Failed cancel stop order: {}", e);
+                        error!("{}", msg);
+                        insert_db_error(pool, exchange, &msg).await;
+                        return;
                     }
                 }
             }
-            // if clientOid in bots entry_id (2 phase)
-            if let Some(bot) = get_bots_by_exit_sl_id(pool, exchange, client_oid).await {
-                match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                    Some(return_balance) => {
-                        if order.side == "buy" {
-                            match bot.balance {
-                                Some(balance_str) => match balance_str.parse::<f64>() {
-                                    Ok(old_balance) => {
-                                        let new_balance: f64 =
-                                            old_balance + old_balance - return_balance;
-                                        update_balance_by_exit_sl_id(
-                                            pool,
-                                            exchange,
-                                            client_oid,
-                                            &format!("{:.4}", new_balance),
-                                        )
-                                        .await;
-                                        // create new random order
-                                        match make_random_trade(pool, exchange, new_balance, bot.id)
-                                            .await
-                                        {
-                                            Ok(()) => {}
-                                            Err(e) => {
-                                                let msg: String =
-                                                    format!("Error in make_random_trade: {}", e);
-                                                error!("{}", msg);
-                                                insert_db_error(pool, exchange, &msg).await;
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        let msg =
-                                            format!("Failed parse balance: {} {}", balance_str, e);
-                                        error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
-                                    }
-                                },
-                                None => {
-                                    let msg = format!("Balance is None for {}", exchange);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                }
-                            }
-                        } else if order.side == "sell" {
-                            update_balance_by_exit_sl_id(
-                                pool,
-                                exchange,
-                                client_oid,
-                                &format!("{:.4}", return_balance),
-                            )
-                            .await;
 
-                            // create new random order
-                            match make_random_trade(pool, exchange, return_balance, bot.id).await {
-                                Ok(()) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Error in make_random_trade: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                }
-                            }
-                        }
+            // delete exit_sl_id stop order
+            if let Some(exit_sl_id) = bot.exit_sl_id {
+                // clear exit_sl_id in bots by id !!
+                delete_exit_sl_id_bot_by_entry_id(pool, exchange, &order.order_id).await;
+                match api::requests::api_v3_hf_margin_stop_order_cancel_by_order_id(&exit_sl_id)
+                    .await
+                {
+                    Ok(_) => {
+                        info!("Successfully cancel stop order :{}", &exit_sl_id)
                     }
-                    None => {
-                        error!("No records found or error occurred");
+                    Err(e) => {
+                        let msg: String = format!("Failed cancel stop order: {}", e);
+                        error!("{}", msg);
+                        insert_db_error(pool, exchange, &msg).await;
+                        return;
                     }
                 }
-            }
-            // if clientOid in bots entry_id (1 phase)
-            if let Some(bot) = get_bots_by_entry_id(pool, exchange, client_oid).await {
-                // delete exit_tp_id stop order
-                if let Some(exit_tp_id) = bot.exit_tp_id {
-                    // clear exit_tp_id in bots by entry_id
-                    delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid).await;
-                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                        &exit_tp_id,
-                    )
-                    .await
-                    {
-                        Ok(_) => {
-                            info!("Successfully cancel stop order :{}", &exit_tp_id);
-                        }
-                        Err(e) => {
-                            let msg: String = format!("Failed cancel stop order: {}", e);
-                            error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
-                            return;
-                        }
-                    }
-                }
+            };
 
-                // delete exit_sl_id stop order
-                if let Some(exit_sl_id) = bot.exit_sl_id {
-                    // clear exit_sl_id in bots by id !!
-                    delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid).await;
-                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                        &exit_sl_id,
-                    )
-                    .await
-                    {
-                        Ok(_) => {
-                            info!("Successfully cancel stop order :{}", &exit_sl_id)
-                        }
-                        Err(e) => {
-                            let msg: String = format!("Failed cancel stop order: {}", e);
-                            error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
-                            return;
-                        }
+            // create new stop tp and sl orders
+            if let Some(filled_size) = &order.filled_size {
+                let filled_size_f64: f64 = match filled_size.parse::<f64>() {
+                    Ok(filled_size) => filled_size,
+                    Err(e) => {
+                        let msg: String =
+                            format!("Failed parse order.filled_size: {} {}", filled_size, e);
+                        error!("{}", msg);
+                        insert_db_error(pool, exchange, &msg).await;
+                        return;
                     }
                 };
+                match get_total_match_value_by_order_id(pool, exchange, &order.order_id).await {
+                    Some(new_balance) => {
+                        update_balance_by_entry_id(
+                            pool,
+                            exchange,
+                            &order.order_id,
+                            &format!("{:.4}", new_balance),
+                        )
+                        .await;
 
-                // create new stop tp and sl orders
-                if let Some(filled_size) = &order.filled_size {
-                    let filled_size_f64: f64 = match filled_size.parse::<f64>() {
-                        Ok(filled_size) => filled_size,
-                        Err(e) => {
-                            let msg: String =
-                                format!("Failed parse order.filled_size: {} {}", filled_size, e);
-                            error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
-                            return;
-                        }
-                    };
-                    match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                        Some(new_balance) => {
-                            update_balance_by_entry_id(
+                        if order.side == "buy" {
+                            let match_price: f64 = new_balance / filled_size_f64;
+                            let trigger_tp_price: f64 = match_price * 1.07; // price + 7%
+                            let trigger_sl_price: f64 = match_price * 0.95; // price - 5%
+
+                            let exit_tp_id: String = Uuid::new_v4().to_string();
+                            let exit_sl_id: String = Uuid::new_v4().to_string();
+
+                            // tp order
+                            let msg_tp_order: serde_json::Value = serde_json::json!({
+                                "clientOid": exit_tp_id,
+                                "side": "sell",
+                                "symbol": order.symbol,
+                                "type": "market",
+                                "stop": "entry",
+                                "stopPrice": format_assert(trigger_tp_price, price_increment),
+                                "isIsolated": false,
+                                "autoBorrow": true,
+                                "autoRepay": true,
+                                "size": &order.filled_size,
+                                "timeInForce": "GTC",
+                            });
+                            // sl order
+                            let msg_sl_order: serde_json::Value = serde_json::json!({
+                                "clientOid": exit_sl_id,
+                                "side": "sell",
+                                "symbol": order.symbol,
+                                "type": "market",
+                                "stop": "loss",
+                                "stopPrice": format_assert(trigger_sl_price, price_increment),
+                                "isIsolated": false,
+                                "autoBorrow": true,
+                                "autoRepay": true,
+                                "size": order.filled_size,
+                                "timeInForce": "GTC",
+                            });
+
+                            info!("Stop profit order:{}", msg_tp_order);
+                            info!("Stop loss order:{}", msg_sl_order);
+
+                            // add exit_tp_id by entry_id
+                            update_exit_tp_id_bot_by_entry_id(
                                 pool,
                                 exchange,
-                                client_oid,
-                                &format!("{:.4}", new_balance),
+                                &order.order_id,
+                                &exit_tp_id,
+                            )
+                            .await;
+                            // add exit_sl_id by entry_id
+                            update_exit_sl_id_bot_by_entry_id(
+                                pool,
+                                exchange,
+                                &order.order_id,
+                                &exit_sl_id,
                             )
                             .await;
 
-                            if order.side == "buy" {
-                                let match_price: f64 = new_balance / filled_size_f64;
-                                let trigger_tp_price: f64 = match_price * 1.07; // price + 7%
-                                let trigger_sl_price: f64 = match_price * 0.95; // price - 5%
+                            let tp_fut = api::requests::api_v3_hf_margin_stop_order(msg_tp_order);
+                            let sl_fut = api::requests::api_v3_hf_margin_stop_order(msg_sl_order);
 
-                                let exit_tp_id: String = Uuid::new_v4().to_string();
-                                let exit_sl_id: String = Uuid::new_v4().to_string();
+                            let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-                                // tp order
-                                let msg_tp_order: serde_json::Value = serde_json::json!({
-                                    "clientOid": exit_tp_id,
-                                    "side": "sell",
-                                    "symbol": order.symbol,
-                                    "type": "market",
-                                    "stop": "entry",
-                                    "stopPrice": format_assert(trigger_tp_price, price_increment),
-                                    "isIsolated": false,
-                                    "autoBorrow": true,
-                                    "autoRepay": true,
-                                    "size": &order.filled_size,
-                                    "timeInForce": "GTC",
-                                });
-                                // sl order
-                                let msg_sl_order: serde_json::Value = serde_json::json!({
-                                    "clientOid": exit_sl_id,
-                                    "side": "sell",
-                                    "symbol": order.symbol,
-                                    "type": "market",
-                                    "stop": "loss",
-                                    "stopPrice": format_assert(trigger_sl_price, price_increment),
-                                    "isIsolated": false,
-                                    "autoBorrow": true,
-                                    "autoRepay": true,
-                                    "size": order.filled_size,
-                                    "timeInForce": "GTC",
-                                });
+                            if let Err(e) = tp_res {
+                                let msg = format!("Failed add TP order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, &order.order_id)
+                                    .await;
+                            } else {
+                                info!("Successfully add stop profit order:{}", exit_tp_id);
+                            }
 
-                                info!("Stop profit order:{}", msg_tp_order);
-                                info!("Stop loss order:{}", msg_sl_order);
+                            if let Err(e) = sl_res {
+                                let msg = format!("Failed add SL order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, &order.order_id)
+                                    .await;
+                            } else {
+                                info!("Successfully add stop loss order:{}", exit_sl_id);
+                            }
+                        } else if order.side == "sell" {
+                            let match_price: f64 = new_balance / filled_size_f64;
+                            let trigger_tp_price: f64 = match_price * 0.93; // price - 7%
+                            let trigger_sl_price: f64 = match_price * 1.05; // price + 5%
 
-                                // add exit_tp_id by entry_id
-                                update_exit_tp_id_bot_by_entry_id(
-                                    pool,
-                                    exchange,
-                                    client_oid,
-                                    &exit_tp_id,
-                                )
-                                .await;
-                                // add exit_sl_id by entry_id
-                                update_exit_sl_id_bot_by_entry_id(
-                                    pool,
-                                    exchange,
-                                    client_oid,
-                                    &exit_sl_id,
-                                )
-                                .await;
+                            let funds_tp: f64 = trigger_tp_price * filled_size_f64;
+                            let funds_sl: f64 = trigger_sl_price * filled_size_f64;
 
-                                let tp_fut =
-                                    api::requests::api_v3_hf_margin_stop_order(msg_tp_order);
-                                let sl_fut =
-                                    api::requests::api_v3_hf_margin_stop_order(msg_sl_order);
+                            let exit_tp_id: String = Uuid::new_v4().to_string();
+                            let exit_sl_id: String = Uuid::new_v4().to_string();
 
-                                let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
+                            let msg_tp_order: serde_json::Value = serde_json::json!({
+                                "clientOid": exit_tp_id,
+                                "side": "buy",
+                                "symbol": order.symbol,
+                                "type": "market",
+                                "stop": "loss",
+                                "stopPrice": format_assert(trigger_tp_price, price_increment), // price - 7%
+                                "isIsolated": false,
+                                "autoBorrow": true,
+                                "autoRepay": true,
+                                "timeInForce": "GTC",
+                                "funds": format_assert(funds_tp, quote_increment),
+                            });
+                            let msg_sl_order: serde_json::Value = serde_json::json!({
+                               "clientOid": exit_sl_id,
+                                "side": "buy",
+                                "symbol": order.symbol,
+                                "type": "market",
+                                "stop": "entry",
+                                "stopPrice": format_assert(trigger_sl_price, price_increment), // price + 5%
+                                "isIsolated": false,
+                                "autoBorrow": true,
+                                "autoRepay": true,
+                                "timeInForce": "GTC",
+                                "funds": format_assert(funds_sl, quote_increment),
+                            });
 
-                                if let Err(e) = tp_res {
-                                    let msg = format!("Failed add TP order: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid)
-                                        .await;
-                                } else {
-                                    info!("Successfully add stop profit order:{}", exit_tp_id);
-                                }
+                            info!("Stop profit order:{}", msg_tp_order);
+                            info!("Stop loss order:{}", msg_sl_order);
 
-                                if let Err(e) = sl_res {
-                                    let msg = format!("Failed add SL order: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid)
-                                        .await;
-                                } else {
-                                    info!("Successfully add stop loss order:{}", exit_sl_id);
-                                }
-                            } else if order.side == "sell" {
-                                let match_price: f64 = new_balance / filled_size_f64;
-                                let trigger_tp_price: f64 = match_price * 0.93; // price - 7%
-                                let trigger_sl_price: f64 = match_price * 1.05; // price + 5%
+                            // add exit_tp_id by entry_id
+                            update_exit_tp_id_bot_by_entry_id(
+                                pool,
+                                exchange,
+                                &order.order_id,
+                                &exit_tp_id,
+                            )
+                            .await;
+                            // add exit_sl_id by entry_id
+                            update_exit_sl_id_bot_by_entry_id(
+                                pool,
+                                exchange,
+                                &order.order_id,
+                                &exit_sl_id,
+                            )
+                            .await;
 
-                                let funds_tp: f64 = trigger_tp_price * filled_size_f64;
-                                let funds_sl: f64 = trigger_sl_price * filled_size_f64;
+                            let tp_fut = api::requests::api_v3_hf_margin_stop_order(msg_tp_order);
+                            let sl_fut = api::requests::api_v3_hf_margin_stop_order(msg_sl_order);
+                            let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-                                let exit_tp_id: String = Uuid::new_v4().to_string();
-                                let exit_sl_id: String = Uuid::new_v4().to_string();
+                            if let Err(e) = tp_res {
+                                let msg = format!("Failed add TP order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                delete_exit_tp_id_bot_by_entry_id(pool, exchange, &order.order_id)
+                                    .await;
+                            } else {
+                                info!("Successfully add stop profit order:{}", exit_tp_id);
+                            }
 
-                                let msg_tp_order: serde_json::Value = serde_json::json!({
-                                    "clientOid": exit_tp_id,
-                                    "side": "buy",
-                                    "symbol": order.symbol,
-                                    "type": "market",
-                                    "stop": "loss",
-                                    "stopPrice": format_assert(trigger_tp_price, price_increment), // price - 7%
-                                    "isIsolated": false,
-                                    "autoBorrow": true,
-                                    "autoRepay": true,
-                                    "timeInForce": "GTC",
-                                    "funds": format_assert(funds_tp, quote_increment),
-                                });
-                                let msg_sl_order: serde_json::Value = serde_json::json!({
-                                   "clientOid": exit_sl_id,
-                                    "side": "buy",
-                                    "symbol": order.symbol,
-                                    "type": "market",
-                                    "stop": "entry",
-                                    "stopPrice": format_assert(trigger_sl_price, price_increment), // price + 5%
-                                    "isIsolated": false,
-                                    "autoBorrow": true,
-                                    "autoRepay": true,
-                                    "timeInForce": "GTC",
-                                    "funds": format_assert(funds_sl, quote_increment),
-                                });
-
-                                info!("Stop profit order:{}", msg_tp_order);
-                                info!("Stop loss order:{}", msg_sl_order);
-
-                                // add exit_tp_id by entry_id
-                                update_exit_tp_id_bot_by_entry_id(
-                                    pool,
-                                    exchange,
-                                    client_oid,
-                                    &exit_tp_id,
-                                )
-                                .await;
-                                // add exit_sl_id by entry_id
-                                update_exit_sl_id_bot_by_entry_id(
-                                    pool,
-                                    exchange,
-                                    client_oid,
-                                    &exit_sl_id,
-                                )
-                                .await;
-
-                                let tp_fut =
-                                    api::requests::api_v3_hf_margin_stop_order(msg_tp_order);
-                                let sl_fut =
-                                    api::requests::api_v3_hf_margin_stop_order(msg_sl_order);
-                                let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
-
-                                if let Err(e) = tp_res {
-                                    let msg = format!("Failed add TP order: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_tp_id_bot_by_entry_id(pool, exchange, client_oid)
-                                        .await;
-                                } else {
-                                    info!("Successfully add stop profit order:{}", exit_tp_id);
-                                }
-
-                                if let Err(e) = sl_res {
-                                    let msg = format!("Failed add SL order: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_sl_id_bot_by_entry_id(pool, exchange, client_oid)
-                                        .await;
-                                } else {
-                                    info!("Successfully add stop loss order:{}", exit_sl_id);
-                                }
+                            if let Err(e) = sl_res {
+                                let msg = format!("Failed add SL order: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                delete_exit_sl_id_bot_by_entry_id(pool, exchange, &order.order_id)
+                                    .await;
+                            } else {
+                                info!("Successfully add stop loss order:{}", exit_sl_id);
                             }
                         }
-                        None => {
-                            error!("No records found or error occurred");
-                        }
                     }
-                    // delete entry_id from db
-                    delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await;
+                    None => {
+                        error!("No records found or error occurred");
+                    }
                 }
+                // delete entry_id from db
+                delete_entry_id_bot_by_entry_id(pool, exchange, &order.order_id).await;
             }
         }
     }
