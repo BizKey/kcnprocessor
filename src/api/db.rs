@@ -146,7 +146,7 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(
     exchange: &str,
     client_oid: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $1 AND exchange = $2;")
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_client_oid = NULL, exit_sl_order_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $1 AND exchange = $2;")
         .bind(client_oid)
         .bind(exchange)
         .execute(pool)
@@ -162,7 +162,7 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(
     exchange: &str,
     client_oid: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $1 AND exchange = $2;")
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = NULL, exit_tp_order_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $1 AND exchange = $2;")
         .bind(client_oid)
         .bind(exchange)
         .execute(pool)

@@ -561,7 +561,7 @@ async fn handle_trade_order_event(
                 // delete exit_tp_id stop order
                 if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
                     // clear exit_tp_client_oid in bots by entry_id
-                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, &order.order_id).await;
+                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await;
                     match api::requests::api_v3_hf_margin_stop_order_cancel_by_order_id(
                         &exit_tp_client_oid,
                     )
@@ -582,7 +582,7 @@ async fn handle_trade_order_event(
                 // delete exit_sl_id stop order
                 if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid {
                     // clear exit_sl_client_oid in bots by id !!
-                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, &order.order_id).await;
+                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await;
                     match api::requests::api_v3_hf_margin_stop_order_cancel_by_order_id(
                         &exit_sl_client_oid,
                     )
