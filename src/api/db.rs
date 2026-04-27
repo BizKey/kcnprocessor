@@ -271,20 +271,20 @@ pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn update_balance_by_exit_tp_id(
+pub async fn update_balance_bot_by_exit_tp_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
-    exit_tp_id: &str,
+    exit_tp_client_oid: &str,
     balance: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_id = $2 AND exchange = $3;")
+    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $2 AND exchange = $3;")
         .bind(balance)
-        .bind(exit_tp_id)
+        .bind(exit_tp_client_oid)
         .bind(exchange)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed update balance:{} by exit_tp_id:{} for bots: {}",balance,exit_tp_id, e);
+        let err_msg = format!("Failed update balance:{} by exit_tp_client_oid:{} for bots: {}", balance, exit_tp_client_oid, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
@@ -302,25 +302,25 @@ pub async fn update_balance_by_client_oid(
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed update balance:{} by client_oid:{} for bots: {}",balance, client_oid, e);
+        let err_msg = format!("Failed update balance:{} by client_oid:{} for bots: {}", balance, client_oid, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn update_balance_by_exit_sl_id(
+pub async fn update_balance_bot_by_exit_sl_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
-    exit_sl_id: &str,
+    exit_sl_client_oid: &str,
     balance: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_id = $2 AND exchange = $3;")
+    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $2 AND exchange = $3;")
         .bind(balance)
-        .bind(exit_sl_id)
+        .bind(exit_sl_client_oid)
         .bind(exchange)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed update balance:{} by exit_sl_id:{} for bots: {}",balance,exit_sl_id, e);
+        let err_msg = format!("Failed update balance:{} by exit_sl_client_oid:{} for bots: {}", balance, exit_sl_client_oid, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }

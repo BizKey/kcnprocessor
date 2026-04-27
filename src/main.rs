@@ -4,9 +4,9 @@ use crate::api::db::{
     get_bot_by_entry_client_oid, get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid,
     get_random_side, get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance,
     insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
-    set_null_entry_client_oid_by_entry_client_oid, update_balance_by_client_oid,
-    update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_client_oid,
-    update_exit_sl_client_oid_bot_by_entry_client_oid,
+    set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
+    update_balance_bot_by_exit_tp_client_oid, update_balance_by_client_oid,
+    update_bots_entry_client_oid, update_exit_sl_client_oid_bot_by_entry_client_oid,
     update_exit_tp_client_oid_bot_by_entry_client_oid, upsert_position_asset, upsert_position_debt,
     upsert_position_ratio,
 };
@@ -430,7 +430,7 @@ async fn handle_trade_order_event(
                                 Ok(old_balance) => {
                                     let new_balance: f64 =
                                         old_balance + old_balance - return_balance;
-                                    update_balance_by_exit_tp_id(
+                                    update_balance_bot_by_exit_tp_client_oid(
                                         pool,
                                         exchange,
                                         client_oid,
@@ -458,7 +458,7 @@ async fn handle_trade_order_event(
                                 }
                             }
                         } else if order.side == "sell" {
-                            update_balance_by_exit_tp_id(
+                            update_balance_bot_by_exit_tp_client_oid(
                                 pool,
                                 exchange,
                                 client_oid,
@@ -490,7 +490,7 @@ async fn handle_trade_order_event(
                                 Ok(old_balance) => {
                                     let new_balance: f64 =
                                         old_balance + old_balance - return_balance;
-                                    update_balance_by_exit_sl_id(
+                                    update_balance_bot_by_exit_sl_client_oid(
                                         pool,
                                         exchange,
                                         client_oid,
@@ -518,7 +518,7 @@ async fn handle_trade_order_event(
                                 }
                             }
                         } else if order.side == "sell" {
-                            update_balance_by_exit_sl_id(
+                            update_balance_bot_by_exit_sl_client_oid(
                                 pool,
                                 exchange,
                                 client_oid,
