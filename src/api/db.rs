@@ -322,7 +322,7 @@ pub async fn update_balance_by_exit_sl_id(
     }
 }
 pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
-    if let Err(e) = sqlx::query("UPDATE bots SET entry_id = NULL, symbol = NULL, exit_tp_id = NULL, exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exchange = $1;")
+    if let Err(e) = sqlx::query("UPDATE bots SET entry_client_oid = NULL, exit_tp_order_id = NULL, exit_tp_client_oid = NULL, exit_sl_order_id = NULL, exit_sl_client_oid = NULL, balance = '20', symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exchange = $1;")
         .bind(exchange)
         .execute(pool)
         .await
