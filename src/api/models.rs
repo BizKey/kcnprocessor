@@ -59,11 +59,6 @@ pub struct BalanceData {
 pub struct TradeAbleSymbol {
     pub symbol: String,
 }
-#[derive(sqlx::FromRow, Debug)]
-pub struct TradeBot {
-    pub id: i32,
-    pub balance: String,
-}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {
@@ -184,12 +179,31 @@ pub struct Symbol {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct MakeOrderResData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "orderOid")]
+    pub client_oid: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct MakeOrderRes {
     pub code: String,
     pub msg: Option<String>,
+    pub data: MakeOrderResData,
 }
 #[derive(Debug, Deserialize)]
-pub struct MakeStopOrderRes {}
+pub struct MakeStopOrderResData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "orderOid")]
+    pub client_oid: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct MakeStopOrderRes {
+    pub code: String,
+    pub data: MakeStopOrderResData,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountDataAccount {
@@ -206,9 +220,35 @@ pub struct MarginAccount {
     pub data: MarginAccountData,
 }
 #[derive(sqlx::FromRow, Debug)]
-pub struct Bots {
+pub struct Bot {
     pub id: i32,
-    pub exit_tp_id: Option<String>,
-    pub exit_sl_id: Option<String>,
-    pub balance: Option<String>,
+    pub balance: String,
+    pub entry_client_oid: Option<String>,
+    pub exit_tp_order_id: Option<String>,
+    pub exit_tp_client_oid: Option<String>,
+    pub exit_sl_order_id: Option<String>,
+    pub exit_sl_client_oid: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdvancedOrders {
+    #[serde(rename = "createdAt")]
+    pub created_at: i64,
+    pub funds: Option<String>,
+    pub size: Option<String>,
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "orderType")]
+    pub order_type: String,
+    pub side: String,
+    pub stop: String,
+    #[serde(rename = "stopPrice")]
+    pub stop_price: String,
+    pub symbol: String,
+    #[serde(rename = "tradeType")]
+    pub trade_type: String,
+    pub ts: i64,
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub error: Option<String>,
 }
