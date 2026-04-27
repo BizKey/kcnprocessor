@@ -196,7 +196,7 @@ pub struct MakeOrderRes {
 pub struct MakeStopOrderResData {
     #[serde(rename = "orderId")]
     pub order_id: String,
-    #[serde(rename = "orderOid")]
+    #[serde(rename = "clientOid")]
     pub client_oid: String,
 }
 #[derive(Debug, Deserialize)]
