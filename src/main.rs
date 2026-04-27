@@ -11,7 +11,8 @@ use crate::api::db::{
     upsert_position_ratio,
 };
 use crate::api::models::{
-    BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol, TradeAbleSymbol,
+    AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol,
+    TradeAbleSymbol,
 };
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
@@ -1304,6 +1305,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             } else if data.topic == "/spotMarket/advancedOrders" {
                                 // stop orders and other
                                 info!("{}", &data.data);
+                                match AdvancedOrders::deserialize(&data.data) {
+                                    Ok(advanced_order) => {
+                                        // watch order event
+                                        info!("{:?}", advanced_order)
+                                    }
+                                    Err(e) => {
+                                        info!("{:?}", data.data);
+
+                                        // sent order error to pg
+                                        let msg: String = format!("Failed to parse message {}", e);
+                                        error!("{}", msg);
+                                        insert_db_error(
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                            &msg,
+                                        )
+                                        .await;
+                                    }
+                                }
                             } else if data.topic == "/margin/position" {
                                 // save to db position
                                 // repay debt

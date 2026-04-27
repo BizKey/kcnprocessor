@@ -229,3 +229,26 @@ pub struct Bot {
     pub exit_sl_order_id: Option<String>,
     pub exit_sl_client_oid: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct AdvancedOrders {
+    #[serde(rename = "createdAt")]
+    pub created_at: i64,
+    pub funds: Option<String>,
+    pub size: Option<String>,
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+    #[serde(rename = "orderType")]
+    pub order_type: String,
+    pub side: String,
+    pub stop: String,
+    #[serde(rename = "stopPrice")]
+    pub stop_price: String,
+    pub symbol: String,
+    #[serde(rename = "tradeType")]
+    pub trade_type: String,
+    pub ts: i64,
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub error: Option<String>,
+}
