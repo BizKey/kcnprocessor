@@ -4,11 +4,14 @@ use crate::api::db::{
     get_bots_by_entry_id, get_bots_by_exit_sl_id, get_bots_by_exit_tp_id, get_random_side,
     get_random_symbol, get_total_match_value_by_order_id, insert_db_balance, insert_db_error,
     insert_db_event, insert_db_msgsend, insert_db_orderevent, update_balance_by_entry_id,
-    update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_id,
+    update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_client_oid,
     update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
     upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
+use crate::api::models::{
+    BalanceData, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol, TradeAbleSymbol,
+    TradeBot,
+};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
@@ -47,11 +50,11 @@ async fn make_hf_funds_margin_order(
     symbol: &str,
     funds: String,
     type_: String,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     // only for buy orders
-    let args_time_in_force = "GTC";
-    let auto_borrow = true;
-    let auto_repay = true;
+    let args_time_in_force: &str = "GTC";
+    let auto_borrow: bool = true;
+    let auto_repay: bool = true;
 
     insert_db_msgsend(
         pool,
@@ -69,7 +72,7 @@ async fn make_hf_funds_margin_order(
         None,
     )
     .await;
-    let msg = serde_json::json!({
+    let msg: serde_json::Value = serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
@@ -92,7 +95,7 @@ async fn make_hf_funds_margin_order(
                 insert_db_error(pool, exchange, &msg).await;
                 Err(msg.into())
             } else {
-                Ok(client_oid.to_string())
+                Ok(data)
             }
         }
         Err(e) => {
@@ -124,11 +127,11 @@ async fn make_hf_size_margin_order(
     symbol: &str,
     size: String,
     type_: String,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     // only for sell orders
-    let args_time_in_force = "GTC";
-    let auto_borrow = true;
-    let auto_repay = true;
+    let args_time_in_force: &str = "GTC";
+    let auto_borrow: bool = true;
+    let auto_repay: bool = true;
 
     insert_db_msgsend(
         pool,
@@ -146,7 +149,7 @@ async fn make_hf_size_margin_order(
         None,
     )
     .await;
-    let msg = serde_json::json!({
+    let msg: serde_json::Value = serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
@@ -169,7 +172,7 @@ async fn make_hf_size_margin_order(
                 insert_db_error(pool, exchange, &msg).await;
                 Err(msg.into())
             } else {
-                Ok(client_oid.to_string())
+                Ok(data)
             }
         }
         Err(e) => {
@@ -202,7 +205,7 @@ async fn make_random_trade(
 
     loop {
         attempt += 1;
-        let tradeable = match get_random_symbol(pool, exchange).await {
+        let tradeable: TradeAbleSymbol = match get_random_symbol(pool, exchange).await {
             Some(t) => t,
             None => {
                 info!("No tradeable symbols (attempt {}/{})", attempt, MAX_RETRIES);
@@ -213,7 +216,7 @@ async fn make_random_trade(
                 continue;
             }
         };
-        let symbol_info =
+        let symbol_info: Symbol =
             match fetch_symbol_info_for_symbol(pool, exchange, &tradeable.symbol).await {
                 Some(i) => i,
                 None => {
@@ -227,10 +230,10 @@ async fn make_random_trade(
                 }
             };
 
-        let trade_side = get_random_side();
-        let client_oid = Uuid::new_v4().to_string();
+        let trade_side: String = get_random_side();
+        let client_oid: String = Uuid::new_v4().to_string();
 
-        if let Err(e) = update_bots_entry_id(
+        if let Err(e) = update_bots_entry_client_oid(
             pool,
             exchange,
             Some(&tradeable.symbol),
@@ -268,19 +271,19 @@ async fn make_random_trade(
                         continue;
                     }
                 };
-                let token_price_str = match api::requests::get_ticker_price(&tradeable.symbol).await
-                {
-                    Ok(p) => p,
-                    Err(e) => {
-                        let msg = format!("Failed get price: {} {}", tradeable.symbol, e);
-                        error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
-                        if attempt >= MAX_RETRIES {
-                            return Ok(());
+                let token_price_str: String =
+                    match api::requests::get_ticker_price(&tradeable.symbol).await {
+                        Ok(p) => p,
+                        Err(e) => {
+                            let msg = format!("Failed get price: {} {}", tradeable.symbol, e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                            if attempt >= MAX_RETRIES {
+                                return Ok(());
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                };
+                    };
                 let token_price: f64 = match token_price_str.parse::<f64>() {
                     Ok(v) => v,
                     Err(e) => {
@@ -293,7 +296,7 @@ async fn make_random_trade(
                         continue;
                     }
                 };
-                let token_size = balance_funds / token_price;
+                let token_size: f64 = balance_funds / token_price;
                 make_hf_size_margin_order(
                     pool,
                     exchange,
@@ -341,7 +344,7 @@ async fn make_random_trade(
         };
 
         match order_result {
-            Ok(_) => {
+            Ok(make_order_res) => {
                 info!(
                     "✅ Order placed: {} {} (attempt {}/{})",
                     client_oid, trade_bot_id, attempt, MAX_RETRIES
@@ -349,7 +352,8 @@ async fn make_random_trade(
                 return Ok(());
             }
             Err(e) => {
-                let _ = update_bots_entry_id(pool, exchange, None, None, trade_bot_id).await;
+                let _ =
+                    update_bots_entry_client_oid(pool, exchange, None, None, trade_bot_id).await;
                 error!(
                     "❌ Order failed (attempt {}/{}): {} - {}",
                     attempt, MAX_RETRIES, tradeable.symbol, e
@@ -1207,7 +1211,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    let symbol_info = fetch_symbol_info(&pool, &exchange).await;
+    let symbol_info: Vec<Symbol> = fetch_symbol_info(&pool, &exchange).await;
     let symbol_map: HashMap<String, Symbol> = symbol_info
         .into_iter()
         .map(|s| (s.symbol.clone(), s))
@@ -1392,7 +1396,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             tokio::spawn(async move {
                 sleep(Duration::from_millis(5000)).await;
                 info!("Initializing start orders...");
-                let trade_bots = get_all_bots_for_trade(&pool_clone, &exchange_clone).await;
+                let trade_bots: Vec<TradeBot> =
+                    get_all_bots_for_trade(&pool_clone, &exchange_clone).await;
 
                 for trade_bot in trade_bots.iter() {
                     sleep(Duration::from_millis(30000)).await;
