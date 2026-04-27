@@ -437,7 +437,7 @@ pub async fn get_bot_by_entry_client_oid(
 }
 
 pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<Bot> {
-    match sqlx::query_as::<_, Bot>("SELECT id, balance FROM bots WHERE exchange = $1")
+    match sqlx::query_as::<_, Bot>("SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1")
         .bind(exchange)
         .fetch_all(pool)
         .await

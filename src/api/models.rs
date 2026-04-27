@@ -59,11 +59,6 @@ pub struct BalanceData {
 pub struct TradeAbleSymbol {
     pub symbol: String,
 }
-#[derive(sqlx::FromRow, Debug)]
-pub struct TradeBot {
-    pub id: i32,
-    pub balance: String,
-}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {
@@ -227,10 +222,10 @@ pub struct MarginAccount {
 #[derive(sqlx::FromRow, Debug)]
 pub struct Bot {
     pub id: i32,
+    pub balance: String,
     pub entry_client_oid: Option<String>,
     pub exit_tp_order_id: Option<String>,
     pub exit_tp_client_oid: Option<String>,
     pub exit_sl_order_id: Option<String>,
     pub exit_sl_client_oid: Option<String>,
-    pub balance: String,
 }
