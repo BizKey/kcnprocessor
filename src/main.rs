@@ -1,5 +1,5 @@
 use crate::api::db::{
-    clear_orders_ids_for_bots, delete_entry_id_bot_by_entry_id,
+    clear_orders_ids_for_bots, delete_entry_id_bot_by_client_oid,
     delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, fetch_symbol_info,
     get_all_bots_for_trade, get_bots_by_entry_client_oid, get_bots_by_exit_sl_client_oid,
     get_bots_by_exit_tp_client_oid, get_random_side, get_random_symbol,
@@ -807,7 +807,7 @@ async fn handle_trade_order_event(
                         }
                     }
                     // delete entry_id from db
-                    delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await;
+                    delete_entry_id_bot_by_client_oid(pool, exchange, client_oid).await;
                 }
             }
         }
