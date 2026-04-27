@@ -356,13 +356,13 @@ pub async fn update_bots_entry_client_oid(
     Ok(())
 }
 
-pub async fn get_bots_by_exit_sl_id(
+pub async fn get_bots_by_exit_sl_client_oid(
     pool: &PgPool,
     exchange: &str,
     client_oid: &str,
 ) -> Option<Bots> {
     match sqlx::query_as::<_, Bots>(
-        "SELECT id, entry_id, exit_tp_id, exit_sl_id, balance FROM bots WHERE exchange = $1 AND exit_sl_id = $2 LIMIT 1",
+        "SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1 AND exit_sl_client_oid = $2 LIMIT 1",
     )
     .bind(exchange)
     .bind(client_oid)
@@ -381,13 +381,13 @@ pub async fn get_bots_by_exit_sl_id(
         }
     }
 }
-pub async fn get_bots_by_exit_tp_id(
+pub async fn get_bots_by_exit_tp_client_oid(
     pool: &PgPool,
     exchange: &str,
     client_oid: &str,
 ) -> Option<Bots> {
     match sqlx::query_as::<_, Bots>(
-        "SELECT id, entry_id, exit_tp_id, exit_sl_id, balance FROM bots WHERE exchange = $1 AND exit_tp_id = $2 LIMIT 1",
+        "SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1 AND exit_tp_client_oid = $2 LIMIT 1",
     )
     .bind(exchange)
     .bind(client_oid)
