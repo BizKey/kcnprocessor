@@ -182,7 +182,7 @@ pub struct Symbol {
 pub struct MakeOrderResData {
     #[serde(rename = "orderId")]
     pub order_id: String,
-    #[serde(rename = "orderOid")]
+    #[serde(rename = "clientOid")]
     pub client_oid: String,
 }
 
