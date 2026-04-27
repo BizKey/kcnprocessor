@@ -398,7 +398,7 @@ async fn handle_advanced_orders(
             let funds_clone = order.funds.clone();
             let size_clone = order.size.clone();
 
-            match stop_clone.as_str() {
+            let order_result = match stop_clone.as_str() {
                 "loss" => {
                     // need find sl
                     let new_exit_sl_client_oid: String = Uuid::new_v4().to_string();
@@ -433,7 +433,18 @@ async fn handle_advanced_orders(
                                     funds,
                                     "market".to_string(),
                                 )
-                                .await;
+                                .await
+                            } else {
+                                let msg = format!(
+                                    "Failed remake stop order:{} new_exit_sl_client_oid:{}",
+                                    order_id_clone, new_exit_sl_client_oid,
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                if attempt >= MAX_RETRIES {
+                                    return;
+                                }
+                                continue;
                             }
                         }
                         "sell" => {
@@ -448,6 +459,17 @@ async fn handle_advanced_orders(
                                     "market".to_string(),
                                 )
                                 .await;
+                            } else {
+                                let msg = format!(
+                                    "Failed remake stop order:{} new_exit_sl_client_oid:{}",
+                                    order_id_clone, new_exit_sl_client_oid,
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                if attempt >= MAX_RETRIES {
+                                    return;
+                                }
+                                continue;
                             }
                         }
                         _ => {
@@ -493,6 +515,17 @@ async fn handle_advanced_orders(
                                     "market".to_string(),
                                 )
                                 .await;
+                            } else {
+                                let msg = format!(
+                                    "Failed remake stop order:{} new_exit_tp_client_oid:{}",
+                                    order_id_clone, new_exit_tp_client_oid
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                if attempt >= MAX_RETRIES {
+                                    return;
+                                }
+                                continue;
                             }
                         }
                         "sell" => {
@@ -507,6 +540,17 @@ async fn handle_advanced_orders(
                                     "market".to_string(),
                                 )
                                 .await;
+                            } else {
+                                let msg = format!(
+                                    "Failed remake stop order:{} new_exit_tp_client_oid:{}",
+                                    order_id_clone, new_exit_tp_client_oid
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                if attempt >= MAX_RETRIES {
+                                    return;
+                                }
+                                continue;
                             }
                         }
                         _ => {
@@ -523,7 +567,7 @@ async fn handle_advanced_orders(
                     }
                     continue;
                 }
-            }
+            };
         }
     }
 }
