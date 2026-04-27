@@ -253,6 +253,42 @@ pub async fn update_exit_tp_client_oid_bot_by_entry_client_oid(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn update_exit_tp_order_id_bot_by_exit_tp_client_oid(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    exit_tp_order_id: &str,
+    exit_tp_client_oid: &str,
+) {
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_order_id = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $2 AND exchange = $3;")
+        .bind(exit_tp_order_id)
+        .bind(exit_tp_client_oid)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed update exit_tp_order_id:{} by exit_tp_client_oid:{} for bots: {}", exit_tp_order_id, exit_tp_client_oid, e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
+pub async fn update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    exit_sl_order_id: &str,
+    exit_sl_client_oid: &str,
+) {
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_order_id = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $2 AND exchange = $3;")
+        .bind(exit_sl_order_id)
+        .bind(exit_sl_client_oid)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed update exit_sl_order_id:{} by exit_sl_client_oid:{} for bots: {}", exit_sl_order_id, exit_sl_client_oid, e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
 pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
