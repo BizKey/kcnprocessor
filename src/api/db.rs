@@ -285,20 +285,20 @@ pub async fn update_balance_by_exit_tp_id(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn update_balance_by_entry_id(
+pub async fn update_balance_by_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
-    entry_id: &str,
+    client_oid: &str,
     balance: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $2 AND exchange = $3;")
+    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
         .bind(balance)
-        .bind(entry_id)
+        .bind(client_oid)
         .bind(exchange)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed update balance:{} by entry_id:{} for bots: {}",balance,entry_id, e);
+        let err_msg = format!("Failed update balance:{} by client_oid:{} for bots: {}",balance, client_oid, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }

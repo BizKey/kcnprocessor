@@ -4,7 +4,7 @@ use crate::api::db::{
     get_all_bots_for_trade, get_bots_by_entry_client_oid, get_bots_by_exit_sl_client_oid,
     get_bots_by_exit_tp_client_oid, get_random_side, get_random_symbol,
     get_total_match_value_by_client_oid, insert_db_balance, insert_db_error, insert_db_event,
-    insert_db_msgsend, insert_db_orderevent, update_balance_by_entry_id,
+    insert_db_msgsend, insert_db_orderevent, update_balance_by_client_oid,
     update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_client_oid,
     update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
     upsert_position_debt, upsert_position_ratio,
@@ -560,7 +560,7 @@ async fn handle_trade_order_event(
             if let Some(bot) = get_bots_by_entry_client_oid(pool, exchange, client_oid).await {
                 // delete exit_tp_id stop order
                 if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
-                    // clear exit_tp_client_oid in bots by entry_id                    
+                    // clear exit_tp_client_oid in bots by entry_id
                     delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await;
                     match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
                         &exit_tp_client_oid,
@@ -568,7 +568,7 @@ async fn handle_trade_order_event(
                     .await
                     {
                         Ok(_) => {
-                            info!("Successfully cancel stop order :{}", &exit_tp_client_oid);                            
+                            info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                         }
                         Err(e) => {
                             let msg: String = format!("Failed cancel stop order: {}", e);
@@ -614,7 +614,7 @@ async fn handle_trade_order_event(
                     };
                     match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                         Some(new_balance) => {
-                            update_balance_by_entry_id(
+                            update_balance_by_client_oid(
                                 pool,
                                 exchange,
                                 client_oid,
@@ -627,12 +627,12 @@ async fn handle_trade_order_event(
                                 let trigger_tp_price: f64 = match_price * 1.07; // price + 7%
                                 let trigger_sl_price: f64 = match_price * 0.95; // price - 5%
 
-                                let exit_tp_id: String = Uuid::new_v4().to_string();
-                                let exit_sl_id: String = Uuid::new_v4().to_string();
+                                let exit_tp_client_oid: String = Uuid::new_v4().to_string();
+                                let exit_sl_client_oid: String = Uuid::new_v4().to_string();
 
                                 // tp order
                                 let msg_tp_order: serde_json::Value = serde_json::json!({
-                                    "clientOid": exit_tp_id,
+                                    "clientOid": exit_tp_client_oid,
                                     "side": "sell",
                                     "symbol": order.symbol,
                                     "type": "market",
@@ -646,7 +646,7 @@ async fn handle_trade_order_event(
                                 });
                                 // sl order
                                 let msg_sl_order: serde_json::Value = serde_json::json!({
-                                    "clientOid": exit_sl_id,
+                                    "clientOid": exit_sl_client_oid,
                                     "side": "sell",
                                     "symbol": order.symbol,
                                     "type": "market",
@@ -662,20 +662,20 @@ async fn handle_trade_order_event(
                                 info!("Stop profit order:{}", msg_tp_order);
                                 info!("Stop loss order:{}", msg_sl_order);
 
-                                // add exit_tp_id by entry_id
+                                // add exit_tp_client_oid by entry_id
                                 update_exit_tp_id_bot_by_entry_id(
                                     pool,
                                     exchange,
                                     client_oid,
-                                    &exit_tp_id,
+                                    &exit_tp_client_oid,
                                 )
                                 .await;
-                                // add exit_sl_id by entry_id
+                                // add exit_sl_client_oid by entry_id
                                 update_exit_sl_id_bot_by_entry_id(
                                     pool,
                                     exchange,
                                     client_oid,
-                                    &exit_sl_id,
+                                    &exit_sl_client_oid,
                                 )
                                 .await;
 
@@ -693,7 +693,10 @@ async fn handle_trade_order_event(
                                     delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid)
                                         .await;
                                 } else {
-                                    info!("Successfully add stop profit order:{}", exit_tp_id);
+                                    info!(
+                                        "Successfully add stop profit order:{}",
+                                        exit_tp_client_oid
+                                    );
                                 }
 
                                 if let Err(e) = sl_res {
@@ -703,7 +706,10 @@ async fn handle_trade_order_event(
                                     delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid)
                                         .await;
                                 } else {
-                                    info!("Successfully add stop loss order:{}", exit_sl_id);
+                                    info!(
+                                        "Successfully add stop loss order:{}",
+                                        exit_sl_client_oid
+                                    );
                                 }
                             } else if order.side == "sell" {
                                 let match_price: f64 = new_balance / filled_size_f64;
@@ -713,11 +719,11 @@ async fn handle_trade_order_event(
                                 let funds_tp: f64 = trigger_tp_price * filled_size_f64;
                                 let funds_sl: f64 = trigger_sl_price * filled_size_f64;
 
-                                let exit_tp_id: String = Uuid::new_v4().to_string();
-                                let exit_sl_id: String = Uuid::new_v4().to_string();
+                                let exit_tp_client_oid: String = Uuid::new_v4().to_string();
+                                let exit_sl_client_oid: String = Uuid::new_v4().to_string();
 
                                 let msg_tp_order: serde_json::Value = serde_json::json!({
-                                    "clientOid": exit_tp_id,
+                                    "clientOid": exit_tp_client_oid,
                                     "side": "buy",
                                     "symbol": order.symbol,
                                     "type": "market",
@@ -730,7 +736,7 @@ async fn handle_trade_order_event(
                                     "funds": format_assert(funds_tp, quote_increment),
                                 });
                                 let msg_sl_order: serde_json::Value = serde_json::json!({
-                                   "clientOid": exit_sl_id,
+                                   "clientOid": exit_sl_client_oid,
                                     "side": "buy",
                                     "symbol": order.symbol,
                                     "type": "market",
@@ -746,20 +752,20 @@ async fn handle_trade_order_event(
                                 info!("Stop profit order:{}", msg_tp_order);
                                 info!("Stop loss order:{}", msg_sl_order);
 
-                                // add exit_tp_id by entry_id
+                                // add exit_tp_client_oid by entry_id
                                 update_exit_tp_id_bot_by_entry_id(
                                     pool,
                                     exchange,
                                     client_oid,
-                                    &exit_tp_id,
+                                    &exit_tp_client_oid,
                                 )
                                 .await;
-                                // add exit_sl_id by entry_id
+                                // add exit_sl_client_oid by entry_id
                                 update_exit_sl_id_bot_by_entry_id(
                                     pool,
                                     exchange,
                                     client_oid,
-                                    &exit_sl_id,
+                                    &exit_sl_client_oid,
                                 )
                                 .await;
 
@@ -776,7 +782,10 @@ async fn handle_trade_order_event(
                                     delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid)
                                         .await;
                                 } else {
-                                    info!("Successfully add stop profit order:{}", exit_tp_id);
+                                    info!(
+                                        "Successfully add stop profit order:{}",
+                                        exit_tp_client_oid
+                                    );
                                 }
 
                                 if let Err(e) = sl_res {
@@ -786,7 +795,10 @@ async fn handle_trade_order_event(
                                     delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid)
                                         .await;
                                 } else {
-                                    info!("Successfully add stop loss order:{}", exit_sl_id);
+                                    info!(
+                                        "Successfully add stop loss order:{}",
+                                        exit_sl_client_oid
+                                    );
                                 }
                             }
                         }
