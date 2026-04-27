@@ -336,17 +336,17 @@ pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn update_bots_entry_client_oid(
+pub async fn update_entry_client_oid_bot_id(
     pool: &sqlx::PgPool,
     exchange: &str,
     symbol: Option<&str>,
-    client_oid: Option<&str>,
+    entry_client_oid: Option<&str>,
     trade_bot_id: i32,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Err(e) = sqlx::query(
         "UPDATE bots SET entry_client_oid = $1, symbol = $2 WHERE exchange = $3 AND id = $4;",
     )
-    .bind(client_oid)
+    .bind(entry_client_oid)
     .bind(symbol)
     .bind(exchange)
     .bind(trade_bot_id)

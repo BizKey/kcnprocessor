@@ -6,7 +6,7 @@ use crate::api::db::{
     insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
     set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
     update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
-    update_bots_entry_client_oid, update_exit_sl_client_oid_bot_by_entry_client_oid,
+    update_entry_client_oid_bot_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
     update_exit_tp_client_oid_bot_by_entry_client_oid, upsert_position_asset, upsert_position_debt,
     upsert_position_ratio,
 };
@@ -234,7 +234,7 @@ async fn make_random_trade(
         let trade_side: String = get_random_side();
         let client_oid: String = Uuid::new_v4().to_string();
 
-        if let Err(e) = update_bots_entry_client_oid(
+        if let Err(e) = update_entry_client_oid_bot_id(
             pool,
             exchange,
             Some(&tradeable.symbol),
@@ -354,7 +354,7 @@ async fn make_random_trade(
             }
             Err(e) => {
                 let _ =
-                    update_bots_entry_client_oid(pool, exchange, None, None, trade_bot_id).await;
+                    update_entry_client_oid_bot_id(pool, exchange, None, None, trade_bot_id).await;
                 error!(
                     "❌ Order failed (attempt {}/{}): {} - {}",
                     attempt, MAX_RETRIES, tradeable.symbol, e
