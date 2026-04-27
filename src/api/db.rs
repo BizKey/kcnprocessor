@@ -1,5 +1,5 @@
 use crate::api::models::{
-    BalanceData, BalanceRelationContext, Bots, OrderData, Symbol, TradeAbleSymbol, TradeBot,
+    BalanceData, BalanceRelationContext, Bot, OrderData, Symbol, TradeAbleSymbol,
 };
 use fastrand;
 use log::error;
@@ -218,7 +218,7 @@ pub async fn get_total_match_value_by_client_oid(
         }
     }
 }
-pub async fn delete_entry_id_bot_by_client_oid(
+pub async fn set_null_entry_client_oid_by_entry_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     client_oid: &str,
@@ -229,7 +229,7 @@ pub async fn delete_entry_id_bot_by_client_oid(
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed delete entry_client_oid:{} by entry_client_oid:{} for bots: {}",client_oid, client_oid, e);
+        let err_msg = format!("Failed delete entry_client_oid:{} by entry_client_oid:{} for bots: {}", client_oid, client_oid, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
@@ -360,12 +360,12 @@ pub async fn update_bots_entry_client_oid(
     Ok(())
 }
 
-pub async fn get_bots_by_exit_sl_client_oid(
+pub async fn get_bot_by_exit_sl_client_oid(
     pool: &PgPool,
     exchange: &str,
     client_oid: &str,
-) -> Option<Bots> {
-    match sqlx::query_as::<_, Bots>(
+) -> Option<Bot> {
+    match sqlx::query_as::<_, Bot>(
         "SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1 AND exit_sl_client_oid = $2 LIMIT 1",
     )
     .bind(exchange)
@@ -389,8 +389,8 @@ pub async fn get_bots_by_exit_tp_client_oid(
     pool: &PgPool,
     exchange: &str,
     client_oid: &str,
-) -> Option<Bots> {
-    match sqlx::query_as::<_, Bots>(
+) -> Option<Bot> {
+    match sqlx::query_as::<_, Bot>(
         "SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1 AND exit_tp_client_oid = $2 LIMIT 1",
     )
     .bind(exchange)
@@ -414,8 +414,8 @@ pub async fn get_bots_by_entry_client_oid(
     pool: &PgPool,
     exchange: &str,
     client_oid: &str,
-) -> Option<Bots> {
-    match sqlx::query_as::<_, Bots>(
+) -> Option<Bot> {
+    match sqlx::query_as::<_, Bot>(
         "SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1 AND entry_client_oid = $2 LIMIT 1",
     )
     .bind(exchange)
@@ -436,8 +436,8 @@ pub async fn get_bots_by_entry_client_oid(
     }
 }
 
-pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<TradeBot> {
-    match sqlx::query_as::<_, TradeBot>("SELECT id, balance FROM bots WHERE exchange = $1")
+pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Vec<Bot> {
+    match sqlx::query_as::<_, Bot>("SELECT id, balance FROM bots WHERE exchange = $1")
         .bind(exchange)
         .fetch_all(pool)
         .await
