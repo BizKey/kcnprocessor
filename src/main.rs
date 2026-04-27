@@ -1,12 +1,13 @@
 use crate::api::db::{
-    clear_orders_ids_for_bots, delete_entry_id_bot_by_entry_id, delete_exit_sl_id_bot_by_entry_id,
-    delete_exit_tp_id_bot_by_entry_id, fetch_symbol_info, get_all_bots_for_trade,
-    get_bots_by_entry_client_oid, get_bots_by_exit_sl_id, get_bots_by_exit_tp_id, get_random_side,
-    get_random_symbol, get_total_match_value_by_order_id, insert_db_balance, insert_db_error,
-    insert_db_event, insert_db_msgsend, insert_db_orderevent, update_balance_by_entry_id,
-    update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_client_oid,
-    update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
-    upsert_position_debt, upsert_position_ratio,
+    clear_orders_ids_for_bots, delete_entry_id_bot_by_entry_id,
+    delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, fetch_symbol_info,
+    get_all_bots_for_trade, get_bots_by_entry_client_oid, get_bots_by_exit_sl_id,
+    get_bots_by_exit_tp_id, get_random_side, get_random_symbol, get_total_match_value_by_order_id,
+    insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
+    update_balance_by_entry_id, update_balance_by_exit_sl_id, update_balance_by_exit_tp_id,
+    update_bots_entry_client_oid, update_exit_sl_id_bot_by_entry_id,
+    update_exit_tp_id_bot_by_entry_id, upsert_position_asset, upsert_position_debt,
+    upsert_position_ratio,
 };
 use crate::api::models::{
     BalanceData, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol, TradeAbleSymbol,
@@ -560,7 +561,7 @@ async fn handle_trade_order_event(
                 // delete exit_tp_id stop order
                 if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
                     // clear exit_tp_client_oid in bots by entry_id
-                    delete_exit_tp_id_bot_by_entry_id(pool, exchange, &order.order_id).await;
+                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, &order.order_id).await;
                     match api::requests::api_v3_hf_margin_stop_order_cancel_by_order_id(
                         &exit_tp_client_oid,
                     )
@@ -581,7 +582,7 @@ async fn handle_trade_order_event(
                 // delete exit_sl_id stop order
                 if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid {
                     // clear exit_sl_client_oid in bots by id !!
-                    delete_exit_sl_id_bot_by_entry_id(pool, exchange, &order.order_id).await;
+                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, &order.order_id).await;
                     match api::requests::api_v3_hf_margin_stop_order_cancel_by_order_id(
                         &exit_sl_client_oid,
                     )
@@ -689,7 +690,7 @@ async fn handle_trade_order_event(
                                     let msg = format!("Failed add TP order: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_tp_id_bot_by_entry_id(
+                                    delete_exit_tp_id_bot_by_client_oid(
                                         pool,
                                         exchange,
                                         &order.order_id,
@@ -703,7 +704,7 @@ async fn handle_trade_order_event(
                                     let msg = format!("Failed add SL order: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_sl_id_bot_by_entry_id(
+                                    delete_exit_sl_id_bot_by_client_oid(
                                         pool,
                                         exchange,
                                         &order.order_id,
@@ -780,7 +781,7 @@ async fn handle_trade_order_event(
                                     let msg = format!("Failed add TP order: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_tp_id_bot_by_entry_id(
+                                    delete_exit_tp_id_bot_by_client_oid(
                                         pool,
                                         exchange,
                                         &order.order_id,
@@ -794,7 +795,7 @@ async fn handle_trade_order_event(
                                     let msg = format!("Failed add SL order: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_sl_id_bot_by_entry_id(
+                                    delete_exit_sl_id_bot_by_client_oid(
                                         pool,
                                         exchange,
                                         &order.order_id,

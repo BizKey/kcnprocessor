@@ -141,12 +141,12 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn delete_exit_sl_id_bot_by_entry_id(
+pub async fn delete_exit_sl_id_bot_by_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     entry_id: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
         .bind(entry_id)
         .bind(exchange)
         .execute(pool)
@@ -157,12 +157,12 @@ pub async fn delete_exit_sl_id_bot_by_entry_id(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn delete_exit_tp_id_bot_by_entry_id(
+pub async fn delete_exit_tp_id_bot_by_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     entry_id: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
         .bind(entry_id)
         .bind(exchange)
         .execute(pool)
