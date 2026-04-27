@@ -1,7 +1,7 @@
 use crate::api::db::{
     clear_orders_ids_for_bots, delete_exit_sl_id_bot_by_client_oid,
     delete_exit_tp_id_bot_by_client_oid, fetch_symbol_info, get_all_bots_for_trade,
-    get_bot_by_exit_sl_client_oid, get_bots_by_entry_client_oid, get_bots_by_exit_tp_client_oid,
+    get_bot_by_entry_client_oid, get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid,
     get_random_side, get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance,
     insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
     set_null_entry_client_oid_by_entry_client_oid, update_balance_by_client_oid,
@@ -421,7 +421,7 @@ async fn handle_trade_order_event(
                 }
             };
             // if clientOid in bots entry_id (2 phase)
-            if let Some(bot) = get_bots_by_exit_tp_client_oid(pool, exchange, client_oid).await {
+            if let Some(bot) = get_bot_by_exit_tp_client_oid(pool, exchange, client_oid).await {
                 match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                     Some(return_balance) => {
                         if order.side == "buy" {
@@ -542,7 +542,7 @@ async fn handle_trade_order_event(
                 }
             }
             // if clientOid in bots entry_id (1 phase)
-            if let Some(bot) = get_bots_by_entry_client_oid(pool, exchange, client_oid).await {
+            if let Some(bot) = get_bot_by_entry_client_oid(pool, exchange, client_oid).await {
                 // delete exit_tp_id stop order
                 if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
                     // clear exit_tp_client_oid in bots by entry_id

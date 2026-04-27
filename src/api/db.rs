@@ -385,7 +385,7 @@ pub async fn get_bot_by_exit_sl_client_oid(
         }
     }
 }
-pub async fn get_bots_by_exit_tp_client_oid(
+pub async fn get_bot_by_exit_tp_client_oid(
     pool: &PgPool,
     exchange: &str,
     client_oid: &str,
@@ -410,7 +410,7 @@ pub async fn get_bots_by_exit_tp_client_oid(
         }
     }
 }
-pub async fn get_bots_by_entry_client_oid(
+pub async fn get_bot_by_entry_client_oid(
     pool: &PgPool,
     exchange: &str,
     client_oid: &str,
