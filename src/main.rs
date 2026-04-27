@@ -7,7 +7,9 @@ use crate::api::db::{
     set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
     update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
     update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
-    update_exit_tp_client_oid_bot_by_entry_client_oid, upsert_position_asset, upsert_position_debt,
+    update_exit_sl_order_id_bot_by_exit_sl_client_oid,
+    update_exit_tp_client_oid_bot_by_entry_client_oid,
+    update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt,
     upsert_position_ratio,
 };
 use crate::api::models::{
@@ -679,30 +681,53 @@ async fn handle_trade_order_event(
 
                                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-                                if let Err(e) = tp_res {
-                                    let msg = format!("Failed add TP order: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid)
+                                match tp_res {
+                                    Err(e) => {
+                                        let msg = format!("Failed add TP order: {}", e);
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                        delete_exit_tp_id_bot_by_client_oid(
+                                            pool, exchange, client_oid,
+                                        )
                                         .await;
-                                } else {
-                                    info!(
-                                        "Successfully add stop profit order:{}",
-                                        exit_tp_client_oid
-                                    );
+                                    }
+                                    Ok(response) => {
+                                        update_exit_tp_order_id_bot_by_exit_tp_client_oid(
+                                            pool,
+                                            exchange,
+                                            &response.data.order_id,
+                                            &response.data.client_oid,
+                                        )
+                                        .await;
+                                        info!(
+                                            "Successfully add stop profit order:{}",
+                                            exit_tp_client_oid
+                                        );
+                                    }
                                 }
-
-                                if let Err(e) = sl_res {
-                                    let msg = format!("Failed add SL order: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid)
+                                match sl_res {
+                                    Err(e) => {
+                                        let msg = format!("Failed add SL order: {}", e);
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                        delete_exit_sl_id_bot_by_client_oid(
+                                            pool, exchange, client_oid,
+                                        )
                                         .await;
-                                } else {
-                                    info!(
-                                        "Successfully add stop loss order:{}",
-                                        exit_sl_client_oid
-                                    );
+                                    }
+                                    Ok(response) => {
+                                        update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+                                            pool,
+                                            exchange,
+                                            &response.data.order_id,
+                                            &response.data.client_oid,
+                                        )
+                                        .await;
+                                        info!(
+                                            "Successfully add stop loss order:{}",
+                                            exit_tp_client_oid
+                                        );
+                                    }
                                 }
                             } else if order.side == "sell" {
                                 let match_price: f64 = new_balance / filled_size_f64;
@@ -768,30 +793,53 @@ async fn handle_trade_order_event(
                                     api::requests::api_v3_hf_margin_stop_order(msg_sl_order);
                                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-                                if let Err(e) = tp_res {
-                                    let msg = format!("Failed add TP order: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid)
+                                match tp_res {
+                                    Err(e) => {
+                                        let msg = format!("Failed add TP order: {}", e);
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                        delete_exit_tp_id_bot_by_client_oid(
+                                            pool, exchange, client_oid,
+                                        )
                                         .await;
-                                } else {
-                                    info!(
-                                        "Successfully add stop profit order:{}",
-                                        exit_tp_client_oid
-                                    );
+                                    }
+                                    Ok(response) => {
+                                        update_exit_tp_order_id_bot_by_exit_tp_client_oid(
+                                            pool,
+                                            exchange,
+                                            &response.data.order_id,
+                                            &response.data.client_oid,
+                                        )
+                                        .await;
+                                        info!(
+                                            "Successfully add stop profit order:{}",
+                                            exit_tp_client_oid
+                                        );
+                                    }
                                 }
-
-                                if let Err(e) = sl_res {
-                                    let msg = format!("Failed add SL order: {}", e);
-                                    error!("{}", msg);
-                                    insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid)
+                                match sl_res {
+                                    Err(e) => {
+                                        let msg = format!("Failed add SL order: {}", e);
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                        delete_exit_sl_id_bot_by_client_oid(
+                                            pool, exchange, client_oid,
+                                        )
                                         .await;
-                                } else {
-                                    info!(
-                                        "Successfully add stop loss order:{}",
-                                        exit_sl_client_oid
-                                    );
+                                    }
+                                    Ok(response) => {
+                                        update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+                                            pool,
+                                            exchange,
+                                            &response.data.order_id,
+                                            &response.data.client_oid,
+                                        )
+                                        .await;
+                                        info!(
+                                            "Successfully add stop loss order:{}",
+                                            exit_tp_client_oid
+                                        );
+                                    }
                                 }
                             }
                         }
