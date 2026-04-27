@@ -144,10 +144,10 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
 pub async fn delete_exit_sl_id_bot_by_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
-    entry_id: &str,
+    client_oid: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
-        .bind(entry_id)
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $1 AND exchange = $2;")
+        .bind(client_oid)
         .bind(exchange)
         .execute(pool)
         .await
@@ -160,10 +160,10 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(
 pub async fn delete_exit_tp_id_bot_by_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
-    entry_id: &str,
+    client_oid: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $1 AND exchange = $2;")
-        .bind(entry_id)
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $1 AND exchange = $2;")
+        .bind(client_oid)
         .bind(exchange)
         .execute(pool)
         .await
