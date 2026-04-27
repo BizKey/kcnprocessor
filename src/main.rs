@@ -481,6 +481,7 @@ async fn handle_trade_order_event(
                         error!("No records found or error occurred");
                     }
                 }
+                return;
             }
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bot_by_exit_sl_client_oid(pool, exchange, client_oid).await {
@@ -543,6 +544,7 @@ async fn handle_trade_order_event(
                         error!("No records found or error occurred");
                     }
                 }
+                return;
             }
             // if clientOid in bots entry_id (1 phase)
             if let Some(bot) = get_bot_by_entry_client_oid(pool, exchange, client_oid).await {
@@ -799,6 +801,7 @@ async fn handle_trade_order_event(
                     // delete entry_id from db
                     set_null_entry_client_oid_by_entry_client_oid(pool, exchange, client_oid).await;
                 }
+                return;
             }
         }
     }
