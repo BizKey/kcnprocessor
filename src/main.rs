@@ -425,18 +425,18 @@ async fn handle_trade_order_event(
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bot_by_exit_tp_client_oid(pool, exchange, client_oid).await {
                 // client_oid == exit_tp_client_oid
-                // Cancel TP
-                // delete exit_tp_id stop order
-                if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
-                    // clear exit_tp_client_oid in bots by entry_id
-                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await;
+                // delete exit_tp_client_oid stop order
+                delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await;
+                if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid {
+                    // clear exit_sl_client_oid in bots by id !!
+                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await;
                     match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                        &exit_tp_client_oid,
+                        &exit_sl_client_oid,
                     )
                     .await
                     {
                         Ok(_) => {
-                            info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
+                            info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
                         }
                         Err(e) => {
                             let msg: String = format!("Failed cancel stop order: {}", e);
@@ -445,7 +445,7 @@ async fn handle_trade_order_event(
                             return;
                         }
                     }
-                }
+                };
                 match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                     Some(return_balance) => {
                         if order.side == "buy" {
@@ -508,18 +508,18 @@ async fn handle_trade_order_event(
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bot_by_exit_sl_client_oid(pool, exchange, client_oid).await {
                 // client_oid == exit_sl_client_oid
-                // Cancel SL
                 // delete exit_sl_client_oid stop order
-                if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid {
-                    // clear exit_sl_client_oid in bots by id !!
-                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await;
+                delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await;
+                if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
+                    // clear exit_tp_client_oid in bots by entry_id
+                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await;
                     match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                        &exit_sl_client_oid,
+                        &exit_tp_client_oid,
                     )
                     .await
                     {
                         Ok(_) => {
-                            info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
+                            info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                         }
                         Err(e) => {
                             let msg: String = format!("Failed cancel stop order: {}", e);
@@ -528,7 +528,7 @@ async fn handle_trade_order_event(
                             return;
                         }
                     }
-                };
+                }
                 match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                     Some(return_balance) => {
                         if order.side == "buy" {
