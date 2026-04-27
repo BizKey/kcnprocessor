@@ -235,38 +235,38 @@ pub async fn set_null_entry_client_oid_by_entry_client_oid(
     }
 }
 
-pub async fn update_exit_tp_id_bot_by_entry_id(
+pub async fn update_exit_tp_client_oid_bot_by_entry_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
-    entry_id: &str,
-    exit_tp_id: &str,
+    entry_client_oid: &str,
+    exit_tp_client_oid: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_id = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $2 AND exchange = $3;")
-        .bind(exit_tp_id)
-        .bind(entry_id)
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
+        .bind(exit_tp_client_oid)
+        .bind(entry_client_oid)
         .bind(exchange)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed update exit_tp_id:{} by entry_id:{} for bots: {}",exit_tp_id,entry_id, e);
+        let err_msg = format!("Failed update exit_tp_client_oid:{} by client_oid:{} for bots: {}", exit_tp_client_oid, entry_client_oid, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn update_exit_sl_id_bot_by_entry_id(
+pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
-    entry_id: &str,
-    exit_sl_id: &str,
+    entry_client_oid: &str,
+    exit_sl_client_oid: &str,
 ) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_id = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_id = $2 AND exchange = $3;")
-        .bind(exit_sl_id)
-        .bind(entry_id)
+    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
+        .bind(exit_sl_client_oid)
+        .bind(entry_client_oid)
         .bind(exchange)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed update exit_sl_id:{} by entry_id:{} for bots: {}",exit_sl_id,entry_id, e);
+        let err_msg = format!("Failed update exit_sl_id:{} by entry_id:{} for bots: {}", exit_sl_client_oid, entry_client_oid, e);
         error!("{}", err_msg);
         insert_db_error(pool, exchange, &err_msg).await;
     }

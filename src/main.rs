@@ -6,8 +6,9 @@ use crate::api::db::{
     insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
     set_null_entry_client_oid_by_entry_client_oid, update_balance_by_client_oid,
     update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_client_oid,
-    update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
-    upsert_position_debt, upsert_position_ratio,
+    update_exit_sl_client_oid_bot_by_entry_client_oid,
+    update_exit_tp_client_oid_bot_by_entry_client_oid, upsert_position_asset, upsert_position_debt,
+    upsert_position_ratio,
 };
 use crate::api::models::{
     BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol, TradeAbleSymbol,
@@ -648,7 +649,7 @@ async fn handle_trade_order_event(
                                 info!("Stop loss order:{}", msg_sl_order);
 
                                 // add exit_tp_client_oid by entry_id
-                                update_exit_tp_id_bot_by_entry_id(
+                                update_exit_tp_client_oid_bot_by_entry_client_oid(
                                     pool,
                                     exchange,
                                     client_oid,
@@ -656,7 +657,7 @@ async fn handle_trade_order_event(
                                 )
                                 .await;
                                 // add exit_sl_client_oid by entry_id
-                                update_exit_sl_id_bot_by_entry_id(
+                                update_exit_sl_client_oid_bot_by_entry_client_oid(
                                     pool,
                                     exchange,
                                     client_oid,
@@ -738,7 +739,7 @@ async fn handle_trade_order_event(
                                 info!("Stop loss order:{}", msg_sl_order);
 
                                 // add exit_tp_client_oid by entry_id
-                                update_exit_tp_id_bot_by_entry_id(
+                                update_exit_tp_client_oid_bot_by_entry_client_oid(
                                     pool,
                                     exchange,
                                     client_oid,
@@ -746,7 +747,7 @@ async fn handle_trade_order_event(
                                 )
                                 .await;
                                 // add exit_sl_client_oid by entry_id
-                                update_exit_sl_id_bot_by_entry_id(
+                                update_exit_sl_client_oid_bot_by_entry_client_oid(
                                     pool,
                                     exchange,
                                     client_oid,
