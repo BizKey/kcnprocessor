@@ -1102,7 +1102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             }
                         };
                         // get price token
-                        let token_price_str =
+                        let token_price_str: String =
                             match api::requests::get_ticker_price(trade_symbol).await {
                                 Ok(token_price_str) => {
                                     info!("Successfully get price:{}", &trade_symbol);
@@ -1153,7 +1153,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             }
                         };
                         if token_available <= base_min_size
-                            || token_price * token_available <= quote_min_size
+                            || (token_price * token_available) <= quote_min_size
                         {
                             match api::requests::sent_account_transfer(
                                 &account.currency.clone(),
