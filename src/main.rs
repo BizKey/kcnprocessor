@@ -423,7 +423,7 @@ async fn handle_trade_order_event(
             };
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bots_by_exit_tp_client_oid(pool, exchange, client_oid).await {
-                match get_total_match_value_by_order_id(pool, exchange, &order.order_id).await {
+                match get_total_match_value_by_order_id(pool, exchange, client_oid).await {
                     Some(return_balance) => {
                         if order.side == "buy" {
                             match bot.balance {
@@ -490,7 +490,7 @@ async fn handle_trade_order_event(
             }
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bots_by_exit_sl_client_oid(pool, exchange, client_oid).await {
-                match get_total_match_value_by_order_id(pool, exchange, &order.order_id).await {
+                match get_total_match_value_by_order_id(pool, exchange, client_oid).await {
                     Some(return_balance) => {
                         if order.side == "buy" {
                             match bot.balance {
