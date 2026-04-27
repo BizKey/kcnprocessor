@@ -336,7 +336,7 @@ pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn update_entry_client_oid_bot_id(
+pub async fn update_bot_entry_client_oid_by_id(
     pool: &sqlx::PgPool,
     exchange: &str,
     symbol: Option<&str>,

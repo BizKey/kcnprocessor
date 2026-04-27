@@ -6,7 +6,7 @@ use crate::api::db::{
     insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
     set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
     update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
-    update_entry_client_oid_bot_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
+    update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
     update_exit_tp_client_oid_bot_by_entry_client_oid, upsert_position_asset, upsert_position_debt,
     upsert_position_ratio,
 };
@@ -233,20 +233,20 @@ async fn make_random_trade(
             };
 
         let trade_side: String = get_random_side();
-        let client_oid: String = Uuid::new_v4().to_string();
+        let entry_client_oid: String = Uuid::new_v4().to_string();
 
-        if let Err(e) = update_entry_client_oid_bot_id(
+        if let Err(e) = update_bot_entry_client_oid_by_id(
             pool,
             exchange,
             Some(&tradeable.symbol),
-            Some(&client_oid),
+            Some(&entry_client_oid),
             trade_bot_id,
         )
         .await
         {
             let msg = format!(
-                "Failed save bot info: client_oid:{} trade_bot.id:{}, {}",
-                client_oid, trade_bot_id, e
+                "Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}",
+                entry_client_oid, trade_bot_id, e
             );
             error!("{}", msg);
             insert_db_error(pool, exchange, &msg).await;
@@ -302,7 +302,7 @@ async fn make_random_trade(
                 make_hf_size_margin_order(
                     pool,
                     exchange,
-                    &client_oid,
+                    &entry_client_oid,
                     &trade_side,
                     &tradeable.symbol,
                     format_assert(token_size, base_increment),
@@ -329,7 +329,7 @@ async fn make_random_trade(
                 make_hf_funds_margin_order(
                     pool,
                     exchange,
-                    &client_oid,
+                    &entry_client_oid,
                     &trade_side,
                     &tradeable.symbol,
                     format_assert(balance_funds, quote_increment),
@@ -349,13 +349,13 @@ async fn make_random_trade(
             Ok(_) => {
                 info!(
                     "✅ Order placed: {} {} (attempt {}/{})",
-                    client_oid, trade_bot_id, attempt, MAX_RETRIES
+                    entry_client_oid, trade_bot_id, attempt, MAX_RETRIES
                 );
                 return Ok(());
             }
             Err(e) => {
-                let _ =
-                    update_entry_client_oid_bot_id(pool, exchange, None, None, trade_bot_id).await;
+                let _ = update_bot_entry_client_oid_by_id(pool, exchange, None, None, trade_bot_id)
+                    .await;
                 error!(
                     "❌ Order failed (attempt {}/{}): {} - {}",
                     attempt, MAX_RETRIES, tradeable.symbol, e
