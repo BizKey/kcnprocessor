@@ -45,7 +45,7 @@ impl KuCoinClient {
     pub async fn api_v1_bullet_private(
         &self,
     ) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
-        let timestamp = self.get_system_timestamp_ms();
+        let timestamp: u64 = self.get_system_timestamp_ms();
         return match self
             .make_request(
                 reqwest::Method::POST,
@@ -125,7 +125,7 @@ impl KuCoinClient {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("orderId", order_id);
-        let timestamp = self.get_system_timestamp_ms();
+        let timestamp: u64 = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -159,7 +159,7 @@ impl KuCoinClient {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
-        let timestamp = self.get_system_timestamp_ms();
+        let timestamp: u64 = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::GET,
@@ -199,7 +199,7 @@ impl KuCoinClient {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
-        let timestamp = self.get_system_timestamp_ms();
+        let timestamp: u64 = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::DELETE,
@@ -241,7 +241,7 @@ impl KuCoinClient {
             "fromAccountType": from_account_type,
             "toAccountType": to_account_type
         });
-        let timestamp = self.get_system_timestamp_ms();
+        let timestamp: u64 = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -277,7 +277,7 @@ impl KuCoinClient {
         body: serde_json::Value,
     ) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add stop margin hf order
-        let timestamp = self.get_system_timestamp_ms();
+        let timestamp: u64 = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -317,7 +317,7 @@ impl KuCoinClient {
         body: serde_json::Value,
     ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add margin hf order
-        let timestamp = self.get_system_timestamp_ms();
+        let timestamp: u64 = self.get_system_timestamp_ms();
         match self
             .make_request(
                 reqwest::Method::POST,
@@ -369,7 +369,7 @@ impl KuCoinClient {
             "isHf": true
         });
 
-        let timestamp = self.get_system_timestamp_ms();
+        let timestamp: u64 = self.get_system_timestamp_ms();
 
         match self
             .make_request(
