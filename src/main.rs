@@ -3,7 +3,7 @@ use crate::api::db::{
     delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, fetch_symbol_info,
     get_all_bots_for_trade, get_bots_by_entry_client_oid, get_bots_by_exit_sl_client_oid,
     get_bots_by_exit_tp_client_oid, get_random_side, get_random_symbol,
-    get_total_match_value_by_order_id, insert_db_balance, insert_db_error, insert_db_event,
+    get_total_match_value_by_client_oid, insert_db_balance, insert_db_error, insert_db_event,
     insert_db_msgsend, insert_db_orderevent, update_balance_by_entry_id,
     update_balance_by_exit_sl_id, update_balance_by_exit_tp_id, update_bots_entry_client_oid,
     update_exit_sl_id_bot_by_entry_id, update_exit_tp_id_bot_by_entry_id, upsert_position_asset,
@@ -423,7 +423,7 @@ async fn handle_trade_order_event(
             };
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bots_by_exit_tp_client_oid(pool, exchange, client_oid).await {
-                match get_total_match_value_by_order_id(pool, exchange, client_oid).await {
+                match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                     Some(return_balance) => {
                         if order.side == "buy" {
                             match bot.balance {
@@ -434,7 +434,7 @@ async fn handle_trade_order_event(
                                         update_balance_by_exit_tp_id(
                                             pool,
                                             exchange,
-                                            &order.order_id,
+                                            client_oid,
                                             &format!("{:.4}", new_balance),
                                         )
                                         .await;
@@ -468,7 +468,7 @@ async fn handle_trade_order_event(
                             update_balance_by_exit_tp_id(
                                 pool,
                                 exchange,
-                                &order.order_id,
+                                client_oid,
                                 &format!("{:.4}", return_balance),
                             )
                             .await;
@@ -490,7 +490,7 @@ async fn handle_trade_order_event(
             }
             // if clientOid in bots entry_id (2 phase)
             if let Some(bot) = get_bots_by_exit_sl_client_oid(pool, exchange, client_oid).await {
-                match get_total_match_value_by_order_id(pool, exchange, client_oid).await {
+                match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                     Some(return_balance) => {
                         if order.side == "buy" {
                             match bot.balance {
@@ -501,7 +501,7 @@ async fn handle_trade_order_event(
                                         update_balance_by_exit_sl_id(
                                             pool,
                                             exchange,
-                                            &order.order_id,
+                                            client_oid,
                                             &format!("{:.4}", new_balance),
                                         )
                                         .await;
@@ -535,7 +535,7 @@ async fn handle_trade_order_event(
                             update_balance_by_exit_sl_id(
                                 pool,
                                 exchange,
-                                &order.order_id,
+                                client_oid,
                                 &format!("{:.4}", return_balance),
                             )
                             .await;
@@ -612,12 +612,12 @@ async fn handle_trade_order_event(
                             return;
                         }
                     };
-                    match get_total_match_value_by_order_id(pool, exchange, &order.order_id).await {
+                    match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                         Some(new_balance) => {
                             update_balance_by_entry_id(
                                 pool,
                                 exchange,
-                                &order.order_id,
+                                client_oid,
                                 &format!("{:.4}", new_balance),
                             )
                             .await;
@@ -666,7 +666,7 @@ async fn handle_trade_order_event(
                                 update_exit_tp_id_bot_by_entry_id(
                                     pool,
                                     exchange,
-                                    &order.order_id,
+                                    client_oid,
                                     &exit_tp_id,
                                 )
                                 .await;
@@ -674,7 +674,7 @@ async fn handle_trade_order_event(
                                 update_exit_sl_id_bot_by_entry_id(
                                     pool,
                                     exchange,
-                                    &order.order_id,
+                                    client_oid,
                                     &exit_sl_id,
                                 )
                                 .await;
@@ -690,12 +690,8 @@ async fn handle_trade_order_event(
                                     let msg = format!("Failed add TP order: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_tp_id_bot_by_client_oid(
-                                        pool,
-                                        exchange,
-                                        &order.order_id,
-                                    )
-                                    .await;
+                                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid)
+                                        .await;
                                 } else {
                                     info!("Successfully add stop profit order:{}", exit_tp_id);
                                 }
@@ -704,12 +700,8 @@ async fn handle_trade_order_event(
                                     let msg = format!("Failed add SL order: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_sl_id_bot_by_client_oid(
-                                        pool,
-                                        exchange,
-                                        &order.order_id,
-                                    )
-                                    .await;
+                                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid)
+                                        .await;
                                 } else {
                                     info!("Successfully add stop loss order:{}", exit_sl_id);
                                 }
@@ -758,7 +750,7 @@ async fn handle_trade_order_event(
                                 update_exit_tp_id_bot_by_entry_id(
                                     pool,
                                     exchange,
-                                    &order.order_id,
+                                    client_oid,
                                     &exit_tp_id,
                                 )
                                 .await;
@@ -766,7 +758,7 @@ async fn handle_trade_order_event(
                                 update_exit_sl_id_bot_by_entry_id(
                                     pool,
                                     exchange,
-                                    &order.order_id,
+                                    client_oid,
                                     &exit_sl_id,
                                 )
                                 .await;
@@ -781,12 +773,8 @@ async fn handle_trade_order_event(
                                     let msg = format!("Failed add TP order: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_tp_id_bot_by_client_oid(
-                                        pool,
-                                        exchange,
-                                        &order.order_id,
-                                    )
-                                    .await;
+                                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid)
+                                        .await;
                                 } else {
                                     info!("Successfully add stop profit order:{}", exit_tp_id);
                                 }
@@ -795,12 +783,8 @@ async fn handle_trade_order_event(
                                     let msg = format!("Failed add SL order: {}", e);
                                     error!("{}", msg);
                                     insert_db_error(pool, exchange, &msg).await;
-                                    delete_exit_sl_id_bot_by_client_oid(
-                                        pool,
-                                        exchange,
-                                        &order.order_id,
-                                    )
-                                    .await;
+                                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid)
+                                        .await;
                                 } else {
                                     info!("Successfully add stop loss order:{}", exit_sl_id);
                                 }
@@ -811,7 +795,7 @@ async fn handle_trade_order_event(
                         }
                     }
                     // delete entry_id from db
-                    delete_entry_id_bot_by_entry_id(pool, exchange, &order.order_id).await;
+                    delete_entry_id_bot_by_entry_id(pool, exchange, client_oid).await;
                 }
             }
         }
