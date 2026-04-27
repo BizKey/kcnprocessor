@@ -560,15 +560,15 @@ async fn handle_trade_order_event(
             if let Some(bot) = get_bots_by_entry_client_oid(pool, exchange, client_oid).await {
                 // delete exit_tp_id stop order
                 if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
-                    // clear exit_tp_client_oid in bots by entry_id
+                    // clear exit_tp_client_oid in bots by entry_id                    
                     delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await;
-                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_order_id(
+                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
                         &exit_tp_client_oid,
                     )
                     .await
                     {
                         Ok(_) => {
-                            info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
+                            info!("Successfully cancel stop order :{}", &exit_tp_client_oid);                            
                         }
                         Err(e) => {
                             let msg: String = format!("Failed cancel stop order: {}", e);
@@ -579,11 +579,11 @@ async fn handle_trade_order_event(
                     }
                 }
 
-                // delete exit_sl_id stop order
+                // delete exit_sl_client_oid stop order
                 if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid {
                     // clear exit_sl_client_oid in bots by id !!
                     delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await;
-                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_order_id(
+                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
                         &exit_sl_client_oid,
                     )
                     .await
