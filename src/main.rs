@@ -433,7 +433,7 @@ async fn handle_advanced_orders(
                                     funds,
                                     "market".to_string(),
                                 )
-                                .await
+                                .await;
                             } else {
                                 let msg = format!(
                                     "Failed remake stop order:{} new_exit_sl_client_oid:{}",
@@ -568,6 +568,7 @@ async fn handle_advanced_orders(
                     continue;
                 }
             };
+            sleep(Duration::from_millis(100 * attempt as u64)).await;
         }
     }
 }
