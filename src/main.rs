@@ -1635,6 +1635,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data)
                                 .await;
                         }
+                        KuCoinMessage::Unknown => {
+                            info!("Unknown WS message type");
+                        }
                     },
                     Err(e) => {
                         // sent error to pg
