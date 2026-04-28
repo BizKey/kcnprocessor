@@ -389,6 +389,7 @@ async fn handle_advanced_orders(
         const MAX_RETRIES: u32 = 10;
         let mut attempt = 0;
         loop {
+            tokio::time::sleep(Duration::from_millis(300 * attempt as u64)).await;
             attempt += 1;
 
             let order_id_clone = order.order_id.clone();
@@ -436,15 +437,12 @@ async fn handle_advanced_orders(
                                 .await
                             } else {
                                 let msg = format!(
-                                    "Failed remake stop order:{} new_exit_sl_client_oid:{}",
-                                    order_id_clone, new_exit_client_oid,
+                                    "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
+                                    order_id_clone, new_exit_client_oid, funds_clone,
                                 );
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
-                                if attempt >= MAX_RETRIES {
-                                    return;
-                                }
-                                continue;
+                                return;
                             }
                         }
                         "sell" => {
@@ -461,22 +459,20 @@ async fn handle_advanced_orders(
                                 .await
                             } else {
                                 let msg = format!(
-                                    "Failed remake stop order:{} new_exit_sl_client_oid:{}",
-                                    order_id_clone, new_exit_client_oid,
+                                    "Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}",
+                                    order_id_clone, new_exit_client_oid, size_clone,
                                 );
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
-                                if attempt >= MAX_RETRIES {
-                                    return;
-                                }
-                                continue;
+                                return;
                             }
                         }
                         _ => {
-                            if attempt >= MAX_RETRIES {
-                                return;
-                            }
-                            continue;
+                            let msg = format!("Fail match side_clone:{}", side_clone);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+
+                            return;
                         }
                     }
                 }
@@ -516,15 +512,12 @@ async fn handle_advanced_orders(
                                 .await
                             } else {
                                 let msg = format!(
-                                    "Failed remake stop order:{} new_exit_tp_client_oid:{}",
-                                    order_id_clone, new_exit_client_oid
+                                    "Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}",
+                                    order_id_clone, new_exit_client_oid, funds_clone,
                                 );
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
-                                if attempt >= MAX_RETRIES {
-                                    return;
-                                }
-                                continue;
+                                return;
                             }
                         }
                         "sell" => {
@@ -541,30 +534,30 @@ async fn handle_advanced_orders(
                                 .await
                             } else {
                                 let msg = format!(
-                                    "Failed remake stop order:{} new_exit_tp_client_oid:{}",
-                                    order_id_clone, new_exit_client_oid
+                                    "Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}",
+                                    order_id_clone, new_exit_client_oid, size_clone,
                                 );
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
-                                if attempt >= MAX_RETRIES {
-                                    return;
-                                }
-                                continue;
+
+                                return;
                             }
                         }
                         _ => {
-                            if attempt >= MAX_RETRIES {
-                                return;
-                            }
-                            continue;
+                            let msg = format!("Fail match side_clone:{}", side_clone);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+
+                            return;
                         }
                     }
                 }
                 _ => {
-                    if attempt >= MAX_RETRIES {
-                        return;
-                    }
-                    continue;
+                    let msg = format!("Fail match stop_clone:{}", stop_clone);
+                    error!("{}", msg);
+                    insert_db_error(pool, exchange, &msg).await;
+
+                    return;
                 }
             };
 
@@ -585,7 +578,6 @@ async fn handle_advanced_orders(
                     if attempt >= MAX_RETRIES {
                         return;
                     }
-                    tokio::time::sleep(Duration::from_millis(300 * attempt as u64)).await;
                 }
             }
         }
