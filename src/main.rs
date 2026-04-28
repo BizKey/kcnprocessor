@@ -397,22 +397,22 @@ async fn handle_advanced_orders(
             let symbol_clone = order.symbol.clone();
             let funds_clone = order.funds.clone();
             let size_clone = order.size.clone();
+            let new_exit_client_oid: String = Uuid::new_v4().to_string();
 
             let order_result = match stop_clone.as_str() {
                 "loss" => {
                     // need find sl
-                    let new_exit_sl_client_oid: String = Uuid::new_v4().to_string();
                     if let Err(e) = update_exit_sl_client_oid_bot_by_exit_sl_order_id(
                         pool,
                         exchange,
                         &order_id_clone,
-                        &new_exit_sl_client_oid,
+                        &new_exit_client_oid,
                     )
                     .await
                     {
                         let msg = format!(
                             "Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}, {}",
-                            order_id_clone, new_exit_sl_client_oid, e
+                            order_id_clone, new_exit_client_oid, e
                         );
                         error!("{}", msg);
                         insert_db_error(pool, exchange, &msg).await;
@@ -427,17 +427,17 @@ async fn handle_advanced_orders(
                                 make_hf_funds_margin_order(
                                     pool,
                                     exchange,
-                                    &new_exit_sl_client_oid,
+                                    &new_exit_client_oid,
                                     &side_clone,
                                     &symbol_clone,
                                     funds,
                                     "market".to_string(),
                                 )
-                                .await;
+                                .await
                             } else {
                                 let msg = format!(
                                     "Failed remake stop order:{} new_exit_sl_client_oid:{}",
-                                    order_id_clone, new_exit_sl_client_oid,
+                                    order_id_clone, new_exit_client_oid,
                                 );
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
@@ -452,17 +452,17 @@ async fn handle_advanced_orders(
                                 make_hf_size_margin_order(
                                     pool,
                                     exchange,
-                                    &new_exit_sl_client_oid,
+                                    &new_exit_client_oid,
                                     &side_clone,
                                     &symbol_clone,
                                     size,
                                     "market".to_string(),
                                 )
-                                .await;
+                                .await
                             } else {
                                 let msg = format!(
                                     "Failed remake stop order:{} new_exit_sl_client_oid:{}",
-                                    order_id_clone, new_exit_sl_client_oid,
+                                    order_id_clone, new_exit_client_oid,
                                 );
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
@@ -482,18 +482,17 @@ async fn handle_advanced_orders(
                 }
                 "entry" => {
                     // need find tp
-                    let new_exit_tp_client_oid: String = Uuid::new_v4().to_string();
                     if let Err(e) = update_exit_tp_client_oid_bot_by_exit_tp_order_id(
                         pool,
                         exchange,
                         &order_id_clone,
-                        &new_exit_tp_client_oid,
+                        &new_exit_client_oid,
                     )
                     .await
                     {
                         let msg = format!(
                             "Failed save bot info: order_id_clone:{} new_exit_tp_client_oid:{}, {}",
-                            order_id_clone, new_exit_tp_client_oid, e
+                            order_id_clone, new_exit_client_oid, e
                         );
                         error!("{}", msg);
                         insert_db_error(pool, exchange, &msg).await;
@@ -508,17 +507,17 @@ async fn handle_advanced_orders(
                                 make_hf_funds_margin_order(
                                     pool,
                                     exchange,
-                                    &new_exit_tp_client_oid,
+                                    &new_exit_client_oid,
                                     &side_clone,
                                     &symbol_clone,
                                     funds,
                                     "market".to_string(),
                                 )
-                                .await;
+                                .await
                             } else {
                                 let msg = format!(
                                     "Failed remake stop order:{} new_exit_tp_client_oid:{}",
-                                    order_id_clone, new_exit_tp_client_oid
+                                    order_id_clone, new_exit_client_oid
                                 );
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
@@ -533,17 +532,17 @@ async fn handle_advanced_orders(
                                 make_hf_size_margin_order(
                                     pool,
                                     exchange,
-                                    &new_exit_tp_client_oid,
+                                    &new_exit_client_oid,
                                     &side_clone,
                                     &symbol_clone,
                                     size,
                                     "market".to_string(),
                                 )
-                                .await;
+                                .await
                             } else {
                                 let msg = format!(
                                     "Failed remake stop order:{} new_exit_tp_client_oid:{}",
-                                    order_id_clone, new_exit_tp_client_oid
+                                    order_id_clone, new_exit_client_oid
                                 );
                                 error!("{}", msg);
                                 insert_db_error(pool, exchange, &msg).await;
@@ -568,7 +567,27 @@ async fn handle_advanced_orders(
                     continue;
                 }
             };
-            sleep(Duration::from_millis(100 * attempt as u64)).await;
+
+            match order_result {
+                Ok(_) => {
+                    info!(
+                        "✅ Order re-placed: {} {} (attempt {}/{})",
+                        order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES
+                    );
+                    break;
+                }
+                Err(e) => {
+                    error!(
+                        "❌ Order failed: {} {} (attempt {}/{}) {}",
+                        order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES, e
+                    );
+                    insert_db_error(pool, exchange, &e.to_string()).await;
+                    if attempt >= MAX_RETRIES {
+                        return;
+                    }
+                    tokio::time::sleep(Duration::from_millis(300 * attempt as u64)).await;
+                }
+            }
         }
     }
 }
