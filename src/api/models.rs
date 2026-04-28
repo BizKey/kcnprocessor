@@ -164,6 +164,9 @@ pub enum KuCoinMessage {
 
     #[serde(rename = "error")]
     Error(ErrorData),
+
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]

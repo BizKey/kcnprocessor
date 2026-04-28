@@ -7,8 +7,10 @@ use crate::api::db::{
     set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
     update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
     update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
+    update_exit_sl_client_oid_bot_by_exit_sl_order_id,
     update_exit_sl_order_id_bot_by_exit_sl_client_oid,
     update_exit_tp_client_oid_bot_by_entry_client_oid,
+    update_exit_tp_client_oid_bot_by_exit_tp_order_id,
     update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt,
     upsert_position_ratio,
 };
@@ -368,6 +370,215 @@ async fn make_random_trade(
                 }
                 tokio::time::sleep(Duration::from_millis(300 * attempt as u64)).await;
                 continue;
+            }
+        }
+    }
+}
+
+async fn handle_advanced_orders(
+    order: AdvancedOrders,
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+) {
+    info!("{:?}", order);
+    if let Some(error) = order.error {
+        let msg: String = format!("Got error on stop order : {}", error);
+        error!("{}", msg);
+        insert_db_error(pool, exchange, &msg).await;
+
+        const MAX_RETRIES: u32 = 10;
+        let mut attempt = 0;
+        loop {
+            tokio::time::sleep(Duration::from_millis(300 * attempt as u64)).await;
+            attempt += 1;
+
+            let order_id_clone = order.order_id.clone();
+            let stop_clone = order.stop.clone();
+            let side_clone = order.side.clone();
+            let symbol_clone = order.symbol.clone();
+            let funds_clone = order.funds.clone();
+            let size_clone = order.size.clone();
+            let new_exit_client_oid: String = Uuid::new_v4().to_string();
+
+            let order_result = match stop_clone.as_str() {
+                "loss" => {
+                    // need find sl
+                    if let Err(e) = update_exit_sl_client_oid_bot_by_exit_sl_order_id(
+                        pool,
+                        exchange,
+                        &order_id_clone,
+                        &new_exit_client_oid,
+                    )
+                    .await
+                    {
+                        let msg = format!(
+                            "Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}, {}",
+                            order_id_clone, new_exit_client_oid, e
+                        );
+                        error!("{}", msg);
+                        insert_db_error(pool, exchange, &msg).await;
+                        if attempt >= MAX_RETRIES {
+                            return;
+                        }
+                        continue;
+                    }
+                    match side_clone.as_str() {
+                        "buy" => {
+                            if let Some(funds) = funds_clone {
+                                make_hf_funds_margin_order(
+                                    pool,
+                                    exchange,
+                                    &new_exit_client_oid,
+                                    &side_clone,
+                                    &symbol_clone,
+                                    funds,
+                                    "market".to_string(),
+                                )
+                                .await
+                            } else {
+                                let msg = format!(
+                                    "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
+                                    order_id_clone, new_exit_client_oid, funds_clone,
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                return;
+                            }
+                        }
+                        "sell" => {
+                            if let Some(size) = size_clone {
+                                make_hf_size_margin_order(
+                                    pool,
+                                    exchange,
+                                    &new_exit_client_oid,
+                                    &side_clone,
+                                    &symbol_clone,
+                                    size,
+                                    "market".to_string(),
+                                )
+                                .await
+                            } else {
+                                let msg = format!(
+                                    "Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}",
+                                    order_id_clone, new_exit_client_oid, size_clone,
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                return;
+                            }
+                        }
+                        _ => {
+                            let msg = format!("Fail match side_clone:{}", side_clone);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+
+                            return;
+                        }
+                    }
+                }
+                "entry" => {
+                    // need find tp
+                    if let Err(e) = update_exit_tp_client_oid_bot_by_exit_tp_order_id(
+                        pool,
+                        exchange,
+                        &order_id_clone,
+                        &new_exit_client_oid,
+                    )
+                    .await
+                    {
+                        let msg = format!(
+                            "Failed save bot info: order_id_clone:{} new_exit_tp_client_oid:{}, {}",
+                            order_id_clone, new_exit_client_oid, e
+                        );
+                        error!("{}", msg);
+                        insert_db_error(pool, exchange, &msg).await;
+                        if attempt >= MAX_RETRIES {
+                            return;
+                        }
+                        continue;
+                    }
+                    match side_clone.as_str() {
+                        "buy" => {
+                            if let Some(funds) = funds_clone {
+                                make_hf_funds_margin_order(
+                                    pool,
+                                    exchange,
+                                    &new_exit_client_oid,
+                                    &side_clone,
+                                    &symbol_clone,
+                                    funds,
+                                    "market".to_string(),
+                                )
+                                .await
+                            } else {
+                                let msg = format!(
+                                    "Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}",
+                                    order_id_clone, new_exit_client_oid, funds_clone,
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                return;
+                            }
+                        }
+                        "sell" => {
+                            if let Some(size) = size_clone {
+                                make_hf_size_margin_order(
+                                    pool,
+                                    exchange,
+                                    &new_exit_client_oid,
+                                    &side_clone,
+                                    &symbol_clone,
+                                    size,
+                                    "market".to_string(),
+                                )
+                                .await
+                            } else {
+                                let msg = format!(
+                                    "Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}",
+                                    order_id_clone, new_exit_client_oid, size_clone,
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+
+                                return;
+                            }
+                        }
+                        _ => {
+                            let msg = format!("Fail match side_clone:{}", side_clone);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+
+                            return;
+                        }
+                    }
+                }
+                _ => {
+                    let msg = format!("Fail match stop_clone:{}", stop_clone);
+                    error!("{}", msg);
+                    insert_db_error(pool, exchange, &msg).await;
+
+                    return;
+                }
+            };
+
+            match order_result {
+                Ok(_) => {
+                    info!(
+                        "✅ Order re-placed: {} {} (attempt {}/{})",
+                        order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES
+                    );
+                    break;
+                }
+                Err(e) => {
+                    error!(
+                        "❌ Order failed: {} {} (attempt {}/{}) {}",
+                        order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES, e
+                    );
+                    insert_db_error(pool, exchange, &e.to_string()).await;
+                    if attempt >= MAX_RETRIES {
+                        return;
+                    }
+                }
             }
         }
     }
@@ -1354,9 +1565,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 // stop orders and other
                                 info!("{}", &data.data);
                                 match AdvancedOrders::deserialize(&data.data) {
-                                    Ok(advanced_order) => {
+                                    Ok(order) => {
                                         // watch order event
-                                        info!("{:?}", advanced_order)
+                                        handle_advanced_orders(
+                                            order,
+                                            &pool_for_handler,
+                                            &exchange_for_handler,
+                                        )
+                                        .await
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
@@ -1418,6 +1634,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             // sent error to pg
                             insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data)
                                 .await;
+                        }
+                        KuCoinMessage::Unknown => {
+                            info!("Unknown WS message type");
                         }
                     },
                     Err(e) => {
