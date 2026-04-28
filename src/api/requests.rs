@@ -10,10 +10,11 @@ use serde_json::json;
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::env;
+use std::sync::OnceLock;
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use urlencoding::encode;
 use uuid::Uuid;
-
 type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Debug, Clone)]
@@ -27,17 +28,17 @@ pub struct KuCoinClient {
 
 impl KuCoinClient {
     pub fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let api_passphrase: String = env::var("KUCOIN_PASS")?.trim().to_string();
-
-        let api_key: String = env::var("KUCOIN_KEY")?.trim().to_string();
-
-        let api_secret: String = env::var("KUCOIN_SECRET")?.trim().to_string();
+        let client = Client::builder()
+            .timeout(Duration::from_secs(15))
+            .connect_timeout(Duration::from_secs(5))
+            .tcp_keepalive(Duration::from_secs(60))
+            .build()?;
 
         Ok(Self {
-            client: Client::new(),
-            api_key,
-            api_secret,
-            api_passphrase,
+            client,
+            api_key: env::var("KUCOIN_KEY")?.trim().to_string(),
+            api_secret: env::var("KUCOIN_SECRET")?.trim().to_string(),
+            api_passphrase: env::var("KUCOIN_PASS")?.trim().to_string(),
             base_url,
         })
     }
@@ -519,8 +520,22 @@ impl KuCoinClient {
     }
 }
 
+static KUCLIENT: OnceLock<Result<KuCoinClient, String>> = OnceLock::new();
+
+fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Send + Sync>> {
+    KUCLIENT
+        .get_or_init(|| {
+            let base_url = env::var("KUCOIN_BASE_URL")
+                .unwrap_or_else(|_| "https://api.kucoin.com".to_string());
+
+            KuCoinClient::new(base_url).map_err(|e| format!("Failed to init KuCoinClient: {}", e))
+        })
+        .as_ref()
+        .map_err(|e| e.clone().into())
+}
+
 pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     let bullet_private: ApiV3BulletPrivate = client.api_v1_bullet_private().await?;
     bullet_private
         .data
@@ -531,13 +546,13 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
 }
 pub async fn get_all_margin_accounts()
 -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     client.get_margin_accounts().await
 }
 pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(
     order_id: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     client
         .api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id)
         .await
@@ -549,7 +564,7 @@ pub async fn sent_account_transfer(
     from_account_type: &str,
     to_account_type: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     client
         .account_transfer(
             currency,
@@ -564,24 +579,24 @@ pub async fn sent_account_transfer(
 pub async fn get_ticker_price(
     symbol: &str,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     client.get_ticker_price(symbol).await
 }
 
 pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client: KuCoinClient = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     client.batch_cancel_stop_orders().await
 }
 pub async fn api_v3_hf_margin_stop_order(
     body: serde_json::Value,
 ) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     client.api_v3_hf_margin_stop_order(body).await
 }
 pub async fn add_api_v3_hf_margin_order(
     body: serde_json::Value,
 ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     client.add_api_v3_hf_margin_order(body).await
 }
 
@@ -599,7 +614,7 @@ pub async fn create_repay_order(
         return Ok(());
     }
 
-    let client = KuCoinClient::new("https://api.kucoin.com".to_string())?;
+    let client = get_client()?;
     client.margin_repay(currency, size).await?;
 
     Ok(())
