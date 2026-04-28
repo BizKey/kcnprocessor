@@ -213,7 +213,7 @@ pub async fn get_total_match_value_by_client_oid(
         Err(e) => {
             let err_msg = format!("Failed to get total match value for client_oid:{}: {}", client_oid, e);
             error!("{}", err_msg);
-            insert_db_error(pool, "orderevent", &err_msg).await;
+            insert_db_error(pool, exchange, &err_msg).await;
             None
         }
     }
@@ -573,7 +573,7 @@ pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Option<TradeAbl
     }
 }
 pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
-    match sqlx::query_as::<_, Symbol>("SELECT * FROM symbol WHERE exchange = $1")
+    match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size FROM symbol WHERE exchange = $1")
         .bind(exchange)
         .fetch_all(pool)
         .await
