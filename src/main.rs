@@ -903,17 +903,19 @@ async fn handle_trade_order_event(
                                         .await;
                                     }
                                     Ok(response) => {
-                                        update_exit_tp_order_id_bot_by_exit_tp_client_oid(
-                                            pool,
-                                            exchange,
-                                            &response.data.order_id,
-                                            &response.data.client_oid,
-                                        )
-                                        .await;
-                                        info!(
-                                            "Successfully add stop profit order:{}",
-                                            exit_tp_client_oid
-                                        );
+                                        if let Some(response_data) = response.data {
+                                            update_exit_tp_order_id_bot_by_exit_tp_client_oid(
+                                                pool,
+                                                exchange,
+                                                &response_data.order_id,
+                                                &response_data.client_oid,
+                                            )
+                                            .await;
+                                            info!(
+                                                "Successfully add stop profit order:{}",
+                                                exit_tp_client_oid
+                                            );
+                                        }
                                     }
                                 }
                                 match sl_res {
@@ -927,17 +929,19 @@ async fn handle_trade_order_event(
                                         .await;
                                     }
                                     Ok(response) => {
-                                        update_exit_sl_order_id_bot_by_exit_sl_client_oid(
-                                            pool,
-                                            exchange,
-                                            &response.data.order_id,
-                                            &response.data.client_oid,
-                                        )
-                                        .await;
-                                        info!(
-                                            "Successfully add stop loss order:{}",
-                                            exit_tp_client_oid
-                                        );
+                                        if let Some(response_data) = response.data {
+                                            update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+                                                pool,
+                                                exchange,
+                                                &response_data.order_id,
+                                                &response_data.client_oid,
+                                            )
+                                            .await;
+                                            info!(
+                                                "Successfully add stop loss order:{}",
+                                                exit_tp_client_oid
+                                            );
+                                        }
                                     }
                                 }
                             } else if order.side == "sell" {
@@ -1015,17 +1019,19 @@ async fn handle_trade_order_event(
                                         .await;
                                     }
                                     Ok(response) => {
-                                        update_exit_tp_order_id_bot_by_exit_tp_client_oid(
-                                            pool,
-                                            exchange,
-                                            &response.data.order_id,
-                                            &response.data.client_oid,
-                                        )
-                                        .await;
-                                        info!(
-                                            "Successfully add stop profit order:{}",
-                                            exit_tp_client_oid
-                                        );
+                                        if let Some(response_data) = response.data {
+                                            update_exit_tp_order_id_bot_by_exit_tp_client_oid(
+                                                pool,
+                                                exchange,
+                                                &response_data.order_id,
+                                                &response_data.client_oid,
+                                            )
+                                            .await;
+                                            info!(
+                                                "Successfully add stop profit order:{}",
+                                                exit_tp_client_oid
+                                            );
+                                        }
                                     }
                                 }
                                 match sl_res {
@@ -1039,17 +1045,19 @@ async fn handle_trade_order_event(
                                         .await;
                                     }
                                     Ok(response) => {
-                                        update_exit_sl_order_id_bot_by_exit_sl_client_oid(
-                                            pool,
-                                            exchange,
-                                            &response.data.order_id,
-                                            &response.data.client_oid,
-                                        )
-                                        .await;
-                                        info!(
-                                            "Successfully add stop loss order:{}",
-                                            exit_tp_client_oid
-                                        );
+                                        if let Some(response_data) = response.data {
+                                            update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+                                                pool,
+                                                exchange,
+                                                &response_data.order_id,
+                                                &response_data.client_oid,
+                                            )
+                                            .await;
+                                            info!(
+                                                "Successfully add stop loss order:{}",
+                                                exit_tp_client_oid
+                                            );
+                                        }
                                     }
                                 }
                             }
