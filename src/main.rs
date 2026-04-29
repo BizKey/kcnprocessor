@@ -381,8 +381,8 @@ async fn handle_advanced_orders(
     exchange: &str,
 ) {
     info!("{:?}", order);
-    if let Some(error) = order.error {
-        let msg: String = format!("Got error on stop order : {}", error);
+    if let Some(_) = order.error {
+        let msg: String = format!("Got error on stop order : {:?}", order);
         error!("{}", msg);
         insert_db_error(pool, exchange, &msg).await;
 
