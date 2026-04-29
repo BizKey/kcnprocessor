@@ -892,18 +892,9 @@ async fn handle_trade_order_event(
 
                                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-                                match tp_res {
-                                    Err(e) => {
-                                        let msg = format!("Failed add TP order: {}", e);
-                                        error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
-                                        delete_exit_tp_id_bot_by_client_oid(
-                                            pool, exchange, client_oid,
-                                        )
-                                        .await;
-                                    }
-                                    Ok(response) => {
-                                        if let Some(response_data) = response.data {
+                                match (&tp_res, &sl_res) {
+                                    (Ok(tp_resp), Ok(sl_resp)) => {
+                                        if let Some(ref response_data) = tp_resp.data {
                                             update_exit_tp_order_id_bot_by_exit_tp_client_oid(
                                                 pool,
                                                 exchange,
@@ -911,25 +902,8 @@ async fn handle_trade_order_event(
                                                 &response_data.client_oid,
                                             )
                                             .await;
-                                            info!(
-                                                "Successfully add stop profit order:{}",
-                                                exit_tp_client_oid
-                                            );
                                         }
-                                    }
-                                }
-                                match sl_res {
-                                    Err(e) => {
-                                        let msg = format!("Failed add SL order: {}", e);
-                                        error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
-                                        delete_exit_sl_id_bot_by_client_oid(
-                                            pool, exchange, client_oid,
-                                        )
-                                        .await;
-                                    }
-                                    Ok(response) => {
-                                        if let Some(response_data) = response.data {
+                                        if let Some(ref response_data) = sl_resp.data {
                                             update_exit_sl_order_id_bot_by_exit_sl_client_oid(
                                                 pool,
                                                 exchange,
@@ -937,11 +911,69 @@ async fn handle_trade_order_event(
                                                 &response_data.client_oid,
                                             )
                                             .await;
-                                            info!(
-                                                "Successfully add stop loss order:{}",
-                                                exit_tp_client_oid
-                                            );
                                         }
+                                        info!(
+                                            "✅ Both stop orders created: TP={}, SL={}",
+                                            exit_tp_client_oid, exit_sl_client_oid
+                                        );
+                                    }
+                                    (Err(tp_err), Ok(sl_resp)) => {
+                                        if let Some(ref response_data) = sl_resp.data {
+                                            let _ = api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await;
+                                        }
+
+                                        delete_exit_sl_id_bot_by_client_oid(
+                                            pool,
+                                            exchange,
+                                            &exit_sl_client_oid,
+                                        )
+                                        .await;
+
+                                        let msg = format!(
+                                            "Failed add TP order: {}. SL was cancelled for symmetry.",
+                                            tp_err
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                    }
+                                    (Ok(tp_resp), Err(sl_err)) => {
+                                        if let Some(ref response_data) = tp_resp.data {
+                                            let _ = api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await;
+                                        }
+
+                                        delete_exit_tp_id_bot_by_client_oid(
+                                            pool,
+                                            exchange,
+                                            &exit_tp_client_oid,
+                                        )
+                                        .await;
+
+                                        let msg = format!(
+                                            "Failed add SL order: {}. TP was cancelled for symmetry.",
+                                            sl_err
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                    }
+                                    (Err(tp_err), Err(sl_err)) => {
+                                        let msg = format!(
+                                            "Failed add both stop orders: TP={}, SL={}",
+                                            tp_err, sl_err
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                        delete_exit_sl_id_bot_by_client_oid(
+                                            pool,
+                                            exchange,
+                                            &exit_sl_client_oid,
+                                        )
+                                        .await;
+                                        delete_exit_tp_id_bot_by_client_oid(
+                                            pool,
+                                            exchange,
+                                            &exit_tp_client_oid,
+                                        )
+                                        .await;
                                     }
                                 }
                             } else if order.side == "sell" {
