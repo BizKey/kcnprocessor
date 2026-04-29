@@ -193,7 +193,7 @@ pub struct MakeOrderResData {
 pub struct MakeOrderRes {
     pub code: String,
     pub msg: Option<String>,
-    pub data: MakeOrderResData,
+    pub data: Option<MakeOrderResData>,
 }
 #[derive(Debug, Deserialize)]
 pub struct MakeStopOrderResData {
@@ -205,7 +205,8 @@ pub struct MakeStopOrderResData {
 #[derive(Debug, Deserialize)]
 pub struct MakeStopOrderRes {
     pub code: String,
-    pub data: MakeStopOrderResData,
+    pub msg: Option<String>,
+    pub data: Option<MakeStopOrderResData>,
 }
 
 #[derive(Debug, Deserialize)]
