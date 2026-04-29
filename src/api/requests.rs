@@ -293,7 +293,17 @@ impl KuCoinClient {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MakeStopOrderRes>(&text) {
-                        Ok(res) => Ok(res),
+                        Ok(res) => {
+                            if res.code == "200000" {
+                                Ok(res)
+                            } else {
+                                Err(format!(
+                                    "API business error: code={}, msg={:?}",
+                                    res.code, res.msg
+                                )
+                                .into())
+                            }
+                        }
                         Err(e) => Err(format!(
                             "Error JSON deserialize:'{}' with data: '{}'",
                             e, text
