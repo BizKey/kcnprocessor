@@ -36,7 +36,7 @@ mod api {
 }
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
-const CLEAR_DELAY: Duration = Duration::from_secs(10);
+const CLEAR_DELAY: Duration = Duration::from_secs(3);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_subscription() -> Vec<serde_json::Value> {
@@ -1703,7 +1703,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     get_all_bots_for_trade(&pool_clone, &exchange_clone).await;
 
                 for trade_bot in trade_bots.iter() {
-                    sleep(Duration::from_millis(30000)).await;
+                    sleep(Duration::from_millis(5000)).await;
                     match trade_bot.balance.parse::<f64>() {
                         Ok(token_funds) => {
                             match make_random_trade(
