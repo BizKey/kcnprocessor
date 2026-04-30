@@ -38,6 +38,13 @@ mod api {
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const CLEAR_DELAY: Duration = Duration::from_secs(3);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
+const TP_BUY_PERCENT: f64 = 1.07; // +7%
+const SL_BUY_PERCENT: f64 = 0.95; // -5%
+const TP_SELL_PERCENT: f64 = 0.93; // -7%
+const SL_SELL_PERCENT: f64 = 1.05; // +5%
+const INIT_ORDER_DELAY: Duration = Duration::from_millis(5000);
+const BOT_INIT_DELAY: Duration = Duration::from_millis(5000);
+const RETRY_DELAY_BASE: u64 = 300;
 
 fn build_subscription() -> Vec<serde_json::Value> {
     vec![
@@ -191,12 +198,13 @@ async fn make_hf_size_margin_order(
 }
 
 fn format_assert(size: f64, increment: f64) -> String {
-    let decimals = if increment >= 1.0 {
+    let precision = if increment >= 1.0 {
         0
     } else {
-        (-increment.log10().floor() as usize).min(10)
+        (increment.recip().log10().ceil() as usize).min(10)
     };
-    format!("{:.decimals$}", size)
+    let rounded = (size / increment).round() * increment;
+    format!("{:.prec$}", rounded, prec = precision)
 }
 
 async fn make_random_trade(
@@ -368,7 +376,7 @@ async fn make_random_trade(
                 if attempt >= MAX_RETRIES {
                     return Ok(());
                 }
-                tokio::time::sleep(Duration::from_millis(300 * attempt as u64)).await;
+                tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
                 continue;
             }
         }
@@ -389,7 +397,7 @@ async fn handle_advanced_orders(
         const MAX_RETRIES: u32 = 10;
         let mut attempt = 0;
         loop {
-            tokio::time::sleep(Duration::from_millis(300 * attempt as u64)).await;
+            tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
             attempt += 1;
 
             let order_id_clone = order.order_id.clone();
@@ -830,8 +838,8 @@ async fn handle_trade_order_event(
 
                             if order.side == "buy" {
                                 let match_price: f64 = new_balance / filled_size_f64;
-                                let trigger_tp_price: f64 = match_price * 1.07; // price + 7%
-                                let trigger_sl_price: f64 = match_price * 0.95; // price - 5%
+                                let trigger_tp_price: f64 = match_price * TP_BUY_PERCENT; // price + 7%
+                                let trigger_sl_price: f64 = match_price * SL_BUY_PERCENT; // price - 5%
 
                                 let exit_tp_client_oid: String = Uuid::new_v4().to_string();
                                 let exit_sl_client_oid: String = Uuid::new_v4().to_string();
@@ -978,8 +986,8 @@ async fn handle_trade_order_event(
                                 }
                             } else if order.side == "sell" {
                                 let match_price: f64 = new_balance / filled_size_f64;
-                                let trigger_tp_price: f64 = match_price * 0.93; // price - 7%
-                                let trigger_sl_price: f64 = match_price * 1.05; // price + 5%
+                                let trigger_tp_price: f64 = match_price * TP_SELL_PERCENT; // price - 7%
+                                let trigger_sl_price: f64 = match_price * SL_SELL_PERCENT; // price + 5%
 
                                 let funds_tp: f64 = trigger_tp_price * filled_size_f64;
                                 let funds_sl: f64 = trigger_sl_price * filled_size_f64;
@@ -1769,13 +1777,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let exchange_clone = exchange.clone();
 
             tokio::spawn(async move {
-                sleep(Duration::from_millis(5000)).await;
+                sleep(INIT_ORDER_DELAY).await;
                 info!("Initializing start orders...");
                 let trade_bots: Vec<Bot> =
                     get_all_bots_for_trade(&pool_clone, &exchange_clone).await;
 
                 for trade_bot in trade_bots.iter() {
-                    sleep(Duration::from_millis(5000)).await;
+                    sleep(BOT_INIT_DELAY).await;
                     match trade_bot.balance.parse::<f64>() {
                         Ok(token_funds) => {
                             match make_random_trade(
