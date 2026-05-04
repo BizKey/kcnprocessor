@@ -45,7 +45,7 @@ const TP_SELL_PERCENT: f64 = 0.93; // -7%
 const SL_SELL_PERCENT: f64 = 1.05; // +5%
 const INIT_ORDER_DELAY: Duration = Duration::from_millis(5000);
 const BOT_INIT_DELAY: Duration = Duration::from_millis(5000);
-const RETRY_DELAY_BASE: u64 = 300;
+const RETRY_DELAY_BASE: u64 = 500;
 
 fn build_subscription() -> Vec<serde_json::Value> {
     vec![
@@ -395,7 +395,7 @@ async fn handle_advanced_orders(
         error!("{}", msg);
         insert_db_error(pool, exchange, &msg).await;
 
-        const MAX_RETRIES: u32 = 10;
+        const MAX_RETRIES: u32 = 1000;
         let mut attempt = 0;
         loop {
             tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
