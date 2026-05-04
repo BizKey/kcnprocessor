@@ -157,6 +157,22 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn delete_symbol_bot_by_exit_sl_client_oid(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+    exit_sl_client_oid: &str,
+) {
+    if let Err(e) = sqlx::query("UPDATE bots SET symbol = NULL updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $1 AND exchange = $2;")
+        .bind(exit_sl_client_oid)
+        .bind(exchange)
+        .execute(pool)
+        .await
+    {
+        let err_msg = format!("Failed delete all orders_ids for bots: {}", e);
+        error!("{}", err_msg);
+        insert_db_error(pool, exchange, &err_msg).await;
+    }
+}
 pub async fn delete_exit_tp_id_bot_by_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
