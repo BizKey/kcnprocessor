@@ -157,6 +157,18 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
+pub async fn fetch_symbol_info_by_symbol(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    symbol: &str,
+) -> Option<Symbol> {
+    sqlx::query_as::<_, Symbol>("SELECT * FROM symbol WHERE exchange = $1 AND symbol = $2")
+        .bind(exchange)
+        .bind(symbol)
+        .fetch_optional(pool)
+        .await
+        .ok()?
+}
 pub async fn delete_symbol_bot_by_exit_sl_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
