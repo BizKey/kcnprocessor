@@ -1323,7 +1323,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 };
                             // liability debt in tokens
                             // get price token
-                            let token_price_str: String = match get_ticker_price(trade_symbol).await {
+                            let token_price_str: String = match get_ticker_price(trade_symbol).await
+                            {
                                 Ok(token_price_str) => {
                                     info!("Successfully get price:{}", &trade_symbol);
                                     token_price_str
@@ -1432,9 +1433,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                     } else if account.currency != "USDT" && token_available > 0.0 {
                         // sell stocks by market available/ works
-                        let client_oid = Uuid::new_v4().to_string();
-                        let trade_symbol = &(account.currency.clone() + "-USDT");
-                        let symbol_info =
+                        let client_oid: String = Uuid::new_v4().to_string();
+                        let trade_symbol: &String = &(account.currency.clone() + "-USDT");
+                        let symbol_info: Symbol =
                             match fetch_symbol_info_by_symbol(&pool, &exchange, trade_symbol).await
                             {
                                 Some(info) => info,
