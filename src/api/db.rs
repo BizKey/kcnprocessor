@@ -162,7 +162,7 @@ pub async fn fetch_symbol_info_by_symbol(
     exchange: &str,
     symbol: &str,
 ) -> Option<Symbol> {
-    sqlx::query_as::<_, Symbol>("SELECT * FROM symbol WHERE exchange = $1 AND symbol = $2")
+    sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size FROM symbol WHERE exchange = $1 AND symbol = $2")
         .bind(exchange)
         .bind(symbol)
         .fetch_optional(pool)

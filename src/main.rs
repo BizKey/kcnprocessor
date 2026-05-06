@@ -1,10 +1,10 @@
 use crate::api::db::{
     clear_orders_ids_for_bots, delete_exit_sl_id_bot_by_client_oid,
     delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid,
-    fetch_symbol_info, fetch_symbol_info_by_symbol, get_all_bots_for_trade,
-    get_bot_by_entry_client_oid, get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid,
-    get_random_side, get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance,
-    insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
+    fetch_symbol_info_by_symbol, get_all_bots_for_trade, get_bot_by_entry_client_oid,
+    get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_side,
+    get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance, insert_db_error,
+    insert_db_event, insert_db_msgsend, insert_db_orderevent,
     set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
     update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
     update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
@@ -29,7 +29,7 @@ use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
-use std::collections::HashMap;
+
 use std::env;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
@@ -589,7 +589,6 @@ async fn handle_trade_order_event(
     order: OrderData,
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
-    symbol_map: &HashMap<String, Symbol>,
 ) {
     // sent order to pg
     insert_db_orderevent(pool, exchange, &order).await;
@@ -599,19 +598,17 @@ async fn handle_trade_order_event(
             && (order.remain_size == Some("0".to_string())
                 || order.remain_funds == Some("0".to_string()))
         {
-            let symbol_info = match symbol_map.get(&order.symbol) {
-                Some(info) => info,
-                None => {
-                    error!("Symbol info not found for: {}", order.symbol);
-                    insert_db_error(
-                        pool,
-                        exchange,
-                        &format!("Missing symbol info for {}", order.symbol),
-                    )
-                    .await;
-                    return;
-                }
-            };
+            let symbol_info: Symbol =
+                match fetch_symbol_info_by_symbol(&pool, &exchange, &order.symbol).await {
+                    Some(info) => info,
+                    None => {
+                        let msg = format!("Symbol info not found for {}", order.symbol);
+                        error!("{}", msg);
+                        insert_db_error(&pool, &exchange, &msg).await;
+                        return;
+                    }
+                };
+
             let price_increment: f64 = match symbol_info.price_increment.parse::<f64>() {
                 Ok(price_increment) => price_increment,
                 Err(e) => {
@@ -1563,16 +1560,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    let symbol_info: Vec<Symbol> = fetch_symbol_info(&pool, &exchange).await;
-    let symbol_map: HashMap<String, Symbol> = symbol_info
-        .into_iter()
-        .map(|s| (s.symbol.clone(), s))
-        .collect();
-
     loop {
         let exchange_for_handler: String = exchange.clone();
         let pool_for_handler = pool.clone();
-        let symbol_map_for_handler = symbol_map.clone();
 
         // websocket to pg
         let (tx_in, mut rx_in) = mpsc::channel::<String>(1000);
@@ -1619,7 +1609,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             order,
                                             &pool_for_handler,
                                             &exchange_for_handler,
-                                            &symbol_map_for_handler,
                                         )
                                         .await
                                     }
