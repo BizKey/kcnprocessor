@@ -17,23 +17,19 @@ pub async fn insert_db_error(pool: &PgPool, exchange: &str, msg: &str) {
         error!("Failed to log error to DB: {}", e);
     }
 }
-pub async fn insert_db_event<T: Serialize>(pool: &PgPool, exchange: &str, msg: &T) {
-    let json_value = match serde_json::to_value(msg) {
-        Ok(v) => v,
-        Err(e) => {
-            error!("Failed to serialize event: {}", e);
-            return;
-        }
-    };
-    if let Err(e) = sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)")
+pub async fn insert_db_event(
+    pool: &PgPool,
+    exchange: &str,
+    json_value: serde_json::Value,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)")
         .bind(exchange)
         .bind(json_value)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed to insert event into DB: {}", e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into()),
     }
 }
 pub async fn insert_db_msgsend(
@@ -66,8 +62,8 @@ pub async fn insert_db_msgsend(
         .bind(args_order_id)
         .execute(pool)
         .await {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e.into())
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
     }
 }
 pub async fn insert_db_balance(

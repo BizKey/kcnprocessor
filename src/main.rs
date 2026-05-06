@@ -1581,7 +1581,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 match serde_json::from_str::<KuCoinMessage>(&msg) {
                     Ok(kc_msg) => match kc_msg {
                         KuCoinMessage::Welcome(data) => {
-                            insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
+                            match serde_json::to_value(data) {
+                                Ok(v) => {
+                                    insert_db_event(&pool_for_handler, &exchange_for_handler, v)
+                                        .await;
+                                }
+                                Err(e) => {
+                                    error!("Failed to serialize event: {}", e);
+                                    return;
+                                }
+                            };
                         }
                         KuCoinMessage::Message(data) => {
                             if data.topic == "/account/balance" {
@@ -1700,7 +1709,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         KuCoinMessage::Ack(data) => {
                             info!("{:?}", data);
                             // sent ack to pg
-                            insert_db_event(&pool_for_handler, &exchange_for_handler, &data).await;
+                            match serde_json::to_value(data) {
+                                Ok(v) => {
+                                    insert_db_event(&pool_for_handler, &exchange_for_handler, v)
+                                        .await;
+                                }
+                                Err(e) => {
+                                    error!("Failed to serialize event: {}", e);
+                                    return;
+                                }
+                            };
                         }
                         KuCoinMessage::Error(data) => {
                             info!("{:?}", data);
