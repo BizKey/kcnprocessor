@@ -1275,7 +1275,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     // repay all liability assets and sell
     loop {
-        let mut all_asset_clear: bool = true;
+        sleep(CLEAR_DELAY).await;
         match api::requests::get_all_margin_accounts().await {
             Ok(accounts) => {
                 for account in accounts.accounts.iter() {
@@ -1441,7 +1441,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 .await;
                             }
                         }
-                        all_asset_clear = false;
                     } else if account.currency != "USDT" && token_available > 0.0 {
                         // sell stocks by market available/ works
                         let client_oid = Uuid::new_v4().to_string();
@@ -1561,7 +1560,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             )
                             .await;
                         }
-                        all_asset_clear = false;
+                    } else {
+                        break;
                     }
                 }
             }
@@ -1569,14 +1569,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let msg: String = format!("Failed to get margin accounts {}", e);
                 error!("{}", msg);
                 insert_db_error(&pool, &exchange, &msg).await;
-                // exit with error
-                all_asset_clear = false;
             }
-        }
-        if all_asset_clear {
-            break;
-        } else {
-            sleep(CLEAR_DELAY).await;
         }
     }
 
