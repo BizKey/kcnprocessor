@@ -19,6 +19,11 @@ use crate::api::models::{
     AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol,
     TradeAbleSymbol,
 };
+use crate::api::requests::{
+    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order,
+    api_v3_hf_margin_stop_order_cancel_by_client_oid, batch_cancel_stop_orders, create_repay_order,
+    get_all_margin_accounts, get_private_ws_url, get_ticker_price, sent_account_transfer,
+};
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
@@ -98,7 +103,7 @@ async fn make_hf_funds_margin_order(
     });
     info!("{}", msg);
 
-    match api::requests::add_api_v3_hf_margin_order(msg.clone()).await {
+    match add_api_v3_hf_margin_order(msg.clone()).await {
         Ok(data) => {
             if data.code != "200000" {
                 let msg = format!(
@@ -175,7 +180,7 @@ async fn make_hf_size_margin_order(
     });
     info!("{}", msg);
 
-    match api::requests::add_api_v3_hf_margin_order(msg.clone()).await {
+    match add_api_v3_hf_margin_order(msg.clone()).await {
         Ok(data) => {
             if data.code != "200000" {
                 let msg = format!(
@@ -286,19 +291,18 @@ async fn make_random_trade(
                         continue;
                     }
                 };
-                let token_price_str: String =
-                    match api::requests::get_ticker_price(&tradeable.symbol).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            let msg = format!("Failed get price: {} {}", tradeable.symbol, e);
-                            error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
-                            if attempt >= MAX_RETRIES {
-                                return Ok(());
-                            }
-                            continue;
+                let token_price_str: String = match get_ticker_price(&tradeable.symbol).await {
+                    Ok(p) => p,
+                    Err(e) => {
+                        let msg = format!("Failed get price: {} {}", tradeable.symbol, e);
+                        error!("{}", msg);
+                        insert_db_error(pool, exchange, &msg).await;
+                        if attempt >= MAX_RETRIES {
+                            return Ok(());
                         }
-                    };
+                        continue;
+                    }
+                };
                 let token_price: f64 = match token_price_str.parse::<f64>() {
                     Ok(v) => v,
                     Err(e) => {
@@ -652,10 +656,8 @@ async fn handle_trade_order_event(
                 if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid {
                     // clear exit_sl_client_oid in bots by id !!
                     delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await;
-                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                        &exit_sl_client_oid,
-                    )
-                    .await
+                    match api_v3_hf_margin_stop_order_cancel_by_client_oid(&exit_sl_client_oid)
+                        .await
                     {
                         Ok(_) => {
                             info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
@@ -735,10 +737,8 @@ async fn handle_trade_order_event(
                 if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
                     // clear exit_tp_client_oid in bots by entry_id
                     delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await;
-                    match api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(
-                        &exit_tp_client_oid,
-                    )
-                    .await
+                    match api_v3_hf_margin_stop_order_cancel_by_client_oid(&exit_tp_client_oid)
+                        .await
                     {
                         Ok(_) => {
                             info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
@@ -894,10 +894,8 @@ async fn handle_trade_order_event(
                                 )
                                 .await;
 
-                                let tp_fut =
-                                    api::requests::api_v3_hf_margin_stop_order(msg_tp_order);
-                                let sl_fut =
-                                    api::requests::api_v3_hf_margin_stop_order(msg_sl_order);
+                                let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order);
+                                let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order);
 
                                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
@@ -928,7 +926,11 @@ async fn handle_trade_order_event(
                                     }
                                     (Err(tp_err), Ok(sl_resp)) => {
                                         if let Some(ref response_data) = sl_resp.data {
-                                            let _ = api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await;
+                                            let _ =
+                                                api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                    &response_data.client_oid,
+                                                )
+                                                .await;
                                         }
 
                                         delete_exit_sl_id_bot_by_client_oid(
@@ -947,7 +949,11 @@ async fn handle_trade_order_event(
                                     }
                                     (Ok(tp_resp), Err(sl_err)) => {
                                         if let Some(ref response_data) = tp_resp.data {
-                                            let _ = api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await;
+                                            let _ =
+                                                api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                    &response_data.client_oid,
+                                                )
+                                                .await;
                                         }
 
                                         delete_exit_tp_id_bot_by_client_oid(
@@ -1049,10 +1055,8 @@ async fn handle_trade_order_event(
                                 )
                                 .await;
 
-                                let tp_fut =
-                                    api::requests::api_v3_hf_margin_stop_order(msg_tp_order);
-                                let sl_fut =
-                                    api::requests::api_v3_hf_margin_stop_order(msg_sl_order);
+                                let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order);
+                                let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order);
                                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
                                 match (&tp_res, &sl_res) {
@@ -1082,7 +1086,11 @@ async fn handle_trade_order_event(
                                     }
                                     (Err(tp_err), Ok(sl_resp)) => {
                                         if let Some(ref response_data) = sl_resp.data {
-                                            let _ = api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await;
+                                            let _ =
+                                                api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                    &response_data.client_oid,
+                                                )
+                                                .await;
                                         }
 
                                         delete_exit_sl_id_bot_by_client_oid(
@@ -1101,7 +1109,11 @@ async fn handle_trade_order_event(
                                     }
                                     (Ok(tp_resp), Err(sl_err)) => {
                                         if let Some(ref response_data) = tp_resp.data {
-                                            let _ = api::requests::api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await;
+                                            let _ =
+                                                api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                    &response_data.client_oid,
+                                                )
+                                                .await;
                                         }
 
                                         delete_exit_tp_id_bot_by_client_oid(
@@ -1215,9 +1227,7 @@ async fn handle_position_event(
                             token_liability, asset, available
                         );
 
-                        if let Err(e) =
-                            api::requests::create_repay_order(asset, token_liability_str).await
-                        {
+                        if let Err(e) = create_repay_order(asset, token_liability_str).await {
                             let msg: String = format!("Failed to repay liability: {}", e);
                             error!("{}", msg);
                             insert_db_error(pool, exchange, &msg).await;
@@ -1228,9 +1238,7 @@ async fn handle_position_event(
                             token_liability, asset, available
                         );
 
-                        if let Err(e) =
-                            api::requests::create_repay_order(asset, &asset_info.available).await
-                        {
+                        if let Err(e) = create_repay_order(asset, &asset_info.available).await {
                             let msg: String = format!("Failed to partially repay debt: {}", e);
                             error!("{}", msg);
                             insert_db_error(pool, exchange, &msg).await;
@@ -1265,7 +1273,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     clear_orders_ids_for_bots(&pool, &exchange).await;
 
     // cancel all stop orders
-    match api::requests::batch_cancel_stop_orders().await {
+    match batch_cancel_stop_orders().await {
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!("Failed batch cancel stop orders: {}", e);
@@ -1276,7 +1284,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // repay all liability assets and sell
     loop {
         sleep(CLEAR_DELAY).await;
-        match api::requests::get_all_margin_accounts().await {
+        match get_all_margin_accounts().await {
             Ok(accounts) => {
                 for account in accounts.accounts.iter() {
                     let token_liability: f64 = account.liability.parse().unwrap_or(0.0);
@@ -1288,11 +1296,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 account.liability, &account.currency, account.available
                             );
 
-                            if let Err(e) = api::requests::create_repay_order(
-                                &account.currency,
-                                &account.liability,
-                            )
-                            .await
+                            if let Err(e) =
+                                create_repay_order(&account.currency, &account.liability).await
                             {
                                 let msg: String = format!("Failed to repay liability: {}", e);
                                 error!("{}", msg);
@@ -1304,11 +1309,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 account.liability, &account.currency, account.available
                             );
 
-                            if let Err(e) = api::requests::create_repay_order(
-                                &account.currency,
-                                &account.available,
-                            )
-                            .await
+                            if let Err(e) =
+                                create_repay_order(&account.currency, &account.available).await
                             {
                                 let msg: String = format!("Failed to partially repay debt: {}", e);
                                 error!("{}", msg);
@@ -1333,20 +1335,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 };
                             // liability debt in tokens
                             // get price token
-                            let token_price_str =
-                                match api::requests::get_ticker_price(trade_symbol).await {
-                                    Ok(token_price_str) => {
-                                        info!("Successfully get price:{}", &trade_symbol);
-                                        token_price_str
-                                    }
-                                    Err(e) => {
-                                        let msg: String =
-                                            format!("Failed get price: {} {}", trade_symbol, e);
-                                        error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
-                                        continue;
-                                    }
-                                };
+                            let token_price_str = match get_ticker_price(trade_symbol).await {
+                                Ok(token_price_str) => {
+                                    info!("Successfully get price:{}", &trade_symbol);
+                                    token_price_str
+                                }
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed get price: {} {}", trade_symbol, e);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    continue;
+                                }
+                            };
                             // convert price from str to int
                             let token_price: f64 = match token_price_str.parse::<f64>() {
                                 Ok(token_price) => token_price,
@@ -1470,20 +1471,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             }
                         };
                         // get price token
-                        let token_price_str: String =
-                            match api::requests::get_ticker_price(trade_symbol).await {
-                                Ok(token_price_str) => {
-                                    info!("Successfully get price:{}", &trade_symbol);
-                                    token_price_str
-                                }
-                                Err(e) => {
-                                    let msg: String =
-                                        format!("Failed get price: {} {}", trade_symbol, e);
-                                    error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
-                                    continue;
-                                }
-                            };
+                        let token_price_str: String = match get_ticker_price(trade_symbol).await {
+                            Ok(token_price_str) => {
+                                info!("Successfully get price:{}", &trade_symbol);
+                                token_price_str
+                            }
+                            Err(e) => {
+                                let msg: String =
+                                    format!("Failed get price: {} {}", trade_symbol, e);
+                                error!("{}", msg);
+                                insert_db_error(&pool, &exchange, &msg).await;
+                                continue;
+                            }
+                        };
                         // convert price from str to int
                         let token_price: f64 = match token_price_str.parse::<f64>() {
                             Ok(token_price) => token_price,
@@ -1523,7 +1523,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         if token_available <= base_min_size
                             || (token_price * token_available) <= quote_min_size
                         {
-                            match api::requests::sent_account_transfer(
+                            match sent_account_transfer(
                                 &account.currency.clone(),
                                 &account.available,
                                 "INTERNAL",
@@ -1733,7 +1733,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         });
 
         // Position/Orders/Balance WS
-        let event_ws_url: String = match api::requests::get_private_ws_url().await {
+        let event_ws_url: String = match get_private_ws_url().await {
             Ok(url) => url,
             Err(e) => {
                 error!("Failed to get WebSocket URL: {}", e);
