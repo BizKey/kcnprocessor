@@ -238,7 +238,6 @@ async fn make_random_trade(
                 }
             };
 
-        let trade_side: String = get_random_side();
         let entry_client_oid: String = Uuid::new_v4().to_string();
 
         if let Err(e) = update_bot_entry_client_oid_by_id(
@@ -262,7 +261,7 @@ async fn make_random_trade(
             continue;
         }
 
-        let order_result = match trade_side.as_str() {
+        let order_result = match get_random_side().as_str() {
             "sell" => {
                 let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
                     Ok(v) => v,
@@ -308,7 +307,7 @@ async fn make_random_trade(
                     pool,
                     exchange,
                     &entry_client_oid,
-                    &trade_side,
+                    "sell",
                     &tradeable.symbol,
                     format_assert(token_size, base_increment),
                     "market".to_string(),
@@ -335,7 +334,7 @@ async fn make_random_trade(
                     pool,
                     exchange,
                     &entry_client_oid,
-                    &trade_side,
+                    "buy",
                     &tradeable.symbol,
                     format_assert(balance_funds, quote_increment),
                     "market".to_string(),
