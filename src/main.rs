@@ -392,12 +392,12 @@ async fn handle_advanced_orders(
             tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
             attempt += 1;
 
-            let order_id_clone = order.order_id.clone();
-            let stop_clone = order.stop.clone();
-            let side_clone = order.side.clone();
-            let symbol_clone = order.symbol.clone();
-            let funds_clone = order.funds.clone();
-            let size_clone = order.size.clone();
+            let order_id_clone: String = order.order_id.clone();
+            let stop_clone: String = order.stop.clone();
+            let side_clone: String = order.side.clone();
+            let symbol_clone: String = order.symbol.clone();
+            let funds_clone: Option<String> = order.funds.clone();
+            let size_clone: Option<String> = order.size.clone();
             let new_exit_client_oid: String = Uuid::new_v4().to_string();
 
             let order_result = match stop_clone.as_str() {
