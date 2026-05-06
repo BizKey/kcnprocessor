@@ -600,21 +600,6 @@ pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Option<TradeAbl
         }
     }
 }
-pub async fn fetch_symbol_info(pool: &PgPool, exchange: &str) -> Vec<Symbol> {
-    match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size FROM symbol WHERE exchange = $1")
-        .bind(exchange)
-        .fetch_all(pool)
-        .await
-    {
-        Ok(symbols) => symbols,
-        Err(e) => {
-            let err_msg = format!("Failed to fetch all symbols from symbol: {}", e);
-            error!("{}", err_msg);
-            insert_db_error(pool, exchange, &err_msg).await;
-            vec![]
-        }
-    }
-}
 
 pub async fn upsert_position_ratio(
     pool: &PgPool,
