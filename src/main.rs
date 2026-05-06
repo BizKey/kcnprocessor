@@ -120,7 +120,7 @@ async fn make_hf_funds_margin_order(
         }
     }
 }
-async fn fetch_symbol_info_for_symbol(
+async fn fetch_symbol_info_by_symbol(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     symbol: &str,
@@ -232,7 +232,7 @@ async fn make_random_trade(
             }
         };
         let symbol_info: Symbol =
-            match fetch_symbol_info_for_symbol(pool, exchange, &tradeable.symbol).await {
+            match fetch_symbol_info_by_symbol(pool, exchange, &tradeable.symbol).await {
                 Some(i) => i,
                 None => {
                     let msg = format!("Symbol info not found for {}", tradeable.symbol);
@@ -1319,7 +1319,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let trade_symbol = &(account.currency.clone() + "-USDT");
                             let client_oid = Uuid::new_v4().to_string();
                             let symbol_info =
-                                match fetch_symbol_info_for_symbol(&pool, &exchange, trade_symbol)
+                                match fetch_symbol_info_by_symbol(&pool, &exchange, trade_symbol)
                                     .await
                                 {
                                     Some(info) => info,
@@ -1445,21 +1445,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         // sell stocks by market available/ works
                         let client_oid = Uuid::new_v4().to_string();
                         let trade_symbol = &(account.currency.clone() + "-USDT");
-                        let symbol_info = match fetch_symbol_info_for_symbol(
-                            &pool,
-                            &exchange,
-                            trade_symbol,
-                        )
-                        .await
-                        {
-                            Some(info) => info,
-                            None => {
-                                let msg = format!("Symbol info not found for {}", trade_symbol);
-                                error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
-                                return Err(msg.into());
-                            }
-                        };
+                        let symbol_info =
+                            match fetch_symbol_info_by_symbol(&pool, &exchange, trade_symbol).await
+                            {
+                                Some(info) => info,
+                                None => {
+                                    let msg = format!("Symbol info not found for {}", trade_symbol);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    return Err(msg.into());
+                                }
+                            };
 
                         let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
                             Ok(base_increment) => base_increment,
