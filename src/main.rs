@@ -1254,7 +1254,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .expect("Failed to create pool");
 
     // clear orders ids for bots
-    clear_orders_ids_for_bots(&pool, &exchange).await;
+    match clear_orders_ids_for_bots(&pool, &exchange).await {
+        Ok(_) => {}
+        Err(e) => {
+            let msg: String = format!("Failed clear all orders_ids for bots: {}", e);
+            error!("{}", msg);
+            insert_db_error(&pool, &exchange, &msg).await;
+            return Err(e);
+        }
+    }
 
     // cancel all stop orders
     match batch_cancel_stop_orders().await {

@@ -427,16 +427,17 @@ pub async fn update_balance_bot_by_exit_sl_client_oid(
         insert_db_error(pool, exchange, &err_msg).await;
     }
 }
-pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) {
-    if let Err(e) = sqlx::query("UPDATE bots SET entry_client_oid = NULL, exit_tp_order_id = NULL, exit_tp_client_oid = NULL, exit_sl_order_id = NULL, exit_sl_client_oid = NULL, balance = '20', symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exchange = $1;")
+pub async fn clear_orders_ids_for_bots(
+    pool: &sqlx::PgPool,
+    exchange: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET entry_client_oid = NULL, exit_tp_order_id = NULL, exit_tp_client_oid = NULL, exit_sl_order_id = NULL, exit_sl_client_oid = NULL, balance = '20', symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exchange = $1;")
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed clear all orders_ids for bots: {}", e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
+        .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_bot_entry_client_oid_by_id(
     pool: &sqlx::PgPool,
