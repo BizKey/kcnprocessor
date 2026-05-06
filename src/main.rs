@@ -667,7 +667,7 @@ async fn handle_trade_order_event(
                     }
                 };
                 match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                    Some(return_balance) => {
+                    Ok(Some(return_balance)) => {
                         if order.side == "buy" {
                             match bot.balance.parse::<f64>() {
                                 Ok(old_balance) => {
@@ -719,9 +719,10 @@ async fn handle_trade_order_event(
                             }
                         }
                     }
-                    None => {
+                    Ok(None) => {
                         error!("No records found or error occurred");
                     }
+                    Err(e) => {}
                 }
                 return;
             }
@@ -748,7 +749,7 @@ async fn handle_trade_order_event(
                     }
                 }
                 match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                    Some(return_balance) => {
+                    Ok(Some(return_balance)) => {
                         if order.side == "buy" {
                             match bot.balance.parse::<f64>() {
                                 Ok(old_balance) => {
@@ -801,9 +802,10 @@ async fn handle_trade_order_event(
                             }
                         }
                     }
-                    None => {
+                    Ok(None) => {
                         error!("No records found or error occurred");
                     }
+                    Err(e) => {}
                 }
                 return;
             }
@@ -824,7 +826,7 @@ async fn handle_trade_order_event(
                         }
                     };
                     match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                        Some(new_balance) => {
+                        Ok(Some(new_balance)) => {
                             update_bot_balance_by_entry_client_oid(
                                 pool,
                                 exchange,
@@ -1155,9 +1157,10 @@ async fn handle_trade_order_event(
                                 }
                             }
                         }
-                        None => {
+                        Ok(None) => {
                             error!("No records found or error occurred");
                         }
+                        Err(e) => {}
                     }
                     // delete entry_id from db
                     set_null_entry_client_oid_by_entry_client_oid(pool, exchange, client_oid).await;

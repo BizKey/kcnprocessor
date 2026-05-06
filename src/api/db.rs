@@ -203,7 +203,7 @@ pub async fn get_total_match_value_by_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     client_oid: &str,
-) -> Option<f64> {
+) -> Result<Option<f64>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
         "SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value FROM orderevent WHERE client_oid = $1 AND exchange = $2 AND match_size IS NOT NULL AND match_price IS NOT NULL;"
     )
@@ -216,32 +216,15 @@ pub async fn get_total_match_value_by_client_oid(
             match row.try_get::<Option<String>, _>("total_match_value"){
                 Ok(Some(value_str)) => {
                     match value_str.parse::<f64>(){
-                        Ok(value) => Some(value),
-                        Err(e) => {
-                            let err_msg = format!("Failed to parse numeric value '{}' to f64: {}", value_str, e);
-                            error!("{}", err_msg);
-                            insert_db_error(pool, exchange, &err_msg).await;
-                            None
-                        }
+                        Ok(value) => Ok(Some(value)),
+                        Err(e) => Err(e.into())
                     }
                 }
-                Ok(None) => {
-                    None
-                }
-                Err(e) => {
-                    let err_msg = format!("Failed to get total_match_value: {}", e);
-                    error!("{}", err_msg);
-                    insert_db_error(pool, exchange, &err_msg).await;
-                    None
-                }
+                Ok(None) => Ok(None),
+                Err(e) =>  Err(e.into())
             }
         }
-        Err(e) => {
-            let err_msg = format!("Failed to get total match value for client_oid:{}: {}", client_oid, e);
-            error!("{}", err_msg);
-            insert_db_error(pool, exchange, &err_msg).await;
-            None
-        }
+        Err(e) => Err(e.into())
     }
 }
 pub async fn set_null_entry_client_oid_by_entry_client_oid(
