@@ -1364,7 +1364,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         continue;
                                     }
                                 };
-                            // parse min_funds	 to int
+                            // parse min_funds to int
                             let min_funds: f64 = match &symbol_info.min_funds {
                                 Some(val) => match val.parse::<f64>() {
                                     Ok(v) => v,
