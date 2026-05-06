@@ -3,18 +3,22 @@ use crate::api::models::{
 };
 use fastrand;
 use log::error;
-use serde::Serialize;
 use sqlx::PgPool;
 use sqlx::Row;
 
-pub async fn insert_db_error(pool: &PgPool, exchange: &str, msg: &str) {
-    if let Err(e) = sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
+pub async fn insert_db_error(
+    pool: &PgPool,
+    exchange: &str,
+    msg: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)")
         .bind(exchange)
         .bind(msg)
         .execute(pool)
         .await
     {
-        error!("Failed to log error to DB: {}", e);
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into()),
     }
 }
 pub async fn insert_db_event(
@@ -157,13 +161,15 @@ pub async fn fetch_symbol_info_by_symbol(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
     symbol: &str,
-) -> Option<Symbol> {
-    sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size FROM symbol WHERE exchange = $1 AND symbol = $2")
+) -> Result<Option<Symbol>, Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query_as::<_, Symbol>("SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size FROM symbol WHERE exchange = $1 AND symbol = $2")
         .bind(exchange)
         .bind(symbol)
         .fetch_optional(pool)
-        .await
-        .ok()?
+        .await {
+        Ok(res) => Ok(res),
+        Err(e) => Err(e.into()),
+    }
 }
 pub async fn delete_symbol_bot_by_exit_sl_client_oid(
     pool: &sqlx::PgPool,

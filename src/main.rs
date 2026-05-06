@@ -226,8 +226,8 @@ async fn make_random_trade(
         };
         let symbol_info: Symbol =
             match fetch_symbol_info_by_symbol(pool, exchange, &tradeable.symbol).await {
-                Some(i) => i,
-                None => {
+                Ok(Some(i)) => i,
+                Ok(None) => {
                     let msg = format!("Symbol info not found for {}", tradeable.symbol);
                     error!("{}", msg);
                     insert_db_error(pool, exchange, &msg).await;
@@ -235,6 +235,12 @@ async fn make_random_trade(
                         return Ok(());
                     }
                     continue;
+                }
+                Err(e) => {
+                    let msg = format!("Symbol info not found for {}", &tradeable.symbol);
+                    error!("{}", msg);
+                    insert_db_error(&pool, &exchange, &msg).await;
+                    return Err(e.into());
                 }
             };
 
@@ -599,8 +605,14 @@ async fn handle_trade_order_event(
         {
             let symbol_info: Symbol =
                 match fetch_symbol_info_by_symbol(&pool, &exchange, &order.symbol).await {
-                    Some(info) => info,
-                    None => {
+                    Ok(Some(info)) => info,
+                    Ok(None) => {
+                        let msg = format!("Symbol info not found for {}", order.symbol);
+                        error!("{}", msg);
+                        insert_db_error(&pool, &exchange, &msg).await;
+                        return;
+                    }
+                    Err(e) => {
                         let msg = format!("Symbol info not found for {}", order.symbol);
                         error!("{}", msg);
                         insert_db_error(&pool, &exchange, &msg).await;
@@ -1319,8 +1331,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 match fetch_symbol_info_by_symbol(&pool, &exchange, trade_symbol)
                                     .await
                                 {
-                                    Some(info) => info,
-                                    None => {
+                                    Ok(Some(info)) => info,
+                                    Ok(None) => {
+                                        let msg =
+                                            format!("Symbol info not found for {}", trade_symbol);
+                                        error!("{}", msg);
+                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        continue;
+                                    }
+                                    Err(e) => {
                                         let msg =
                                             format!("Symbol info not found for {}", trade_symbol);
                                         error!("{}", msg);
@@ -1446,12 +1465,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         let symbol_info: Symbol =
                             match fetch_symbol_info_by_symbol(&pool, &exchange, trade_symbol).await
                             {
-                                Some(info) => info,
-                                None => {
+                                Ok(Some(info)) => info,
+                                Ok(None) => {
                                     let msg = format!("Symbol info not found for {}", trade_symbol);
                                     error!("{}", msg);
                                     insert_db_error(&pool, &exchange, &msg).await;
                                     return Err(msg.into());
+                                }
+                                Err(e) => {
+                                    let msg = format!("Symbol info not found for {}", trade_symbol);
+                                    error!("{}", msg);
+                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    return Err(e.into());
                                 }
                             };
 
