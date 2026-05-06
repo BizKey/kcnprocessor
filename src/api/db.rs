@@ -173,32 +173,29 @@ pub async fn delete_symbol_bot_by_exit_sl_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     exit_sl_client_oid: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET symbol = NULL updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $1 AND exchange = $2;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET symbol = NULL updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $1 AND exchange = $2;")
         .bind(exit_sl_client_oid)
         .bind(exchange)
         .execute(pool)
         .await
     {
-        let err_msg = format!("Failed delete all orders_ids for bots: {}", e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into())
     }
 }
 pub async fn delete_exit_tp_id_bot_by_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     client_oid: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = NULL, exit_tp_order_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $1 AND exchange = $2;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET exit_tp_client_oid = NULL, exit_tp_order_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $1 AND exchange = $2;")
         .bind(client_oid)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed delete all orders_ids for bots: {}", e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
+        .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
     }
 }
 pub async fn get_total_match_value_by_client_oid(
@@ -250,17 +247,15 @@ pub async fn set_null_entry_client_oid_by_entry_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     client_oid: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET entry_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $1 AND exchange = $2;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET entry_client_oid = NULL, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $1 AND exchange = $2;")
         .bind(client_oid)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed delete entry_client_oid:{} by entry_client_oid:{} for bots: {}", client_oid, client_oid, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
+        .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 
 pub async fn update_exit_sl_client_oid_bot_by_exit_sl_order_id(
@@ -269,18 +264,15 @@ pub async fn update_exit_sl_client_oid_bot_by_exit_sl_order_id(
     exit_sl_order_id: &str,
     exit_sl_client_oid: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_order_id = $2 AND exchange = $3;")
+    match sqlx::query("UPDATE bots SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_order_id = $2 AND exchange = $3;")
         .bind(exit_sl_client_oid)
         .bind(exit_sl_order_id)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed update exit_sl_client_oid:{} by exit_sl_order_id:{} for bots: {}", exit_sl_client_oid, exit_sl_order_id, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
-    Ok(())
+        .await  {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_exit_tp_client_oid_bot_by_exit_tp_order_id(
     pool: &sqlx::PgPool,
@@ -288,126 +280,111 @@ pub async fn update_exit_tp_client_oid_bot_by_exit_tp_order_id(
     exit_tp_order_id: &str,
     exit_tp_client_oid: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_order_id = $2 AND exchange = $3;")
+    match sqlx::query("UPDATE bots SET exit_tp_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_order_id = $2 AND exchange = $3;")
         .bind(exit_tp_client_oid)
         .bind(exit_tp_order_id)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed update exit_tp_client_oid:{} by exit_tp_order_id:{} for bots: {}", exit_tp_client_oid, exit_tp_order_id, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
-    Ok(())
+        .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_exit_tp_client_oid_bot_by_entry_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     entry_client_oid: &str,
     exit_tp_client_oid: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET exit_tp_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
         .bind(exit_tp_client_oid)
         .bind(entry_client_oid)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed update exit_tp_client_oid:{} by client_oid:{} for bots: {}", exit_tp_client_oid, entry_client_oid, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
+        .await  {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_exit_tp_order_id_bot_by_exit_tp_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     exit_tp_order_id: &str,
     exit_tp_client_oid: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_tp_order_id = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $2 AND exchange = $3;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET exit_tp_order_id = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $2 AND exchange = $3;")
         .bind(exit_tp_order_id)
         .bind(exit_tp_client_oid)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed update exit_tp_order_id:{} by exit_tp_client_oid:{} for bots: {}", exit_tp_order_id, exit_tp_client_oid, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
+        .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_exit_sl_order_id_bot_by_exit_sl_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     exit_sl_order_id: &str,
     exit_sl_client_oid: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_order_id = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $2 AND exchange = $3;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET exit_sl_order_id = $1, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $2 AND exchange = $3;")
         .bind(exit_sl_order_id)
         .bind(exit_sl_client_oid)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed update exit_sl_order_id:{} by exit_sl_client_oid:{} for bots: {}", exit_sl_order_id, exit_sl_client_oid, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
+        .await  {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     entry_client_oid: &str,
     exit_sl_client_oid: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
         .bind(exit_sl_client_oid)
         .bind(entry_client_oid)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed update exit_sl_id:{} by entry_id:{} for bots: {}", exit_sl_client_oid, entry_client_oid, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
+        .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_balance_bot_by_exit_tp_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     exit_tp_client_oid: &str,
     balance: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $2 AND exchange = $3;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $2 AND exchange = $3;")
         .bind(balance)
         .bind(exit_tp_client_oid)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed update balance:{} by exit_tp_client_oid:{} for bots: {}", balance, exit_tp_client_oid, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
+        .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_bot_balance_by_entry_client_oid(
     pool: &sqlx::PgPool,
     exchange: &str,
     entry_client_oid: &str,
     balance: &str,
-) {
-    if let Err(e) = sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
         .bind(balance)
         .bind(entry_client_oid)
         .bind(exchange)
         .execute(pool)
-        .await
-    {
-        let err_msg = format!("Failed update balance:{} by entry_client_oid:{} for bots: {}", balance, entry_client_oid, e);
-        error!("{}", err_msg);
-        insert_db_error(pool, exchange, &err_msg).await;
-    }
+        .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
 }
 pub async fn update_balance_bot_by_exit_sl_client_oid(
     pool: &sqlx::PgPool,

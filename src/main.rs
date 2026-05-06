@@ -1271,6 +1271,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let msg: String = format!("Failed batch cancel stop orders: {}", e);
             error!("{}", msg);
             insert_db_error(&pool, &exchange, &msg).await;
+            return Err(e);
         }
     }
     // repay all liability assets and sell
