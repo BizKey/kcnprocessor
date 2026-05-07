@@ -213,22 +213,43 @@ async fn make_random_trade(
 
     loop {
         attempt += 1;
-        let tradeable: TradeAbleSymbol = match get_random_symbol(pool, exchange).await {
-            Some(t) => t,
-            None => {
-                info!("No tradeable symbols (attempt {}/{})", attempt, MAX_RETRIES);
-                if attempt >= MAX_RETRIES {
-                    return Ok(());
-                }
-                tokio::time::sleep(Duration::from_millis(500)).await;
-                continue;
-            }
-        };
-        let symbol_info: Symbol =
-            match fetch_symbol_info_by_symbol(pool, exchange, &tradeable.symbol).await {
-                Ok(Some(i)) => i,
-                Ok(None) => {
-                    let msg = format!("Symbol info not found for {}", tradeable.symbol);
+        match get_random_symbol(pool, exchange).await {
+            Ok(Some(tradeable)) => {
+                let symbol_info: Symbol =
+                    match fetch_symbol_info_by_symbol(pool, exchange, &tradeable.symbol).await {
+                        Ok(Some(i)) => i,
+                        Ok(None) => {
+                            let msg = format!("Symbol info not found for {}", tradeable.symbol);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                            if attempt >= MAX_RETRIES {
+                                return Ok(());
+                            }
+                            continue;
+                        }
+                        Err(e) => {
+                            let msg = format!("Symbol info not found for {}", &tradeable.symbol);
+                            error!("{}", msg);
+                            insert_db_error(&pool, &exchange, &msg).await;
+                            return Err(e.into());
+                        }
+                    };
+
+                let entry_client_oid: String = Uuid::new_v4().to_string();
+
+                if let Err(e) = update_bot_entry_client_oid_by_id(
+                    pool,
+                    exchange,
+                    Some(&tradeable.symbol),
+                    Some(&entry_client_oid),
+                    trade_bot_id,
+                )
+                .await
+                {
+                    let msg = format!(
+                        "Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}",
+                        entry_client_oid, trade_bot_id, e
+                    );
                     error!("{}", msg);
                     insert_db_error(pool, exchange, &msg).await;
                     if attempt >= MAX_RETRIES {
@@ -236,147 +257,133 @@ async fn make_random_trade(
                     }
                     continue;
                 }
-                Err(e) => {
-                    let msg = format!("Symbol info not found for {}", &tradeable.symbol);
-                    error!("{}", msg);
-                    insert_db_error(&pool, &exchange, &msg).await;
-                    return Err(e.into());
-                }
-            };
 
-        let entry_client_oid: String = Uuid::new_v4().to_string();
+                let order_result = match get_random_side().as_str() {
+                    "sell" => {
+                        let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
+                            Ok(v) => v,
+                            Err(e) => {
+                                let msg = format!(
+                                    "Failed parse base_increment: {} {}",
+                                    symbol_info.base_increment, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                if attempt >= MAX_RETRIES {
+                                    return Ok(());
+                                }
+                                continue;
+                            }
+                        };
+                        let token_price_str: String = match get_ticker_price(&tradeable.symbol)
+                            .await
+                        {
+                            Ok(p) => p,
+                            Err(e) => {
+                                let msg = format!("Failed get price: {} {}", tradeable.symbol, e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                if attempt >= MAX_RETRIES {
+                                    return Ok(());
+                                }
+                                continue;
+                            }
+                        };
+                        let token_price: f64 = match token_price_str.parse::<f64>() {
+                            Ok(v) => v,
+                            Err(e) => {
+                                let msg = format!("Failed parse price: {} {}", token_price_str, e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                if attempt >= MAX_RETRIES {
+                                    return Ok(());
+                                }
+                                continue;
+                            }
+                        };
+                        let token_size: f64 = balance_funds / token_price;
+                        make_hf_size_margin_order(
+                            pool,
+                            exchange,
+                            &entry_client_oid,
+                            "sell",
+                            &tradeable.symbol,
+                            format_assert(token_size, base_increment),
+                            "market".to_string(),
+                        )
+                        .await
+                    }
+                    "buy" => {
+                        let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>()
+                        {
+                            Ok(v) => v,
+                            Err(e) => {
+                                let msg = format!(
+                                    "Failed parse quote_increment: {} {}",
+                                    symbol_info.quote_increment, e
+                                );
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                                if attempt >= MAX_RETRIES {
+                                    return Ok(());
+                                }
+                                continue;
+                            }
+                        };
+                        make_hf_funds_margin_order(
+                            pool,
+                            exchange,
+                            &entry_client_oid,
+                            "buy",
+                            &tradeable.symbol,
+                            format_assert(balance_funds, quote_increment),
+                            "market".to_string(),
+                        )
+                        .await
+                    }
+                    _ => {
+                        if attempt >= MAX_RETRIES {
+                            return Ok(());
+                        }
+                        continue;
+                    }
+                };
 
-        if let Err(e) = update_bot_entry_client_oid_by_id(
-            pool,
-            exchange,
-            Some(&tradeable.symbol),
-            Some(&entry_client_oid),
-            trade_bot_id,
-        )
-        .await
-        {
-            let msg = format!(
-                "Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}",
-                entry_client_oid, trade_bot_id, e
-            );
-            error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
-            if attempt >= MAX_RETRIES {
-                return Ok(());
-            }
-            continue;
-        }
-
-        let order_result = match get_random_side().as_str() {
-            "sell" => {
-                let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let msg = format!(
-                            "Failed parse base_increment: {} {}",
-                            symbol_info.base_increment, e
+                match order_result {
+                    Ok(_) => {
+                        info!(
+                            "✅ Order placed: {} {} (attempt {}/{})",
+                            entry_client_oid, trade_bot_id, attempt, MAX_RETRIES
                         );
-                        error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
-                        if attempt >= MAX_RETRIES {
-                            return Ok(());
-                        }
-                        continue;
+                        return Ok(());
                     }
-                };
-                let token_price_str: String = match get_ticker_price(&tradeable.symbol).await {
-                    Ok(p) => p,
                     Err(e) => {
-                        let msg = format!("Failed get price: {} {}", tradeable.symbol, e);
-                        error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
-                        if attempt >= MAX_RETRIES {
-                            return Ok(());
-                        }
-                        continue;
-                    }
-                };
-                let token_price: f64 = match token_price_str.parse::<f64>() {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let msg = format!("Failed parse price: {} {}", token_price_str, e);
-                        error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
-                        if attempt >= MAX_RETRIES {
-                            return Ok(());
-                        }
-                        continue;
-                    }
-                };
-                let token_size: f64 = balance_funds / token_price;
-                make_hf_size_margin_order(
-                    pool,
-                    exchange,
-                    &entry_client_oid,
-                    "sell",
-                    &tradeable.symbol,
-                    format_assert(token_size, base_increment),
-                    "market".to_string(),
-                )
-                .await
-            }
-            "buy" => {
-                let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let msg = format!(
-                            "Failed parse quote_increment: {} {}",
-                            symbol_info.quote_increment, e
+                        let _ = update_bot_entry_client_oid_by_id(
+                            pool,
+                            exchange,
+                            None,
+                            None,
+                            trade_bot_id,
+                        )
+                        .await;
+                        error!(
+                            "❌ Order failed (attempt {}/{}): {} - {}",
+                            attempt, MAX_RETRIES, tradeable.symbol, e
                         );
-                        error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
+                        insert_db_error(pool, exchange, &e.to_string()).await;
                         if attempt >= MAX_RETRIES {
                             return Ok(());
                         }
+                        tokio::time::sleep(Duration::from_millis(
+                            RETRY_DELAY_BASE * attempt as u64,
+                        ))
+                        .await;
                         continue;
                     }
-                };
-                make_hf_funds_margin_order(
-                    pool,
-                    exchange,
-                    &entry_client_oid,
-                    "buy",
-                    &tradeable.symbol,
-                    format_assert(balance_funds, quote_increment),
-                    "market".to_string(),
-                )
-                .await
-            }
-            _ => {
-                if attempt >= MAX_RETRIES {
-                    return Ok(());
                 }
-                continue;
             }
-        };
-
-        match order_result {
-            Ok(_) => {
-                info!(
-                    "✅ Order placed: {} {} (attempt {}/{})",
-                    entry_client_oid, trade_bot_id, attempt, MAX_RETRIES
-                );
-                return Ok(());
-            }
-            Err(e) => {
-                let _ = update_bot_entry_client_oid_by_id(pool, exchange, None, None, trade_bot_id)
-                    .await;
-                error!(
-                    "❌ Order failed (attempt {}/{}): {} - {}",
-                    attempt, MAX_RETRIES, tradeable.symbol, e
-                );
-                insert_db_error(pool, exchange, &e.to_string()).await;
-                if attempt >= MAX_RETRIES {
-                    return Ok(());
-                }
-                tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
-                continue;
-            }
+            Ok(None) => {}
+            Err(e) => {}
         }
     }
 }

@@ -493,7 +493,10 @@ pub fn get_random_side() -> String {
     }
 }
 
-pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Option<TradeAbleSymbol> {
+pub async fn get_random_symbol(
+    pool: &PgPool,
+    exchange: &str,
+) -> Result<Option<TradeAbleSymbol>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, TradeAbleSymbol>(
         "SELECT s.symbol
         FROM symbol s
@@ -518,17 +521,8 @@ pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Option<TradeAbl
     .fetch_optional(pool)
     .await
     {
-        Ok(Some(symbol)) => Some(symbol),
-        Ok(None) => {
-            error!("No available symbols for exchange: {}", exchange);
-            None
-        }
-        Err(e) => {
-            let err_msg = format!("Failed to fetch symbols for trade '{}': {}", exchange, e);
-            error!("{}", err_msg);
-            insert_db_error(pool, exchange, &err_msg).await;
-            None
-        }
+        Ok(symbol) => Ok(symbol),
+        Err(e) => Err(e.into()),
     }
 }
 
