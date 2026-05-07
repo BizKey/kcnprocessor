@@ -2166,7 +2166,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         let msg =
                                             format!("Failed make_hf_funds_margin_order: {}", e);
                                         error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
+
+                                        match insert_db_error(&pool, &exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
+                                        }
                                     }
                                 }
                             } else {
@@ -2186,7 +2196,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         let msg =
                                             format!("Failed make_hf_funds_margin_order: {}", e);
                                         error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        match insert_db_error(&pool, &exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
+                                        }
                                     }
                                 }
                             };
@@ -2455,12 +2474,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                     e
                                                 );
                                                 error!("{}", msg);
-                                                insert_db_error(
+
+                                                match insert_db_error(
                                                     &pool_for_handler,
                                                     &exchange_for_handler,
                                                     &msg,
                                                 )
-                                                .await;
+                                                .await
+                                                {
+                                                    Ok(_) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!(
+                                                            "Failed insert error msg: {} {}",
+                                                            msg, e
+                                                        );
+                                                        error!("{}", msg);
+                                                    }
+                                                }
                                             }
                                         }
                                     }
