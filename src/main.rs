@@ -124,7 +124,10 @@ async fn make_hf_funds_margin_order(
                 error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
-                    Err(e) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        error!("{}", msg);
+                    }
                 }
                 Err(msg.into())
             } else {
@@ -136,7 +139,10 @@ async fn make_hf_funds_margin_order(
             error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
                 Ok(_) => {}
-                Err(e) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
             }
             Err(msg.into())
         }
@@ -199,7 +205,10 @@ async fn make_hf_size_margin_order(
                 error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
-                    Err(e) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        error!("{}", msg);
+                    }
                 }
                 Err(msg.into())
             } else {
@@ -211,7 +220,10 @@ async fn make_hf_size_margin_order(
             error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
                 Ok(_) => {}
-                Err(e) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
             }
             Err(msg.into())
         }
@@ -250,7 +262,11 @@ async fn make_random_trade(
                             error!("{}", msg);
                             match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
-                                Err(e) => {}
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
                             }
                             if attempt >= MAX_RETRIES {
                                 return Ok(());
@@ -262,7 +278,11 @@ async fn make_random_trade(
                             error!("{}", msg);
                             match insert_db_error(&pool, &exchange, &msg).await {
                                 Ok(_) => {}
-                                Err(e) => {}
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
                             }
                             return Err(e.into());
                         }
@@ -288,7 +308,10 @@ async fn make_random_trade(
                         error!("{}", msg);
                         match insert_db_error(pool, exchange, &msg).await {
                             Ok(_) => {}
-                            Err(e) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
                         }
                         if attempt >= MAX_RETRIES {
                             return Ok(());
@@ -309,7 +332,11 @@ async fn make_random_trade(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 if attempt >= MAX_RETRIES {
                                     return Ok(());
@@ -326,7 +353,11 @@ async fn make_random_trade(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 if attempt >= MAX_RETRIES {
                                     return Ok(());
@@ -341,7 +372,11 @@ async fn make_random_trade(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 if attempt >= MAX_RETRIES {
                                     return Ok(());
@@ -373,7 +408,11 @@ async fn make_random_trade(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 if attempt >= MAX_RETRIES {
                                     return Ok(());
@@ -423,7 +462,10 @@ async fn make_random_trade(
                         );
                         match insert_db_error(pool, exchange, &e.to_string()).await {
                             Ok(_) => {}
-                            Err(e) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
                         }
                         if attempt >= MAX_RETRIES {
                             return Ok(());
@@ -453,7 +495,10 @@ async fn handle_advanced_orders(
         error!("{}", msg);
         match insert_db_error(pool, exchange, &msg).await {
             Ok(_) => {}
-            Err(e) => {}
+            Err(e) => {
+                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                error!("{}", msg);
+            }
         }
 
         const MAX_RETRIES: u32 = 1000;
@@ -490,7 +535,11 @@ async fn handle_advanced_orders(
                             error!("{}", msg);
                             match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
-                                Err(e) => {}
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
                             }
                             if attempt >= MAX_RETRIES {
                                 return;
@@ -520,7 +569,11 @@ async fn handle_advanced_orders(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 return;
                             }
@@ -545,7 +598,11 @@ async fn handle_advanced_orders(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 return;
                             }
@@ -555,7 +612,11 @@ async fn handle_advanced_orders(
                             error!("{}", msg);
                             match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
-                                Err(e) => {}
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
                             }
 
                             return;
@@ -581,7 +642,11 @@ async fn handle_advanced_orders(
                             error!("{}", msg);
                             match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
-                                Err(e) => {}
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
                             }
                             if attempt >= MAX_RETRIES {
                                 return;
@@ -611,7 +676,11 @@ async fn handle_advanced_orders(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 return;
                             }
@@ -636,7 +705,11 @@ async fn handle_advanced_orders(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
 
                                 return;
@@ -647,7 +720,11 @@ async fn handle_advanced_orders(
                             error!("{}", msg);
                             match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
-                                Err(e) => {}
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
                             }
 
                             return;
@@ -659,7 +736,10 @@ async fn handle_advanced_orders(
                     error!("{}", msg);
                     match insert_db_error(pool, exchange, &msg).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            error!("{}", msg);
+                        }
                     }
 
                     return;
@@ -681,7 +761,10 @@ async fn handle_advanced_orders(
                     );
                     match insert_db_error(pool, exchange, &e.to_string()).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            error!("{}", msg);
+                        }
                     }
                     if attempt >= MAX_RETRIES {
                         return;
@@ -716,7 +799,10 @@ async fn handle_trade_order_event(
                         error!("{}", msg);
                         match insert_db_error(&pool, &exchange, &msg).await {
                             Ok(_) => {}
-                            Err(e) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
                         }
                         return;
                     }
@@ -725,7 +811,10 @@ async fn handle_trade_order_event(
                         error!("{}", msg);
                         match insert_db_error(&pool, &exchange, &msg).await {
                             Ok(_) => {}
-                            Err(e) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
                         }
                         return;
                     }
@@ -741,7 +830,10 @@ async fn handle_trade_order_event(
                     error!("{}", msg);
                     match insert_db_error(pool, exchange, &msg).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            error!("{}", msg);
+                        }
                     }
                     return;
                 }
@@ -756,7 +848,10 @@ async fn handle_trade_order_event(
                     error!("{}", msg);
                     match insert_db_error(pool, exchange, &msg).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            error!("{}", msg);
+                        }
                     }
                     return;
                 }
@@ -793,7 +888,11 @@ async fn handle_trade_order_event(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 return;
                             }
@@ -828,7 +927,13 @@ async fn handle_trade_order_event(
                                                 error!("{}", msg);
                                                 match insert_db_error(pool, exchange, &msg).await {
                                                     Ok(_) => {}
-                                                    Err(e) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!(
+                                                            "Failed insert error msg: {} {}",
+                                                            msg, e
+                                                        );
+                                                        error!("{}", msg);
+                                                    }
                                                 }
                                             }
                                         }
@@ -839,7 +944,13 @@ async fn handle_trade_order_event(
                                         error!("{}", msg);
                                         match insert_db_error(pool, exchange, &msg).await {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                     }
                                 }
@@ -866,7 +977,13 @@ async fn handle_trade_order_event(
                                         error!("{}", msg);
                                         match insert_db_error(pool, exchange, &msg).await {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                     }
                                 }
@@ -916,7 +1033,11 @@ async fn handle_trade_order_event(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 return;
                             }
@@ -951,7 +1072,13 @@ async fn handle_trade_order_event(
                                                 error!("{}", msg);
                                                 match insert_db_error(pool, exchange, &msg).await {
                                                     Ok(_) => {}
-                                                    Err(e) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!(
+                                                            "Failed insert error msg: {} {}",
+                                                            msg, e
+                                                        );
+                                                        error!("{}", msg);
+                                                    }
                                                 }
                                             }
                                         }
@@ -962,7 +1089,13 @@ async fn handle_trade_order_event(
                                         error!("{}", msg);
                                         match insert_db_error(pool, exchange, &msg).await {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                     }
                                 }
@@ -990,7 +1123,13 @@ async fn handle_trade_order_event(
                                         error!("{}", msg);
                                         match insert_db_error(pool, exchange, &msg).await {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                     }
                                 }
@@ -1023,7 +1162,11 @@ async fn handle_trade_order_event(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 return;
                             }
@@ -1171,7 +1314,13 @@ async fn handle_trade_order_event(
                                             error!("{}", msg);
                                             match insert_db_error(pool, exchange, &msg).await {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg: String = format!(
+                                                        "Failed insert error msg: {} {}",
+                                                        msg, e
+                                                    );
+                                                    error!("{}", msg);
+                                                }
                                             }
                                         }
                                         (Ok(tp_resp), Err(sl_err)) => {
@@ -1201,7 +1350,13 @@ async fn handle_trade_order_event(
                                             error!("{}", msg);
                                             match insert_db_error(pool, exchange, &msg).await {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg: String = format!(
+                                                        "Failed insert error msg: {} {}",
+                                                        msg, e
+                                                    );
+                                                    error!("{}", msg);
+                                                }
                                             }
                                         }
                                         (Err(tp_err), Err(sl_err)) => {
@@ -1212,7 +1367,13 @@ async fn handle_trade_order_event(
                                             error!("{}", msg);
                                             match insert_db_error(pool, exchange, &msg).await {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg: String = format!(
+                                                        "Failed insert error msg: {} {}",
+                                                        msg, e
+                                                    );
+                                                    error!("{}", msg);
+                                                }
                                             }
                                             match delete_symbol_bot_by_exit_sl_client_oid(
                                                 pool,
@@ -1374,7 +1535,13 @@ async fn handle_trade_order_event(
                                             error!("{}", msg);
                                             match insert_db_error(pool, exchange, &msg).await {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg: String = format!(
+                                                        "Failed insert error msg: {} {}",
+                                                        msg, e
+                                                    );
+                                                    error!("{}", msg);
+                                                }
                                             }
                                         }
                                         (Ok(tp_resp), Err(sl_err)) => {
@@ -1404,7 +1571,13 @@ async fn handle_trade_order_event(
                                             error!("{}", msg);
                                             match insert_db_error(pool, exchange, &msg).await {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg: String = format!(
+                                                        "Failed insert error msg: {} {}",
+                                                        msg, e
+                                                    );
+                                                    error!("{}", msg);
+                                                }
                                             }
                                         }
                                         (Err(tp_err), Err(sl_err)) => {
@@ -1415,7 +1588,13 @@ async fn handle_trade_order_event(
                                             error!("{}", msg);
                                             match insert_db_error(pool, exchange, &msg).await {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg: String = format!(
+                                                        "Failed insert error msg: {} {}",
+                                                        msg, e
+                                                    );
+                                                    error!("{}", msg);
+                                                }
                                             }
                                             match delete_symbol_bot_by_exit_sl_client_oid(
                                                 pool,
@@ -1496,7 +1675,10 @@ async fn handle_position_event(
             error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
                 Ok(_) => {}
-                Err(e) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
             }
         }
     }
@@ -1509,7 +1691,10 @@ async fn handle_position_event(
                 error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
-                    Err(e) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        error!("{}", msg);
+                    }
                 }
             }
         }
@@ -1531,7 +1716,10 @@ async fn handle_position_event(
                 error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
-                    Err(e) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        error!("{}", msg);
+                    }
                 }
             }
         }
@@ -1556,7 +1744,11 @@ async fn handle_position_event(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                             }
                         }
@@ -1573,7 +1765,11 @@ async fn handle_position_event(
                                 error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                             }
                         }
@@ -1584,7 +1780,10 @@ async fn handle_position_event(
                 error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
-                    Err(e) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        error!("{}", msg);
+                    }
                 }
             }
         }
@@ -1614,7 +1813,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             error!("{}", msg);
             match insert_db_error(&pool, &exchange, &msg).await {
                 Ok(_) => {}
-                Err(e) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
             }
             return Err(e);
         }
@@ -1628,7 +1830,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             error!("{}", msg);
             match insert_db_error(&pool, &exchange, &msg).await {
                 Ok(_) => {}
-                Err(e) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
             }
             return Err(e);
         }
@@ -1657,7 +1862,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                 }
                             }
@@ -1675,7 +1884,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                 }
                             }
@@ -1694,7 +1907,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         error!("{}", msg);
                                         match insert_db_error(&pool, &exchange, &msg).await {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                         continue;
                                     }
@@ -1704,7 +1923,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         error!("{}", msg);
                                         match insert_db_error(&pool, &exchange, &msg).await {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                         continue;
                                     }
@@ -1723,7 +1948,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                     continue;
                                 }
@@ -1737,7 +1966,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                     continue;
                                 }
@@ -1746,22 +1979,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             // calc price token on amount liability token
                             let token_funds: f64 = token_price * token_liability;
 
-                            let quote_increment: f64 =
-                                match symbol_info.quote_increment.parse::<f64>() {
-                                    Ok(quote_increment) => quote_increment,
-                                    Err(e) => {
-                                        let msg: String = format!(
-                                            "Failed parse quote_increment: {} {}",
-                                            symbol_info.quote_increment, e
-                                        );
-                                        error!("{}", msg);
-                                        match insert_db_error(&pool, &exchange, &msg).await {
-                                            Ok(_) => {}
-                                            Err(e) => {}
+                            let quote_increment: f64 = match symbol_info
+                                .quote_increment
+                                .parse::<f64>()
+                            {
+                                Ok(quote_increment) => quote_increment,
+                                Err(e) => {
+                                    let msg: String = format!(
+                                        "Failed parse quote_increment: {} {}",
+                                        symbol_info.quote_increment, e
+                                    );
+                                    error!("{}", msg);
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
                                         }
-                                        continue;
                                     }
-                                };
+                                    continue;
+                                }
+                            };
                             // parse min_funds to int
                             let min_funds: f64 = match &symbol_info.min_funds {
                                 Some(val) => match val.parse::<f64>() {
@@ -1774,7 +2013,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         error!("{}", msg);
                                         match insert_db_error(&pool, &exchange, &msg).await {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                         continue;
                                     }
@@ -1785,7 +2030,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                     continue;
                                 }
@@ -1801,7 +2050,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                     continue;
                                 }
@@ -1851,7 +2104,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                     return Err(msg.into());
                                 }
@@ -1860,7 +2117,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                     return Err(e.into());
                                 }
@@ -1876,7 +2137,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 match insert_db_error(&pool, &exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 continue;
                             }
@@ -1893,7 +2158,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 match insert_db_error(&pool, &exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 continue;
                             }
@@ -1907,7 +2176,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 match insert_db_error(&pool, &exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 continue;
                             }
@@ -1923,7 +2196,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 match insert_db_error(&pool, &exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 continue;
                             }
@@ -1938,7 +2215,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 error!("{}", msg);
                                 match insert_db_error(&pool, &exchange, &msg).await {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                                 continue;
                             }
@@ -1966,7 +2247,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     error!("{}", msg);
                                     match insert_db_error(&pool, &exchange, &msg).await {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                 }
                             }
@@ -1990,7 +2275,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 error!("{}", msg);
                 match insert_db_error(&pool, &exchange, &msg).await {
                     Ok(_) => {}
-                    Err(e) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        error!("{}", msg);
+                    }
                 }
                 all_asset_clear = false;
             }
@@ -2061,7 +2349,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await
                                         {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                     }
                                 }
@@ -2091,7 +2385,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await
                                         {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                     }
                                 }
@@ -2122,7 +2422,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await
                                         {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                     }
                                 }
@@ -2151,7 +2457,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         .await
                                         {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg: String = format!(
+                                                    "Failed insert error msg: {} {}",
+                                                    msg, e
+                                                );
+                                                error!("{}", msg);
+                                            }
                                         }
                                     }
                                 }
@@ -2166,7 +2478,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 .await
                                 {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg: String =
+                                            format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
                                 }
                             }
                         }
@@ -2203,7 +2519,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             .await
                             {
                                 Ok(_) => {}
-                                Err(e) => {}
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
                             }
                         }
                         KuCoinMessage::Unknown => {
@@ -2217,7 +2537,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await
                         {
                             Ok(_) => {}
-                            Err(e) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
                         }
                     }
                 }
@@ -2257,7 +2580,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     error!("{}", msg);
                     match insert_db_error(&pool, &exchange, &msg).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            error!("{}", msg);
+                        }
                     }
 
                     break;
@@ -2307,7 +2633,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             .await
                                             {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg: String = format!(
+                                                        "Failed insert error msg: {} {}",
+                                                        msg, e
+                                                    );
+                                                    error!("{}", msg);
+                                                }
                                             }
                                         }
                                     }
@@ -2321,7 +2653,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     match insert_db_error(&pool_clone, &exchange_clone, &msg).await
                                     {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg: String =
+                                                format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
                                     }
                                 }
                             }
