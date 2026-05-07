@@ -1,7 +1,7 @@
 use crate::api::models::{
     BalanceData, BalanceRelationContext, Bot, OrderData, Symbol, TradeAbleSymbol,
 };
-use fastrand;
+
 use log::error;
 use sqlx::PgPool;
 use sqlx::Row;
@@ -485,14 +485,6 @@ pub async fn get_all_bots_for_trade(
     }
 }
 
-pub fn get_random_side() -> String {
-    if fastrand::bool() {
-        "buy".to_string()
-    } else {
-        "sell".to_string()
-    }
-}
-
 pub async fn get_random_symbol(
     pool: &PgPool,
     exchange: &str,
@@ -533,8 +525,8 @@ pub async fn upsert_position_ratio(
     total_asset: f64,
     margin_coefficient_total_asset: &str,
     total_debt: &str,
-) -> Result<(), sqlx::Error> {
-    sqlx::query(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query(
         r#"
         INSERT INTO positionratio 
         (exchange, debt_ratio, total_asset, margin_coefficient_total_asset, total_debt, updated_at)
@@ -554,9 +546,11 @@ pub async fn upsert_position_ratio(
     .bind(margin_coefficient_total_asset)
     .bind(total_debt)
     .execute(pool)
-    .await?;
-
-    Ok(())
+    .await
+    {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 pub async fn upsert_position_debt(
@@ -564,8 +558,8 @@ pub async fn upsert_position_debt(
     exchange: &str,
     debt_symbol: &str,
     debt_value: &str,
-) -> Result<(), sqlx::Error> {
-    sqlx::query(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query(
         r#"
         INSERT INTO positiondebt
         (exchange, debt_symbol, debt_value, updated_at)
@@ -580,9 +574,11 @@ pub async fn upsert_position_debt(
     .bind(debt_symbol)
     .bind(debt_value)
     .execute(pool)
-    .await?;
-
-    Ok(())
+    .await
+    {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 pub async fn upsert_position_asset(
@@ -592,8 +588,8 @@ pub async fn upsert_position_asset(
     asset_total: &str,
     asset_available: &str,
     asset_hold: &str,
-) -> Result<(), sqlx::Error> {
-    sqlx::query(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query(
         r#"
         INSERT INTO positionasset
         (exchange, asset_symbol, asset_total, asset_available, asset_hold, updated_at)
@@ -612,7 +608,9 @@ pub async fn upsert_position_asset(
     .bind(asset_available)
     .bind(asset_hold)
     .execute(pool)
-    .await?;
-
-    Ok(())
+    .await
+    {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }

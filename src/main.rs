@@ -2,12 +2,12 @@ use crate::api::db::{
     clear_orders_ids_for_bots, delete_exit_sl_id_bot_by_client_oid,
     delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid,
     fetch_symbol_info_by_symbol, get_all_bots_for_trade, get_bot_by_entry_client_oid,
-    get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_side,
-    get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance, insert_db_error,
-    insert_db_event, insert_db_msgsend, insert_db_orderevent,
-    set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
-    update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
-    update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
+    get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol,
+    get_total_match_value_by_client_oid, insert_db_balance, insert_db_error, insert_db_event,
+    insert_db_msgsend, insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid,
+    update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid,
+    update_bot_balance_by_entry_client_oid, update_bot_entry_client_oid_by_id,
+    update_exit_sl_client_oid_bot_by_entry_client_oid,
     update_exit_sl_client_oid_bot_by_exit_sl_order_id,
     update_exit_sl_order_id_bot_by_exit_sl_client_oid,
     update_exit_tp_client_oid_bot_by_entry_client_oid,
@@ -25,11 +25,11 @@ use crate::api::requests::{
     get_all_margin_accounts, get_private_ws_url, get_ticker_price, sent_account_transfer,
 };
 use dotenv::dotenv;
+use fastrand;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
-
 use std::env;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
@@ -59,6 +59,14 @@ fn build_subscription() -> Vec<serde_json::Value> {
         serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}),
         serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}),
     ]
+}
+
+pub fn get_random_side() -> String {
+    if fastrand::bool() {
+        "buy".to_string()
+    } else {
+        "sell".to_string()
+    }
 }
 
 async fn make_hf_funds_margin_order(
