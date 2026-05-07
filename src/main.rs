@@ -83,7 +83,7 @@ async fn make_hf_funds_margin_order(
     let auto_borrow: bool = true;
     let auto_repay: bool = true;
 
-    insert_db_msgsend(
+    match insert_db_msgsend(
         pool,
         exchange,
         Some(symbol),
@@ -98,7 +98,11 @@ async fn make_hf_funds_margin_order(
         Some(client_oid),
         None,
     )
-    .await;
+    .await
+    {
+        Ok(_) => {}
+        Err(e) => {}
+    }
     let msg: serde_json::Value = serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
@@ -154,7 +158,7 @@ async fn make_hf_size_margin_order(
     let auto_borrow: bool = true;
     let auto_repay: bool = true;
 
-    insert_db_msgsend(
+    match insert_db_msgsend(
         pool,
         exchange,
         Some(symbol),
@@ -169,7 +173,11 @@ async fn make_hf_size_margin_order(
         Some(client_oid),
         None,
     )
-    .await;
+    .await
+    {
+        Ok(_) => {}
+        Err(e) => {}
+    }
     let msg: serde_json::Value = serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
@@ -680,7 +688,10 @@ async fn handle_trade_order_event(
     exchange: &str,
 ) {
     // sent order to pg
-    insert_db_orderevent(pool, exchange, &order).await;
+    match insert_db_orderevent(pool, exchange, &order).await {
+        Ok(_) => {}
+        Err(e) => {}
+    }
 
     if let Some(client_oid) = &order.client_oid {
         if (order.type_ == "match" || order.type_ == "canceled")
@@ -745,11 +756,22 @@ async fn handle_trade_order_event(
                 Ok(Some(bot)) => {
                     // client_oid == exit_tp_client_oid
                     // delete exit_tp_client_oid stop order
-                    delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await;
+                    match delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
                     if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid {
                         // clear exit_sl_client_oid in bots by id !!
-                        delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid)
-                            .await;
+                        match delete_exit_sl_id_bot_by_client_oid(
+                            pool,
+                            exchange,
+                            &exit_sl_client_oid,
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                         match api_v3_hf_margin_stop_order_cancel_by_client_oid(&exit_sl_client_oid)
                             .await
                         {
@@ -774,13 +796,17 @@ async fn handle_trade_order_event(
                                     Ok(old_balance) => {
                                         let new_balance: f64 =
                                             old_balance + old_balance - return_balance;
-                                        update_balance_bot_by_exit_tp_client_oid(
+                                        match update_balance_bot_by_exit_tp_client_oid(
                                             pool,
                                             exchange,
                                             client_oid,
                                             &format!("{:.4}", new_balance),
                                         )
-                                        .await;
+                                        .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                         // create new random order
                                         match make_random_trade(pool, exchange, new_balance, bot.id)
                                             .await
@@ -808,13 +834,17 @@ async fn handle_trade_order_event(
                                     }
                                 }
                             } else if order.side == "sell" {
-                                update_balance_bot_by_exit_tp_client_oid(
+                                match update_balance_bot_by_exit_tp_client_oid(
                                     pool,
                                     exchange,
                                     client_oid,
                                     &format!("{:.4}", return_balance),
                                 )
-                                .await;
+                                .await
+                                {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 // create new random order
                                 match make_random_trade(pool, exchange, return_balance, bot.id)
                                     .await
@@ -848,12 +878,23 @@ async fn handle_trade_order_event(
                 Ok(Some(bot)) => {
                     // client_oid == exit_sl_client_oid
                     // delete exit_sl_client_oid stop order
-                    delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await;
+                    match delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
 
                     if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid {
                         // clear exit_tp_client_oid in bots by entry_id
-                        delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid)
-                            .await;
+                        match delete_exit_tp_id_bot_by_client_oid(
+                            pool,
+                            exchange,
+                            &exit_tp_client_oid,
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                         match api_v3_hf_margin_stop_order_cancel_by_client_oid(&exit_tp_client_oid)
                             .await
                         {
@@ -878,13 +919,17 @@ async fn handle_trade_order_event(
                                     Ok(old_balance) => {
                                         let new_balance: f64 =
                                             old_balance + old_balance - return_balance;
-                                        update_balance_bot_by_exit_sl_client_oid(
+                                        match update_balance_bot_by_exit_sl_client_oid(
                                             pool,
                                             exchange,
                                             client_oid,
                                             &format!("{:.4}", new_balance),
                                         )
-                                        .await;
+                                        .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                         // create new random order
                                         match make_random_trade(pool, exchange, new_balance, bot.id)
                                             .await
@@ -912,13 +957,17 @@ async fn handle_trade_order_event(
                                     }
                                 }
                             } else if order.side == "sell" {
-                                update_balance_bot_by_exit_sl_client_oid(
+                                match update_balance_bot_by_exit_sl_client_oid(
                                     pool,
                                     exchange,
                                     client_oid,
                                     &format!("{:.4}", return_balance),
                                 )
-                                .await;
+                                .await
+                                {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
 
                                 // create new random order
                                 match make_random_trade(pool, exchange, return_balance, bot.id)
@@ -972,13 +1021,17 @@ async fn handle_trade_order_event(
                         match get_total_match_value_by_client_oid(pool, exchange, client_oid).await
                         {
                             Ok(Some(new_balance)) => {
-                                update_bot_balance_by_entry_client_oid(
+                                match update_bot_balance_by_entry_client_oid(
                                     pool,
                                     exchange,
                                     client_oid,
                                     &format!("{:.4}", new_balance),
                                 )
-                                .await;
+                                .await
+                                {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
 
                                 if order.side == "buy" {
                                     let match_price: f64 = new_balance / filled_size_f64;
@@ -1021,21 +1074,29 @@ async fn handle_trade_order_event(
                                     info!("Stop loss order:{}", msg_sl_order);
 
                                     // add exit_tp_client_oid by entry_id
-                                    update_exit_tp_client_oid_bot_by_entry_client_oid(
+                                    match update_exit_tp_client_oid_bot_by_entry_client_oid(
                                         pool,
                                         exchange,
                                         client_oid,
                                         &exit_tp_client_oid,
                                     )
-                                    .await;
+                                    .await
+                                    {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                     // add exit_sl_client_oid by entry_id
-                                    update_exit_sl_client_oid_bot_by_entry_client_oid(
+                                    match update_exit_sl_client_oid_bot_by_entry_client_oid(
                                         pool,
                                         exchange,
                                         client_oid,
                                         &exit_sl_client_oid,
                                     )
-                                    .await;
+                                    .await
+                                    {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
 
                                     let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order);
                                     let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order);
@@ -1045,22 +1106,28 @@ async fn handle_trade_order_event(
                                     match (&tp_res, &sl_res) {
                                         (Ok(tp_resp), Ok(sl_resp)) => {
                                             if let Some(ref response_data) = tp_resp.data {
-                                                update_exit_tp_order_id_bot_by_exit_tp_client_oid(
+                                                match update_exit_tp_order_id_bot_by_exit_tp_client_oid(
                                                     pool,
                                                     exchange,
                                                     &response_data.order_id,
                                                     &response_data.client_oid,
                                                 )
-                                                .await;
+                                                .await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                             }
                                             if let Some(ref response_data) = sl_resp.data {
-                                                update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+                                                match update_exit_sl_order_id_bot_by_exit_sl_client_oid(
                                                     pool,
                                                     exchange,
                                                     &response_data.order_id,
                                                     &response_data.client_oid,
                                                 )
-                                                .await;
+                                                .await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                             }
                                             info!(
                                                 "✅ Both stop orders created: TP={}, SL={}",
@@ -1076,12 +1143,16 @@ async fn handle_trade_order_event(
                                                 .await;
                                             }
 
-                                            delete_exit_sl_id_bot_by_client_oid(
+                                            match delete_exit_sl_id_bot_by_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_sl_client_oid,
                                             )
-                                            .await;
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
 
                                             let msg = format!(
                                                 "Failed add TP order: {}. SL was cancelled for symmetry.",
@@ -1102,12 +1173,16 @@ async fn handle_trade_order_event(
                                                 .await;
                                             }
 
-                                            delete_exit_tp_id_bot_by_client_oid(
+                                            match delete_exit_tp_id_bot_by_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_tp_client_oid,
                                             )
-                                            .await;
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
 
                                             let msg = format!(
                                                 "Failed add SL order: {}. TP was cancelled for symmetry.",
@@ -1129,24 +1204,36 @@ async fn handle_trade_order_event(
                                                 Ok(_) => {}
                                                 Err(e) => {}
                                             }
-                                            delete_symbol_bot_by_exit_sl_client_oid(
+                                            match delete_symbol_bot_by_exit_sl_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_sl_client_oid,
                                             )
-                                            .await;
-                                            delete_exit_sl_id_bot_by_client_oid(
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
+                                            match delete_exit_sl_id_bot_by_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_sl_client_oid,
                                             )
-                                            .await;
-                                            delete_exit_tp_id_bot_by_client_oid(
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
+                                            match delete_exit_tp_id_bot_by_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_tp_client_oid,
                                             )
-                                            .await;
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                         }
                                     }
                                 } else if order.side == "sell" {
@@ -1191,21 +1278,29 @@ async fn handle_trade_order_event(
                                     info!("Stop loss order:{}", msg_sl_order);
 
                                     // add exit_tp_client_oid by entry_id
-                                    update_exit_tp_client_oid_bot_by_entry_client_oid(
+                                    match update_exit_tp_client_oid_bot_by_entry_client_oid(
                                         pool,
                                         exchange,
                                         client_oid,
                                         &exit_tp_client_oid,
                                     )
-                                    .await;
+                                    .await
+                                    {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                     // add exit_sl_client_oid by entry_id
-                                    update_exit_sl_client_oid_bot_by_entry_client_oid(
+                                    match update_exit_sl_client_oid_bot_by_entry_client_oid(
                                         pool,
                                         exchange,
                                         client_oid,
                                         &exit_sl_client_oid,
                                     )
-                                    .await;
+                                    .await
+                                    {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
 
                                     let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order);
                                     let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order);
@@ -1214,22 +1309,28 @@ async fn handle_trade_order_event(
                                     match (&tp_res, &sl_res) {
                                         (Ok(tp_resp), Ok(sl_resp)) => {
                                             if let Some(ref response_data) = tp_resp.data {
-                                                update_exit_tp_order_id_bot_by_exit_tp_client_oid(
+                                                match update_exit_tp_order_id_bot_by_exit_tp_client_oid(
                                                     pool,
                                                     exchange,
                                                     &response_data.order_id,
                                                     &response_data.client_oid,
                                                 )
-                                                .await;
+                                                .await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                             }
                                             if let Some(ref response_data) = sl_resp.data {
-                                                update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+                                                match update_exit_sl_order_id_bot_by_exit_sl_client_oid(
                                                     pool,
                                                     exchange,
                                                     &response_data.order_id,
                                                     &response_data.client_oid,
                                                 )
-                                                .await;
+                                                .await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                             }
                                             info!(
                                                 "✅ Both stop orders created: TP={}, SL={}",
@@ -1245,12 +1346,16 @@ async fn handle_trade_order_event(
                                                 .await;
                                             }
 
-                                            delete_exit_sl_id_bot_by_client_oid(
+                                            match delete_exit_sl_id_bot_by_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_sl_client_oid,
                                             )
-                                            .await;
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
 
                                             let msg = format!(
                                                 "Failed add TP order: {}. SL was cancelled for symmetry.",
@@ -1271,12 +1376,16 @@ async fn handle_trade_order_event(
                                                 .await;
                                             }
 
-                                            delete_exit_tp_id_bot_by_client_oid(
+                                            match delete_exit_tp_id_bot_by_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_tp_client_oid,
                                             )
-                                            .await;
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
 
                                             let msg = format!(
                                                 "Failed add SL order: {}. TP was cancelled for symmetry.",
@@ -1298,24 +1407,36 @@ async fn handle_trade_order_event(
                                                 Ok(_) => {}
                                                 Err(e) => {}
                                             }
-                                            delete_symbol_bot_by_exit_sl_client_oid(
+                                            match delete_symbol_bot_by_exit_sl_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_sl_client_oid,
                                             )
-                                            .await;
-                                            delete_exit_sl_id_bot_by_client_oid(
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
+                                            match delete_exit_sl_id_bot_by_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_sl_client_oid,
                                             )
-                                            .await;
-                                            delete_exit_tp_id_bot_by_client_oid(
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
+                                            match delete_exit_tp_id_bot_by_client_oid(
                                                 pool,
                                                 exchange,
                                                 &exit_tp_client_oid,
                                             )
-                                            .await;
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                         }
                                     }
                                 }
@@ -1326,8 +1447,14 @@ async fn handle_trade_order_event(
                             Err(e) => {}
                         }
                         // delete entry_id from db
-                        set_null_entry_client_oid_by_entry_client_oid(pool, exchange, client_oid)
-                            .await;
+                        match set_null_entry_client_oid_by_entry_client_oid(
+                            pool, exchange, client_oid,
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                     }
                     return;
                 }
@@ -1859,8 +1986,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         KuCoinMessage::Welcome(data) => {
                             match serde_json::to_value(data) {
                                 Ok(v) => {
-                                    insert_db_event(&pool_for_handler, &exchange_for_handler, v)
-                                        .await;
+                                    match insert_db_event(
+                                        &pool_for_handler,
+                                        &exchange_for_handler,
+                                        v,
+                                    )
+                                    .await
+                                    {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                 }
                                 Err(e) => {
                                     error!("Failed to serialize event: {}", e);
@@ -1873,12 +2008,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 match BalanceData::deserialize(&data.data) {
                                     Ok(balance) => {
                                         // sent balance to pg
-                                        insert_db_balance(
+                                        match insert_db_balance(
                                             &pool_for_handler,
                                             &exchange_for_handler,
                                             balance,
                                         )
-                                        .await;
+                                        .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                     Err(e) => {
                                         info!("{:?}", data.data);
@@ -2007,8 +2146,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             // sent ack to pg
                             match serde_json::to_value(data) {
                                 Ok(v) => {
-                                    insert_db_event(&pool_for_handler, &exchange_for_handler, v)
-                                        .await;
+                                    match insert_db_event(
+                                        &pool_for_handler,
+                                        &exchange_for_handler,
+                                        v,
+                                    )
+                                    .await
+                                    {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                 }
                                 Err(e) => {
                                     error!("Failed to serialize event: {}", e);
