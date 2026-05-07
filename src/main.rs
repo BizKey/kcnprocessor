@@ -119,7 +119,10 @@ async fn make_hf_funds_margin_order(
                     symbol, data.code, data.msg
                 );
                 error!("{}", msg);
-                insert_db_error(pool, exchange, &msg).await;
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {}
+                }
                 Err(msg.into())
             } else {
                 Ok(data)
@@ -128,7 +131,10 @@ async fn make_hf_funds_margin_order(
         Err(e) => {
             let msg: String = format!("Failed to send order: {}", e);
             error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {}
+            }
             Err(msg.into())
         }
     }
@@ -184,7 +190,10 @@ async fn make_hf_size_margin_order(
                     symbol, data.code, data.msg
                 );
                 error!("{}", msg);
-                insert_db_error(pool, exchange, &msg).await;
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {}
+                }
                 Err(msg.into())
             } else {
                 Ok(data)
@@ -193,7 +202,10 @@ async fn make_hf_size_margin_order(
         Err(e) => {
             let msg: String = format!("Failed to send order: {}", e);
             error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {}
+            }
             Err(msg.into())
         }
     }
@@ -229,7 +241,10 @@ async fn make_random_trade(
                         Ok(None) => {
                             let msg = format!("Symbol info not found for {}", tradeable.symbol);
                             error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
                             if attempt >= MAX_RETRIES {
                                 return Ok(());
                             }
@@ -238,7 +253,10 @@ async fn make_random_trade(
                         Err(e) => {
                             let msg = format!("Symbol info not found for {}", &tradeable.symbol);
                             error!("{}", msg);
-                            insert_db_error(&pool, &exchange, &msg).await;
+                            match insert_db_error(&pool, &exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
                             return Err(e.into());
                         }
                     };
@@ -259,7 +277,10 @@ async fn make_random_trade(
                         entry_client_oid, trade_bot_id, e
                     );
                     error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
+                    match insert_db_error(pool, exchange, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
                     if attempt >= MAX_RETRIES {
                         return Ok(());
                     }
@@ -276,7 +297,10 @@ async fn make_random_trade(
                                     symbol_info.base_increment, e
                                 );
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 if attempt >= MAX_RETRIES {
                                     return Ok(());
                                 }
@@ -290,7 +314,10 @@ async fn make_random_trade(
                             Err(e) => {
                                 let msg = format!("Failed get price: {} {}", tradeable.symbol, e);
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 if attempt >= MAX_RETRIES {
                                     return Ok(());
                                 }
@@ -302,7 +329,10 @@ async fn make_random_trade(
                             Err(e) => {
                                 let msg = format!("Failed parse price: {} {}", token_price_str, e);
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 if attempt >= MAX_RETRIES {
                                     return Ok(());
                                 }
@@ -331,7 +361,10 @@ async fn make_random_trade(
                                     symbol_info.quote_increment, e
                                 );
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 if attempt >= MAX_RETRIES {
                                     return Ok(());
                                 }
@@ -378,7 +411,10 @@ async fn make_random_trade(
                             "❌ Order failed (attempt {}/{}): {} - {}",
                             attempt, MAX_RETRIES, tradeable.symbol, e
                         );
-                        insert_db_error(pool, exchange, &e.to_string()).await;
+                        match insert_db_error(pool, exchange, &e.to_string()).await {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                         if attempt >= MAX_RETRIES {
                             return Ok(());
                         }
@@ -405,7 +441,10 @@ async fn handle_advanced_orders(
     if let Some(_) = order.error {
         let msg: String = format!("Got error on stop order : {:?}", order);
         error!("{}", msg);
-        insert_db_error(pool, exchange, &msg).await;
+        match insert_db_error(pool, exchange, &msg).await {
+            Ok(_) => {}
+            Err(e) => {}
+        }
 
         const MAX_RETRIES: u32 = 1000;
         let mut attempt = 0;
@@ -437,7 +476,10 @@ async fn handle_advanced_orders(
                             order_id_clone, new_exit_client_oid, e
                         );
                         error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                         if attempt >= MAX_RETRIES {
                             return;
                         }
@@ -462,7 +504,10 @@ async fn handle_advanced_orders(
                                     order_id_clone, new_exit_client_oid, funds_clone,
                                 );
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 return;
                             }
                         }
@@ -484,14 +529,20 @@ async fn handle_advanced_orders(
                                     order_id_clone, new_exit_client_oid, size_clone,
                                 );
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 return;
                             }
                         }
                         _ => {
                             let msg = format!("Fail match side_clone:{}", side_clone);
                             error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
 
                             return;
                         }
@@ -512,7 +563,10 @@ async fn handle_advanced_orders(
                             order_id_clone, new_exit_client_oid, e
                         );
                         error!("{}", msg);
-                        insert_db_error(pool, exchange, &msg).await;
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                         if attempt >= MAX_RETRIES {
                             return;
                         }
@@ -537,7 +591,10 @@ async fn handle_advanced_orders(
                                     order_id_clone, new_exit_client_oid, funds_clone,
                                 );
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 return;
                             }
                         }
@@ -559,7 +616,10 @@ async fn handle_advanced_orders(
                                     order_id_clone, new_exit_client_oid, size_clone,
                                 );
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
 
                                 return;
                             }
@@ -567,7 +627,10 @@ async fn handle_advanced_orders(
                         _ => {
                             let msg = format!("Fail match side_clone:{}", side_clone);
                             error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
 
                             return;
                         }
@@ -576,7 +639,10 @@ async fn handle_advanced_orders(
                 _ => {
                     let msg = format!("Fail match stop_clone:{}", stop_clone);
                     error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
+                    match insert_db_error(pool, exchange, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
 
                     return;
                 }
@@ -595,7 +661,10 @@ async fn handle_advanced_orders(
                         "❌ Order failed: {} {} (attempt {}/{}) {}",
                         order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES, e
                     );
-                    insert_db_error(pool, exchange, &e.to_string()).await;
+                    match insert_db_error(pool, exchange, &e.to_string()).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
                     if attempt >= MAX_RETRIES {
                         return;
                     }
@@ -624,13 +693,19 @@ async fn handle_trade_order_event(
                     Ok(None) => {
                         let msg = format!("Symbol info not found for {}", order.symbol);
                         error!("{}", msg);
-                        insert_db_error(&pool, &exchange, &msg).await;
+                        match insert_db_error(&pool, &exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                         return;
                     }
                     Err(e) => {
                         let msg = format!("Symbol info not found for {}", order.symbol);
                         error!("{}", msg);
-                        insert_db_error(&pool, &exchange, &msg).await;
+                        match insert_db_error(&pool, &exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                         return;
                     }
                 };
@@ -643,7 +718,10 @@ async fn handle_trade_order_event(
                         symbol_info.price_increment, e
                     );
                     error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
+                    match insert_db_error(pool, exchange, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
                     return;
                 }
             };
@@ -655,7 +733,10 @@ async fn handle_trade_order_event(
                         symbol_info.quote_increment, e
                     );
                     error!("{}", msg);
-                    insert_db_error(pool, exchange, &msg).await;
+                    match insert_db_error(pool, exchange, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
                     return;
                 }
             };
@@ -678,7 +759,10 @@ async fn handle_trade_order_event(
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 return;
                             }
                         }
@@ -706,7 +790,10 @@ async fn handle_trade_order_event(
                                                 let msg: String =
                                                     format!("Error in make_random_trade: {}", e);
                                                 error!("{}", msg);
-                                                insert_db_error(pool, exchange, &msg).await;
+                                                match insert_db_error(pool, exchange, &msg).await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {}
+                                                }
                                             }
                                         }
                                     }
@@ -714,7 +801,10 @@ async fn handle_trade_order_event(
                                         let msg =
                                             format!("Failed parse balance: {} {}", bot.balance, e);
                                         error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                 }
                             } else if order.side == "sell" {
@@ -734,7 +824,10 @@ async fn handle_trade_order_event(
                                         let msg: String =
                                             format!("Error in make_random_trade: {}", e);
                                         error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                 }
                             }
@@ -770,7 +863,10 @@ async fn handle_trade_order_event(
                             Err(e) => {
                                 let msg: String = format!("Failed cancel stop order: {}", e);
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 return;
                             }
                         }
@@ -798,7 +894,10 @@ async fn handle_trade_order_event(
                                                 let msg: String =
                                                     format!("Error in make_random_trade: {}", e);
                                                 error!("{}", msg);
-                                                insert_db_error(pool, exchange, &msg).await;
+                                                match insert_db_error(pool, exchange, &msg).await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {}
+                                                }
                                             }
                                         }
                                     }
@@ -806,7 +905,10 @@ async fn handle_trade_order_event(
                                         let msg =
                                             format!("Failed parse balance: {} {}", bot.balance, e);
                                         error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                 }
                             } else if order.side == "sell" {
@@ -827,7 +929,10 @@ async fn handle_trade_order_event(
                                         let msg: String =
                                             format!("Error in make_random_trade: {}", e);
                                         error!("{}", msg);
-                                        insert_db_error(pool, exchange, &msg).await;
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                 }
                             }
@@ -857,7 +962,10 @@ async fn handle_trade_order_event(
                                     filled_size, e
                                 );
                                 error!("{}", msg);
-                                insert_db_error(pool, exchange, &msg).await;
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 return;
                             }
                         };
@@ -980,7 +1088,10 @@ async fn handle_trade_order_event(
                                                 tp_err
                                             );
                                             error!("{}", msg);
-                                            insert_db_error(pool, exchange, &msg).await;
+                                            match insert_db_error(pool, exchange, &msg).await {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                         }
                                         (Ok(tp_resp), Err(sl_err)) => {
                                             if let Some(ref response_data) = tp_resp.data {
@@ -1003,7 +1114,10 @@ async fn handle_trade_order_event(
                                                 sl_err
                                             );
                                             error!("{}", msg);
-                                            insert_db_error(pool, exchange, &msg).await;
+                                            match insert_db_error(pool, exchange, &msg).await {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                         }
                                         (Err(tp_err), Err(sl_err)) => {
                                             let msg = format!(
@@ -1011,7 +1125,10 @@ async fn handle_trade_order_event(
                                                 tp_err, sl_err
                                             );
                                             error!("{}", msg);
-                                            insert_db_error(pool, exchange, &msg).await;
+                                            match insert_db_error(pool, exchange, &msg).await {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                             delete_symbol_bot_by_exit_sl_client_oid(
                                                 pool,
                                                 exchange,
@@ -1140,7 +1257,10 @@ async fn handle_trade_order_event(
                                                 tp_err
                                             );
                                             error!("{}", msg);
-                                            insert_db_error(pool, exchange, &msg).await;
+                                            match insert_db_error(pool, exchange, &msg).await {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                         }
                                         (Ok(tp_resp), Err(sl_err)) => {
                                             if let Some(ref response_data) = tp_resp.data {
@@ -1163,7 +1283,10 @@ async fn handle_trade_order_event(
                                                 sl_err
                                             );
                                             error!("{}", msg);
-                                            insert_db_error(pool, exchange, &msg).await;
+                                            match insert_db_error(pool, exchange, &msg).await {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                         }
                                         (Err(tp_err), Err(sl_err)) => {
                                             let msg = format!(
@@ -1171,7 +1294,10 @@ async fn handle_trade_order_event(
                                                 tp_err, sl_err
                                             );
                                             error!("{}", msg);
-                                            insert_db_error(pool, exchange, &msg).await;
+                                            match insert_db_error(pool, exchange, &msg).await {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                             delete_symbol_bot_by_exit_sl_client_oid(
                                                 pool,
                                                 exchange,
@@ -1229,13 +1355,19 @@ async fn handle_position_event(
     {
         let msg: String = format!("Failed to upsert margin account state: {}", e);
         error!("{}", msg);
-        insert_db_error(pool, exchange, &msg).await;
+        match insert_db_error(pool, exchange, &msg).await {
+            Ok(_) => {}
+            Err(e) => {}
+        }
     }
     for (symbol, amount) in &position.debt_list {
         if let Err(e) = upsert_position_debt(pool, exchange, symbol, amount).await {
             let msg: String = format!("Failed to insert debt margin account state: {}", e);
             error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {}
+            }
         }
     }
     for (symbol, symbol_info) in &position.asset_list {
@@ -1251,7 +1383,10 @@ async fn handle_position_event(
         {
             let msg: String = format!("Failed to insert asset margin account state: {}", e);
             error!("{}", msg);
-            insert_db_error(pool, exchange, &msg).await;
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {}
+            }
         }
     }
     // repay borrow
@@ -1270,7 +1405,10 @@ async fn handle_position_event(
                         if let Err(e) = create_repay_order(asset, token_liability_str).await {
                             let msg: String = format!("Failed to repay liability: {}", e);
                             error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
                         };
                     } else if available > 0.0 {
                         info!(
@@ -1281,14 +1419,20 @@ async fn handle_position_event(
                         if let Err(e) = create_repay_order(asset, &asset_info.available).await {
                             let msg: String = format!("Failed to partially repay debt: {}", e);
                             error!("{}", msg);
-                            insert_db_error(pool, exchange, &msg).await;
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
                         }
                     }
                 }
             } else {
                 let msg: String = format!("Failed to parse available balance for {}", asset);
                 error!("{}", msg);
-                insert_db_error(pool, exchange, &msg).await;
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {}
+                }
             }
         }
     }
@@ -1315,7 +1459,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Err(e) => {
             let msg: String = format!("Failed clear all orders_ids for bots: {}", e);
             error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+            match insert_db_error(&pool, &exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {}
+            }
             return Err(e);
         }
     }
@@ -1326,7 +1473,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Err(e) => {
             let msg: String = format!("Failed batch cancel stop orders: {}", e);
             error!("{}", msg);
-            insert_db_error(&pool, &exchange, &msg).await;
+            match insert_db_error(&pool, &exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {}
+            }
             return Err(e);
         }
     }
@@ -1352,7 +1502,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             {
                                 let msg: String = format!("Failed to repay liability: {}", e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                             };
                         } else if token_available > 0.0 {
                             info!(
@@ -1365,7 +1518,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             {
                                 let msg: String = format!("Failed to partially repay debt: {}", e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                             };
                         } else if account.currency != "USDT" && token_available == 0.0 {
                             // buy stock by market liability
@@ -1380,14 +1536,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         let msg =
                                             format!("Symbol info not found for {}", trade_symbol);
                                         error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        match insert_db_error(&pool, &exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                         continue;
                                     }
                                     Err(e) => {
                                         let msg =
                                             format!("Symbol info not found for {}", trade_symbol);
                                         error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        match insert_db_error(&pool, &exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                         continue;
                                     }
                                 };
@@ -1403,7 +1565,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     let msg: String =
                                         format!("Failed get price: {} {}", trade_symbol, e);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                     continue;
                                 }
                             };
@@ -1414,7 +1579,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     let msg: String =
                                         format!("Failed parse price: {} {}", token_price_str, e);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                     continue;
                                 }
                             };
@@ -1431,7 +1599,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             symbol_info.quote_increment, e
                                         );
                                         error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        match insert_db_error(&pool, &exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                         continue;
                                     }
                                 };
@@ -1445,7 +1616,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             symbol_info.min_funds, e
                                         );
                                         error!("{}", msg);
-                                        insert_db_error(&pool, &exchange, &msg).await;
+                                        match insert_db_error(&pool, &exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                         continue;
                                     }
                                 },
@@ -1453,7 +1627,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     let msg =
                                         format!("min_funds is None for symbol {}", trade_symbol);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                     continue;
                                 }
                             };
@@ -1466,7 +1643,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         symbol_info.base_min_size, e
                                     );
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                     continue;
                                 }
                             };
@@ -1513,13 +1693,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 Ok(None) => {
                                     let msg = format!("Symbol info not found for {}", trade_symbol);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                     return Err(msg.into());
                                 }
                                 Err(e) => {
                                     let msg = format!("Symbol info not found for {}", trade_symbol);
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                     return Err(e.into());
                                 }
                             };
@@ -1532,7 +1718,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     symbol_info.base_increment, e
                                 );
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 continue;
                             }
                         };
@@ -1546,7 +1735,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 let msg: String =
                                     format!("Failed get price: {} {}", trade_symbol, e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 continue;
                             }
                         };
@@ -1557,7 +1749,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 let msg: String =
                                     format!("Failed parse price: {} {}", token_price_str, e);
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 continue;
                             }
                         };
@@ -1570,7 +1765,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     symbol_info.base_min_size, e
                                 );
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 continue;
                             }
                         };
@@ -1582,7 +1780,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     symbol_info.quote_min_size, e
                                 );
                                 error!("{}", msg);
-                                insert_db_error(&pool, &exchange, &msg).await;
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                                 continue;
                             }
                         };
@@ -1607,7 +1808,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         e
                                     );
                                     error!("{}", msg);
-                                    insert_db_error(&pool, &exchange, &msg).await;
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                 }
                             }
                         } else {
@@ -1628,7 +1832,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(e) => {
                 let msg: String = format!("Failed to get margin accounts {}", e);
                 error!("{}", msg);
-                insert_db_error(&pool, &exchange, &msg).await;
+                match insert_db_error(&pool, &exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {}
+                }
                 all_asset_clear = false;
             }
         }
@@ -1678,12 +1885,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         // sent balance parse error to pg
                                         let msg: String = format!("Failed to parse message {}", e);
                                         error!("{}", msg);
-                                        insert_db_error(
+                                        match insert_db_error(
                                             &pool_for_handler,
                                             &exchange_for_handler,
                                             &msg,
                                         )
-                                        .await;
+                                        .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                 }
                             } else if data.topic == "/spotMarket/tradeOrdersV2" {
@@ -1704,12 +1915,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         // sent order error to pg
                                         let msg: String = format!("Failed to parse message {}", e);
                                         error!("{}", msg);
-                                        insert_db_error(
+                                        match insert_db_error(
                                             &pool_for_handler,
                                             &exchange_for_handler,
                                             &msg,
                                         )
-                                        .await;
+                                        .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                 }
                             } else if data.topic == "/spotMarket/advancedOrders" {
@@ -1731,12 +1946,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         // sent order error to pg
                                         let msg: String = format!("Failed to parse message {}", e);
                                         error!("{}", msg);
-                                        insert_db_error(
+                                        match insert_db_error(
                                             &pool_for_handler,
                                             &exchange_for_handler,
                                             &msg,
                                         )
-                                        .await;
+                                        .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                 }
                             } else if data.topic == "/margin/position" {
@@ -1756,23 +1975,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         // sent order error to pg
                                         let msg: String = format!("Failed to parse message {}", e);
                                         error!("{}", msg);
-                                        insert_db_error(
+                                        match insert_db_error(
                                             &pool_for_handler,
                                             &exchange_for_handler,
                                             &msg,
                                         )
-                                        .await;
+                                        .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {}
+                                        }
                                     }
                                 }
                             } else {
                                 info!("Unknown topic: {}", data.topic);
                                 // sent error to pg
-                                insert_db_error(
+                                match insert_db_error(
                                     &pool_for_handler,
                                     &exchange_for_handler,
                                     &data.topic,
                                 )
-                                .await;
+                                .await
+                                {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                             }
                         }
                         KuCoinMessage::Ack(data) => {
@@ -1792,8 +2019,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         KuCoinMessage::Error(data) => {
                             info!("{:?}", data);
                             // sent error to pg
-                            insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data)
-                                .await;
+                            match insert_db_error(
+                                &pool_for_handler,
+                                &exchange_for_handler,
+                                &data.data,
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
                         }
                         KuCoinMessage::Unknown => {
                             info!("Unknown WS message type");
@@ -1803,7 +2038,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         // sent error to pg
                         let msg: String = format!("Failed to parse message: {} | Raw: {}", e, msg);
                         error!("{}", msg);
-                        insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await;
+                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
                     }
                 }
             }
@@ -1838,7 +2077,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if let Err(e) = event_ws_write.send(Message::text(sub.to_string())).await {
                 let msg: String = format!("Failed to subscribe: {}", e);
                 error!("{}", msg);
-                insert_db_error(&pool, &exchange, &msg).await;
+                match insert_db_error(&pool, &exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {}
+                }
 
                 break;
             }
@@ -1878,8 +2120,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                             let msg: String =
                                                 format!("Error in make_random_trade: {}", e);
                                             error!("{}", msg);
-                                            insert_db_error(&pool_clone, &exchange_clone, &msg)
-                                                .await;
+                                            match insert_db_error(
+                                                &pool_clone,
+                                                &exchange_clone,
+                                                &msg,
+                                            )
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {}
+                                            }
                                         }
                                     }
                                 }
@@ -1889,7 +2139,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         trade_bot.balance, e
                                     );
                                     error!("{}", msg);
-                                    insert_db_error(&pool_clone, &exchange_clone, &msg).await;
+                                    match insert_db_error(&pool_clone, &exchange_clone, &msg).await
+                                    {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                 }
                             }
                         }
