@@ -1451,7 +1451,32 @@ async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Post
                                                 (Ok(tp_resp), Err(sl_err)) => {
                                                     if let Some(ref response_data) = tp_resp.data {
                                                         match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
-                                                            Ok(_) => {}
+                                                            Ok(_) => {
+                                                                match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
+                                                                    Ok(_) => {}
+                                                                    Err(e) => {
+                                                                        let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
+                                                                        error!("{}", msg);
+                                                                        match insert_db_error(pool, exchange, &msg).await {
+                                                                            Ok(_) => {}
+                                                                            Err(e) => {
+                                                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                                                error!("{}", msg);
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
+                                                                error!("{}", msg);
+                                                                match insert_db_error(pool, exchange, &msg).await {
+                                                                    Ok(_) => {}
+                                                                    Err(e) => {
+                                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                                        error!("{}", msg);
+                                                                    }
+                                                                }
+                                                            }
                                                             Err(e) => {
                                                                 let msg: String = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
                                                                 error!("{}", msg);
@@ -1463,31 +1488,6 @@ async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Post
                                                                     }
                                                                 }
                                                             }
-                                                        }
-                                                    }
-
-                                                    match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
-                                                        Ok(_) => {}
-                                                        Err(e) => {
-                                                            let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
-                                                            error!("{}", msg);
-                                                            match insert_db_error(pool, exchange, &msg).await {
-                                                                Ok(_) => {}
-                                                                Err(e) => {
-                                                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                                    error!("{}", msg);
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-
-                                                    let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
-                                                    error!("{}", msg);
-                                                    match insert_db_error(pool, exchange, &msg).await {
-                                                        Ok(_) => {}
-                                                        Err(e) => {
-                                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                            error!("{}", msg);
                                                         }
                                                     }
                                                 }
