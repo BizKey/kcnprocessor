@@ -108,10 +108,11 @@ pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderDa
         .bind(order.order_time)
         .bind(order.ts)
         .execute(pool)
-        .await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into())
-        }
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }
 pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query("UPDATE bots SET exit_sl_client_oid = NULL, exit_sl_order_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $1 AND exchange = $2;").bind(client_oid).bind(exchange).execute(pool).await {
