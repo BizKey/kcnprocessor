@@ -27,7 +27,13 @@ impl KuCoinClient {
     pub fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let client = Client::builder().timeout(Duration::from_secs(15)).connect_timeout(Duration::from_secs(5)).tcp_keepalive(Duration::from_secs(60)).build()?;
 
-        Ok(Self { client, api_key: env::var("KUCOIN_KEY")?.trim().to_string(), api_secret: env::var("KUCOIN_SECRET")?.trim().to_string(), api_passphrase: env::var("KUCOIN_PASS")?.trim().to_string(), base_url })
+        Ok(Self {
+            client,
+            api_key: env::var("KUCOIN_KEY")?.trim().to_string(),
+            api_secret: env::var("KUCOIN_SECRET")?.trim().to_string(),
+            api_passphrase: env::var("KUCOIN_PASS")?.trim().to_string(),
+            base_url,
+        })
     }
 
     pub async fn api_v1_bullet_private(&self) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
@@ -134,7 +140,15 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn account_transfer(&self, currency: &str, client_oid: &str, amount: &str, type_: &str, from_account_type: &str, to_account_type: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn account_transfer(
+        &self,
+        currency: &str,
+        client_oid: &str,
+        amount: &str,
+        type_: &str,
+        from_account_type: &str,
+        to_account_type: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let body: serde_json::Value = json!({
             "currency": currency,
             "clientOid": client_oid,
@@ -252,7 +266,15 @@ impl KuCoinClient {
         }
     }
 
-    async fn make_request(&self, method: reqwest::Method, endpoint: &str, query_params: Option<HashMap<&str, &str>>, body: Option<serde_json::Value>, authenticated: bool, timestamp: u64) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
+    async fn make_request(
+        &self,
+        method: reqwest::Method,
+        endpoint: &str,
+        query_params: Option<HashMap<&str, &str>>,
+        body: Option<serde_json::Value>,
+        authenticated: bool,
+        timestamp: u64,
+    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
         let query_string: String = query_params
             .as_ref()
             .map(|params| {
@@ -273,7 +295,12 @@ impl KuCoinClient {
 
             let passphrase_signature = self.generate_passphrase_signature();
 
-            request_builder = request_builder.header("KC-API-KEY", &self.api_key).header("KC-API-SIGN", signature).header("KC-API-TIMESTAMP", timestamp.to_string()).header("KC-API-PASSPHRASE", passphrase_signature).header("KC-API-KEY-VERSION", "2");
+            request_builder = request_builder
+                .header("KC-API-KEY", &self.api_key)
+                .header("KC-API-SIGN", signature)
+                .header("KC-API-TIMESTAMP", timestamp.to_string())
+                .header("KC-API-PASSPHRASE", passphrase_signature)
+                .header("KC-API-KEY-VERSION", "2");
 
             if !body_str.is_empty() {
                 request_builder = request_builder.header("Content-Type", "application/json").body(body_str);

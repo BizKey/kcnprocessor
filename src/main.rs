@@ -1,10 +1,16 @@
 use crate::api::db::{
-    clear_orders_ids_for_bots, delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid, fetch_symbol_info_by_symbol, get_all_bots_for_trade, get_bot_by_entry_client_oid, get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend,
-    insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid, update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid, update_exit_sl_client_oid_bot_by_exit_sl_order_id, update_exit_sl_order_id_bot_by_exit_sl_client_oid,
-    update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id, update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
+    clear_orders_ids_for_bots, delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid, fetch_symbol_info_by_symbol, get_all_bots_for_trade,
+    get_bot_by_entry_client_oid, get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance, insert_db_error,
+    insert_db_event, insert_db_msgsend, insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid,
+    update_bot_balance_by_entry_client_oid, update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid, update_exit_sl_client_oid_bot_by_exit_sl_order_id,
+    update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id,
+    update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
-use crate::api::requests::{add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, batch_cancel_stop_orders, create_repay_order, get_all_margin_accounts, get_private_ws_url, get_ticker_price, sent_account_transfer};
+use crate::api::requests::{
+    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, batch_cancel_stop_orders, create_repay_order, get_all_margin_accounts,
+    get_private_ws_url, get_ticker_price, sent_account_transfer,
+};
 use dotenv::dotenv;
 use fastrand;
 use futures_util::{SinkExt, StreamExt};
@@ -46,13 +52,23 @@ pub fn get_random_side() -> String {
     if fastrand::bool() { "buy".to_string() } else { "sell".to_string() }
 }
 
-async fn make_hf_funds_margin_order(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, side: &str, symbol: &str, funds: String, type_: String) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+async fn make_hf_funds_margin_order(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    client_oid: &str,
+    side: &str,
+    symbol: &str,
+    funds: String,
+    type_: String,
+) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     // only for buy orders
     let args_time_in_force: &str = "GTC";
     let auto_borrow: bool = true;
     let auto_repay: bool = true;
 
-    match insert_db_msgsend(pool, exchange, Some(symbol), Some(side), None, Some(&funds), None, Some(args_time_in_force), Some(&type_), Some(&auto_borrow), Some(&auto_repay), Some(client_oid), None).await {
+    match insert_db_msgsend(pool, exchange, Some(symbol), Some(side), None, Some(&funds), None, Some(args_time_in_force), Some(&type_), Some(&auto_borrow), Some(&auto_repay), Some(client_oid), None)
+        .await
+    {
         Ok(_) => {}
         Err(e) => {
             let msg = format!("Failed insert_db_msgsend: {}", e);
@@ -110,13 +126,23 @@ async fn make_hf_funds_margin_order(pool: &sqlx::Pool<sqlx::Postgres>, exchange:
     }
 }
 
-async fn make_hf_size_margin_order(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, side: &str, symbol: &str, size: String, type_: String) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+async fn make_hf_size_margin_order(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    client_oid: &str,
+    side: &str,
+    symbol: &str,
+    size: String,
+    type_: String,
+) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     // only for sell orders
     let args_time_in_force: &str = "GTC";
     let auto_borrow: bool = true;
     let auto_repay: bool = true;
 
-    match insert_db_msgsend(pool, exchange, Some(symbol), Some(side), Some(&size), None, None, Some(args_time_in_force), Some(&type_), Some(&auto_borrow), Some(&auto_repay), Some(client_oid), None).await {
+    match insert_db_msgsend(pool, exchange, Some(symbol), Some(side), Some(&size), None, None, Some(args_time_in_force), Some(&type_), Some(&auto_borrow), Some(&auto_repay), Some(client_oid), None)
+        .await
+    {
         Ok(_) => {}
         Err(e) => {
             let msg = format!("Failed insert_db_msgsend: {}", e);
@@ -1921,7 +1947,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let min_funds_by_size: f64 = token_price * base_min_size;
 
                             if token_funds <= min_funds.max(min_funds_by_size) {
-                                match make_hf_funds_margin_order(&pool, &exchange, &client_oid, "buy", trade_symbol, format_assert(min_funds.max(min_funds_by_size), quote_increment), "market".to_string()).await {
+                                match make_hf_funds_margin_order(
+                                    &pool,
+                                    &exchange,
+                                    &client_oid,
+                                    "buy",
+                                    trade_symbol,
+                                    format_assert(min_funds.max(min_funds_by_size), quote_increment),
+                                    "market".to_string(),
+                                )
+                                .await
+                                {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg = format!("Failed make_hf_funds_margin_order: {}", e);
