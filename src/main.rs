@@ -16,8 +16,7 @@ use crate::api::db::{
     upsert_position_ratio,
 };
 use crate::api::models::{
-    AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol,
-    TradeAbleSymbol,
+    AdvancedOrders, BalanceData, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol,
 };
 use crate::api::requests::{
     add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order,
@@ -271,7 +270,7 @@ async fn make_random_trade(
 
                 let entry_client_oid: String = Uuid::new_v4().to_string();
 
-                if let Err(e) = update_bot_entry_client_oid_by_id(
+                match update_bot_entry_client_oid_by_id(
                     pool,
                     exchange,
                     Some(&tradeable.symbol),
@@ -280,19 +279,22 @@ async fn make_random_trade(
                 )
                 .await
                 {
-                    let msg = format!(
-                        "Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}",
-                        entry_client_oid, trade_bot_id, e
-                    );
-                    error!("{}", msg);
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {}
-                        Err(e) => {}
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg = format!(
+                            "Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}",
+                            entry_client_oid, trade_bot_id, e
+                        );
+                        error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
+                        if attempt >= MAX_RETRIES {
+                            return Ok(());
+                        }
+                        continue;
                     }
-                    if attempt >= MAX_RETRIES {
-                        return Ok(());
-                    }
-                    continue;
                 }
 
                 let order_result = match get_random_side().as_str() {
@@ -471,7 +473,7 @@ async fn handle_advanced_orders(
             let order_result = match stop_clone.as_str() {
                 "loss" => {
                     // need find sl
-                    if let Err(e) = update_exit_sl_client_oid_bot_by_exit_sl_order_id(
+                    match update_exit_sl_client_oid_bot_by_exit_sl_order_id(
                         pool,
                         exchange,
                         &order_id_clone,
@@ -479,20 +481,24 @@ async fn handle_advanced_orders(
                     )
                     .await
                     {
-                        let msg = format!(
-                            "Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}, {}",
-                            order_id_clone, new_exit_client_oid, e
-                        );
-                        error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {}
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg = format!(
+                                "Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}, {}",
+                                order_id_clone, new_exit_client_oid, e
+                            );
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
+                            if attempt >= MAX_RETRIES {
+                                return;
+                            }
+                            continue;
                         }
-                        if attempt >= MAX_RETRIES {
-                            return;
-                        }
-                        continue;
                     }
+
                     match side_clone.as_str() {
                         "buy" => {
                             if let Some(funds) = funds_clone {
@@ -558,7 +564,7 @@ async fn handle_advanced_orders(
                 }
                 "entry" => {
                     // need find tp
-                    if let Err(e) = update_exit_tp_client_oid_bot_by_exit_tp_order_id(
+                    match update_exit_tp_client_oid_bot_by_exit_tp_order_id(
                         pool,
                         exchange,
                         &order_id_clone,
@@ -566,20 +572,24 @@ async fn handle_advanced_orders(
                     )
                     .await
                     {
-                        let msg = format!(
-                            "Failed save bot info: order_id_clone:{} new_exit_tp_client_oid:{}, {}",
-                            order_id_clone, new_exit_client_oid, e
-                        );
-                        error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {}
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg = format!(
+                                "Failed save bot info: order_id_clone:{} new_exit_tp_client_oid:{}, {}",
+                                order_id_clone, new_exit_client_oid, e
+                            );
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
+                            if attempt >= MAX_RETRIES {
+                                return;
+                            }
+                            continue;
                         }
-                        if attempt >= MAX_RETRIES {
-                            return;
-                        }
-                        continue;
                     }
+
                     match side_clone.as_str() {
                         "buy" => {
                             if let Some(funds) = funds_clone {
@@ -1470,7 +1480,7 @@ async fn handle_position_event(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
 ) {
-    if let Err(e) = upsert_position_ratio(
+    match upsert_position_ratio(
         pool,
         exchange,
         position.debt_ratio,
@@ -1480,16 +1490,9 @@ async fn handle_position_event(
     )
     .await
     {
-        let msg: String = format!("Failed to upsert margin account state: {}", e);
-        error!("{}", msg);
-        match insert_db_error(pool, exchange, &msg).await {
-            Ok(_) => {}
-            Err(e) => {}
-        }
-    }
-    for (symbol, amount) in &position.debt_list {
-        if let Err(e) = upsert_position_debt(pool, exchange, symbol, amount).await {
-            let msg: String = format!("Failed to insert debt margin account state: {}", e);
+        Ok(_) => {}
+        Err(e) => {
+            let msg: String = format!("Failed to upsert margin account state: {}", e);
             error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
                 Ok(_) => {}
@@ -1497,8 +1500,22 @@ async fn handle_position_event(
             }
         }
     }
+
+    for (symbol, amount) in &position.debt_list {
+        match upsert_position_debt(pool, exchange, symbol, amount).await {
+            Ok(_) => {}
+            Err(e) => {
+                let msg: String = format!("Failed to insert debt margin account state: {}", e);
+                error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {}
+                }
+            }
+        }
+    }
     for (symbol, symbol_info) in &position.asset_list {
-        if let Err(e) = upsert_position_asset(
+        match upsert_position_asset(
             pool,
             exchange,
             symbol,
@@ -1508,11 +1525,14 @@ async fn handle_position_event(
         )
         .await
         {
-            let msg: String = format!("Failed to insert asset margin account state: {}", e);
-            error!("{}", msg);
-            match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
-                Err(e) => {}
+            Ok(_) => {}
+            Err(e) => {
+                let msg: String = format!("Failed to insert asset margin account state: {}", e);
+                error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {}
+                }
             }
         }
     }
@@ -1529,26 +1549,32 @@ async fn handle_position_event(
                             token_liability, asset, available
                         );
 
-                        if let Err(e) = create_repay_order(asset, token_liability_str).await {
-                            let msg: String = format!("Failed to repay liability: {}", e);
-                            error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {}
+                        match create_repay_order(asset, token_liability_str).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed to repay liability: {}", e);
+                                error!("{}", msg);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                             }
-                        };
+                        }
                     } else if available > 0.0 {
                         info!(
                             "Can partially repay {} {} liability with available {}",
                             token_liability, asset, available
                         );
 
-                        if let Err(e) = create_repay_order(asset, &asset_info.available).await {
-                            let msg: String = format!("Failed to partially repay debt: {}", e);
-                            error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {}
+                        match create_repay_order(asset, &asset_info.available).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed to partially repay debt: {}", e);
+                                error!("{}", msg);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                             }
                         }
                     }
@@ -1624,32 +1650,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 account.liability, &account.currency, account.available
                             );
 
-                            if let Err(e) =
-                                create_repay_order(&account.currency, &account.liability).await
-                            {
-                                let msg: String = format!("Failed to repay liability: {}", e);
-                                error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {}
+                            match create_repay_order(&account.currency, &account.liability).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed to repay liability: {}", e);
+                                    error!("{}", msg);
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                 }
-                            };
+                            }
                         } else if token_available > 0.0 {
                             info!(
                                 "Can partially repay {} {} liability with available {}",
                                 account.liability, &account.currency, account.available
                             );
 
-                            if let Err(e) =
-                                create_repay_order(&account.currency, &account.available).await
-                            {
-                                let msg: String = format!("Failed to partially repay debt: {}", e);
-                                error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {}
+                            match create_repay_order(&account.currency, &account.available).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String =
+                                        format!("Failed to partially repay debt: {}", e);
+                                    error!("{}", msg);
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {}
+                                    }
                                 }
-                            };
+                            }
                         } else if account.currency != "USDT" && token_available == 0.0 {
                             // buy stock by market liability
                             let trade_symbol: &String = &(account.currency.clone() + "-USDT");
@@ -2221,15 +2250,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         // subscribtion
         for sub in build_subscription() {
-            if let Err(e) = event_ws_write.send(Message::text(sub.to_string())).await {
-                let msg: String = format!("Failed to subscribe: {}", e);
-                error!("{}", msg);
-                match insert_db_error(&pool, &exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {}
-                }
+            match event_ws_write.send(Message::text(sub.to_string())).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed to subscribe: {}", e);
+                    error!("{}", msg);
+                    match insert_db_error(&pool, &exchange, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
 
-                break;
+                    break;
+                }
             }
         }
 
