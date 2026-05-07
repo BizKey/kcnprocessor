@@ -448,18 +448,23 @@ async fn make_random_trade(
                         return Ok(());
                     }
                     Err(e) => {
-                        let _ = update_bot_entry_client_oid_by_id(
+                        match update_bot_entry_client_oid_by_id(
                             pool,
                             exchange,
                             None,
                             None,
                             trade_bot_id,
                         )
-                        .await;
-                        error!(
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        }
+                        let msg = format!(
                             "❌ Order failed (attempt {}/{}): {} - {}",
                             attempt, MAX_RETRIES, tradeable.symbol, e
                         );
+                        error!("{}", msg);
                         match insert_db_error(pool, exchange, &e.to_string()).await {
                             Ok(_) => {}
                             Err(e) => {
@@ -1143,7 +1148,6 @@ async fn handle_trade_order_event(
                     return;
                 }
                 Ok(None) => {}
-
                 Err(e) => {}
             }
 
@@ -1289,11 +1293,14 @@ async fn handle_trade_order_event(
                                         }
                                         (Err(tp_err), Ok(sl_resp)) => {
                                             if let Some(ref response_data) = sl_resp.data {
-                                                let _ =
-                                                api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                match    api_v3_hf_margin_stop_order_cancel_by_client_oid(
                                                     &response_data.client_oid,
                                                 )
-                                                .await;
+                                                .await {
+                                                    Ok(_) =>{}
+                                                    Err(e) => {}
+                                                }
+                                             ;
                                             }
 
                                             match delete_exit_sl_id_bot_by_client_oid(
@@ -1325,11 +1332,13 @@ async fn handle_trade_order_event(
                                         }
                                         (Ok(tp_resp), Err(sl_err)) => {
                                             if let Some(ref response_data) = tp_resp.data {
-                                                let _ =
-                                                api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                match   api_v3_hf_margin_stop_order_cancel_by_client_oid(
                                                     &response_data.client_oid,
                                                 )
-                                                .await;
+                                                .await {
+                                                    Ok(_) =>{}
+                                                    Err(e) =>{}
+                                                }
                                             }
 
                                             match delete_exit_tp_id_bot_by_client_oid(
@@ -1510,11 +1519,13 @@ async fn handle_trade_order_event(
                                         }
                                         (Err(tp_err), Ok(sl_resp)) => {
                                             if let Some(ref response_data) = sl_resp.data {
-                                                let _ =
-                                                api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                match   api_v3_hf_margin_stop_order_cancel_by_client_oid(
                                                     &response_data.client_oid,
                                                 )
-                                                .await;
+                                                .await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {}
+                                                }
                                             }
 
                                             match delete_exit_sl_id_bot_by_client_oid(
@@ -1546,11 +1557,13 @@ async fn handle_trade_order_event(
                                         }
                                         (Ok(tp_resp), Err(sl_err)) => {
                                             if let Some(ref response_data) = tp_resp.data {
-                                                let _ =
-                                                api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                match   api_v3_hf_margin_stop_order_cancel_by_client_oid(
                                                     &response_data.client_oid,
                                                 )
-                                                .await;
+                                                .await {
+                                                    Ok(_) =>{}
+                                                    Err(e) => {}
+                                                }
                                             }
 
                                             match delete_exit_tp_id_bot_by_client_oid(
@@ -2064,7 +2077,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let min_funds_by_size: f64 = token_price * base_min_size;
 
                             if token_funds <= min_funds.max(min_funds_by_size) {
-                                let _ = make_hf_funds_margin_order(
+                                match make_hf_funds_margin_order(
                                     &pool,
                                     &exchange,
                                     &client_oid,
@@ -2076,9 +2089,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     ),
                                     "market".to_string(),
                                 )
-                                .await;
+                                .await
+                                {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                             } else {
-                                let _ = make_hf_funds_margin_order(
+                                match make_hf_funds_margin_order(
                                     &pool,
                                     &exchange,
                                     &client_oid,
@@ -2087,7 +2104,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     format_assert(token_funds, quote_increment),
                                     "market".to_string(),
                                 )
-                                .await;
+                                .await
+                                {
+                                    Ok(_) => {}
+                                    Err(e) => {}
+                                }
                             };
                         }
                     } else if account.currency != "USDT" && token_available > 0.0 {
@@ -2256,7 +2277,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 }
                             }
                         } else {
-                            let _ = make_hf_size_margin_order(
+                            match make_hf_size_margin_order(
                                 &pool,
                                 &exchange,
                                 &client_oid,
@@ -2265,7 +2286,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 format_assert(token_available, base_increment),
                                 "market".to_string(),
                             )
-                            .await;
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
                         }
                     }
                 }
