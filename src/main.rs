@@ -191,7 +191,11 @@ async fn make_hf_size_margin_order(
     .await
     {
         Ok(_) => {}
-        Err(e) => {}
+        Err(e) => {
+            let msg = format!("Failed insert_db_msgsend: {}", e);
+            error!("{}", msg);
+            insert_db_error(pool, exchange, &msg).await;
+        }
     }
     let msg: serde_json::Value = serde_json::json!({
         "clientOid": client_oid,
@@ -468,7 +472,12 @@ async fn make_random_trade(
                         .await
                         {
                             Ok(_) => {}
-                            Err(e) => {}
+                            Err(e) => {
+                                let msg =
+                                    format!("Failed update_bot_entry_client_oid_by_id: {}", e);
+                                error!("{}", msg);
+                                insert_db_error(pool, exchange, &msg).await;
+                            }
                         }
                         let msg = format!(
                             "❌ Order failed (attempt {}/{}): {} - {}",
@@ -808,7 +817,11 @@ async fn handle_trade_order_event(
     // sent order to pg
     match insert_db_orderevent(pool, exchange, &order).await {
         Ok(_) => {}
-        Err(e) => {}
+        Err(e) => {
+            let msg = format!("Failed insert_db_orderevent: {}", e);
+            error!("{}", msg);
+            insert_db_error(pool, exchange, &msg).await;
+        }
     }
 
     if let Some(client_oid) = &order.client_oid {
@@ -888,7 +901,11 @@ async fn handle_trade_order_event(
                     // delete exit_tp_client_oid stop order
                     match delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(e) => {
+                            let msg = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
+                            error!("{}", msg);
+                            insert_db_error(pool, exchange, &msg).await;
+                        }
                     }
                     if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid {
                         // clear exit_sl_client_oid in bots by id !!
@@ -1017,7 +1034,14 @@ async fn handle_trade_order_event(
                                 .await
                                 {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg = format!(
+                                            "Failed update_balance_bot_by_exit_tp_client_oid: {}",
+                                            e
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                    }
                                 }
                                 // create new random order
                                 match make_random_trade(pool, exchange, return_balance, bot.id)
@@ -1145,7 +1169,14 @@ async fn handle_trade_order_event(
                                         .await
                                         {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+                                                let msg = format!(
+                                                    "Failed update_balance_bot_by_exit_sl_client_oid: {}",
+                                                    e
+                                                );
+                                                error!("{}", msg);
+                                                insert_db_error(pool, exchange, &msg).await;
+                                            }
                                         }
                                         // create new random order
                                         match make_random_trade(pool, exchange, new_balance, bot.id)
@@ -1195,7 +1226,14 @@ async fn handle_trade_order_event(
                                 .await
                                 {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg = format!(
+                                            "Failed update_balance_bot_by_exit_sl_client_oid: {}",
+                                            e
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                    }
                                 }
 
                                 // create new random order
@@ -1278,7 +1316,14 @@ async fn handle_trade_order_event(
                                 .await
                                 {
                                     Ok(_) => {}
-                                    Err(e) => {}
+                                    Err(e) => {
+                                        let msg = format!(
+                                            "Failed update_bot_balance_by_entry_client_oid: {}",
+                                            e
+                                        );
+                                        error!("{}", msg);
+                                        insert_db_error(pool, exchange, &msg).await;
+                                    }
                                 }
 
                                 if order.side == "buy" {
@@ -1359,7 +1404,14 @@ async fn handle_trade_order_event(
                                     .await
                                     {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg = format!(
+                                                "Failed update_exit_sl_client_oid_bot_by_entry_client_oid: {}",
+                                                e
+                                            );
+                                            error!("{}", msg);
+                                            insert_db_error(pool, exchange, &msg).await;
+                                        }
                                     }
 
                                     let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order);
@@ -1378,7 +1430,9 @@ async fn handle_trade_order_event(
                                                 )
                                                 .await {
                                             Ok(_) => {}
-                                            Err(e) => {}
+                                            Err(e) => {
+
+                                            }
                                         }
                                             }
                                             if let Some(ref response_data) = sl_resp.data {
@@ -1499,7 +1553,14 @@ async fn handle_trade_order_event(
                                             .await
                                             {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg = format!(
+                                                        "Failed delete_symbol_bot_by_exit_sl_client_oid: {}",
+                                                        e
+                                                    );
+                                                    error!("{}", msg);
+                                                    insert_db_error(&pool, &exchange, &msg).await;
+                                                }
                                             }
                                             match delete_exit_sl_id_bot_by_client_oid(
                                                 pool,
@@ -1509,7 +1570,14 @@ async fn handle_trade_order_event(
                                             .await
                                             {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg = format!(
+                                                        "Failed delete_exit_sl_id_bot_by_client_oid: {}",
+                                                        e
+                                                    );
+                                                    error!("{}", msg);
+                                                    insert_db_error(pool, exchange, &msg).await;
+                                                }
                                             }
                                             match delete_exit_tp_id_bot_by_client_oid(
                                                 pool,
@@ -1626,12 +1694,16 @@ async fn handle_trade_order_event(
                                         }
                                         (Err(tp_err), Ok(sl_resp)) => {
                                             if let Some(ref response_data) = sl_resp.data {
-                                                match   api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(
                                                     &response_data.client_oid,
                                                 )
                                                 .await {
                                                     Ok(_) => {}
-                                                    Err(e) => {}
+                                                    Err(e) => {
+                                                        let msg = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
+                                                        error!("{}", msg);
+                                                        insert_db_error(pool, exchange, &msg).await;
+                                                    }
                                                 }
                                             }
 
@@ -1643,7 +1715,14 @@ async fn handle_trade_order_event(
                                             .await
                                             {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg = format!(
+                                                        "Failed delete_exit_sl_id_bot_by_client_oid: {}",
+                                                        e
+                                                    );
+                                                    error!("{}", msg);
+                                                    insert_db_error(pool, exchange, &msg).await;
+                                                }
                                             }
 
                                             let msg = format!(
@@ -1664,12 +1743,16 @@ async fn handle_trade_order_event(
                                         }
                                         (Ok(tp_resp), Err(sl_err)) => {
                                             if let Some(ref response_data) = tp_resp.data {
-                                                match   api_v3_hf_margin_stop_order_cancel_by_client_oid(
+                                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(
                                                     &response_data.client_oid,
                                                 )
                                                 .await {
                                                     Ok(_) =>{}
-                                                    Err(e) => {}
+                                                    Err(e) => {
+                                                        let msg = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
+                                                        error!("{}", msg);
+                                                        insert_db_error(pool, exchange, &msg).await;
+                                                    }
                                                 }
                                             }
 
@@ -1681,7 +1764,14 @@ async fn handle_trade_order_event(
                                             .await
                                             {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg = format!(
+                                                        "Failed delete_exit_tp_id_bot_by_client_oid: {}",
+                                                        e
+                                                    );
+                                                    error!("{}", msg);
+                                                    insert_db_error(pool, exchange, &msg).await;
+                                                }
                                             }
 
                                             let msg = format!(
@@ -1724,7 +1814,14 @@ async fn handle_trade_order_event(
                                             .await
                                             {
                                                 Ok(_) => {}
-                                                Err(e) => {}
+                                                Err(e) => {
+                                                    let msg = format!(
+                                                        "Failed delete_symbol_bot_by_exit_sl_client_oid: {}",
+                                                        e
+                                                    );
+                                                    error!("{}", msg);
+                                                    insert_db_error(pool, exchange, &msg).await;
+                                                }
                                             }
                                             match delete_exit_sl_id_bot_by_client_oid(
                                                 pool,
@@ -2547,7 +2644,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     .await
                                     {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            match insert_db_error(
+                                                &pool_for_handler,
+                                                &exchange_for_handler,
+                                                &msg,
+                                            )
+                                            .await
+                                            {
+                                                Ok(_) => {}
+                                                Err(e) => {
+                                                    let msg: String = format!(
+                                                        "Failed insert error msg: {} {}",
+                                                        msg, e
+                                                    );
+                                                    error!("{}", msg);
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 Err(e) => {
@@ -2758,7 +2872,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                     .await
                                     {
                                         Ok(_) => {}
-                                        Err(e) => {}
+                                        Err(e) => {
+                                            let msg = format!("Failed insert_db_event: {}", e);
+                                            error!("{}", msg);
+                                            insert_db_error(
+                                                &pool_for_handler,
+                                                &exchange_for_handler,
+                                                &msg,
+                                            )
+                                            .await;
+                                        }
                                     }
                                 }
                                 Err(e) => {
