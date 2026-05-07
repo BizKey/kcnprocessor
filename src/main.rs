@@ -1614,7 +1614,96 @@ async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Post
 
 async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) {
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
-        Ok(_) => {}
+        Ok(_) => {
+            for (symbol, amount) in &position.debt_list {
+                match upsert_position_debt(pool, exchange, symbol, amount).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed to insert debt margin account state: {}", e);
+                        error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
+                        }
+                    }
+                }
+            }
+            for (symbol, symbol_info) in &position.asset_list {
+                match upsert_position_asset(pool, exchange, symbol, &symbol_info.total, &symbol_info.available, &symbol_info.hold).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed to insert asset margin account state: {}", e);
+                        error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
+                        }
+                    }
+                }
+            }
+            // repay borrow
+            for (asset, token_liability_str) in &position.debt_list {
+                if let Ok(token_liability) = token_liability_str.parse::<f64>()
+                    && let Some(asset_info) = &position.asset_list.get(asset)
+                {
+                    if let Ok(available) = asset_info.available.parse::<f64>() {
+                        if token_liability > 0.0 {
+                            if available >= token_liability {
+                                info!("Can repay {} {} liability with available {}", token_liability, asset, available);
+
+                                match create_repay_order(asset, token_liability_str).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed to repay liability: {}", e);
+                                        error!("{}", msg);
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                error!("{}", msg);
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if available > 0.0 {
+                                info!("Can partially repay {} {} liability with available {}", token_liability, asset, available);
+
+                                match create_repay_order(asset, &asset_info.available).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed to partially repay debt: {}", e);
+                                        error!("{}", msg);
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                error!("{}", msg);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        let msg: String = format!("Failed to parse available balance for {}", asset);
+                        error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Err(e) => {
             let msg: String = format!("Failed to upsert margin account state: {}", e);
             error!("{}", msg);
@@ -1623,95 +1712,6 @@ async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::P
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                     error!("{}", msg);
-                }
-            }
-        }
-    }
-
-    for (symbol, amount) in &position.debt_list {
-        match upsert_position_debt(pool, exchange, symbol, amount).await {
-            Ok(_) => {}
-            Err(e) => {
-                let msg: String = format!("Failed to insert debt margin account state: {}", e);
-                error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        error!("{}", msg);
-                    }
-                }
-            }
-        }
-    }
-    for (symbol, symbol_info) in &position.asset_list {
-        match upsert_position_asset(pool, exchange, symbol, &symbol_info.total, &symbol_info.available, &symbol_info.hold).await {
-            Ok(_) => {}
-            Err(e) => {
-                let msg: String = format!("Failed to insert asset margin account state: {}", e);
-                error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        error!("{}", msg);
-                    }
-                }
-            }
-        }
-    }
-    // repay borrow
-    for (asset, token_liability_str) in &position.debt_list {
-        if let Ok(token_liability) = token_liability_str.parse::<f64>()
-            && let Some(asset_info) = &position.asset_list.get(asset)
-        {
-            if let Ok(available) = asset_info.available.parse::<f64>() {
-                if token_liability > 0.0 {
-                    if available >= token_liability {
-                        info!("Can repay {} {} liability with available {}", token_liability, asset, available);
-
-                        match create_repay_order(asset, token_liability_str).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed to repay liability: {}", e);
-                                error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        error!("{}", msg);
-                                    }
-                                }
-                            }
-                        }
-                    } else if available > 0.0 {
-                        info!("Can partially repay {} {} liability with available {}", token_liability, asset, available);
-
-                        match create_repay_order(asset, &asset_info.available).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed to partially repay debt: {}", e);
-                                error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        error!("{}", msg);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                let msg: String = format!("Failed to parse available balance for {}", asset);
-                error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        error!("{}", msg);
-                    }
                 }
             }
         }
