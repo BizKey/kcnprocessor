@@ -439,7 +439,53 @@ async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::P
                 "loss" => {
                     // need find sl
                     match update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool, exchange, &order_id_clone, &new_exit_client_oid).await {
-                        Ok(_) => {}
+                        Ok(_) => match side_clone.as_str() {
+                            "buy" => {
+                                if let Some(funds) = funds_clone {
+                                    make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, funds, "market".to_string()).await
+                                } else {
+                                    let msg = format!("Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}", order_id_clone, new_exit_client_oid, funds_clone,);
+                                    error!("{}", msg);
+                                    match insert_db_error(pool, exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
+                                    }
+                                    return;
+                                }
+                            }
+                            "sell" => {
+                                if let Some(size) = size_clone {
+                                    make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market".to_string()).await
+                                } else {
+                                    let msg = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_clone, new_exit_client_oid, size_clone,);
+                                    error!("{}", msg);
+                                    match insert_db_error(pool, exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
+                                    }
+                                    return;
+                                }
+                            }
+                            _ => {
+                                let msg = format!("Fail match side_clone:{}", side_clone);
+                                error!("{}", msg);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+
+                                return;
+                            }
+                        },
                         Err(e) => {
                             let msg = format!("Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}, {}", order_id_clone, new_exit_client_oid, e);
                             error!("{}", msg);
@@ -454,54 +500,6 @@ async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::P
                                 return;
                             }
                             continue;
-                        }
-                    }
-
-                    match side_clone.as_str() {
-                        "buy" => {
-                            if let Some(funds) = funds_clone {
-                                make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, funds, "market".to_string()).await
-                            } else {
-                                let msg = format!("Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}", order_id_clone, new_exit_client_oid, funds_clone,);
-                                error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        error!("{}", msg);
-                                    }
-                                }
-                                return;
-                            }
-                        }
-                        "sell" => {
-                            if let Some(size) = size_clone {
-                                make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market".to_string()).await
-                            } else {
-                                let msg = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_clone, new_exit_client_oid, size_clone,);
-                                error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        error!("{}", msg);
-                                    }
-                                }
-                                return;
-                            }
-                        }
-                        _ => {
-                            let msg = format!("Fail match side_clone:{}", side_clone);
-                            error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    error!("{}", msg);
-                                }
-                            }
-
-                            return;
                         }
                     }
                 }
