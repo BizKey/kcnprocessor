@@ -410,202 +410,205 @@ async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, ba
 
 async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) {
     info!("{:?}", order);
-    if let Some(_) = order.error {
-        let msg: String = format!("Got error on stop order : {:?}", order);
-        error!("{}", msg);
-        match insert_db_error(pool, exchange, &msg).await {
-            Ok(_) => {}
-            Err(e) => {
-                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                error!("{}", msg);
-            }
-        }
-
-        const MAX_RETRIES: u32 = 1000;
-        let mut attempt = 0;
-        loop {
-            tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
-            attempt += 1;
-
-            let order_id_clone: String = order.order_id.clone();
-            let stop_clone: String = order.stop.clone();
-            let side_clone: String = order.side.clone();
-            let symbol_clone: String = order.symbol.clone();
-            let funds_clone: Option<String> = order.funds.clone();
-            let size_clone: Option<String> = order.size.clone();
-            let new_exit_client_oid: String = Uuid::new_v4().to_string();
-
-            let order_result = match stop_clone.as_str() {
-                "loss" => {
-                    // need find sl
-                    match update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool, exchange, &order_id_clone, &new_exit_client_oid).await {
-                        Ok(_) => match side_clone.as_str() {
-                            "buy" => {
-                                if let Some(funds) = funds_clone {
-                                    make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, funds, "market".to_string()).await
-                                } else {
-                                    let msg: String = format!("Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}", order_id_clone, new_exit_client_oid, funds_clone,);
-                                    error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            error!("{}", msg);
-                                        }
-                                    }
-                                    return;
-                                }
-                            }
-                            "sell" => {
-                                if let Some(size) = size_clone {
-                                    make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market".to_string()).await
-                                } else {
-                                    let msg: String = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_clone, new_exit_client_oid, size_clone,);
-                                    error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            error!("{}", msg);
-                                        }
-                                    }
-                                    return;
-                                }
-                            }
-                            _ => {
-                                let msg: String = format!("Fail match side_clone:{}", side_clone);
-                                error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        error!("{}", msg);
-                                    }
-                                }
-
-                                return;
-                            }
-                        },
-                        Err(e) => {
-                            let msg: String = format!("Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}, {}", order_id_clone, new_exit_client_oid, e);
-                            error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    error!("{}", msg);
-                                }
-                            }
-                            if attempt >= MAX_RETRIES {
-                                return;
-                            }
-                            continue;
-                        }
-                    }
-                }
-                "entry" => {
-                    // need find tp
-                    match update_exit_tp_client_oid_bot_by_exit_tp_order_id(pool, exchange, &order_id_clone, &new_exit_client_oid).await {
-                        Ok(_) => match side_clone.as_str() {
-                            "buy" => {
-                                if let Some(funds) = funds_clone {
-                                    make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, funds, "market".to_string()).await
-                                } else {
-                                    let msg: String = format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_clone, new_exit_client_oid, funds_clone,);
-                                    error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            error!("{}", msg);
-                                        }
-                                    }
-                                    return;
-                                }
-                            }
-                            "sell" => {
-                                if let Some(size) = size_clone {
-                                    make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market".to_string()).await
-                                } else {
-                                    let msg: String = format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_clone, new_exit_client_oid, size_clone,);
-                                    error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            error!("{}", msg);
-                                        }
-                                    }
-
-                                    return;
-                                }
-                            }
-                            _ => {
-                                let msg: String = format!("Fail match side_clone:{}", side_clone);
-                                error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        error!("{}", msg);
-                                    }
-                                }
-
-                                return;
-                            }
-                        },
-                        Err(e) => {
-                            let msg: String = format!("Failed save bot info: order_id_clone:{} new_exit_tp_client_oid:{}, {}", order_id_clone, new_exit_client_oid, e);
-                            error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    error!("{}", msg);
-                                }
-                            }
-                            if attempt >= MAX_RETRIES {
-                                return;
-                            }
-                            continue;
-                        }
-                    }
-                }
-                _ => {
-                    let msg: String = format!("Fail match stop_clone:{}", stop_clone);
-                    error!("{}", msg);
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            error!("{}", msg);
-                        }
-                    }
-
-                    return;
-                }
-            };
-
-            match order_result {
-                Ok(_) => {
-                    info!("✅ Order re-placed: {} {} (attempt {}/{})", order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES);
-                    break;
-                }
+    match order.error {
+        Some(_) => {
+            let msg: String = format!("Got error on stop order : {:?}", order);
+            error!("{}", msg);
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
                 Err(e) => {
-                    error!("❌ Order failed: {} {} (attempt {}/{}) {}", order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES, e);
-                    match insert_db_error(pool, exchange, &e.to_string()).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            error!("{}", msg);
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
+            }
+
+            const MAX_RETRIES: u32 = 1000;
+            let mut attempt = 0;
+            loop {
+                tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
+                attempt += 1;
+
+                let order_id_clone: String = order.order_id.clone();
+                let stop_clone: String = order.stop.clone();
+                let side_clone: String = order.side.clone();
+                let symbol_clone: String = order.symbol.clone();
+                let funds_clone: Option<String> = order.funds.clone();
+                let size_clone: Option<String> = order.size.clone();
+                let new_exit_client_oid: String = Uuid::new_v4().to_string();
+
+                let order_result = match stop_clone.as_str() {
+                    "loss" => {
+                        // need find sl
+                        match update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool, exchange, &order_id_clone, &new_exit_client_oid).await {
+                            Ok(_) => match side_clone.as_str() {
+                                "buy" => {
+                                    if let Some(funds) = funds_clone {
+                                        make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, funds, "market".to_string()).await
+                                    } else {
+                                        let msg: String = format!("Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}", order_id_clone, new_exit_client_oid, funds_clone,);
+                                        error!("{}", msg);
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                error!("{}", msg);
+                                            }
+                                        }
+                                        return;
+                                    }
+                                }
+                                "sell" => {
+                                    if let Some(size) = size_clone {
+                                        make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market".to_string()).await
+                                    } else {
+                                        let msg: String = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_clone, new_exit_client_oid, size_clone,);
+                                        error!("{}", msg);
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                error!("{}", msg);
+                                            }
+                                        }
+                                        return;
+                                    }
+                                }
+                                _ => {
+                                    let msg: String = format!("Fail match side_clone:{}", side_clone);
+                                    error!("{}", msg);
+                                    match insert_db_error(pool, exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
+                                    }
+
+                                    return;
+                                }
+                            },
+                            Err(e) => {
+                                let msg: String = format!("Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}, {}", order_id_clone, new_exit_client_oid, e);
+                                error!("{}", msg);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                if attempt >= MAX_RETRIES {
+                                    return;
+                                }
+                                continue;
+                            }
                         }
                     }
-                    if attempt >= MAX_RETRIES {
+                    "entry" => {
+                        // need find tp
+                        match update_exit_tp_client_oid_bot_by_exit_tp_order_id(pool, exchange, &order_id_clone, &new_exit_client_oid).await {
+                            Ok(_) => match side_clone.as_str() {
+                                "buy" => {
+                                    if let Some(funds) = funds_clone {
+                                        make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, funds, "market".to_string()).await
+                                    } else {
+                                        let msg: String = format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_clone, new_exit_client_oid, funds_clone,);
+                                        error!("{}", msg);
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                error!("{}", msg);
+                                            }
+                                        }
+                                        return;
+                                    }
+                                }
+                                "sell" => {
+                                    if let Some(size) = size_clone {
+                                        make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market".to_string()).await
+                                    } else {
+                                        let msg: String = format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_clone, new_exit_client_oid, size_clone,);
+                                        error!("{}", msg);
+                                        match insert_db_error(pool, exchange, &msg).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                error!("{}", msg);
+                                            }
+                                        }
+
+                                        return;
+                                    }
+                                }
+                                _ => {
+                                    let msg: String = format!("Fail match side_clone:{}", side_clone);
+                                    error!("{}", msg);
+                                    match insert_db_error(pool, exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
+                                    }
+
+                                    return;
+                                }
+                            },
+                            Err(e) => {
+                                let msg: String = format!("Failed save bot info: order_id_clone:{} new_exit_tp_client_oid:{}, {}", order_id_clone, new_exit_client_oid, e);
+                                error!("{}", msg);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                if attempt >= MAX_RETRIES {
+                                    return;
+                                }
+                                continue;
+                            }
+                        }
+                    }
+                    _ => {
+                        let msg: String = format!("Fail match stop_clone:{}", stop_clone);
+                        error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
+                        }
+
                         return;
                     }
+                };
+
+                match order_result {
+                    Ok(_) => {
+                        info!("✅ Order re-placed: {} {} (attempt {}/{})", order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES);
+                        break;
+                    }
+                    Err(e) => {
+                        error!("❌ Order failed: {} {} (attempt {}/{}) {}", order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES, e);
+                        match insert_db_error(pool, exchange, &e.to_string()).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
+                        }
+                        if attempt >= MAX_RETRIES {
+                            return;
+                        }
+                    }
                 }
             }
         }
+        None => {}
     }
 }
 
