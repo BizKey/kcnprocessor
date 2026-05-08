@@ -1403,43 +1403,51 @@ async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Post
 
                                         match (&tp_res, &sl_res) {
                                             (Ok(tp_resp), Ok(sl_resp)) => {
-                                                if let Some(ref response_data) = tp_resp.data {
-                                                    match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
-                                                        Ok(_) => {}
-                                                        Err(e) => {
-                                                            let msg: String = format!("Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid: {}", e);
-                                                            error!("{}", msg);
-                                                            match insert_db_error(pool, exchange, &msg).await {
-                                                                Ok(_) => {}
-                                                                Err(e) => {
-                                                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                                    error!("{}", msg);
+                                                match tp_resp.data {
+                                                    Some(ref response_data) => {
+                                                        match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                                                            Ok(_) => {}
+                                                            Err(e) => {
+                                                                let msg: String = format!("Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid: {}", e);
+                                                                error!("{}", msg);
+                                                                match insert_db_error(pool, exchange, &msg).await {
+                                                                    Ok(_) => {}
+                                                                    Err(e) => {
+                                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                                        error!("{}", msg);
+                                                                    }
                                                                 }
                                                             }
                                                         }
                                                     }
+                                                    None => {}
                                                 }
-                                                if let Some(ref response_data) = sl_resp.data {
-                                                    match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
-                                                        Ok(_) => {}
-                                                        Err(e) => {
-                                                            let msg: String = format!("Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid: {}", e);
-                                                            error!("{}", msg);
-                                                            match insert_db_error(pool, exchange, &msg).await {
-                                                                Ok(_) => {}
-                                                                Err(e) => {
-                                                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                                    error!("{}", msg);
+
+                                                match sl_resp.data {
+                                                    Some(ref response_data) => {
+                                                        match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                                                            Ok(_) => {}
+                                                            Err(e) => {
+                                                                let msg: String = format!("Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid: {}", e);
+                                                                error!("{}", msg);
+                                                                match insert_db_error(pool, exchange, &msg).await {
+                                                                    Ok(_) => {}
+                                                                    Err(e) => {
+                                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                                        error!("{}", msg);
+                                                                    }
                                                                 }
                                                             }
                                                         }
                                                     }
+                                                    None => {}
                                                 }
+
                                                 info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
                                             }
                                             (Err(tp_err), Ok(sl_resp)) => {
-                                                if let Some(ref response_data) = sl_resp.data {
-                                                    match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
+                                                match sl_resp.data {
+                                                    Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
                                                         Ok(_) => {}
                                                         Err(e) => {
                                                             let msg: String = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
@@ -1452,7 +1460,8 @@ async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Post
                                                                 }
                                                             }
                                                         }
-                                                    }
+                                                    },
+                                                    None => {}
                                                 }
 
                                                 match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
@@ -1480,49 +1489,48 @@ async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Post
                                                     }
                                                 }
                                             }
-                                            (Ok(tp_resp), Err(sl_err)) => {
-                                                if let Some(ref response_data) = tp_resp.data {
-                                                    match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
-                                                        Ok(_) => {
-                                                            match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
-                                                                Ok(_) => {}
-                                                                Err(e) => {
-                                                                    let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
-                                                                    error!("{}", msg);
-                                                                    match insert_db_error(pool, exchange, &msg).await {
-                                                                        Ok(_) => {}
-                                                                        Err(e) => {
-                                                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                                            error!("{}", msg);
-                                                                        }
+                                            (Ok(tp_resp), Err(sl_err)) => match tp_resp.data {
+                                                Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
+                                                    Ok(_) => {
+                                                        match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
+                                                            Ok(_) => {}
+                                                            Err(e) => {
+                                                                let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
+                                                                error!("{}", msg);
+                                                                match insert_db_error(pool, exchange, &msg).await {
+                                                                    Ok(_) => {}
+                                                                    Err(e) => {
+                                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                                        error!("{}", msg);
                                                                     }
                                                                 }
                                                             }
-
-                                                            let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
-                                                            error!("{}", msg);
-                                                            match insert_db_error(pool, exchange, &msg).await {
-                                                                Ok(_) => {}
-                                                                Err(e) => {
-                                                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                                    error!("{}", msg);
-                                                                }
-                                                            }
                                                         }
-                                                        Err(e) => {
-                                                            let msg: String = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
-                                                            error!("{}", msg);
-                                                            match insert_db_error(pool, exchange, &msg).await {
-                                                                Ok(_) => {}
-                                                                Err(e) => {
-                                                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                                    error!("{}", msg);
-                                                                }
+
+                                                        let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
+                                                        error!("{}", msg);
+                                                        match insert_db_error(pool, exchange, &msg).await {
+                                                            Ok(_) => {}
+                                                            Err(e) => {
+                                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                                error!("{}", msg);
                                                             }
                                                         }
                                                     }
-                                                }
-                                            }
+                                                    Err(e) => {
+                                                        let msg: String = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
+                                                        error!("{}", msg);
+                                                        match insert_db_error(pool, exchange, &msg).await {
+                                                            Ok(_) => {}
+                                                            Err(e) => {
+                                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                                error!("{}", msg);
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                None => {}
+                                            },
                                             (Err(tp_err), Err(sl_err)) => {
                                                 let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
                                                 error!("{}", msg);
