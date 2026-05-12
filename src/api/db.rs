@@ -113,7 +113,9 @@ pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceDa
 
 pub async fn insert_db_orderevent(pool: &PgPool, exchange: &str, order: &OrderData) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query("
-            INSERT INTO orderevent (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)")
+            INSERT INTO orderevent (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23);
+            ")
         .bind(exchange)
         .bind(&order.status)
         .bind(&order.type_)
