@@ -1813,7 +1813,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
     }
 }
 
-pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, msg: &str) {
+pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, msg: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match serde_json::from_str::<KuCoinMessage>(msg) {
         Ok(kc_msg) => match kc_msg {
             KuCoinMessage::Welcome(data) => {
@@ -1834,7 +1834,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     },
                     Err(e) => {
                         error!("Failed to serialize event: {}", e);
-                        return;
                     }
                 };
             }
@@ -1850,7 +1849,9 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                     error!("{}", msg);
 
                                     match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
+                                        Ok(_) => {
+                                            return Ok(());
+                                        }
                                         Err(e) => {
                                             let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                             error!("{}", msg);
@@ -1969,7 +1970,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     },
                     Err(e) => {
                         error!("Failed to serialize event: {}", e);
-                        return;
                     }
                 };
             }
@@ -2001,6 +2001,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
             }
         }
     }
+    return Ok(());
 }
 
 pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, balance_funds: f64, trade_bot_id: i32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

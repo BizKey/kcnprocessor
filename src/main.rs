@@ -89,7 +89,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _ = tokio::spawn(async move {
             loop {
                 match rx_in.recv().await {
-                    Some(msg) => process_kcn_msg(&pool_for_handler, &exchange_for_handler, &msg).await,
+                    Some(msg) => match process_kcn_msg(&pool_for_handler, &exchange_for_handler, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    },
                     None => {
                         break;
                     }
