@@ -9,7 +9,9 @@ use crate::api::db::{
     upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{AdvancedOrders, MakeOrderRes, OrderData, PositionData, Symbol};
-use crate::api::requests::{add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, create_repay_order, get_ticker_price};
+use crate::api::requests::{
+    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, create_repay_order, get_all_margin_accounts, get_ticker_price, sent_account_transfer,
+};
 
 use log::{error, info};
 
@@ -40,6 +42,382 @@ pub fn format_assert(size: f64, increment: f64) -> String {
     let precision = if increment >= 1.0 { 0 } else { (increment.recip().log10().ceil() as usize).min(10) };
     let rounded = (size / increment).round() * increment;
     format!("{:.prec$}", rounded, prec = precision)
+}
+
+pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    match get_all_margin_accounts().await {
+        Ok(accounts) => {
+            for account in accounts.accounts.iter() {
+                let token_liability: f64 = account.liability.parse().unwrap_or(0.0);
+                let token_available: f64 = account.available.parse().unwrap_or(0.0);
+                if token_liability > 0.0 {
+                    if token_available >= token_liability {
+                        info!("Can repay {} {} liability with available {}", account.liability, &account.currency, account.available);
+
+                        match create_repay_order(&account.currency, &account.liability).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed to repay liability: {}", e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                            }
+                        }
+                    } else if token_available > 0.0 {
+                        info!("Can partially repay {} {} liability with available {}", account.liability, &account.currency, account.available);
+
+                        match create_repay_order(&account.currency, &account.available).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed to partially repay debt: {}", e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                            }
+                        }
+                    } else if account.currency != "USDT" && token_available == 0.0 {
+                        // buy stock by market liability
+                        let trade_symbol: &String = &(account.currency.clone() + "-USDT");
+                        let client_oid: String = Uuid::new_v4().to_string();
+                        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(&pool, &exchange, trade_symbol).await {
+                            Ok(Some(info)) => info,
+                            Ok(None) => {
+                                let msg: String = format!("Symbol info not found for {}", trade_symbol);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                continue;
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Symbol info not found for {} {}", trade_symbol, e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                continue;
+                            }
+                        };
+                        // liability debt in tokens
+                        // get price token
+                        let token_price_str: String = match get_ticker_price(trade_symbol).await {
+                            Ok(token_price_str) => {
+                                info!("Successfully get price:{}", &trade_symbol);
+                                token_price_str
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed get price: {} {}", trade_symbol, e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                continue;
+                            }
+                        };
+                        // convert price from str to int
+                        let token_price: f64 = match token_price_str.parse::<f64>() {
+                            Ok(token_price) => token_price,
+                            Err(e) => {
+                                let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                continue;
+                            }
+                        };
+
+                        // calc price token on amount liability token
+                        let token_funds: f64 = token_price * token_liability;
+
+                        let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
+                            Ok(quote_increment) => quote_increment,
+                            Err(e) => {
+                                let msg: String = format!("Failed parse quote_increment: {} {}", symbol_info.quote_increment, e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                continue;
+                            }
+                        };
+                        // parse min_funds to int
+                        let min_funds: f64 = match &symbol_info.min_funds {
+                            Some(val) => match val.parse::<f64>() {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    let msg: String = format!("Failed parse min_funds: {:?} {}", symbol_info.min_funds, e);
+                                    error!("{}", msg);
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
+                                    }
+                                    continue;
+                                }
+                            },
+                            None => {
+                                let msg: String = format!("min_funds is None for symbol {}", trade_symbol);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                continue;
+                            }
+                        };
+                        let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
+                            Ok(base_min_size) => base_min_size,
+                            Err(e) => {
+                                let msg: String = format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                continue;
+                            }
+                        };
+
+                        // calc price token on amount base_min_size token
+                        let min_funds_by_size: f64 = token_price * base_min_size;
+
+                        if token_funds <= min_funds.max(min_funds_by_size) {
+                            match make_hf_funds_margin_order(&pool, &exchange, &client_oid, "buy", trade_symbol, format_assert(min_funds.max(min_funds_by_size), quote_increment), "market".to_string())
+                                .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed make_hf_funds_margin_order: {}", e);
+                                    error!("{}", msg);
+
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            match make_hf_funds_margin_order(&pool, &exchange, &client_oid, "buy", trade_symbol, format_assert(token_funds, quote_increment), "market".to_string()).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed make_hf_funds_margin_order: {}", e);
+                                    error!("{}", msg);
+                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                    }
+                    return Ok(false);
+                } else if account.currency != "USDT" && token_available > 0.0 {
+                    // sell stocks by market available/ works
+                    let client_oid: String = Uuid::new_v4().to_string();
+                    let trade_symbol: &String = &(account.currency.clone() + "-USDT");
+                    let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, trade_symbol).await {
+                        Ok(Some(info)) => info,
+                        Ok(None) => {
+                            let msg: String = format!("Symbol info not found for {}", trade_symbol);
+                            error!("{}", msg);
+                            match insert_db_error(&pool, &exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                            return Err(msg.into());
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Symbol info not found for {}", trade_symbol);
+                            error!("{}", msg);
+                            match insert_db_error(&pool, &exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                            return Err(e.into());
+                        }
+                    };
+
+                    let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
+                        Ok(base_increment) => base_increment,
+                        Err(e) => {
+                            let msg: String = format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e);
+                            error!("{}", msg);
+                            match insert_db_error(&pool, &exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                            continue;
+                        }
+                    };
+                    // get price token
+                    let token_price_str: String = match get_ticker_price(trade_symbol).await {
+                        Ok(token_price_str) => {
+                            info!("Successfully get price:{}", &trade_symbol);
+                            token_price_str
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed get price: {} {}", trade_symbol, e);
+                            error!("{}", msg);
+                            match insert_db_error(&pool, &exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                            continue;
+                        }
+                    };
+                    // convert price from str to int
+                    let token_price: f64 = match token_price_str.parse::<f64>() {
+                        Ok(token_price) => token_price,
+                        Err(e) => {
+                            let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
+                            error!("{}", msg);
+                            match insert_db_error(&pool, &exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                            continue;
+                        }
+                    };
+
+                    let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
+                        Ok(base_min_size) => base_min_size,
+                        Err(e) => {
+                            let msg: String = format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e);
+                            error!("{}", msg);
+                            match insert_db_error(&pool, &exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                            continue;
+                        }
+                    };
+                    let quote_min_size: f64 = match symbol_info.quote_min_size.parse::<f64>() {
+                        Ok(quote_min_size) => quote_min_size,
+                        Err(e) => {
+                            let msg: String = format!("Failed parse quote_min_size: {} {}", symbol_info.quote_min_size, e);
+                            error!("{}", msg);
+                            match insert_db_error(&pool, &exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                            continue;
+                        }
+                    };
+                    if token_available <= base_min_size || (token_price * token_available) <= quote_min_size {
+                        match sent_account_transfer(&account.currency.clone(), &account.available, "INTERNAL", "MARGIN", "TRADE").await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed send {} to TRADE from MARGIN on {} {}", &account.currency.clone(), &account.available, e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        match make_hf_size_margin_order(&pool, &exchange, &client_oid, "sell", trade_symbol, format_assert(token_available, base_increment), "market".to_string()).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed make_hf_size_margin_order: {}", e);
+                                error!("{}", msg);
+                                match insert_db_error(&pool, &exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return Ok(false);
+                }
+            }
+            return Ok(true);
+        }
+        Err(e) => {
+            let msg: String = format!("Failed to get margin accounts {}", e);
+            error!("{}", msg);
+            match insert_db_error(&pool, &exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
+            }
+            return Ok(false);
+        }
+    }
 }
 
 pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) {
