@@ -98,8 +98,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     }
                 }
             }
-
-            info!("Message handler finished");
         });
 
         // Position/Orders/Balance WS
@@ -159,7 +157,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             tokio::spawn(async move {
                 sleep(INIT_ORDER_DELAY).await;
                 info!("Initializing start orders...");
-                create_init_orders(&pool_clone, &exchange_clone).await;
+                match create_init_orders(&pool_clone, &exchange_clone).await {
+                    Ok(_) => {}
+                    Err(e) => {}
+                };
             });
         }
 

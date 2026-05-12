@@ -43,7 +43,7 @@ pub fn format_assert(size: f64, increment: f64) -> String {
     format!("{:.prec$}", rounded, prec = precision)
 }
 
-pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) {
+pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match get_all_bots_for_trade(pool, exchange).await {
         Ok(trade_bots) => {
             for trade_bot in trade_bots.iter() {
@@ -61,6 +61,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                     error!("{}", msg);
                                 }
                             }
+                            return Err(e.into());
                         }
                     },
                     Err(e) => {
@@ -73,10 +74,12 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 error!("{}", msg);
                             }
                         }
+                        return Err(e.into());
                     }
                 }
             }
             info!("All bots initialized!");
+            return Ok(());
         }
         Err(e) => {
             let msg: String = format!("Failed get_all_bots_for_trade: {}", e);
@@ -88,6 +91,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     error!("{}", msg);
                 }
             }
+            return Err(e.into());
         }
     }
 }
