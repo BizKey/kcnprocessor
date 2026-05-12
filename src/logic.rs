@@ -544,7 +544,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 error!("{}", msg);
                             }
                         }
-                        return;
+                        return Ok(());
                     }
                     Err(e) => {
                         let msg: String = format!("Symbol info not found for {} {}", order.symbol, e);
@@ -556,7 +556,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 error!("{}", msg);
                             }
                         }
-                        return;
+                        return Ok(());
                     }
                 };
 
@@ -572,7 +572,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 error!("{}", msg);
                             }
                         }
-                        return;
+                        return Ok(());
                     }
                 };
                 let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
@@ -587,7 +587,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 error!("{}", msg);
                             }
                         }
-                        return;
+                        return Ok(());
                     }
                 };
                 // if clientOid in bots entry_id (2 phase)
@@ -640,7 +640,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                 error!("{}", msg);
                                             }
                                         }
-                                        return;
+                                        return Ok(());
                                     }
                                 }
                             }
@@ -741,7 +741,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 }
                             }
                         }
-                        return;
+                        return Ok(());
                     }
                     Ok(None) => {}
                     Err(e) => {
@@ -795,7 +795,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                         error!("{}", msg);
                                                     }
                                                 }
-                                                return;
+                                                return Ok(());
                                             }
                                         }
                                     }
@@ -912,7 +912,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             }
                         }
 
-                        return;
+                        return Ok(());
                     }
                     Ok(None) => {}
                     Err(e) => {
@@ -946,7 +946,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                 error!("{}", msg);
                                             }
                                         }
-                                        return;
+                                        return Ok(());
                                     }
                                 };
                                 match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
@@ -1527,7 +1527,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             }
                             None => {}
                         }
-                        return;
+                        return Ok(());
                     }
                     Ok(None) => {}
                     Err(e) => {
@@ -1677,7 +1677,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
             let mut attempt = 0;
             loop {
                 if attempt >= MAX_RETRIES {
-                    return;
+                    break Ok(());
                 }
                 attempt += 1;
                 tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
@@ -1707,7 +1707,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                                 error!("{}", msg);
                                             }
                                         }
-                                        return;
+                                        continue;
                                     }
                                 },
                                 "sell" => match size_clone {
@@ -1722,7 +1722,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                                 error!("{}", msg);
                                             }
                                         }
-                                        return;
+                                        continue;
                                     }
                                 },
                                 _ => {
@@ -1735,7 +1735,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                             error!("{}", msg);
                                         }
                                     }
-                                    return;
+                                    continue;
                                 }
                             },
                             Err(e) => {
@@ -1768,7 +1768,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                                 error!("{}", msg);
                                             }
                                         }
-                                        return;
+                                        continue;
                                     }
                                 },
                                 "sell" => match size_clone {
@@ -1783,7 +1783,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                                 error!("{}", msg);
                                             }
                                         }
-                                        return;
+                                        continue;
                                     }
                                 },
                                 _ => {
@@ -1796,7 +1796,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                             error!("{}", msg);
                                         }
                                     }
-                                    return;
+                                    continue;
                                 }
                             },
                             Err(e) => {
@@ -1823,14 +1823,14 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                 error!("{}", msg);
                             }
                         }
-                        return;
+                        continue;
                     }
                 };
 
                 match order_result {
                     Ok(_) => {
                         info!("✅ Order re-placed: {} {} (attempt {}/{})", order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES);
-                        break;
+                        break Ok(());
                     }
                     Err(e) => {
                         error!("❌ Order failed: {} {} (attempt {}/{}) {}", order_id_clone, new_exit_client_oid, attempt, MAX_RETRIES, e);
@@ -1845,7 +1845,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                 }
             }
         }
-        None => {}
+        None => return Ok(()),
     }
 }
 
