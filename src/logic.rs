@@ -1674,8 +1674,11 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
             const MAX_RETRIES: u32 = 1000;
             let mut attempt = 0;
             loop {
-                tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
+                if attempt >= MAX_RETRIES {
+                    return;
+                }
                 attempt += 1;
+                tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
 
                 let order_id_clone: String = order.order_id.clone();
                 let stop_clone: String = order.stop.clone();
@@ -1730,7 +1733,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                             error!("{}", msg);
                                         }
                                     }
-
                                     return;
                                 }
                             },
@@ -1743,9 +1745,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                         error!("{}", msg);
                                     }
-                                }
-                                if attempt >= MAX_RETRIES {
-                                    return;
                                 }
                                 continue;
                             }
@@ -1808,9 +1807,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                         error!("{}", msg);
                                     }
                                 }
-                                if attempt >= MAX_RETRIES {
-                                    return;
-                                }
                                 continue;
                             }
                         }
@@ -1842,9 +1838,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                 let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                 error!("{}", msg);
                             }
-                        }
-                        if attempt >= MAX_RETRIES {
-                            return;
                         }
                     }
                 }
