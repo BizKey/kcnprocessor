@@ -305,12 +305,12 @@ pub async fn update_exit_tp_client_oid_bot_by_exit_tp_order_id(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
         r#"
-            UPDATE bots
-            SET exit_tp_client_oid = $1,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE exit_tp_order_id = $2 AND
-                exchange = $3;
-            "#,
+        UPDATE bots
+        SET exit_tp_client_oid = $1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE exit_tp_order_id = $2 AND
+            exchange = $3;
+        "#,
     )
     .bind(exit_tp_client_oid)
     .bind(exit_tp_order_id)
