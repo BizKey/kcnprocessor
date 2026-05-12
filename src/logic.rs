@@ -1782,7 +1782,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                                 error!("{}", msg);
                                             }
                                         }
-
                                         return;
                                     }
                                 },
@@ -1796,7 +1795,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                             error!("{}", msg);
                                         }
                                     }
-
                                     return;
                                 }
                             },
@@ -1827,7 +1825,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                 error!("{}", msg);
                             }
                         }
-
                         return;
                     }
                 };
