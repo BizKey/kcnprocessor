@@ -1546,6 +1546,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         }
         None => {}
     }
+    return Ok(());
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -1655,6 +1656,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
             (_, None) => {}
         }
     }
+    return Ok(());
 }
 
 pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
