@@ -4,13 +4,10 @@ mod api {
     pub mod requests;
 }
 mod logic;
-use crate::api::db::{clear_orders_ids_for_bots, fetch_symbol_info_by_symbol, get_all_bots_for_trade, insert_db_balance, insert_db_error, insert_db_event};
-use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
-use crate::api::requests::{batch_cancel_stop_orders, create_repay_order, get_all_margin_accounts, get_private_ws_url, get_ticker_price, sent_account_transfer};
-use crate::logic::{
-    auto_clean_account, build_subscription, format_assert, handle_advanced_orders, handle_position_event, handle_trade_order_event, make_hf_funds_margin_order, make_hf_size_margin_order,
-    make_random_trade,
-};
+use crate::api::db::{clear_orders_ids_for_bots, get_all_bots_for_trade, insert_db_balance, insert_db_error, insert_db_event};
+use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, OrderData, PositionData};
+use crate::api::requests::{batch_cancel_stop_orders, create_repay_order, get_private_ws_url};
+use crate::logic::{auto_clean_account, build_subscription, handle_advanced_orders, handle_position_event, handle_trade_order_event, make_random_trade};
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
@@ -21,7 +18,6 @@ use std::env;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use uuid::Uuid;
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const CLEAR_DELAY: Duration = Duration::from_secs(3);
