@@ -14,7 +14,7 @@ use crate::api::requests::{
 };
 use log::{error, info};
 use serde::Deserialize;
-use tokio::time::{Duration, interval, sleep};
+use tokio::time::{Duration, sleep};
 use uuid::Uuid;
 
 const TP_BUY_PERCENT: f64 = 1.07; // +7%
@@ -2075,7 +2075,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         continue;
                     }
                     Err(e) => {
-                        let msg: String = format!("Symbol info not found for {} {}", &tradeable.symbol, e);
+                        let msg: String = format!("Fail fetch_symbol_info_by_symbol: {} {}", &tradeable.symbol, e);
                         error!("{}", msg);
                         match insert_db_error(pool, exchange, &msg).await {
                             Ok(_) => {}
@@ -2260,22 +2260,7 @@ pub async fn make_hf_funds_margin_order(
             info!("{}", msg);
 
             match add_api_v3_hf_margin_order(msg.clone()).await {
-                Ok(data) => {
-                    if data.code == "200000" {
-                        Ok(data)
-                    } else {
-                        let msg: String = format!("Make order was error: {} {} {:?}", symbol, data.code, data.msg);
-                        error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                error!("{}", msg);
-                            }
-                        }
-                        Err(msg.into())
-                    }
-                }
+                Ok(data) => Ok(data),
                 Err(e) => {
                     let msg: String = format!("Failed to send order: {}", e);
                     error!("{}", msg);
@@ -2336,22 +2321,7 @@ pub async fn make_hf_size_margin_order(
             info!("{}", msg);
 
             match add_api_v3_hf_margin_order(msg.clone()).await {
-                Ok(data) => {
-                    if data.code == "200000" {
-                        Ok(data)
-                    } else {
-                        let msg: String = format!("Make order was error: {} {} {:?}", symbol, data.code, data.msg);
-                        error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                error!("{}", msg);
-                            }
-                        }
-                        Err(msg.into())
-                    }
-                }
+                Ok(data) => Ok(data),
                 Err(e) => {
                     let msg: String = format!("Failed to send order: {}", e);
                     error!("{}", msg);
