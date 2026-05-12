@@ -64,7 +64,7 @@ async fn make_hf_funds_margin_order(
     // only for buy orders
     let args_time_in_force: &str = "GTC";
     let auto_borrow: bool = true;
-    let auto_repay: bool = true;
+    let auto_repay: bool = false;
 
     match insert_db_msgsend(pool, exchange, Some(symbol), Some(side), None, Some(&funds), None, Some(args_time_in_force), Some(&type_), Some(&auto_borrow), Some(&auto_repay), Some(client_oid), None)
         .await
@@ -138,7 +138,7 @@ async fn make_hf_size_margin_order(
     // only for sell orders
     let args_time_in_force: &str = "GTC";
     let auto_borrow: bool = true;
-    let auto_repay: bool = true;
+    let auto_repay: bool = false;
 
     match insert_db_msgsend(pool, exchange, Some(symbol), Some(side), Some(&size), None, None, Some(args_time_in_force), Some(&type_), Some(&auto_borrow), Some(&auto_repay), Some(client_oid), None)
         .await
