@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match auto_clean_account(&pool, &exchange).await {
             Ok(true) => break,
             Ok(false) => {}
-            Err(exc) => {}
+            Err(e) => {}
         };
     }
 
@@ -325,7 +325,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             error!("{}", msg);
                         }
                     }
-
                     break;
                 }
             }
