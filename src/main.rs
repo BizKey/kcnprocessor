@@ -4,15 +4,15 @@ mod api {
     pub mod requests;
 }
 mod logic;
-use crate::api::db::{clear_orders_ids_for_bots, get_all_bots_for_trade, insert_db_balance, insert_db_error};
-use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, OrderData, PositionData};
-use crate::api::requests::{batch_cancel_stop_orders, create_repay_order, get_private_ws_url};
-use crate::logic::{auto_clean_account, build_subscription, handle_advanced_orders, handle_position_event, handle_trade_order_event, make_random_trade, process_kcn_msg};
+use crate::api::db::{clear_orders_ids_for_bots, get_all_bots_for_trade, insert_db_error};
+
+use crate::api::requests::{batch_cancel_stop_orders, get_private_ws_url};
+use crate::logic::{auto_clean_account, build_subscription, make_random_trade, process_kcn_msg};
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
-use serde::Deserialize;
+
 use sqlx::postgres::PgPoolOptions;
 use std::env;
 use tokio::sync::mpsc;
