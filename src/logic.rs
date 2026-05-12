@@ -2,21 +2,19 @@ use fastrand;
 
 use crate::api::db::{
     delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid, fetch_symbol_info_by_symbol, get_bot_by_entry_client_oid,
-    get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol, get_total_match_value_by_client_oid, insert_db_error, insert_db_msgsend, insert_db_orderevent,
-    set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
+    get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend,
+    insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
     update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid, update_exit_sl_client_oid_bot_by_exit_sl_order_id, update_exit_sl_order_id_bot_by_exit_sl_client_oid,
     update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id, update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset,
     upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{AdvancedOrders, MakeOrderRes, OrderData, PositionData, Symbol};
+use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
 use crate::api::requests::{
     add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, create_repay_order, get_all_margin_accounts, get_ticker_price, sent_account_transfer,
 };
-
 use log::{error, info};
-
+use serde::Deserialize;
 use tokio::time::Duration;
-
 use uuid::Uuid;
 
 const TP_BUY_PERCENT: f64 = 1.07; // +7%
@@ -1762,6 +1760,196 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
             }
         }
         None => {}
+    }
+}
+
+pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, msg: &str) {
+    match serde_json::from_str::<KuCoinMessage>(msg) {
+        Ok(kc_msg) => match kc_msg {
+            KuCoinMessage::Welcome(data) => {
+                match serde_json::to_value(data) {
+                    Ok(v) => match insert_db_event(pool, exchange, v).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert_db_event {}", e);
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        error!("Failed to serialize event: {}", e);
+                        return;
+                    }
+                };
+            }
+            KuCoinMessage::Message(data) => {
+                if data.topic == "/account/balance" {
+                    match BalanceData::deserialize(&data.data) {
+                        Ok(balance) => {
+                            // sent balance to pg
+                            match insert_db_balance(pool, exchange, balance).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed to insert balance into DB: {}", e);
+                                    error!("{}", msg);
+
+                                    match insert_db_error(pool, exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            info!("{:?}", data.data);
+                            // sent balance parse error to pg
+                            let msg: String = format!("Failed to parse message {}", e);
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                        }
+                    }
+                } else if data.topic == "/spotMarket/tradeOrdersV2" {
+                    info!("{}", &data.data);
+                    match OrderData::deserialize(&data.data) {
+                        Ok(order) => {
+                            // order magic
+                            handle_trade_order_event(order, pool, exchange).await
+                        }
+                        Err(e) => {
+                            info!("{:?}", data.data);
+
+                            // sent order error to pg
+                            let msg: String = format!("Failed to parse message {}", e);
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                        }
+                    }
+                } else if data.topic == "/spotMarket/advancedOrders" {
+                    // stop orders and other
+                    info!("{}", &data.data);
+                    match AdvancedOrders::deserialize(&data.data) {
+                        Ok(order) => {
+                            // watch order event
+                            handle_advanced_orders(order, pool, exchange).await
+                        }
+                        Err(e) => {
+                            info!("{:?}", data.data);
+
+                            // sent order error to pg
+                            let msg: String = format!("Failed to parse message {}", e);
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                        }
+                    }
+                } else if data.topic == "/margin/position" {
+                    // save to db position
+                    // repay debt
+                    match PositionData::deserialize(&data.data) {
+                        Ok(position) => handle_position_event(position, pool, exchange).await,
+                        Err(e) => {
+                            info!("{:?}", data.data);
+                            // sent order error to pg
+                            let msg: String = format!("Failed to parse message {}", e);
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    info!("Unknown topic: {}", data.topic);
+                    // sent error to pg
+                    match insert_db_error(pool, exchange, &data.topic).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            error!("{}", msg);
+                        }
+                    }
+                }
+            }
+            KuCoinMessage::Ack(data) => {
+                info!("{:?}", data);
+                // sent ack to pg
+                match serde_json::to_value(data) {
+                    Ok(v) => match insert_db_event(pool, exchange, v).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert_db_event: {}", e);
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        error!("Failed to serialize event: {}", e);
+                        return;
+                    }
+                };
+            }
+            KuCoinMessage::Error(data) => {
+                info!("{:?}", data);
+                // sent error to pg
+                match insert_db_error(pool, exchange, &data.data).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        error!("{}", msg);
+                    }
+                }
+            }
+            KuCoinMessage::Unknown => {
+                info!("Unknown WS message type");
+            }
+        },
+        Err(e) => {
+            // sent error to pg
+            let msg: String = format!("Failed to parse message: {} | Raw: {}", e, msg);
+            error!("{}", msg);
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
+            }
+        }
     }
 }
 
