@@ -59,7 +59,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Err(e) => {
                                 let msg: String = format!("Failed to repay liability: {}", e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -76,7 +76,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Err(e) => {
                                 let msg: String = format!("Failed to partially repay debt: {}", e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -89,12 +89,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         // buy stock by market liability
                         let trade_symbol: &String = &(account.currency.clone() + "-USDT");
                         let client_oid: String = Uuid::new_v4().to_string();
-                        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(&pool, &exchange, trade_symbol).await {
+                        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, trade_symbol).await {
                             Ok(Some(info)) => info,
                             Ok(None) => {
                                 let msg: String = format!("Symbol info not found for {}", trade_symbol);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -106,7 +106,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Err(e) => {
                                 let msg: String = format!("Symbol info not found for {} {}", trade_symbol, e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -126,7 +126,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Err(e) => {
                                 let msg: String = format!("Failed get price: {} {}", trade_symbol, e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -142,7 +142,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Err(e) => {
                                 let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -161,7 +161,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Err(e) => {
                                 let msg: String = format!("Failed parse quote_increment: {} {}", symbol_info.quote_increment, e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -178,7 +178,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 Err(e) => {
                                     let msg: String = format!("Failed parse min_funds: {:?} {}", symbol_info.min_funds, e);
                                     error!("{}", msg);
-                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                    match insert_db_error(pool, exchange, &msg).await {
                                         Ok(_) => {}
                                         Err(e) => {
                                             let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -191,7 +191,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             None => {
                                 let msg: String = format!("min_funds is None for symbol {}", trade_symbol);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -206,7 +206,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Err(e) => {
                                 let msg: String = format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -221,7 +221,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         let min_funds_by_size: f64 = token_price * base_min_size;
 
                         if token_funds <= min_funds.max(min_funds_by_size) {
-                            match make_hf_funds_margin_order(&pool, &exchange, &client_oid, "buy", trade_symbol, format_assert(min_funds.max(min_funds_by_size), quote_increment), "market".to_string())
+                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", trade_symbol, format_assert(min_funds.max(min_funds_by_size), quote_increment), "market".to_string())
                                 .await
                             {
                                 Ok(_) => {}
@@ -229,7 +229,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                     let msg: String = format!("Failed make_hf_funds_margin_order: {}", e);
                                     error!("{}", msg);
 
-                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                    match insert_db_error(pool, exchange, &msg).await {
                                         Ok(_) => {}
                                         Err(e) => {
                                             let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -239,12 +239,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 }
                             }
                         } else {
-                            match make_hf_funds_margin_order(&pool, &exchange, &client_oid, "buy", trade_symbol, format_assert(token_funds, quote_increment), "market".to_string()).await {
+                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", trade_symbol, format_assert(token_funds, quote_increment), "market".to_string()).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed make_hf_funds_margin_order: {}", e);
                                     error!("{}", msg);
-                                    match insert_db_error(&pool, &exchange, &msg).await {
+                                    match insert_db_error(pool, exchange, &msg).await {
                                         Ok(_) => {}
                                         Err(e) => {
                                             let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -265,7 +265,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Ok(None) => {
                             let msg: String = format!("Symbol info not found for {}", trade_symbol);
                             error!("{}", msg);
-                            match insert_db_error(&pool, &exchange, &msg).await {
+                            match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -277,7 +277,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(e) => {
                             let msg: String = format!("Symbol info not found for {}", trade_symbol);
                             error!("{}", msg);
-                            match insert_db_error(&pool, &exchange, &msg).await {
+                            match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -293,7 +293,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(e) => {
                             let msg: String = format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e);
                             error!("{}", msg);
-                            match insert_db_error(&pool, &exchange, &msg).await {
+                            match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -312,7 +312,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(e) => {
                             let msg: String = format!("Failed get price: {} {}", trade_symbol, e);
                             error!("{}", msg);
-                            match insert_db_error(&pool, &exchange, &msg).await {
+                            match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -328,7 +328,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(e) => {
                             let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
                             error!("{}", msg);
-                            match insert_db_error(&pool, &exchange, &msg).await {
+                            match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -344,7 +344,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(e) => {
                             let msg: String = format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e);
                             error!("{}", msg);
-                            match insert_db_error(&pool, &exchange, &msg).await {
+                            match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -359,7 +359,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(e) => {
                             let msg: String = format!("Failed parse quote_min_size: {} {}", symbol_info.quote_min_size, e);
                             error!("{}", msg);
-                            match insert_db_error(&pool, &exchange, &msg).await {
+                            match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -375,7 +375,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Err(e) => {
                                 let msg: String = format!("Failed send {} to TRADE from MARGIN on {} {}", &account.currency.clone(), &account.available, e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -385,12 +385,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             }
                         }
                     } else {
-                        match make_hf_size_margin_order(&pool, &exchange, &client_oid, "sell", trade_symbol, format_assert(token_available, base_increment), "market".to_string()).await {
+                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", trade_symbol, format_assert(token_available, base_increment), "market".to_string()).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let msg: String = format!("Failed make_hf_size_margin_order: {}", e);
                                 error!("{}", msg);
-                                match insert_db_error(&pool, &exchange, &msg).await {
+                                match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -408,7 +408,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         Err(e) => {
             let msg: String = format!("Failed to get margin accounts {}", e);
             error!("{}", msg);
-            match insert_db_error(&pool, &exchange, &msg).await {
+            match insert_db_error(pool, exchange, &msg).await {
                 Ok(_) => {}
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -440,12 +440,12 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     match &order.client_oid {
         Some(client_oid) => {
             if (order.type_ == "match" || order.type_ == "canceled") && (order.remain_size == Some("0".to_string()) || order.remain_funds == Some("0".to_string())) {
-                let symbol_info: Symbol = match fetch_symbol_info_by_symbol(&pool, &exchange, &order.symbol).await {
+                let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
                     Ok(Some(info)) => info,
                     Ok(None) => {
                         let msg: String = format!("Symbol info not found for {}", order.symbol);
                         error!("{}", msg);
-                        match insert_db_error(&pool, &exchange, &msg).await {
+                        match insert_db_error(pool, exchange, &msg).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -457,7 +457,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     Err(e) => {
                         let msg: String = format!("Symbol info not found for {} {}", order.symbol, e);
                         error!("{}", msg);
-                        match insert_db_error(&pool, &exchange, &msg).await {
+                        match insert_db_error(pool, exchange, &msg).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -1099,7 +1099,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                         Err(e) => {
                                                             let msg: String = format!("Failed delete_symbol_bot_by_exit_sl_client_oid: {}", e);
                                                             error!("{}", msg);
-                                                            match insert_db_error(&pool, &exchange, &msg).await {
+                                                            match insert_db_error(pool, exchange, &msg).await {
                                                                 Ok(_) => {}
                                                                 Err(e) => {
                                                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -1794,7 +1794,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     Err(e) => {
                         let msg: String = format!("Symbol info not found for {}", &tradeable.symbol);
                         error!("{}", msg);
-                        match insert_db_error(&pool, &exchange, &msg).await {
+                        match insert_db_error(pool, exchange, &msg).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let msg: String = format!("Failed insert error msg: {} {}", msg, e);
