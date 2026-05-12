@@ -512,7 +512,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
     }
 }
 
-pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) {
+pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // sent order to pg
     match insert_db_orderevent(pool, exchange, &order).await {
         Ok(_) => {}
@@ -1548,7 +1548,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     }
 }
 
-pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) {
+pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
         Ok(_) => {}
         Err(e) => {
@@ -1657,7 +1657,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
     }
 }
 
-pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) {
+pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("{:?}", order);
     match order.error {
         Some(_) => {
@@ -1913,7 +1913,10 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     match OrderData::deserialize(&data.data) {
                         Ok(order) => {
                             // order magic
-                            handle_trade_order_event(order, pool, exchange).await
+                            match handle_trade_order_event(order, pool, exchange).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
                         }
                         Err(e) => {
                             info!("{:?}", data.data);
@@ -1936,7 +1939,10 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     match AdvancedOrders::deserialize(&data.data) {
                         Ok(order) => {
                             // watch order event
-                            handle_advanced_orders(order, pool, exchange).await
+                            match handle_advanced_orders(order, pool, exchange).await {
+                                Ok(_) => {}
+                                Err(e) => {}
+                            }
                         }
                         Err(e) => {
                             info!("{:?}", data.data);
@@ -1957,7 +1963,10 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     // save to db position
                     // repay debt
                     match PositionData::deserialize(&data.data) {
-                        Ok(position) => handle_position_event(position, pool, exchange).await,
+                        Ok(position) => match handle_position_event(position, pool, exchange).await {
+                            Ok(_) => {}
+                            Err(e) => {}
+                        },
                         Err(e) => {
                             info!("{:?}", data.data);
                             // sent order error to pg
