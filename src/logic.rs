@@ -109,6 +109,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 error!("{}", msg);
                             }
                         }
+                        passed = false;
                         continue;
                     }
                 };
@@ -124,6 +125,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 error!("{}", msg);
                             }
                         }
+                        passed = false;
                         continue;
                     }
                 };
