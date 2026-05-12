@@ -53,9 +53,9 @@ pub async fn insert_db_msgsend(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
         r#"
-            INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
-            "#,
+        INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+        "#,
     )
     .bind(exchange)
     .bind(args_symbol)
@@ -171,11 +171,11 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
 pub async fn fetch_symbol_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, symbol: &str) -> Result<Option<Symbol>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, Symbol>(
         r#"
-            SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size
-            FROM symbol
-            WHERE exchange = $1 AND
-                symbol = $2;
-            "#,
+        SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size
+        FROM symbol
+        WHERE exchange = $1 AND
+            symbol = $2;
+        "#,
     )
     .bind(exchange)
     .bind(symbol)
@@ -280,12 +280,12 @@ pub async fn update_exit_sl_client_oid_bot_by_exit_sl_order_id(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
         r#"
-            UPDATE bots
-            SET exit_sl_client_oid = $1,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE exit_sl_order_id = $2 AND
-                exchange = $3;
-            "#,
+        UPDATE bots
+        SET exit_sl_client_oid = $1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE exit_sl_order_id = $2 AND
+            exchange = $3;
+        "#,
     )
     .bind(exit_sl_client_oid)
     .bind(exit_sl_order_id)
