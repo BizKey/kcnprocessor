@@ -2051,14 +2051,16 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
 pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, balance_funds: f64, trade_bot_id: i32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     const MAX_RETRIES: u32 = 10;
     let mut attempt = 0;
-    // random sections
 
     loop {
+        if attempt >= MAX_RETRIES {
+            return Ok(());
+        }
         attempt += 1;
         match get_random_symbol(pool, exchange).await {
             Ok(Some(tradeable)) => {
                 let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable.symbol).await {
-                    Ok(Some(i)) => i,
+                    Ok(Some(symbol_info)) => symbol_info,
                     Ok(None) => {
                         let msg: String = format!("Symbol info not found for {}", tradeable.symbol);
                         error!("{}", msg);
@@ -2069,13 +2071,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                 error!("{}", msg);
                             }
                         }
-                        if attempt >= MAX_RETRIES {
-                            return Ok(());
-                        }
                         continue;
                     }
                     Err(e) => {
-                        let msg: String = format!("Symbol info not found for {}", &tradeable.symbol);
+                        let msg: String = format!("Symbol info not found for {} {}", &tradeable.symbol, e);
                         error!("{}", msg);
                         match insert_db_error(pool, exchange, &msg).await {
                             Ok(_) => {}
@@ -2084,7 +2083,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                 error!("{}", msg);
                             }
                         }
-                        return Err(e.into());
+                        continue;
                     }
                 };
 
@@ -2102,9 +2101,6 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                 error!("{}", msg);
                             }
                         }
-                        if attempt >= MAX_RETRIES {
-                            return Ok(());
-                        }
                         continue;
                     }
                 }
@@ -2112,7 +2108,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 let order_result = match get_random_side().as_str() {
                     "sell" => {
                         let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
-                            Ok(v) => v,
+                            Ok(base_increment) => base_increment,
                             Err(e) => {
                                 let msg: String = format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e);
                                 error!("{}", msg);
@@ -2123,14 +2119,11 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                         error!("{}", msg);
                                     }
                                 }
-                                if attempt >= MAX_RETRIES {
-                                    return Ok(());
-                                }
                                 continue;
                             }
                         };
                         let token_price_str: String = match get_ticker_price(&tradeable.symbol).await {
-                            Ok(p) => p,
+                            Ok(token_price_str) => token_price_str,
                             Err(e) => {
                                 let msg: String = format!("Failed get price: {} {}", tradeable.symbol, e);
                                 error!("{}", msg);
@@ -2141,14 +2134,11 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                         error!("{}", msg);
                                     }
                                 }
-                                if attempt >= MAX_RETRIES {
-                                    return Ok(());
-                                }
                                 continue;
                             }
                         };
                         let token_price: f64 = match token_price_str.parse::<f64>() {
-                            Ok(v) => v,
+                            Ok(token_price) => token_price,
                             Err(e) => {
                                 let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
                                 error!("{}", msg);
@@ -2159,9 +2149,6 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                         error!("{}", msg);
                                     }
                                 }
-                                if attempt >= MAX_RETRIES {
-                                    return Ok(());
-                                }
                                 continue;
                             }
                         };
@@ -2170,7 +2157,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     }
                     "buy" => {
                         let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
-                            Ok(v) => v,
+                            Ok(quote_increment) => quote_increment,
                             Err(e) => {
                                 let msg: String = format!("Failed parse quote_increment: {} {}", symbol_info.quote_increment, e);
                                 error!("{}", msg);
@@ -2181,18 +2168,12 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                         error!("{}", msg);
                                     }
                                 }
-                                if attempt >= MAX_RETRIES {
-                                    return Ok(());
-                                }
                                 continue;
                             }
                         };
                         make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable.symbol, format_assert(balance_funds, quote_increment), "market".to_string()).await
                     }
                     _ => {
-                        if attempt >= MAX_RETRIES {
-                            return Ok(());
-                        }
                         continue;
                     }
                 };
@@ -2225,9 +2206,6 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                 let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                 error!("{}", msg);
                             }
-                        }
-                        if attempt >= MAX_RETRIES {
-                            return Ok(());
                         }
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
                         continue;
