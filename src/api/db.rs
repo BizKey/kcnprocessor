@@ -537,12 +537,12 @@ pub async fn update_bot_entry_client_oid_by_id(
 pub async fn get_bot_by_exit_sl_client_oid(pool: &PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, Bot>(
         "
-        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
-        FROM bots
-        WHERE exchange = $1 AND
-            exit_sl_client_oid = $2
-        LIMIT 1;
-        ",
+            SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+            FROM bots
+            WHERE exchange = $1 AND
+                exit_sl_client_oid = $2
+            LIMIT 1;
+            ",
     )
     .bind(exchange)
     .bind(client_oid)
@@ -556,12 +556,12 @@ pub async fn get_bot_by_exit_sl_client_oid(pool: &PgPool, exchange: &str, client
 pub async fn get_bot_by_exit_tp_client_oid(pool: &PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, Bot>(
         "
-        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
-        FROM bots
-        WHERE exchange = $1 AND
-            exit_tp_client_oid = $2
-        LIMIT 1;
-        ",
+            SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+            FROM bots
+            WHERE exchange = $1 AND
+                exit_tp_client_oid = $2
+            LIMIT 1;
+            ",
     )
     .bind(exchange)
     .bind(client_oid)
@@ -575,11 +575,11 @@ pub async fn get_bot_by_exit_tp_client_oid(pool: &PgPool, exchange: &str, client
 pub async fn get_bot_by_entry_client_oid(pool: &PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, Bot>(
         "
-        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
-        FROM bots
-        WHERE exchange = $1 AND
-            entry_client_oid = $2
-        LIMIT 1;",
+            SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+            FROM bots
+            WHERE exchange = $1 AND
+                entry_client_oid = $2
+            LIMIT 1;",
     )
     .bind(exchange)
     .bind(client_oid)
@@ -611,25 +611,25 @@ pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Result<Vec
 pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Result<Option<TradeAbleSymbol>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, TradeAbleSymbol>(
         "
-        SELECT s.symbol
-        FROM symbol s
-        LEFT JOIN (
-            SELECT symbol, COUNT(*) as bot_count
-            FROM bots
-            GROUP BY symbol
-        ) b ON s.symbol = b.symbol
-        WHERE s.is_margin_enabled = true 
-        AND s.enable_trading = true 
-        AND s.fee_category = 1 
-        AND s.quote_currency = 'USDT' 
-        AND s.base_currency <> 'USDC' 
-        AND s.base_currency <> 'KCS' 
-        AND s.base_currency <> 'ASTER' 
-        AND s.exchange = $1
-        AND (b.bot_count IS NULL OR b.bot_count < 10)
-        ORDER BY RANDOM()
-        LIMIT 1;
-        ",
+            SELECT s.symbol
+            FROM symbol s
+            LEFT JOIN (
+                SELECT symbol, COUNT(*) as bot_count
+                FROM bots
+                GROUP BY symbol
+            ) b ON s.symbol = b.symbol
+            WHERE s.is_margin_enabled = true 
+            AND s.enable_trading = true 
+            AND s.fee_category = 1 
+            AND s.quote_currency = 'USDT' 
+            AND s.base_currency <> 'USDC' 
+            AND s.base_currency <> 'KCS' 
+            AND s.base_currency <> 'ASTER' 
+            AND s.exchange = $1
+            AND (b.bot_count IS NULL OR b.bot_count < 10)
+            ORDER BY RANDOM()
+            LIMIT 1;
+            ",
     )
     .bind(exchange)
     .fetch_optional(pool)
