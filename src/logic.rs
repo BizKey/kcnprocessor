@@ -116,6 +116,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                         error!("{}", msg);
                                     }
                                 }
+                                continue;
                             }
                         }
                     } else if token_available > 0.0 {
@@ -133,6 +134,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                         error!("{}", msg);
                                     }
                                 }
+                                continue;
                             }
                         }
                     } else if account.currency != "USDT" && token_available == 0.0 {
@@ -322,7 +324,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                     error!("{}", msg);
                                 }
                             }
-                            return Err(msg.into());
+                            continue;
                         }
                         Err(e) => {
                             let msg: String = format!("Symbol info not found for {}", trade_symbol);
@@ -334,7 +336,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                     error!("{}", msg);
                                 }
                             }
-                            return Err(e.into());
+                            continue;
                         }
                     };
 
@@ -432,6 +434,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                         error!("{}", msg);
                                     }
                                 }
+                                continue;
                             }
                         }
                     } else {
@@ -447,6 +450,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                         error!("{}", msg);
                                     }
                                 }
+                                continue;
                             }
                         }
                     }
