@@ -2260,7 +2260,9 @@ pub async fn make_hf_funds_margin_order(
 
             match add_api_v3_hf_margin_order(msg.clone()).await {
                 Ok(data) => {
-                    if data.code != "200000" {
+                    if data.code == "200000" {
+                        Ok(data)
+                    } else {
                         let msg: String = format!("Make order was error: {} {} {:?}", symbol, data.code, data.msg);
                         error!("{}", msg);
                         match insert_db_error(pool, exchange, &msg).await {
@@ -2271,8 +2273,6 @@ pub async fn make_hf_funds_margin_order(
                             }
                         }
                         Err(msg.into())
-                    } else {
-                        Ok(data)
                     }
                 }
                 Err(e) => {
@@ -2336,7 +2336,9 @@ pub async fn make_hf_size_margin_order(
 
             match add_api_v3_hf_margin_order(msg.clone()).await {
                 Ok(data) => {
-                    if data.code != "200000" {
+                    if data.code == "200000" {
+                        Ok(data)
+                    } else {
                         let msg: String = format!("Make order was error: {} {} {:?}", symbol, data.code, data.msg);
                         error!("{}", msg);
                         match insert_db_error(pool, exchange, &msg).await {
@@ -2347,8 +2349,6 @@ pub async fn make_hf_size_margin_order(
                             }
                         }
                         Err(msg.into())
-                    } else {
-                        Ok(data)
                     }
                 }
                 Err(e) => {
