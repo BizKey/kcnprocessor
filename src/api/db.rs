@@ -8,7 +8,8 @@ pub async fn insert_db_error(pool: &PgPool, exchange: &str, msg: &str) -> Result
     match sqlx::query(
         "
             INSERT INTO errors (exchange, msg)
-            VALUES ($1, $2);",
+            VALUES ($1, $2);
+            ",
     )
     .bind(exchange)
     .bind(msg)
@@ -539,7 +540,8 @@ pub async fn get_bot_by_exit_sl_client_oid(pool: &PgPool, exchange: &str, client
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
         WHERE exchange = $1 AND
-            exit_sl_client_oid = $2 LIMIT 1;
+            exit_sl_client_oid = $2
+        LIMIT 1;
         ",
     )
     .bind(exchange)
@@ -553,7 +555,13 @@ pub async fn get_bot_by_exit_sl_client_oid(pool: &PgPool, exchange: &str, client
 }
 pub async fn get_bot_by_exit_tp_client_oid(pool: &PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, Bot>(
-        "SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1 AND exit_tp_client_oid = $2 LIMIT 1",
+        "
+        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+        FROM bots
+        WHERE exchange = $1 AND
+            exit_tp_client_oid = $2
+        LIMIT 1;
+        ",
     )
     .bind(exchange)
     .bind(client_oid)
@@ -566,7 +574,12 @@ pub async fn get_bot_by_exit_tp_client_oid(pool: &PgPool, exchange: &str, client
 }
 pub async fn get_bot_by_entry_client_oid(pool: &PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, Bot>(
-        "SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1 AND entry_client_oid = $2 LIMIT 1",
+        "
+        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+        FROM bots
+        WHERE exchange = $1 AND
+            entry_client_oid = $2
+        LIMIT 1;",
     )
     .bind(exchange)
     .bind(client_oid)
@@ -597,7 +610,8 @@ pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Result<Vec
 
 pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Result<Option<TradeAbleSymbol>, Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query_as::<_, TradeAbleSymbol>(
-        "SELECT s.symbol
+        "
+        SELECT s.symbol
         FROM symbol s
         LEFT JOIN (
             SELECT symbol, COUNT(*) as bot_count
@@ -614,7 +628,8 @@ pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Result<Option<T
         AND s.exchange = $1
         AND (b.bot_count IS NULL OR b.bot_count < 10)
         ORDER BY RANDOM()
-        LIMIT 1;",
+        LIMIT 1;
+        ",
     )
     .bind(exchange)
     .fetch_optional(pool)
@@ -634,7 +649,7 @@ pub async fn upsert_position_ratio(
     total_debt: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
-        r#"
+        "
         INSERT INTO positionratio 
         (exchange, debt_ratio, total_asset, margin_coefficient_total_asset, total_debt, updated_at)
         VALUES ($1, $2, $3, $4, $5, NOW())
@@ -644,8 +659,8 @@ pub async fn upsert_position_ratio(
             total_asset = EXCLUDED.total_asset,
             margin_coefficient_total_asset = EXCLUDED.margin_coefficient_total_asset,
             total_debt = EXCLUDED.total_debt,
-            updated_at = NOW()
-        "#,
+            updated_at = NOW();
+        ",
     )
     .bind(exchange)
     .bind(debt_ratio)
@@ -662,7 +677,7 @@ pub async fn upsert_position_ratio(
 
 pub async fn upsert_position_debt(pool: &PgPool, exchange: &str, debt_symbol: &str, debt_value: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
-        r#"
+        "
         INSERT INTO positiondebt
         (exchange, debt_symbol, debt_value, updated_at)
         VALUES ($1, $2, $3, NOW())
@@ -670,7 +685,7 @@ pub async fn upsert_position_debt(pool: &PgPool, exchange: &str, debt_symbol: &s
         DO UPDATE SET
             debt_value = EXCLUDED.debt_value,
             updated_at = NOW()
-        "#,
+        ",
     )
     .bind(exchange)
     .bind(debt_symbol)
@@ -692,7 +707,7 @@ pub async fn upsert_position_asset(
     asset_hold: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
-        r#"
+        "
         INSERT INTO positionasset
         (exchange, asset_symbol, asset_total, asset_available, asset_hold, updated_at)
         VALUES ($1, $2, $3, $4, $5, NOW())
@@ -701,8 +716,8 @@ pub async fn upsert_position_asset(
             asset_total = EXCLUDED.asset_total,
             asset_available = EXCLUDED.asset_available,
             asset_hold = EXCLUDED.asset_hold,
-            updated_at = NOW()
-        "#,
+            updated_at = NOW();
+        ",
     )
     .bind(exchange)
     .bind(asset_symbol)
