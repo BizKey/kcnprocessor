@@ -4,14 +4,10 @@ mod api {
     pub mod requests;
 }
 mod logic;
-use crate::api::db::{
-    clear_orders_ids_for_bots, fetch_symbol_info_by_symbol, get_all_bots_for_trade, insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend, insert_db_orderevent,
-    set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid, update_exit_tp_order_id_bot_by_exit_tp_client_oid,
-    upsert_position_asset, upsert_position_debt, upsert_position_ratio,
-};
-use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
+use crate::api::db::{clear_orders_ids_for_bots, fetch_symbol_info_by_symbol, get_all_bots_for_trade, insert_db_balance, insert_db_error, insert_db_event};
+use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use crate::api::requests::{batch_cancel_stop_orders, create_repay_order, get_all_margin_accounts, get_private_ws_url, get_ticker_price, sent_account_transfer};
-use crate::logic::{format_assert, get_random_side, handle_advanced_orders, handle_position_event, handle_trade_order_event, make_hf_funds_margin_order, make_hf_size_margin_order, make_random_trade};
+use crate::logic::{format_assert, handle_advanced_orders, handle_position_event, handle_trade_order_event, make_hf_funds_margin_order, make_hf_size_margin_order, make_random_trade};
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
