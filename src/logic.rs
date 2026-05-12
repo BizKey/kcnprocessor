@@ -97,8 +97,37 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         Ok(accounts) => {
             let mut passed: bool = true;
             for account in accounts.accounts.iter() {
-                let token_liability: f64 = account.liability.parse().unwrap_or(0.0);
-                let token_available: f64 = account.available.parse().unwrap_or(0.0);
+                let token_liability: f64 = match account.liability.parse::<f64>() {
+                    Ok(token_liability) => token_liability,
+                    Err(e) => {
+                        let msg: String = format!("Failed parse price: {} {}", account.liability, e);
+                        error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
+                        }
+                        continue;
+                    }
+                };
+                let token_available: f64 = match account.available.parse::<f64>() {
+                    Ok(token_liability) => token_liability,
+                    Err(e) => {
+                        let msg: String = format!("Failed parse price: {} {}", account.available, e);
+                        error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
+                        }
+                        continue;
+                    }
+                };
+
                 if token_liability > 0.0 {
                     passed = false;
                     if token_available >= token_liability {
