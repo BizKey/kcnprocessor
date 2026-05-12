@@ -5,13 +5,32 @@ use sqlx::PgPool;
 use sqlx::Row;
 
 pub async fn insert_db_error(pool: &PgPool, exchange: &str, msg: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("INSERT INTO errors (exchange, msg) VALUES ($1, $2)").bind(exchange).bind(msg).execute(pool).await {
+    match sqlx::query(
+        "
+            INSERT INTO errors (exchange, msg)
+            VALUES ($1, $2);",
+    )
+    .bind(exchange)
+    .bind(msg)
+    .execute(pool)
+    .await
+    {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
     }
 }
 pub async fn insert_db_event(pool: &PgPool, exchange: &str, json_value: serde_json::Value) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("INSERT INTO events (exchange, msg) VALUES ($1, $2)").bind(exchange).bind(json_value).execute(pool).await {
+    match sqlx::query(
+        "
+            INSERT INTO events (exchange, msg)
+            VALUES ($1, $2);
+            ",
+    )
+    .bind(exchange)
+    .bind(json_value)
+    .execute(pool)
+    .await
+    {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
     }
@@ -31,21 +50,26 @@ pub async fn insert_db_msgsend(
     args_client_oid: Option<&str>,
     args_order_id: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);")
-        .bind(exchange)
-        .bind(args_symbol)
-        .bind(args_side)
-        .bind(args_size)
-        .bind(args_funds)
-        .bind(args_price)
-        .bind(args_time_in_force)
-        .bind(args_type)
-        .bind(args_auto_borrow)
-        .bind(args_auto_repay)
-        .bind(args_client_oid)
-        .bind(args_order_id)
-        .execute(pool)
-        .await
+    match sqlx::query(
+        "
+            INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+            ",
+    )
+    .bind(exchange)
+    .bind(args_symbol)
+    .bind(args_side)
+    .bind(args_size)
+    .bind(args_funds)
+    .bind(args_price)
+    .bind(args_time_in_force)
+    .bind(args_type)
+    .bind(args_auto_borrow)
+    .bind(args_auto_repay)
+    .bind(args_client_oid)
+    .bind(args_order_id)
+    .execute(pool)
+    .await
     {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
@@ -59,23 +83,28 @@ pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceDa
             BalanceRelationContext { symbol: None, order_id: None, trade_id: None }
         }
     };
-    match sqlx::query("INSERT INTO balance (exchange, account_id, available, available_change, currency, hold_value, hold_change, relation_event, relation_event_id, event_time, total, symbol, order_id, trade_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)")
-        .bind(exchange)
-        .bind(balance.account_id)
-        .bind(balance.available)
-        .bind(balance.available_change)
-        .bind(balance.currency)
-        .bind(balance.hold)
-        .bind(balance.hold_change)
-        .bind(balance.relation_event)
-        .bind(balance.relation_event_id)
-        .bind(balance.time)
-        .bind(balance.total)
-        .bind(relation_context.symbol)
-        .bind(relation_context.order_id)
-        .bind(relation_context.trade_id)
-        .execute(pool)
-        .await
+    match sqlx::query(
+        "
+            INSERT INTO balance (exchange, account_id, available, available_change, currency, hold_value, hold_change, relation_event, relation_event_id, event_time, total, symbol, order_id, trade_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
+            ",
+    )
+    .bind(exchange)
+    .bind(balance.account_id)
+    .bind(balance.available)
+    .bind(balance.available_change)
+    .bind(balance.currency)
+    .bind(balance.hold)
+    .bind(balance.hold_change)
+    .bind(balance.relation_event)
+    .bind(balance.relation_event_id)
+    .bind(balance.time)
+    .bind(balance.total)
+    .bind(relation_context.symbol)
+    .bind(relation_context.order_id)
+    .bind(relation_context.trade_id)
+    .execute(pool)
+    .await
     {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
@@ -193,11 +222,20 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
     }
 }
 pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<f64>, Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value FROM orderevent WHERE client_oid = $1 AND exchange = $2 AND match_size IS NOT NULL AND match_price IS NOT NULL;")
-        .bind(client_oid)
-        .bind(exchange)
-        .fetch_one(pool)
-        .await
+    match sqlx::query(
+        "
+            SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value
+            FROM orderevent
+            WHERE client_oid = $1 AND
+                exchange = $2 AND
+                match_size IS NOT NULL AND
+                match_price IS NOT NULL;
+            ",
+    )
+    .bind(client_oid)
+    .bind(exchange)
+    .fetch_one(pool)
+    .await
     {
         Ok(row) => match row.try_get::<Option<String>, _>("total_match_value") {
             Ok(Some(value_str)) => match value_str.parse::<f64>() {
@@ -539,10 +577,16 @@ pub async fn get_bot_by_entry_client_oid(pool: &PgPool, exchange: &str, client_o
 }
 
 pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Result<Vec<Bot>, Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query_as::<_, Bot>("SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance FROM bots WHERE exchange = $1")
-        .bind(exchange)
-        .fetch_all(pool)
-        .await
+    match sqlx::query_as::<_, Bot>(
+        "
+            SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+            FROM bots
+            WHERE exchange = $1;
+            ",
+    )
+    .bind(exchange)
+    .fetch_all(pool)
+    .await
     {
         Ok(bots) => Ok(bots),
         Err(e) => Err(e.into()),
