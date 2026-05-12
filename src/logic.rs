@@ -1,12 +1,12 @@
 use fastrand;
 
 use crate::api::db::{
-    delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid, fetch_symbol_info_by_symbol, get_bot_by_entry_client_oid,
-    get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance, insert_db_error, insert_db_event, insert_db_msgsend,
-    insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid,
-    update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid, update_exit_sl_client_oid_bot_by_exit_sl_order_id, update_exit_sl_order_id_bot_by_exit_sl_client_oid,
-    update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id, update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset,
-    upsert_position_debt, upsert_position_ratio,
+    delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid, fetch_symbol_info_by_symbol, get_all_bots_for_trade,
+    get_bot_by_entry_client_oid, get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol, get_total_match_value_by_client_oid, insert_db_balance, insert_db_error,
+    insert_db_event, insert_db_msgsend, insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid,
+    update_bot_balance_by_entry_client_oid, update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid, update_exit_sl_client_oid_bot_by_exit_sl_order_id,
+    update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id,
+    update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
 use crate::api::requests::{
@@ -14,7 +14,7 @@ use crate::api::requests::{
 };
 use log::{error, info};
 use serde::Deserialize;
-use tokio::time::Duration;
+use tokio::time::{Duration, interval, sleep};
 use uuid::Uuid;
 
 const TP_BUY_PERCENT: f64 = 1.07; // +7%
@@ -22,6 +22,7 @@ const SL_BUY_PERCENT: f64 = 0.95; // -5%
 const TP_SELL_PERCENT: f64 = 0.93; // -7%
 const SL_SELL_PERCENT: f64 = 1.05; // +5%
 const RETRY_DELAY_BASE: u64 = 500;
+const BOT_INIT_DELAY: Duration = Duration::from_millis(5000);
 
 pub fn get_random_side() -> String {
     if fastrand::bool() { "buy".to_string() } else { "sell".to_string() }
@@ -40,6 +41,55 @@ pub fn format_assert(size: f64, increment: f64) -> String {
     let precision = if increment >= 1.0 { 0 } else { (increment.recip().log10().ceil() as usize).min(10) };
     let rounded = (size / increment).round() * increment;
     format!("{:.prec$}", rounded, prec = precision)
+}
+
+pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) {
+    match get_all_bots_for_trade(pool, exchange).await {
+        Ok(trade_bots) => {
+            for trade_bot in trade_bots.iter() {
+                sleep(BOT_INIT_DELAY).await;
+                match trade_bot.balance.parse::<f64>() {
+                    Ok(token_funds) => match make_random_trade(pool, exchange, token_funds, trade_bot.id).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!("Error in make_random_trade: {}", e);
+                            error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    error!("{}", msg);
+                                }
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        let msg: String = format!("Failed parse balance: {} {}", trade_bot.balance, e);
+                        error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                error!("{}", msg);
+                            }
+                        }
+                    }
+                }
+            }
+            info!("All bots initialized!");
+        }
+        Err(e) => {
+            let msg: String = format!("Failed get_all_bots_for_trade: {}", e);
+            error!("{}", msg);
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    error!("{}", msg);
+                }
+            }
+        }
+    }
 }
 
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {

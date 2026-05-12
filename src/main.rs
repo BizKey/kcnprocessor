@@ -4,10 +4,10 @@ mod api {
     pub mod requests;
 }
 mod logic;
-use crate::api::db::{clear_orders_ids_for_bots, get_all_bots_for_trade, insert_db_error};
+use crate::api::db::{clear_orders_ids_for_bots, insert_db_error};
 
 use crate::api::requests::{batch_cancel_stop_orders, get_private_ws_url};
-use crate::logic::{auto_clean_account, build_subscription, make_random_trade, process_kcn_msg};
+use crate::logic::{auto_clean_account, build_subscription, create_init_orders, make_random_trade, process_kcn_msg};
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
@@ -23,7 +23,6 @@ const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const CLEAR_DELAY: Duration = Duration::from_secs(3);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 const INIT_ORDER_DELAY: Duration = Duration::from_millis(5000);
-const BOT_INIT_DELAY: Duration = Duration::from_millis(5000);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -152,57 +151,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if !init_order_execute {
             init_order_execute = true;
             let pool_clone = pool.clone();
-            let exchange_clone = exchange.clone();
+            let exchange_clone: String = exchange.clone();
 
             tokio::spawn(async move {
                 sleep(INIT_ORDER_DELAY).await;
                 info!("Initializing start orders...");
-                match get_all_bots_for_trade(&pool_clone, &exchange_clone).await {
-                    Ok(trade_bots) => {
-                        for trade_bot in trade_bots.iter() {
-                            sleep(BOT_INIT_DELAY).await;
-                            match trade_bot.balance.parse::<f64>() {
-                                Ok(token_funds) => match make_random_trade(&pool_clone, &exchange_clone, token_funds, trade_bot.id).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Error in make_random_trade: {}", e);
-                                        error!("{}", msg);
-                                        match insert_db_error(&pool_clone, &exchange_clone, &msg).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                error!("{}", msg);
-                                            }
-                                        }
-                                    }
-                                },
-                                Err(e) => {
-                                    let msg: String = format!("Failed parse balance: {} {}", trade_bot.balance, e);
-                                    error!("{}", msg);
-                                    match insert_db_error(&pool_clone, &exchange_clone, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            error!("{}", msg);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        info!("All bots initialized!");
-                    }
-                    Err(e) => {
-                        let msg: String = format!("Failed get_all_bots_for_trade: {}", e);
-                        error!("{}", msg);
-                        match insert_db_error(&pool_clone, &exchange_clone, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                error!("{}", msg);
-                            }
-                        }
-                    }
-                }
+                create_init_orders(&pool_clone, &exchange_clone).await;
             });
         }
 
