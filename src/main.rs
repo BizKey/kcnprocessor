@@ -88,42 +88,59 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         // Work with income events
         let _ = tokio::spawn(async move {
-            while let Some(msg) = rx_in.recv().await {
-                match serde_json::from_str::<KuCoinMessage>(&msg) {
-                    Ok(kc_msg) => match kc_msg {
-                        KuCoinMessage::Welcome(data) => {
-                            match serde_json::to_value(data) {
-                                Ok(v) => match insert_db_event(&pool_for_handler, &exchange_for_handler, v).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert_db_event {}", e);
-                                        error!("{}", msg);
-                                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+            loop {
+                match rx_in.recv().await {
+                    Some(msg) => {
+                        match serde_json::from_str::<KuCoinMessage>(&msg) {
+                            Ok(kc_msg) => match kc_msg {
+                                KuCoinMessage::Welcome(data) => {
+                                    match serde_json::to_value(data) {
+                                        Ok(v) => match insert_db_event(&pool_for_handler, &exchange_for_handler, v).await {
                                             Ok(_) => {}
                                             Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                let msg: String = format!("Failed insert_db_event {}", e);
                                                 error!("{}", msg);
+                                                match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                        error!("{}", msg);
+                                                    }
+                                                }
                                             }
+                                        },
+                                        Err(e) => {
+                                            error!("Failed to serialize event: {}", e);
+                                            return;
                                         }
-                                    }
-                                },
-                                Err(e) => {
-                                    error!("Failed to serialize event: {}", e);
-                                    return;
+                                    };
                                 }
-                            };
-                        }
-                        KuCoinMessage::Message(data) => {
-                            if data.topic == "/account/balance" {
-                                match BalanceData::deserialize(&data.data) {
-                                    Ok(balance) => {
-                                        // sent balance to pg
-                                        match insert_db_balance(&pool_for_handler, &exchange_for_handler, balance).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                let msg: String = format!("Failed to insert balance into DB: {}", e);
-                                                error!("{}", msg);
+                                KuCoinMessage::Message(data) => {
+                                    if data.topic == "/account/balance" {
+                                        match BalanceData::deserialize(&data.data) {
+                                            Ok(balance) => {
+                                                // sent balance to pg
+                                                match insert_db_balance(&pool_for_handler, &exchange_for_handler, balance).await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!("Failed to insert balance into DB: {}", e);
+                                                        error!("{}", msg);
 
+                                                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+                                                            Ok(_) => {}
+                                                            Err(e) => {
+                                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                                error!("{}", msg);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                info!("{:?}", data.data);
+                                                // sent balance parse error to pg
+                                                let msg: String = format!("Failed to parse message {}", e);
+                                                error!("{}", msg);
                                                 match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
                                                     Ok(_) => {}
                                                     Err(e) => {
@@ -133,58 +150,74 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                                 }
                                             }
                                         }
-                                    }
-                                    Err(e) => {
-                                        info!("{:?}", data.data);
-                                        // sent balance parse error to pg
-                                        let msg: String = format!("Failed to parse message {}", e);
-                                        error!("{}", msg);
-                                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                error!("{}", msg);
+                                    } else if data.topic == "/spotMarket/tradeOrdersV2" {
+                                        info!("{}", &data.data);
+                                        match OrderData::deserialize(&data.data) {
+                                            Ok(order) => {
+                                                // order magic
+                                                handle_trade_order_event(order, &pool_for_handler, &exchange_for_handler).await
                                             }
-                                        }
-                                    }
-                                }
-                            } else if data.topic == "/spotMarket/tradeOrdersV2" {
-                                info!("{}", &data.data);
-                                match OrderData::deserialize(&data.data) {
-                                    Ok(order) => {
-                                        // order magic
-                                        handle_trade_order_event(order, &pool_for_handler, &exchange_for_handler).await
-                                    }
-                                    Err(e) => {
-                                        info!("{:?}", data.data);
+                                            Err(e) => {
+                                                info!("{:?}", data.data);
 
-                                        // sent order error to pg
-                                        let msg: String = format!("Failed to parse message {}", e);
-                                        error!("{}", msg);
-                                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                // sent order error to pg
+                                                let msg: String = format!("Failed to parse message {}", e);
                                                 error!("{}", msg);
+                                                match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                        error!("{}", msg);
+                                                    }
+                                                }
                                             }
                                         }
-                                    }
-                                }
-                            } else if data.topic == "/spotMarket/advancedOrders" {
-                                // stop orders and other
-                                info!("{}", &data.data);
-                                match AdvancedOrders::deserialize(&data.data) {
-                                    Ok(order) => {
-                                        // watch order event
-                                        handle_advanced_orders(order, &pool_for_handler, &exchange_for_handler).await
-                                    }
-                                    Err(e) => {
-                                        info!("{:?}", data.data);
+                                    } else if data.topic == "/spotMarket/advancedOrders" {
+                                        // stop orders and other
+                                        info!("{}", &data.data);
+                                        match AdvancedOrders::deserialize(&data.data) {
+                                            Ok(order) => {
+                                                // watch order event
+                                                handle_advanced_orders(order, &pool_for_handler, &exchange_for_handler).await
+                                            }
+                                            Err(e) => {
+                                                info!("{:?}", data.data);
 
-                                        // sent order error to pg
-                                        let msg: String = format!("Failed to parse message {}", e);
-                                        error!("{}", msg);
-                                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+                                                // sent order error to pg
+                                                let msg: String = format!("Failed to parse message {}", e);
+                                                error!("{}", msg);
+                                                match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                        error!("{}", msg);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else if data.topic == "/margin/position" {
+                                        // save to db position
+                                        // repay debt
+                                        match PositionData::deserialize(&data.data) {
+                                            Ok(position) => handle_position_event(position, &pool_for_handler, &exchange_for_handler).await,
+                                            Err(e) => {
+                                                info!("{:?}", data.data);
+                                                // sent order error to pg
+                                                let msg: String = format!("Failed to parse message {}", e);
+                                                error!("{}", msg);
+                                                match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                        error!("{}", msg);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        info!("Unknown topic: {}", data.topic);
+                                        // sent error to pg
+                                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &data.topic).await {
                                             Ok(_) => {}
                                             Err(e) => {
                                                 let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -193,29 +226,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                         }
                                     }
                                 }
-                            } else if data.topic == "/margin/position" {
-                                // save to db position
-                                // repay debt
-                                match PositionData::deserialize(&data.data) {
-                                    Ok(position) => handle_position_event(position, &pool_for_handler, &exchange_for_handler).await,
-                                    Err(e) => {
-                                        info!("{:?}", data.data);
-                                        // sent order error to pg
-                                        let msg: String = format!("Failed to parse message {}", e);
-                                        error!("{}", msg);
-                                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+                                KuCoinMessage::Ack(data) => {
+                                    info!("{:?}", data);
+                                    // sent ack to pg
+                                    match serde_json::to_value(data) {
+                                        Ok(v) => match insert_db_event(&pool_for_handler, &exchange_for_handler, v).await {
                                             Ok(_) => {}
                                             Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                let msg: String = format!("Failed insert_db_event: {}", e);
                                                 error!("{}", msg);
+                                                match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
+                                                    Ok(_) => {}
+                                                    Err(e) => {
+                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                                        error!("{}", msg);
+                                                    }
+                                                }
                                             }
+                                        },
+                                        Err(e) => {
+                                            error!("Failed to serialize event: {}", e);
+                                            return;
+                                        }
+                                    };
+                                }
+                                KuCoinMessage::Error(data) => {
+                                    info!("{:?}", data);
+                                    // sent error to pg
+                                    match insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            error!("{}", msg);
                                         }
                                     }
                                 }
-                            } else {
-                                info!("Unknown topic: {}", data.topic);
+                                KuCoinMessage::Unknown => {
+                                    info!("Unknown WS message type");
+                                }
+                            },
+                            Err(e) => {
                                 // sent error to pg
-                                match insert_db_error(&pool_for_handler, &exchange_for_handler, &data.topic).await {
+                                let msg: String = format!("Failed to parse message: {} | Raw: {}", e, msg);
+                                error!("{}", msg);
+                                match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -224,59 +278,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 }
                             }
                         }
-                        KuCoinMessage::Ack(data) => {
-                            info!("{:?}", data);
-                            // sent ack to pg
-                            match serde_json::to_value(data) {
-                                Ok(v) => match insert_db_event(&pool_for_handler, &exchange_for_handler, v).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert_db_event: {}", e);
-                                        error!("{}", msg);
-                                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                error!("{}", msg);
-                                            }
-                                        }
-                                    }
-                                },
-                                Err(e) => {
-                                    error!("Failed to serialize event: {}", e);
-                                    return;
-                                }
-                            };
-                        }
-                        KuCoinMessage::Error(data) => {
-                            info!("{:?}", data);
-                            // sent error to pg
-                            match insert_db_error(&pool_for_handler, &exchange_for_handler, &data.data).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    error!("{}", msg);
-                                }
-                            }
-                        }
-                        KuCoinMessage::Unknown => {
-                            info!("Unknown WS message type");
-                        }
-                    },
-                    Err(e) => {
-                        // sent error to pg
-                        let msg: String = format!("Failed to parse message: {} | Raw: {}", e, msg);
-                        error!("{}", msg);
-                        match insert_db_error(&pool_for_handler, &exchange_for_handler, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                error!("{}", msg);
-                            }
-                        }
+                    }
+                    None => {
+                        break;
                     }
                 }
             }
+
             info!("Message handler finished");
         });
 
