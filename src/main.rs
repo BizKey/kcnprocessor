@@ -7,7 +7,9 @@ mod logic;
 use crate::api::db::{clear_orders_ids_for_bots, fetch_symbol_info_by_symbol, get_all_bots_for_trade, insert_db_balance, insert_db_error, insert_db_event};
 use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, OrderData, PositionData, Symbol};
 use crate::api::requests::{batch_cancel_stop_orders, create_repay_order, get_all_margin_accounts, get_private_ws_url, get_ticker_price, sent_account_transfer};
-use crate::logic::{format_assert, handle_advanced_orders, handle_position_event, handle_trade_order_event, make_hf_funds_margin_order, make_hf_size_margin_order, make_random_trade};
+use crate::logic::{
+    build_subscription, format_assert, handle_advanced_orders, handle_position_event, handle_trade_order_event, make_hf_funds_margin_order, make_hf_size_margin_order, make_random_trade,
+};
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
@@ -25,15 +27,6 @@ const CLEAR_DELAY: Duration = Duration::from_secs(3);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 const INIT_ORDER_DELAY: Duration = Duration::from_millis(5000);
 const BOT_INIT_DELAY: Duration = Duration::from_millis(5000);
-
-fn build_subscription() -> Vec<serde_json::Value> {
-    vec![
-        serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}),
-        serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}),
-        serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}),
-        serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}),
-    ]
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

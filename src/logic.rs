@@ -26,6 +26,16 @@ const RETRY_DELAY_BASE: u64 = 500;
 pub fn get_random_side() -> String {
     if fastrand::bool() { "buy".to_string() } else { "sell".to_string() }
 }
+
+pub fn build_subscription() -> Vec<serde_json::Value> {
+    vec![
+        serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}),
+        serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}),
+        serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}),
+        serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}),
+    ]
+}
+
 pub fn format_assert(size: f64, increment: f64) -> String {
     let precision = if increment >= 1.0 { 0 } else { (increment.recip().log10().ceil() as usize).min(10) };
     let rounded = (size / increment).round() * increment;
