@@ -95,10 +95,12 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     match get_all_margin_accounts().await {
         Ok(accounts) => {
+            let mut passed: bool = true;
             for account in accounts.accounts.iter() {
                 let token_liability: f64 = account.liability.parse().unwrap_or(0.0);
                 let token_available: f64 = account.available.parse().unwrap_or(0.0);
                 if token_liability > 0.0 {
+                    passed = false;
                     if token_available >= token_liability {
                         info!("Can repay {} {} liability with available {}", account.liability, &account.currency, account.available);
 
@@ -303,8 +305,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             }
                         };
                     }
-                    return Ok(false);
                 } else if account.currency != "USDT" && token_available > 0.0 {
+                    passed = false;
                     // sell stocks by market available/ works
                     let client_oid: String = Uuid::new_v4().to_string();
                     let trade_symbol: &String = &(account.currency.clone() + "-USDT");
@@ -448,10 +450,13 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             }
                         }
                     }
-                    return Ok(false);
                 }
             }
-            return Ok(true);
+            if passed {
+                return Ok(true);
+            } else {
+                return Ok(false);
+            }
         }
         Err(e) => {
             let msg: String = format!("Failed to get margin accounts {}", e);
