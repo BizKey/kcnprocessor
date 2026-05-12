@@ -271,55 +271,106 @@ pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(
     entry_client_oid: &str,
     exit_sl_client_oid: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("UPDATE bots SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
-        .bind(exit_sl_client_oid)
-        .bind(entry_client_oid)
-        .bind(exchange)
-        .execute(pool)
-        .await
+    match sqlx::query(
+        "
+            UPDATE bots
+            SET exit_sl_client_oid = $1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $2 AND
+                exchange = $3;
+            ",
+    )
+    .bind(exit_sl_client_oid)
+    .bind(entry_client_oid)
+    .bind(exchange)
+    .execute(pool)
+    .await
     {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
     }
 }
 pub async fn update_balance_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_tp_client_oid: &str, balance: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_tp_client_oid = $2 AND exchange = $3;")
-        .bind(balance)
-        .bind(exit_tp_client_oid)
-        .bind(exchange)
-        .execute(pool)
-        .await
+    match sqlx::query(
+        "
+            UPDATE bots
+            SET balance = $1,
+                symbol = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE exit_tp_client_oid = $2 AND
+                exchange = $3;
+            ",
+    )
+    .bind(balance)
+    .bind(exit_tp_client_oid)
+    .bind(exchange)
+    .execute(pool)
+    .await
     {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
     }
 }
 pub async fn update_bot_balance_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, entry_client_oid: &str, balance: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("UPDATE bots SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE entry_client_oid = $2 AND exchange = $3;")
-        .bind(balance)
-        .bind(entry_client_oid)
-        .bind(exchange)
-        .execute(pool)
-        .await
+    match sqlx::query(
+        "
+            UPDATE bots
+            SET balance = $1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $2 AND
+                exchange = $3;
+            ",
+    )
+    .bind(balance)
+    .bind(entry_client_oid)
+    .bind(exchange)
+    .execute(pool)
+    .await
     {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
     }
 }
 pub async fn update_balance_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_sl_client_oid: &str, balance: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("UPDATE bots SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exit_sl_client_oid = $2 AND exchange = $3;")
-        .bind(balance)
-        .bind(exit_sl_client_oid)
-        .bind(exchange)
-        .execute(pool)
-        .await
+    match sqlx::query(
+        "
+            UPDATE bots
+            SET balance = $1,
+                symbol = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE exit_sl_client_oid = $2 AND
+                exchange = $3;
+            ",
+    )
+    .bind(balance)
+    .bind(exit_sl_client_oid)
+    .bind(exchange)
+    .execute(pool)
+    .await
     {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
     }
 }
 pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query("UPDATE bots SET entry_client_oid = NULL, exit_tp_order_id = NULL, exit_tp_client_oid = NULL, exit_sl_order_id = NULL, exit_sl_client_oid = NULL, balance = '20', symbol = NULL, updated_at = CURRENT_TIMESTAMP WHERE exchange = $1;").bind(exchange).execute(pool).await {
+    match sqlx::query(
+        "
+            UPDATE bots
+            SET entry_client_oid = NULL,
+                exit_tp_order_id = NULL,
+                exit_tp_client_oid = NULL,
+                exit_sl_order_id = NULL,
+                exit_sl_client_oid = NULL,
+                balance = '20',
+                symbol = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE exchange = $1;
+            ",
+    )
+    .bind(exchange)
+    .execute(pool)
+    .await
+    {
         Ok(_) => Ok(()),
         Err(e) => Err(e.into()),
     }

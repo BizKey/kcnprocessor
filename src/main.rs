@@ -1757,7 +1757,7 @@ async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::P
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute = false;
+    let mut init_order_execute: bool = false;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
