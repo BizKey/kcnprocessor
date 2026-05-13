@@ -7,7 +7,7 @@ mod logic;
 use crate::api::db::{clear_orders_ids_for_bots, insert_db_error};
 
 use crate::api::requests::{batch_cancel_stop_orders, get_private_ws_url};
-use crate::logic::{auto_clean_account, build_subscription, create_init_orders, make_random_trade, process_kcn_msg};
+use crate::logic::{auto_clean_account, build_subscription, create_init_orders, process_kcn_msg};
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
