@@ -1560,18 +1560,20 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // repay borrow
     for (asset, token_liability_str) in &position.debt_list {
-        match (token_liability_str.parse::<f64>(), position.asset_list.get(asset)) {
-            (Ok(token_liability), Some(asset_info)) => match asset_info.available.parse::<f64>() {
-                Ok(available) => {
-                    if token_liability > 0.0 {
-                        if available >= token_liability {
-                            log::info!("Can repay {} {} liability with available {}", token_liability, asset, available);
-
+        // passed
+        match position.asset_list.get(asset) {
+            Some(asset_info) => match (token_liability_str.parse::<f64>(), asset_info.available.parse::<f64>()) {
+                (Ok(liability), Ok(available)) => {
+                    if liability > 0.0 {
+                        if available >= liability {
                             match create_repay_order(asset, token_liability_str).await {
-                                Ok(_) => {}
+                                Ok(_) => {
+                                    log::info!("Repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
+                                }
                                 Err(e) => {
-                                    let msg: String = format!("Failed to repay liability: {}", e);
+                                    let msg: String = format!("Failed to repay liability:{} on asset:{} {}", token_liability_str, asset, e);
                                     log::error!("{}", msg);
                                     match insert_db_error(pool, exchange, &msg).await {
                                         Ok(_) => {}
@@ -1580,15 +1582,16 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                             log::error!("{}", msg);
                                         }
                                     }
+                                    continue;
                                 }
                             }
                         } else if available > 0.0 {
-                            log::info!("Can partially repay {} {} liability with available {}", token_liability, asset, available);
-
                             match create_repay_order(asset, &asset_info.available).await {
-                                Ok(_) => {}
+                                Ok(_) => {
+                                    log::info!("Partially repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
+                                }
                                 Err(e) => {
-                                    let msg: String = format!("Failed to partially repay debt: {}", e);
+                                    let msg: String = format!("Failed to partially repay liability:{} on asset:{} {}", token_liability_str, asset, e);
                                     log::error!("{}", msg);
                                     match insert_db_error(pool, exchange, &msg).await {
                                         Ok(_) => {}
@@ -1597,13 +1600,26 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                             log::error!("{}", msg);
                                         }
                                     }
+                                    continue;
                                 }
                             }
                         }
                     }
                 }
-                Err(e) => {
-                    let msg: String = format!("Failed to parse available balance for {} {}", asset, e);
+                (Err(e), _) => {
+                    let msg: String = format!("Failed to parse token_liability_str:{}  {}", token_liability_str, e);
+                    log::error!("{}", msg);
+                    match insert_db_error(pool, exchange, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            log::error!("{}", msg);
+                        }
+                    }
+                    continue;
+                }
+                (_, Err(e)) => {
+                    let msg: String = format!("Failed to parse asset_info.available:{}  {}", asset_info.available, e);
                     log::error!("{}", msg);
                     match insert_db_error(pool, exchange, &msg).await {
                         Ok(_) => {}
@@ -1615,19 +1631,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                     continue;
                 }
             },
-            (Err(e), _) => {
-                let msg: String = format!("Failed to parse {} {}", token_liability_str, e);
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
-                continue;
-            }
-            (_, None) => {
+            None => {
                 let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
@@ -1653,7 +1657,6 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                     log::error!("{}", msg);
                 }
             }
-            return Err(e);
         }
     }
 
@@ -1670,7 +1673,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                         log::error!("{}", msg);
                     }
                 }
-                return Err(e);
+                continue;
             }
         }
     }
@@ -1687,11 +1690,10 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                         log::error!("{}", msg);
                     }
                 }
-                return Err(e);
+                continue;
             }
         }
     }
-    // repay borrow
 
     return Ok(());
 }
