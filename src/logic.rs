@@ -258,8 +258,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         };
                         // parse min_funds to int
                         let min_funds: f64 = match &symbol_info.min_funds {
-                            Some(val) => match val.parse::<f64>() {
-                                Ok(v) => v,
+                            Some(min_funds_str) => match min_funds_str.parse::<f64>() {
+                                Ok(min_funds) => min_funds,
                                 Err(e) => {
                                     let msg: String = format!("Failed parse min_funds: {:?} {}", symbol_info.min_funds, e);
                                     log::error!("{}", msg);
@@ -321,6 +321,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                             log::error!("{}", msg);
                                         }
                                     }
+                                    continue;
                                 }
                             }
                         } else {
@@ -336,6 +337,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                             log::error!("{}", msg);
                                         }
                                     }
+                                    continue;
                                 }
                             }
                         };
@@ -345,6 +347,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     // sell stocks by market available/ works
                     let client_oid: String = Uuid::new_v4().to_string();
                     let trade_symbol: &String = &(account.currency.clone() + "-USDT");
+
                     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, trade_symbol).await {
                         Ok(Some(symbol_info)) => symbol_info,
                         Ok(None) => {
@@ -360,7 +363,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             continue;
                         }
                         Err(e) => {
-                            let msg: String = format!("Symbol info not found for {}", trade_symbol);
+                            let msg: String = format!("Symbol info not found for {} {}", trade_symbol, e);
                             log::error!("{}", msg);
                             match insert_db_error(pool, exchange, &msg).await {
                                 Ok(_) => {}
@@ -419,7 +422,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     };
 
-                    log::info!("Successfully get price:{}", &trade_symbol);
+                    log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
 
                     let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
                         Ok(base_min_size) => base_min_size,
