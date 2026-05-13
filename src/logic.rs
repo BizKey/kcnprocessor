@@ -1560,54 +1560,6 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
-        Ok(_) => {}
-        Err(e) => {
-            let msg: String = format!("Failed to upsert margin account state: {}", e);
-            log::error!("{}", msg);
-            match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
-                Err(e) => {
-                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    log::error!("{}", msg);
-                }
-            }
-        }
-    }
-
-    for (symbol, amount) in &position.debt_list {
-        match upsert_position_debt(pool, exchange, symbol, amount).await {
-            Ok(_) => {}
-            Err(e) => {
-                let msg: String = format!("Failed to insert debt margin account state: {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
-            }
-        }
-    }
-    for (symbol, symbol_info) in &position.asset_list {
-        match upsert_position_asset(pool, exchange, symbol, &symbol_info.total, &symbol_info.available, &symbol_info.hold).await {
-            Ok(_) => {}
-            Err(e) => {
-                let msg: String = format!("Failed to insert asset margin account state: {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
-            }
-        }
-    }
-    // repay borrow
     for (asset, token_liability_str) in &position.debt_list {
         match (token_liability_str.parse::<f64>(), position.asset_list.get(asset)) {
             (Ok(token_liability), Some(asset_info)) => match asset_info.available.parse::<f64>() {
@@ -1660,12 +1612,87 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                             log::error!("{}", msg);
                         }
                     }
+                    continue;
                 }
             },
-            (Err(e), _) => {}
-            (_, None) => {}
+            (Err(e), _) => {
+                let msg: String = format!("Failed to parse {} {}", token_liability_str, e);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                continue;
+            }
+            (_, None) => {
+                let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                continue;
+            }
         }
     }
+    match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
+        Ok(_) => {}
+        Err(e) => {
+            let msg: String = format!("Failed to upsert margin account state: {}", e);
+            log::error!("{}", msg);
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    log::error!("{}", msg);
+                }
+            }
+            return Err(e);
+        }
+    }
+
+    for (symbol, amount) in &position.debt_list {
+        match upsert_position_debt(pool, exchange, symbol, amount).await {
+            Ok(_) => {}
+            Err(e) => {
+                let msg: String = format!("Failed to insert debt margin account state: {}", e);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                return Err(e);
+            }
+        }
+    }
+    for (symbol, symbol_info) in &position.asset_list {
+        match upsert_position_asset(pool, exchange, symbol, &symbol_info.total, &symbol_info.available, &symbol_info.hold).await {
+            Ok(_) => {}
+            Err(e) => {
+                let msg: String = format!("Failed to insert asset margin account state: {}", e);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                return Err(e);
+            }
+        }
+    }
+    // repay borrow
+
     return Ok(());
 }
 

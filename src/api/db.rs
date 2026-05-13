@@ -652,8 +652,7 @@ pub async fn upsert_position_ratio(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
         r#"
-        INSERT INTO positionratio 
-        (exchange, debt_ratio, total_asset, margin_coefficient_total_asset, total_debt, updated_at)
+        INSERT INTO positionratio (exchange, debt_ratio, total_asset, margin_coefficient_total_asset, total_debt, updated_at)
         VALUES ($1, $2, $3, $4, $5, NOW())
         ON CONFLICT (exchange) 
         DO UPDATE SET
