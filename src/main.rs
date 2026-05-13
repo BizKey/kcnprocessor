@@ -20,9 +20,9 @@ use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
-const CLEAR_DELAY: Duration = Duration::from_secs(3);
+const CLEAR_DELAY: Duration = Duration::from_secs(10);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
-const INIT_ORDER_DELAY: Duration = Duration::from_millis(5000);
+const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
