@@ -25,15 +25,16 @@ pub struct KuCoinClient {
 
 impl KuCoinClient {
     pub fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let client = Client::builder().timeout(Duration::from_secs(15)).connect_timeout(Duration::from_secs(5)).tcp_keepalive(Duration::from_secs(60)).build()?;
-
-        Ok(Self {
-            client,
-            api_key: env::var("KUCOIN_KEY")?.trim().to_string(),
-            api_secret: env::var("KUCOIN_SECRET")?.trim().to_string(),
-            api_passphrase: env::var("KUCOIN_PASS")?.trim().to_string(),
-            base_url,
-        })
+        match Client::builder().timeout(Duration::from_secs(15)).connect_timeout(Duration::from_secs(5)).tcp_keepalive(Duration::from_secs(60)).build() {
+            Ok(client) => Ok(Self {
+                client,
+                api_key: env::var("KUCOIN_KEY")?.trim().to_string(),
+                api_secret: env::var("KUCOIN_SECRET")?.trim().to_string(),
+                api_passphrase: env::var("KUCOIN_PASS")?.trim().to_string(),
+                base_url,
+            }),
+            Err(e) => Err(e.into()),
+        }
     }
 
     pub async fn api_v1_bullet_private(&self) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
