@@ -1922,7 +1922,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 return Ok(());
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed to insert balance into DB: {}", e);
+                                let msg: String = format!("Failed insert_db_balance: {}", e);
                                 log::error!("{}", msg);
 
                                 match insert_db_error(pool, exchange, &msg).await {
@@ -1954,17 +1954,24 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         }
                     }
                 } else if data.topic == "/spotMarket/tradeOrdersV2" {
-                    log::info!("{}", &data.data);
-                    // order magic
                     match OrderData::deserialize(&data.data) {
                         Ok(order) => match handle_trade_order_event(order, pool, exchange).await {
                             Ok(_) => {
                                 return Ok(());
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                let msg: String = format!("Failed handle_trade_order_event: {} {}", msg, e);
                                 log::error!("{}", msg);
-                                return Err(e);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {
+                                        return Ok(());
+                                    }
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        log::error!("{}", msg);
+                                        return Err(e);
+                                    }
+                                }
                             }
                         },
                         Err(e) => {
@@ -1984,18 +1991,24 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         }
                     }
                 } else if data.topic == "/spotMarket/advancedOrders" {
-                    // stop orders and other
-                    log::info!("{}", &data.data);
-                    // watch order event
                     match AdvancedOrders::deserialize(&data.data) {
                         Ok(order) => match handle_advanced_orders(order, pool, exchange).await {
                             Ok(_) => {
                                 return Ok(());
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                let msg: String = format!("Failed handle_advanced_orders: {} {}", msg, e);
                                 log::error!("{}", msg);
-                                return Err(e);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {
+                                        return Ok(());
+                                    }
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        log::error!("{}", msg);
+                                        return Err(e);
+                                    }
+                                }
                             }
                         },
                         Err(e) => {
@@ -2022,7 +2035,18 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 return Ok(());
                             }
                             Err(e) => {
-                                return Err(e);
+                                let msg: String = format!("Failed handle_position_event: {} {}", msg, e);
+                                log::error!("{}", msg);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {
+                                        return Ok(());
+                                    }
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        log::error!("{}", msg);
+                                        return Err(e);
+                                    }
+                                }
                             }
                         },
                         Err(e) => {
