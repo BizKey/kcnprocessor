@@ -79,6 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(e) => {}
         };
     }
+    return Ok(());
 
     loop {
         let exchange_for_handler: String = exchange.clone();
