@@ -345,21 +345,33 @@ fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Sen
 }
 
 pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    let bullet_private: ApiV3BulletPrivate = client.api_v1_bullet_private().await?;
-    bullet_private.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
+    match get_client() {
+        Ok(client) => match client.api_v1_bullet_private().await {
+            Ok(bullet_private) => {
+                bullet_private.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
+            }
+            Err(e) => Err(e),
+        },
+        Err(e) => Err(e),
+    }
 }
 pub async fn get_all_margin_accounts() -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.get_margin_accounts().await
+    match get_client() {
+        Ok(client) => client.get_margin_accounts().await,
+        Err(e) => Err(e),
+    }
 }
 pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id).await
+    match get_client() {
+        Ok(client) => client.api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id).await,
+        Err(e) => Err(e),
+    }
 }
 pub async fn sent_account_transfer(currency: &str, amount: &str, type_: &str, from_account_type: &str, to_account_type: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.account_transfer(currency, &Uuid::new_v4().to_string(), amount, type_, from_account_type, to_account_type).await
+    match get_client() {
+        Ok(client) => client.account_transfer(currency, &Uuid::new_v4().to_string(), amount, type_, from_account_type, to_account_type).await,
+        Err(e) => Err(e),
+    }
 }
 pub async fn get_ticker_price(symbol: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match get_client() {
@@ -381,20 +393,15 @@ pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<Make
     }
 }
 pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.add_api_v3_hf_margin_order(body).await
+    match get_client() {
+        Ok(client) => client.add_api_v3_hf_margin_order(body).await,
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn create_repay_order(currency: &str, size: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if let Ok(size_val) = size.parse::<f64>()
-        && size_val <= 0.0
-    {
-        info!("Skip repay for {} with zero/negative size: {}", currency, size);
-        return Ok(());
+    match get_client() {
+        Ok(client) => client.margin_repay(currency, size).await,
+        Err(e) => Err(e),
     }
-
-    let client = get_client()?;
-    client.margin_repay(currency, size).await?;
-
-    Ok(())
 }
