@@ -28,7 +28,7 @@ const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute: bool = false;
+    let mut init_order_execute: bool = true;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
@@ -76,14 +76,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     // repay all liability assets and sell
     loop {
+        // passed
         sleep(CLEAR_DELAY).await;
         match auto_clean_account(&pool, &exchange).await {
             Ok(true) => break,
             Ok(false) => {}
-            Err(e) => {}
+            Err(_) => {}
         };
     }
-    return Ok(());
 
     loop {
         let exchange_for_handler: String = exchange.clone();
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 match rx_in.recv().await {
                     Some(msg) => match process_kcn_msg(&pool_for_handler, &exchange_for_handler, &msg).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(_) => {}
                     },
                     None => {
                         break;
@@ -108,8 +108,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         });
 
         // Position/Orders/Balance WS
-        let event_ws_url: String = match get_private_ws_url().await {
-            Ok(url) => url,
+        let (mut event_ws_write, mut event_ws_read) = match get_private_ws_url().await {
+            Ok(event_ws_url) => match connect_async(event_ws_url).await {
+                Ok((stream, _)) => stream.split(),
+                Err(e) => {
+                    log::error!("WebSocket connection failed:{}", e);
+                    // sent error to pg
+                    sleep(RECONNECT_DELAY).await;
+                    continue;
+                }
+            },
             Err(e) => {
                 log::error!("Failed to get WebSocket URL: {}", e);
                 // sent error to pg
@@ -118,24 +126,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         };
 
-        let event_ws_stream = match connect_async(event_ws_url).await {
-            Ok((stream, _)) => stream,
-            Err(e) => {
-                log::error!("WebSocket connection failed: {}", e);
-                // sent error to pg
-                sleep(RECONNECT_DELAY).await;
-                continue;
-            }
-        };
-
-        let (mut event_ws_write, mut event_ws_read) = event_ws_stream.split();
-
         // subscribtion
-        for sub in build_subscription() {
-            match event_ws_write.send(Message::text(sub.to_string())).await {
-                Ok(_) => {}
+        for subject in build_subscription() {
+            match event_ws_write.send(Message::text(subject.to_string())).await {
+                Ok(_) => {
+                    log::info!("Subscripte:{}", subject)
+                }
                 Err(e) => {
-                    let msg: String = format!("Failed to subscribe: {}", e);
+                    let msg: String = format!("Failed to subscribe subject:{} {}", subject, e);
                     log::error!("{}", msg);
                     match insert_db_error(&pool, &exchange, &msg).await {
                         Ok(_) => {}
@@ -154,8 +152,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_ping_interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
 
-        let mut should_reconnect: bool = false;
-
         if !init_order_execute {
             init_order_execute = true;
             let pool_clone = pool.clone();
@@ -171,16 +167,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             });
         }
 
+        let mut should_reconnect: bool = false;
+
         loop {
             tokio::select! {
                 // Events
-                event_msg = event_ws_read.next() => {
-                    match event_msg {
+                event = event_ws_read.next() => {
+                    match event {
                         Some(Ok(Message::Text(text))) => {
                             match tx_in.send(text.to_string()).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    log::error!("Failed to send to handler, reconnecting...{}", e);
+                                    let msg: String = format!("Failed to send to handler, reconnecting...{}", e);
+                                    log::error!("{}", msg);
                                     should_reconnect = true;
                                     break;
                                 }
@@ -190,20 +189,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
                         }
                         Some(Ok(Message::Close(close))) => {
-                            log::error!("Connection closed by server: {:?}", close);
+                            let msg: String = format!("Connection closed by server: {:?}", close);
+                            log::error!("{}", msg);
                             // sent error to pg
                             should_reconnect = true;
                             break;
                         }
                         Some(Err(e)) => {
-                            log::error!("WebSocket read error: {}", e);
+                            let msg: String = format!("WebSocket read error: {}", e);
+                            log::error!("{}", msg);
                             // sent error to pg
                             should_reconnect = true;
                             break;
                         }
                         Some(Ok(_)) => {}
                         None => {
-                            log::info!("WebSocket stream ended");
+                            let msg: String = format!("WebSocket stream ended");
+                            log::info!("{}", msg);
                             // sent error to pg
                             should_reconnect = true;
                             break;
