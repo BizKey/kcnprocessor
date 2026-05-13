@@ -523,11 +523,11 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 }
 
 pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // sent order to pg
+    log::info!("{:.?}", order);
     match insert_db_orderevent(pool, exchange, &order).await {
         Ok(_) => {}
         Err(e) => {
-            let msg: String = format!("Failed insert_db_orderevent: {}", e);
+            let msg: String = format!("Failed insert_db_orderevent: {:.?} {}", order, e);
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
                 Ok(_) => {}
@@ -536,6 +536,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     log::error!("{}", msg);
                 }
             }
+            return Err(e);
         }
     }
 
@@ -543,7 +544,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         Some(client_oid) => {
             if (order.type_ == "match" || order.type_ == "canceled") && (order.remain_size == Some("0".to_string()) || order.remain_funds == Some("0".to_string())) {
                 let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
-                    Ok(Some(info)) => info,
+                    Ok(Some(symbol_info)) => symbol_info,
                     Ok(None) => {
                         let msg: String = format!("Symbol info not found for {}", order.symbol);
                         log::error!("{}", msg);
@@ -566,7 +567,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 log::error!("{}", msg);
                             }
                         }
-                        return Ok(());
+                        return Err(e.into());
                     }
                 };
 
@@ -582,7 +583,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 log::error!("{}", msg);
                             }
                         }
-                        return Ok(());
+                        return Err(e.into());
                     }
                 };
                 let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
@@ -597,7 +598,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 log::error!("{}", msg);
                             }
                         }
-                        return Ok(());
+                        return Err(e.into());
                     }
                 };
                 // if clientOid in bots entry_id (2 phase)
@@ -617,6 +618,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                         log::error!("{}", msg);
                                     }
                                 }
+                                return Err(e.into());
                             }
                         }
                         match bot.exit_sl_client_oid {
@@ -789,6 +791,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                         log::error!("{}", msg);
                                                     }
                                                 }
+                                                return Err(e.into());
                                             }
                                         }
                                         match api_v3_hf_margin_stop_order_cancel_by_client_oid(&exit_tp_client_oid).await {
@@ -805,7 +808,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                         log::error!("{}", msg);
                                                     }
                                                 }
-                                                return Ok(());
+                                                return Err(e.into());
                                             }
                                         }
                                     }
@@ -873,6 +876,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                             log::error!("{}", msg);
                                                         }
                                                     }
+                                                    return Err(e.into());
                                                 }
                                             }
 
@@ -994,7 +998,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                 "stopPrice": format_assert(trigger_tp_price, price_increment),
                                                 "isIsolated": false,
                                                 "autoBorrow": true,
-                                                "autoRepay": true,
+                                                "autoRepay": false,
                                                 "size": &order.filled_size,
                                                 "timeInForce": "GTC",
                                             });
@@ -1008,7 +1012,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                 "stopPrice": format_assert(trigger_sl_price, price_increment),
                                                 "isIsolated": false,
                                                 "autoBorrow": true,
-                                                "autoRepay": true,
+                                                "autoRepay": false,
                                                 "size": order.filled_size,
                                                 "timeInForce": "GTC",
                                             });
@@ -1260,7 +1264,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                 "stopPrice": format_assert(trigger_tp_price, price_increment), // price - 7%
                                                 "isIsolated": false,
                                                 "autoBorrow": true,
-                                                "autoRepay": true,
+                                                "autoRepay": false,
                                                 "timeInForce": "GTC",
                                                 "funds": format_assert(funds_tp, quote_increment),
                                             });
@@ -1273,7 +1277,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                                 "stopPrice": format_assert(trigger_sl_price, price_increment), // price + 5%
                                                 "isIsolated": false,
                                                 "autoBorrow": true,
-                                                "autoRepay": true,
+                                                "autoRepay": false,
                                                 "timeInForce": "GTC",
                                                 "funds": format_assert(funds_sl, quote_increment),
                                             });
@@ -1526,7 +1530,9 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                         let msg: String = format!("Failed set_null_entry_client_oid_by_entry_client_oid: {}", e);
                                         log::error!("{}", msg);
                                         match insert_db_error(pool, exchange, &msg).await {
-                                            Ok(_) => {}
+                                            Ok(_) => {
+                                                return Ok(());
+                                            }
                                             Err(e) => {
                                                 let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                                 log::error!("{}", msg);
@@ -1537,14 +1543,15 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             }
                             None => {}
                         }
-                        return Ok(());
                     }
                     Ok(None) => {}
                     Err(e) => {
                         let msg: String = format!("Failed get_bot_by_entry_client_oid: {}", e);
                         log::error!("{}", msg);
                         match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
+                            Ok(_) => {
+                                return Ok(());
+                            }
                             Err(e) => {
                                 let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                 log::error!("{}", msg);
@@ -1553,10 +1560,23 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     }
                 }
             }
+            return Ok(());
         }
-        None => {}
+        None => {
+            let msg: String = format!("client_oid in order is none: {:.?}", order);
+            log::error!("{}", msg);
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {
+                    return Ok(());
+                }
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    log::error!("{}", msg);
+                    return Err(e);
+                }
+            }
+        }
     }
-    return Ok(());
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -1699,7 +1719,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 }
 
 pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    log::info!("{:?}", order);
+    log::info!("{:.?}", order);
     match order.error {
         Some(_) => {
             let msg: String = format!("Got error on stop order : {:?}", order);
@@ -1922,7 +1942,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 return Ok(());
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed insert_db_balance: {}", e);
+                                let msg: String = format!("Failed insert_db_balance data: {:.?} {}", data.data, e);
                                 log::error!("{}", msg);
 
                                 match insert_db_error(pool, exchange, &msg).await {
@@ -1960,7 +1980,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 return Ok(());
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed handle_trade_order_event: {} {}", msg, e);
+                                let msg: String = format!("Failed handle_trade_order_event data: {:.?} {}", data.data, e);
                                 log::error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {
@@ -1997,7 +2017,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 return Ok(());
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed handle_advanced_orders: {} {}", msg, e);
+                                let msg: String = format!("Failed handle_advanced_orders data: {:.?} {}", data.data, e);
                                 log::error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {
@@ -2035,7 +2055,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 return Ok(());
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed handle_position_event: {} {}", msg, e);
+                                let msg: String = format!("Failed handle_position_event data:{:.?} {}", data.data, e);
                                 log::error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {
