@@ -555,7 +555,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 log::error!("{}", msg);
                             }
                         }
-                        return Ok(());
+                        return Err(msg.into());
                     }
                     Err(e) => {
                         let msg: String = format!("Symbol info not found for {} {}", order.symbol, e);
