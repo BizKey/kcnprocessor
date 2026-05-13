@@ -28,7 +28,7 @@ const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute: bool = false;
+    let mut init_order_execute: bool = true;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange: String = "kucoin".to_string();
@@ -81,10 +81,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match auto_clean_account(&pool, &exchange).await {
             Ok(true) => break,
             Ok(false) => {}
-            Err(e) => {}
+            Err(_) => {}
         };
     }
-    return Ok(());
 
     loop {
         let exchange_for_handler: String = exchange.clone();
