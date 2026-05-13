@@ -1,10 +1,7 @@
-use crate::api::models::{
-    ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MakeStopOrderRes, MarginAccount,
-    MarginAccountData,
-};
+use crate::api::models::{ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MakeStopOrderRes, MarginAccount, MarginAccountData};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log::info;
+use log;
 use reqwest::{Client, Response};
 use serde_json::json;
 use sha2::Sha256;
@@ -28,36 +25,20 @@ pub struct KuCoinClient {
 
 impl KuCoinClient {
     pub fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(15))
-            .connect_timeout(Duration::from_secs(5))
-            .tcp_keepalive(Duration::from_secs(60))
-            .build()?;
-
-        Ok(Self {
-            client,
-            api_key: env::var("KUCOIN_KEY")?.trim().to_string(),
-            api_secret: env::var("KUCOIN_SECRET")?.trim().to_string(),
-            api_passphrase: env::var("KUCOIN_PASS")?.trim().to_string(),
-            base_url,
-        })
+        match Client::builder().timeout(Duration::from_secs(15)).connect_timeout(Duration::from_secs(5)).tcp_keepalive(Duration::from_secs(60)).build() {
+            Ok(client) => Ok(Self {
+                client,
+                api_key: env::var("KUCOIN_KEY")?.trim().to_string(),
+                api_secret: env::var("KUCOIN_SECRET")?.trim().to_string(),
+                api_passphrase: env::var("KUCOIN_PASS")?.trim().to_string(),
+                base_url,
+            }),
+            Err(e) => Err(e.into()),
+        }
     }
 
-    pub async fn api_v1_bullet_private(
-        &self,
-    ) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
-        let timestamp: u64 = self.get_system_timestamp_ms();
-        return match self
-            .make_request(
-                reqwest::Method::POST,
-                "/api/v1/bullet-private",
-                None,
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
+    pub async fn api_v1_bullet_private(&self) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
+        return match self.make_request(reqwest::Method::POST, "/api/v1/bullet-private", None, None, true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<ApiV3BulletPrivate>(&text) {
@@ -65,20 +46,14 @@ impl KuCoinClient {
                             "200000" => Ok(r),
                             _ => Err(format!("API error: code {}", r.code).into()),
                         },
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
+                        Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
                     },
                     Err(e) => {
                         return Err(format!("Error get text response from HTTP:'{}'", e).into());
                     }
                 },
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
@@ -86,14 +61,7 @@ impl KuCoinClient {
         };
     }
 
-    fn generate_signature(
-        &self,
-        timestamp: u64,
-        method: &str,
-        endpoint: &str,
-        query_string: &str,
-        body: &str,
-    ) -> String {
+    fn generate_signature(&self, timestamp: u64, method: &str, endpoint: &str, query_string: &str, body: &str) -> String {
         let method_upper = method.to_uppercase();
 
         let mut str_to_sign = format!("{}{}{}", timestamp, method_upper, endpoint);
@@ -106,47 +74,29 @@ impl KuCoinClient {
             str_to_sign.push_str(body);
         }
 
-        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
-            .expect("HMAC can take key of any size");
+        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes()).expect("HMAC can take key of any size");
         mac.update(str_to_sign.as_bytes());
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
 
     fn generate_passphrase_signature(&self) -> String {
-        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes())
-            .expect("HMAC can take key of any size");
+        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes()).expect("HMAC can take key of any size");
         mac.update(self.api_passphrase.as_bytes());
         let result = mac.finalize();
         base64::engine::general_purpose::STANDARD.encode(result.into_bytes())
     }
 
-    pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(
-        &self,
-        client_oid: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("clientOid", client_oid);
-        let timestamp: u64 = self.get_system_timestamp_ms();
-        match self
-            .make_request(
-                reqwest::Method::DELETE,
-                "/api/v3/hf/margin/stop-order/cancel-by-clientOid",
-                Some(query_params),
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
+        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", Some(query_params), None, true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(_) => Ok(()),
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
@@ -154,40 +104,21 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn get_margin_accounts(
-        &self,
-    ) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_margin_accounts(&self) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
-        let timestamp: u64 = self.get_system_timestamp_ms();
-        match self
-            .make_request(
-                reqwest::Method::GET,
-                "/api/v3/margin/accounts",
-                Some(query_params),
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
+        match self.make_request(reqwest::Method::GET, "/api/v3/margin/accounts", Some(query_params), None, true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MarginAccount>(&text) {
                         Ok(res) => Ok(res.data),
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
+                        Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
                     },
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
@@ -195,29 +126,14 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn batch_cancel_stop_orders(
-        &self,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn batch_cancel_stop_orders(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
-        let timestamp: u64 = self.get_system_timestamp_ms();
-        match self
-            .make_request(
-                reqwest::Method::DELETE,
-                "/api/v3/hf/margin/stop-order/cancel",
-                Some(query_params),
-                None,
-                true,
-                timestamp,
-            )
-            .await
-        {
+        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", Some(query_params), None, true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => Ok(()),
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
@@ -242,30 +158,17 @@ impl KuCoinClient {
             "fromAccountType": from_account_type,
             "toAccountType": to_account_type
         });
-        let timestamp: u64 = self.get_system_timestamp_ms();
-        match self
-            .make_request(
-                reqwest::Method::POST,
-                "/api/v3/accounts/universal-transfer",
-                None,
-                Some(body),
-                true,
-                timestamp,
-            )
-            .await
-        {
+        match self.make_request(reqwest::Method::POST, "/api/v3/accounts/universal-transfer", None, Some(body), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => {
-                        info!("flex transfer {}", text);
+                        log::info!("flex transfer {}", text);
                         Ok(())
                     }
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
@@ -273,23 +176,9 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn api_v3_hf_margin_stop_order(
-        &self,
-        body: serde_json::Value,
-    ) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn api_v3_hf_margin_stop_order(&self, body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add stop margin hf order
-        let timestamp: u64 = self.get_system_timestamp_ms();
-        match self
-            .make_request(
-                reqwest::Method::POST,
-                "/api/v3/hf/margin/stop-order",
-                None,
-                Some(body.clone()),
-                true,
-                timestamp,
-            )
-            .await
-        {
+        match self.make_request(reqwest::Method::POST, "/api/v3/hf/margin/stop-order", None, Some(body.clone()), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MakeStopOrderRes>(&text) {
@@ -297,25 +186,15 @@ impl KuCoinClient {
                             if res.code == "200000" {
                                 Ok(res)
                             } else {
-                                Err(format!(
-                                    "API business error: code={}, msg={:?}",
-                                    res.code, res.msg
-                                )
-                                .into())
+                                Err(format!("API business error: code={}, msg={:?}", res.code, res.msg).into())
                             }
                         }
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
+                        Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
                     },
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
@@ -323,39 +202,25 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn add_api_v3_hf_margin_order(
-        &self,
-        body: serde_json::Value,
-    ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add margin hf order
-        let timestamp: u64 = self.get_system_timestamp_ms();
-        match self
-            .make_request(
-                reqwest::Method::POST,
-                "/api/v3/hf/margin/order",
-                None,
-                Some(body.clone()),
-                true,
-                timestamp,
-            )
-            .await
-        {
+        match self.make_request(reqwest::Method::POST, "/api/v3/hf/margin/order", None, Some(body.clone()), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MakeOrderRes>(&text) {
-                        Ok(res) => Ok(res),
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
+                        Ok(res) => {
+                            if res.code == "200000" {
+                                Ok(res)
+                            } else {
+                                Err(format!("API business error: code={}, msg={:?}", res.code, res.msg).into())
+                            }
+                        }
+                        Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
                     },
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
@@ -363,85 +228,44 @@ impl KuCoinClient {
         }
     }
     fn get_system_timestamp_ms(&self) -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
-    pub async fn margin_repay(
-        &self,
-        currency: &str,
-        size: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn margin_repay(&self, currency: &str, size: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let body: serde_json::Value = json!({
             "currency": currency,
             "size": size,
             "isIsolated": false,
             "isHf": true
         });
-
-        let timestamp: u64 = self.get_system_timestamp_ms();
-
-        match self
-            .make_request(
-                reqwest::Method::POST,
-                "/api/v3/margin/repay",
-                None,
-                Some(body),
-                true,
-                timestamp,
-            )
-            .await
-        {
+        match self.make_request(reqwest::Method::POST, "/api/v3/margin/repay", None, Some(body), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => {
-                    info!("Successfully repaid {} {} debt", size, currency);
+                    log::info!("Successfully repaid {} {} debt", size, currency);
                     Ok(())
                 }
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
             Err(e) => Err(format!("Margin repay request failed: {}", e).into()),
         }
     }
-    pub async fn get_ticker_price(
-        &self,
-        symbol: &str,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_ticker_price(&self, symbol: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("symbol", symbol);
 
-        match self
-            .make_request(
-                reqwest::Method::GET,
-                "/api/v1/market/orderbook/level1",
-                Some(query_params),
-                None,
-                false,
-                0,
-            )
-            .await
-        {
+        match self.make_request(reqwest::Method::GET, "/api/v1/market/orderbook/level1", Some(query_params), None, false, 0).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<ActualPrice>(&text) {
                         Ok(res) => Ok(res.data.price),
-                        Err(e) => Err(format!(
-                            "Error JSON deserialize:'{}' with data: '{}'",
-                            e, text
-                        )
-                        .into()),
+                        Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
                     },
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
                 },
                 status => match response.text().await {
-                    Ok(text) => {
-                        Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into())
-                    }
+                    Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
                     Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
                 },
             },
@@ -463,38 +287,18 @@ impl KuCoinClient {
             .map(|params| {
                 let mut pairs: Vec<_> = params.iter().collect();
                 pairs.sort_by(|a, b| a.0.cmp(b.0));
-                pairs
-                    .iter()
-                    .map(|(k, v)| format!("{}={}", encode(k), encode(v)))
-                    .collect::<Vec<_>>()
-                    .join("&")
+                pairs.iter().map(|(k, v)| format!("{}={}", encode(k), encode(v))).collect::<Vec<_>>().join("&")
             })
             .unwrap_or_default();
 
-        let url = if !query_string.is_empty() {
-            format!("{}{}?{}", self.base_url, endpoint, query_string)
-        } else {
-            format!("{}{}", self.base_url, endpoint)
-        };
+        let url = if !query_string.is_empty() { format!("{}{}?{}", self.base_url, endpoint, query_string) } else { format!("{}{}", self.base_url, endpoint) };
 
         let mut request_builder = self.client.request(method.clone(), &url);
 
         if authenticated {
-            let body_str = body
-                .as_ref()
-                .map(|b| {
-                    serde_json::to_string(b).map_err(|e| format!("JSON serialization error: {}", e))
-                })
-                .transpose()?
-                .unwrap_or_default();
+            let body_str = body.as_ref().map(|b| serde_json::to_string(b).map_err(|e| format!("JSON serialization error: {}", e))).transpose()?.unwrap_or_default();
 
-            let signature = self.generate_signature(
-                timestamp,
-                method.as_ref(),
-                endpoint,
-                &query_string,
-                &body_str,
-            );
+            let signature = self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str);
 
             let passphrase_signature = self.generate_passphrase_signature();
 
@@ -506,27 +310,33 @@ impl KuCoinClient {
                 .header("KC-API-KEY-VERSION", "2");
 
             if !body_str.is_empty() {
-                request_builder = request_builder
-                    .header("Content-Type", "application/json")
-                    .body(body_str);
+                request_builder = request_builder.header("Content-Type", "application/json").body(body_str);
             }
         }
-
-        let response = request_builder.send().await.map_err(|e| {
-            if e.is_timeout() {
-                format!("Timeout {}: {}", url, e)
-            } else if e.is_connect() {
-                format!("Error connection {}: {}", url, e)
-            } else if e.is_request() {
-                format!("Error prepare request {}: {}", url, e)
-            } else if e.is_body() {
-                format!("Error in body {}: {}", url, e)
-            } else {
-                format!("Unexpected error {}: {}", url, e)
+        match request_builder.send().await {
+            Ok(response) => Ok(response),
+            Err(e) => {
+                {
+                    if e.is_timeout() {
+                        let msg: String = format!("Timeout {}: {}", url, e);
+                        log::error!("{}", msg);
+                    } else if e.is_connect() {
+                        let msg: String = format!("Error connection {}: {}", url, e);
+                        log::error!("{}", msg);
+                    } else if e.is_request() {
+                        let msg: String = format!("Error prepare request {}: {}", url, e);
+                        log::error!("{}", msg);
+                    } else if e.is_body() {
+                        let msg: String = format!("Error in body {}: {}", url, e);
+                        log::error!("{}", msg);
+                    } else {
+                        let msg: String = format!("Unexpected error {}: {}", url, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                Err(e.into())
             }
-        })?;
-
-        Ok(response)
+        }
     }
 }
 
@@ -535,8 +345,7 @@ static KUCLIENT: OnceLock<Result<KuCoinClient, String>> = OnceLock::new();
 fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Send + Sync>> {
     KUCLIENT
         .get_or_init(|| {
-            let base_url = env::var("KUCOIN_BASE_URL")
-                .unwrap_or_else(|_| "https://api.kucoin.com".to_string());
+            let base_url = env::var("KUCOIN_BASE_URL").unwrap_or_else(|_| "https://api.kucoin.com".to_string());
 
             KuCoinClient::new(base_url).map_err(|e| format!("Failed to init KuCoinClient: {}", e))
         })
@@ -545,87 +354,63 @@ fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Sen
 }
 
 pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    let bullet_private: ApiV3BulletPrivate = client.api_v1_bullet_private().await?;
-    bullet_private
-        .data
-        .instance_servers
-        .first()
-        .map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token))
-        .ok_or_else(|| "No instance servers in bullet response".into())
+    match get_client() {
+        Ok(client) => match client.api_v1_bullet_private().await {
+            Ok(bullet_private) => {
+                bullet_private.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
+            }
+            Err(e) => Err(e),
+        },
+        Err(e) => Err(e),
+    }
 }
-pub async fn get_all_margin_accounts()
--> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.get_margin_accounts().await
+pub async fn get_all_margin_accounts() -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
+    match get_client() {
+        Ok(client) => client.get_margin_accounts().await,
+        Err(e) => Err(e),
+    }
 }
-pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(
-    order_id: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client
-        .api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id)
-        .await
+pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match get_client() {
+        Ok(client) => client.api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id).await,
+        Err(e) => Err(e),
+    }
 }
-pub async fn sent_account_transfer(
-    currency: &str,
-    amount: &str,
-    type_: &str,
-    from_account_type: &str,
-    to_account_type: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client
-        .account_transfer(
-            currency,
-            &Uuid::new_v4().to_string(),
-            amount,
-            type_,
-            from_account_type,
-            to_account_type,
-        )
-        .await
+pub async fn sent_account_transfer(currency: &str, amount: &str, type_: &str, from_account_type: &str, to_account_type: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match get_client() {
+        Ok(client) => client.account_transfer(currency, &Uuid::new_v4().to_string(), amount, type_, from_account_type, to_account_type).await,
+        Err(e) => Err(e),
+    }
 }
-pub async fn get_ticker_price(
-    symbol: &str,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.get_ticker_price(symbol).await
+pub async fn get_ticker_price(symbol: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    match get_client() {
+        Ok(client) => client.get_ticker_price(symbol).await,
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.batch_cancel_stop_orders().await
-}
-pub async fn api_v3_hf_margin_stop_order(
-    body: serde_json::Value,
-) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.api_v3_hf_margin_stop_order(body).await
-}
-pub async fn add_api_v3_hf_margin_order(
-    body: serde_json::Value,
-) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.add_api_v3_hf_margin_order(body).await
-}
-
-pub async fn create_repay_order(
-    currency: &str,
-    size: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if let Ok(size_val) = size.parse::<f64>()
-        && size_val <= 0.0
-    {
-        info!(
-            "Skip repay for {} with zero/negative size: {}",
-            currency, size
-        );
-        return Ok(());
+    match get_client() {
+        Ok(client) => client.batch_cancel_stop_orders().await,
+        Err(e) => Err(e),
     }
+}
+pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    match get_client() {
+        Ok(client) => client.api_v3_hf_margin_stop_order(body).await,
+        Err(e) => Err(e),
+    }
+}
+pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    match get_client() {
+        Ok(client) => client.add_api_v3_hf_margin_order(body).await,
+        Err(e) => Err(e),
+    }
+}
 
-    let client = get_client()?;
-    client.margin_repay(currency, size).await?;
-
-    Ok(())
+pub async fn create_repay_order(currency: &str, size: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match get_client() {
+        Ok(client) => client.margin_repay(currency, size).await,
+        Err(e) => Err(e),
+    }
 }
