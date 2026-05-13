@@ -2015,8 +2015,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         }
                     }
                 } else if data.topic == "/margin/position" {
-                    // save to db position
-                    // repay debt
+                    // passed
                     match PositionData::deserialize(&data.data) {
                         Ok(position) => match handle_position_event(position, pool, exchange).await {
                             Ok(_) => {
@@ -2043,6 +2042,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         }
                     }
                 } else {
+                    // passed
                     let msg: String = format!("Unknown topic: {}", data.topic);
                     log::error!("{}", msg);
                     // sent error to pg
