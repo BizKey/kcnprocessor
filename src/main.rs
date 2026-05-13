@@ -108,20 +108,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         });
 
         // Position/Orders/Balance WS
-        let event_ws_url: String = match get_private_ws_url().await {
-            Ok(url) => url,
+        let event_ws_stream = match get_private_ws_url().await {
+            Ok(event_ws_url) => match connect_async(event_ws_url).await {
+                Ok((stream, _)) => stream,
+                Err(e) => {
+                    log::error!("WebSocket connection failed:{}", e);
+                    // sent error to pg
+                    sleep(RECONNECT_DELAY).await;
+                    continue;
+                }
+            },
             Err(e) => {
                 log::error!("Failed to get WebSocket URL: {}", e);
-                // sent error to pg
-                sleep(RECONNECT_DELAY).await;
-                continue;
-            }
-        };
-
-        let event_ws_stream = match connect_async(event_ws_url).await {
-            Ok((stream, _)) => stream,
-            Err(e) => {
-                log::error!("WebSocket connection failed: {}", e);
                 // sent error to pg
                 sleep(RECONNECT_DELAY).await;
                 continue;
