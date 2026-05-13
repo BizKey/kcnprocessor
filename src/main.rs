@@ -20,9 +20,9 @@ use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
-const CLEAR_DELAY: Duration = Duration::from_secs(3);
+const CLEAR_DELAY: Duration = Duration::from_secs(10);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
-const INIT_ORDER_DELAY: Duration = Duration::from_millis(5000);
+const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -38,7 +38,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // clear orders ids for bots
     match clear_orders_ids_for_bots(&pool, &exchange).await {
         // passed
-        Ok(_) => {}
+        Ok(_) => {
+            log::info!("clear orders ids bots")
+        }
         Err(e) => {
             let msg: String = format!("Failed clear all orders_ids for bots: {}", e);
             log::error!("{}", msg);
@@ -56,7 +58,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // cancel all stop orders
     match batch_cancel_stop_orders().await {
         // passed
-        Ok(_) => {}
+        Ok(_) => {
+            log::info!("batch cancel stop orders")
+        }
         Err(e) => {
             let msg: String = format!("Failed batch cancel stop orders: {}", e);
             log::error!("{}", msg);
