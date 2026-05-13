@@ -348,7 +348,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let client_oid: String = Uuid::new_v4().to_string();
                     let trade_symbol: &String = &(account.currency.clone() + "-USDT");
                     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, trade_symbol).await {
-                        Ok(Some(info)) => info,
+                        Ok(Some(symbol_info)) => symbol_info,
                         Ok(None) => {
                             let msg: String = format!("Symbol info not found for {}", trade_symbol);
                             error!("{}", msg);
@@ -391,11 +391,22 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     };
                     // get price token
-                    let token_price_str: String = match get_ticker_price(trade_symbol).await {
-                        Ok(token_price_str) => {
-                            info!("Successfully get price:{}", &trade_symbol);
-                            token_price_str
-                        }
+                    let token_price: f64 = match get_ticker_price(trade_symbol).await {
+                        Ok(token_price_str) => match token_price_str.parse::<f64>() {
+                            Ok(token_price) => token_price,
+                            Err(e) => {
+                                let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
+                                error!("{}", msg);
+                                match insert_db_error(pool, exchange, &msg).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                        error!("{}", msg);
+                                    }
+                                }
+                                continue;
+                            }
+                        },
                         Err(e) => {
                             let msg: String = format!("Failed get price: {} {}", trade_symbol, e);
                             error!("{}", msg);
@@ -409,22 +420,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             continue;
                         }
                     };
-                    // convert price from str to int
-                    let token_price: f64 = match token_price_str.parse::<f64>() {
-                        Ok(token_price) => token_price,
-                        Err(e) => {
-                            let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
-                            error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    error!("{}", msg);
-                                }
-                            }
-                            continue;
-                        }
-                    };
+
+                    info!("Successfully get price:{}", &trade_symbol);
 
                     let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
                         Ok(base_min_size) => base_min_size,

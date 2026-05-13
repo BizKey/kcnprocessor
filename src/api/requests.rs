@@ -362,17 +362,23 @@ pub async fn sent_account_transfer(currency: &str, amount: &str, type_: &str, fr
     client.account_transfer(currency, &Uuid::new_v4().to_string(), amount, type_, from_account_type, to_account_type).await
 }
 pub async fn get_ticker_price(symbol: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.get_ticker_price(symbol).await
+    match get_client() {
+        Ok(client) => client.get_ticker_price(symbol).await,
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.batch_cancel_stop_orders().await
+    match get_client() {
+        Ok(client) => client.batch_cancel_stop_orders().await,
+        Err(e) => Err(e),
+    }
 }
 pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = get_client()?;
-    client.api_v3_hf_margin_stop_order(body).await
+    match get_client() {
+        Ok(client) => client.api_v3_hf_margin_stop_order(body).await,
+        Err(e) => Err(e),
+    }
 }
 pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client = get_client()?;
