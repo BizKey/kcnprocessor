@@ -86,17 +86,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     loop {
-        let exchange_for_handler: String = exchange.clone();
-        let pool_for_handler = pool.clone();
-
+        // passed
         // websocket to pg
         let (tx_in, mut rx_in) = mpsc::channel::<String>(1000);
+
+        let exchange_process: String = exchange.clone();
+        let pool_process = pool.clone();
 
         // Work with income events
         let _ = tokio::spawn(async move {
             loop {
                 match rx_in.recv().await {
-                    Some(msg) => match process_kcn_msg(&pool_for_handler, &exchange_for_handler, &msg).await {
+                    Some(msg) => match process_kcn_msg(&pool_process, &exchange_process, &msg).await {
                         Ok(_) => {}
                         Err(_) => {}
                     },
@@ -107,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         });
 
-        // Position/Orders/Balance WS
+        // Position/Orders/Balance/AdvancedOrders WS
         let (mut event_ws_write, mut event_ws_read) = match get_private_ws_url().await {
             Ok(event_ws_url) => match connect_async(event_ws_url).await {
                 Ok((stream, _)) => stream.split(),
@@ -128,6 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         // subscribtion
         for subject in build_subscription() {
+            // passed
             match event_ws_write.send(Message::text(subject.to_string())).await {
                 Ok(_) => {
                     log::info!("Subscripte:{}", subject)
@@ -142,7 +144,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             log::error!("{}", msg);
                         }
                     }
-                    break;
+                    continue;
                 }
             }
         }
@@ -162,15 +164,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Initializing start orders...");
                 match create_init_orders(&pool_clone, &exchange_clone).await {
                     Ok(_) => {}
-                    Err(e) => {}
+                    Err(_) => {}
                 };
             });
         }
 
-        let mut should_reconnect: bool = false;
-
         loop {
             tokio::select! {
+                // passed
                 // Events
                 event = event_ws_read.next() => {
                     match event {
@@ -180,7 +181,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 Err(e) => {
                                     let msg: String = format!("Failed to send to handler, reconnecting...{}", e);
                                     log::error!("{}", msg);
-                                    should_reconnect = true;
                                     break;
                                 }
                             }
@@ -192,14 +192,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let msg: String = format!("Connection closed by server: {:?}", close);
                             log::error!("{}", msg);
                             // sent error to pg
-                            should_reconnect = true;
                             break;
                         }
                         Some(Err(e)) => {
                             let msg: String = format!("WebSocket read error: {}", e);
                             log::error!("{}", msg);
                             // sent error to pg
-                            should_reconnect = true;
                             break;
                         }
                         Some(Ok(_)) => {}
@@ -207,7 +205,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let msg: String = format!("WebSocket stream ended");
                             log::info!("{}", msg);
                             // sent error to pg
-                            should_reconnect = true;
                             break;
                         }
                     }
@@ -220,12 +217,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         drop(tx_in);
 
-        if !should_reconnect {
-            break;
-        }
         log::error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
         sleep(RECONNECT_DELAY).await;
     }
-
-    Ok(())
 }
