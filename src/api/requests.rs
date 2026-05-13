@@ -1,15 +1,15 @@
 use crate::api::models::{ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MakeStopOrderRes, MarginAccount, MarginAccountData};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log::info;
+use log;
 use reqwest::{Client, Response};
 use serde_json::json;
 use sha2::Sha256;
 use std::collections::HashMap;
-use std::env;
 use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{env, error};
 use urlencoding::encode;
 use uuid::Uuid;
 type HmacSha256 = Hmac<Sha256>;
@@ -162,7 +162,7 @@ impl KuCoinClient {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => {
-                        info!("flex transfer {}", text);
+                        log::info!("flex transfer {}", text);
                         Ok(())
                     }
                     Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
@@ -240,7 +240,7 @@ impl KuCoinClient {
         match self.make_request(reqwest::Method::POST, "/api/v3/margin/repay", None, Some(body), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => {
-                    info!("Successfully repaid {} {} debt", size, currency);
+                    log::info!("Successfully repaid {} {} debt", size, currency);
                     Ok(())
                 }
                 status => match response.text().await {
@@ -313,22 +313,30 @@ impl KuCoinClient {
                 request_builder = request_builder.header("Content-Type", "application/json").body(body_str);
             }
         }
-
-        let response = request_builder.send().await.map_err(|e| {
-            if e.is_timeout() {
-                format!("Timeout {}: {}", url, e)
-            } else if e.is_connect() {
-                format!("Error connection {}: {}", url, e)
-            } else if e.is_request() {
-                format!("Error prepare request {}: {}", url, e)
-            } else if e.is_body() {
-                format!("Error in body {}: {}", url, e)
-            } else {
-                format!("Unexpected error {}: {}", url, e)
+        match request_builder.send().await {
+            Ok(response) => Ok(response),
+            Err(e) => {
+                {
+                    if e.is_timeout() {
+                        let msg: String = format!("Timeout {}: {}", url, e);
+                        log::error!("{}", msg);
+                    } else if e.is_connect() {
+                        let msg: String = format!("Error connection {}: {}", url, e);
+                        log::error!("{}", msg);
+                    } else if e.is_request() {
+                        let msg: String = format!("Error prepare request {}: {}", url, e);
+                        log::error!("{}", msg);
+                    } else if e.is_body() {
+                        let msg: String = format!("Error in body {}: {}", url, e);
+                        log::error!("{}", msg);
+                    } else {
+                        let msg: String = format!("Unexpected error {}: {}", url, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                Err(e.into())
             }
-        })?;
-
-        Ok(response)
+        }
     }
 }
 
