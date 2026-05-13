@@ -77,7 +77,7 @@ pub async fn insert_db_msgsend(
     }
 }
 pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceData) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let relation_context = match balance.relation_context {
+    let relation_context: BalanceRelationContext = match balance.relation_context {
         Some(ctx) => ctx,
         None => {
             log::error!("Missing relationContext for balance");

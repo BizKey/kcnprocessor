@@ -1915,7 +1915,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
             }
             KuCoinMessage::Message(data) => {
                 if data.topic == "/account/balance" {
-                    // sent balance to pg
+                    // passed
                     match BalanceData::deserialize(&data.data) {
                         Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
                             Ok(_) => {
