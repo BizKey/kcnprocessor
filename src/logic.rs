@@ -22,7 +22,8 @@ const SL_BUY_PERCENT: f64 = 0.95; // -5%
 const TP_SELL_PERCENT: f64 = 0.93; // -7%
 const SL_SELL_PERCENT: f64 = 1.05; // +5%
 const RETRY_DELAY_BASE: u64 = 500;
-const BOT_INIT_DELAY: Duration = Duration::from_millis(5000);
+const BOT_INIT_DELAY: Duration = Duration::from_secs(5);
+const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(1);
 
 pub fn get_random_side() -> String {
     if fastrand::bool() { "buy".to_string() } else { "sell".to_string() }
@@ -99,6 +100,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     match get_all_margin_accounts().await {
         Ok(accounts) => {
+            sleep(AUTO_CLEAN_DELAY).await;
             let mut passed: bool = true;
             for account in accounts.accounts.iter() {
                 let token_liability: f64 = match account.liability.parse::<f64>() {
