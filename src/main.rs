@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 match rx_in.recv().await {
                     Some(msg) => match process_kcn_msg(&pool_for_handler, &exchange_for_handler, &msg).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(_) => {}
                     },
                     None => {
                         break;
@@ -108,9 +108,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         });
 
         // Position/Orders/Balance WS
-        let event_ws_stream = match get_private_ws_url().await {
+        let (mut event_ws_write, mut event_ws_read) = match get_private_ws_url().await {
             Ok(event_ws_url) => match connect_async(event_ws_url).await {
-                Ok((stream, _)) => stream,
+                Ok((stream, _)) => stream.split(),
                 Err(e) => {
                     log::error!("WebSocket connection failed:{}", e);
                     // sent error to pg
@@ -126,13 +126,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         };
 
-        let (mut event_ws_write, mut event_ws_read) = event_ws_stream.split();
-
         // subscribtion
         for subject in build_subscription() {
             match event_ws_write.send(Message::text(subject.to_string())).await {
                 Ok(_) => {
-                    log::info!("subscripte:{}", subject)
+                    log::info!("Subscripte:{}", subject)
                 }
                 Err(e) => {
                     let msg: String = format!("Failed to subscribe subject:{} {}", subject, e);
