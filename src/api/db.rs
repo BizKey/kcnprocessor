@@ -1,6 +1,6 @@
 use crate::api::models::{BalanceData, BalanceRelationContext, Bot, OrderData, Symbol, TradeAbleSymbol};
 
-use log::error;
+use log;
 use sqlx::PgPool;
 use sqlx::Row;
 
@@ -80,7 +80,7 @@ pub async fn insert_db_balance(pool: &PgPool, exchange: &str, balance: BalanceDa
     let relation_context = match balance.relation_context {
         Some(ctx) => ctx,
         None => {
-            error!("Missing relationContext for balance");
+            log::error!("Missing relationContext for balance");
             BalanceRelationContext { symbol: None, order_id: None, trade_id: None }
         }
     };

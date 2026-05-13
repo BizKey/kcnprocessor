@@ -11,7 +11,7 @@ use crate::logic::{auto_clean_account, build_subscription, create_init_orders, m
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
-use log::{error, info};
+use log;
 
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -40,12 +40,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!("Failed clear all orders_ids for bots: {}", e);
-            error!("{}", msg);
+            log::error!("{}", msg);
             match insert_db_error(&pool, &exchange, &msg).await {
                 Ok(_) => {}
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    error!("{}", msg);
+                    log::error!("{}", msg);
                 }
             }
             return Err(e);
@@ -57,12 +57,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!("Failed batch cancel stop orders: {}", e);
-            error!("{}", msg);
+            log::error!("{}", msg);
             match insert_db_error(&pool, &exchange, &msg).await {
                 Ok(_) => {}
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    error!("{}", msg);
+                    log::error!("{}", msg);
                 }
             }
             return Err(e);
@@ -104,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_ws_url: String = match get_private_ws_url().await {
             Ok(url) => url,
             Err(e) => {
-                error!("Failed to get WebSocket URL: {}", e);
+                log::error!("Failed to get WebSocket URL: {}", e);
                 // sent error to pg
                 sleep(RECONNECT_DELAY).await;
                 continue;
@@ -114,7 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_ws_stream = match connect_async(event_ws_url).await {
             Ok((stream, _)) => stream,
             Err(e) => {
-                error!("WebSocket connection failed: {}", e);
+                log::error!("WebSocket connection failed: {}", e);
                 // sent error to pg
                 sleep(RECONNECT_DELAY).await;
                 continue;
@@ -129,12 +129,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 Ok(_) => {}
                 Err(e) => {
                     let msg: String = format!("Failed to subscribe: {}", e);
-                    error!("{}", msg);
+                    log::error!("{}", msg);
                     match insert_db_error(&pool, &exchange, &msg).await {
                         Ok(_) => {}
                         Err(e) => {
                             let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            error!("{}", msg);
+                            log::error!("{}", msg);
                         }
                     }
                     break;
@@ -142,7 +142,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         }
 
-        info!("Subscribed and listening for messages...");
+        log::info!("Subscribed and listening for messages...");
 
         let event_ping_interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
@@ -156,7 +156,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
             tokio::spawn(async move {
                 sleep(INIT_ORDER_DELAY).await;
-                info!("Initializing start orders...");
+                log::info!("Initializing start orders...");
                 match create_init_orders(&pool_clone, &exchange_clone).await {
                     Ok(_) => {}
                     Err(e) => {}
@@ -173,7 +173,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             match tx_in.send(text.to_string()).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    error!("Failed to send to handler, reconnecting...{}", e);
+                                    log::error!("Failed to send to handler, reconnecting...{}", e);
                                     should_reconnect = true;
                                     break;
                                 }
@@ -183,20 +183,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
                         }
                         Some(Ok(Message::Close(close))) => {
-                            error!("Connection closed by server: {:?}", close);
+                            log::error!("Connection closed by server: {:?}", close);
                             // sent error to pg
                             should_reconnect = true;
                             break;
                         }
                         Some(Err(e)) => {
-                            error!("WebSocket read error: {}", e);
+                            log::error!("WebSocket read error: {}", e);
                             // sent error to pg
                             should_reconnect = true;
                             break;
                         }
                         Some(Ok(_)) => {}
                         None => {
-                            info!("WebSocket stream ended");
+                            log::info!("WebSocket stream ended");
                             // sent error to pg
                             should_reconnect = true;
                             break;
@@ -214,7 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if !should_reconnect {
             break;
         }
-        error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
+        log::error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
         sleep(RECONNECT_DELAY).await;
     }
 
