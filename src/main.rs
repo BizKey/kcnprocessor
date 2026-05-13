@@ -76,6 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     // repay all liability assets and sell
     loop {
+        // passed
         sleep(CLEAR_DELAY).await;
         match auto_clean_account(&pool, &exchange).await {
             Ok(true) => break,
