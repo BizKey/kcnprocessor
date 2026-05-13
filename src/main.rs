@@ -37,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // clear orders ids for bots
     match clear_orders_ids_for_bots(&pool, &exchange).await {
+        // passed
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!("Failed clear all orders_ids for bots: {}", e);
@@ -54,6 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // cancel all stop orders
     match batch_cancel_stop_orders().await {
+        // passed
         Ok(_) => {}
         Err(e) => {
             let msg: String = format!("Failed batch cancel stop orders: {}", e);

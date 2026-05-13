@@ -205,11 +205,23 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         };
                         // liability debt in tokens
                         // get price token
-                        let token_price_str: String = match get_ticker_price(trade_symbol).await {
-                            Ok(token_price_str) => {
-                                log::info!("Successfully get price:{}", &trade_symbol);
-                                token_price_str
-                            }
+
+                        let token_price: f64 = match get_ticker_price(trade_symbol).await {
+                            Ok(token_price_str) => match token_price_str.parse::<f64>() {
+                                Ok(token_price) => token_price,
+                                Err(e) => {
+                                    let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
+                                    log::error!("{}", msg);
+                                    match insert_db_error(pool, exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            log::error!("{}", msg);
+                                        }
+                                    }
+                                    continue;
+                                }
+                            },
                             Err(e) => {
                                 let msg: String = format!("Failed get price: {} {}", trade_symbol, e);
                                 log::error!("{}", msg);
@@ -223,22 +235,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 continue;
                             }
                         };
-                        // convert price from str to int
-                        let token_price: f64 = match token_price_str.parse::<f64>() {
-                            Ok(token_price) => token_price,
-                            Err(e) => {
-                                let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
-                                continue;
-                            }
-                        };
+
+                        log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
 
                         // calc price token on amount liability token
                         let token_funds: f64 = token_price * token_liability;
