@@ -570,25 +570,29 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             let msg: String = format!("Symbol info not found for {}", order.symbol);
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
+                Ok(_) => {
+                    return Ok(());
+                }
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                     log::error!("{}", msg);
+                    return Err(msg.into());
                 }
             }
-            return Err(msg.into());
         }
         Err(e) => {
             let msg: String = format!("Symbol info not found for {} {}", order.symbol, e);
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
+                Ok(_) => {
+                    return Ok(());
+                }
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                     log::error!("{}", msg);
+                    return Err(e.into());
                 }
             }
-            return Err(e.into());
         }
     };
 
@@ -598,13 +602,15 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             let msg: String = format!("Failed parse price_increment: {} {}", symbol_info.price_increment, e);
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
+                Ok(_) => {
+                    return Ok(());
+                }
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                     log::error!("{}", msg);
+                    return Err(e.into());
                 }
             }
-            return Err(e.into());
         }
     };
     let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
