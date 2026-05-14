@@ -1033,15 +1033,26 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         Ok(Some(bot)) => {
             // create new stop tp and sl orders
 
-            let filled_size = match &order.filled_size {
-                Some(filled_size) => {}
-                None => {}
-            };
-
-            let filled_size_f64: f64 = match filled_size.parse::<f64>() {
-                Ok(filled_size) => filled_size,
-                Err(e) => {
-                    let msg: String = format!("Failed parse order.filled_size: {} {}", filled_size, e);
+            let filled_size_f64 = match &order.filled_size {
+                Some(filled_size) => match filled_size.parse::<f64>() {
+                    Ok(filled_size_f64) => filled_size_f64,
+                    Err(e) => {
+                        let msg: String = format!("Failed parse order.filled_size: {} {}", filled_size, e);
+                        log::error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {
+                                return Ok(());
+                            }
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                log::error!("{}", msg);
+                                return Ok(());
+                            }
+                        }
+                    }
+                },
+                None => {
+                    let msg: String = format!("Failed get filled_size from: {:?}", &order);
                     log::error!("{}", msg);
                     match insert_db_error(pool, exchange, &msg).await {
                         Ok(_) => {
@@ -1050,11 +1061,12 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         Err(e) => {
                             let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                             log::error!("{}", msg);
-                            return Ok(());
+                            return Err(e.into());
                         }
                     }
                 }
             };
+
             match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                 Ok(Some(new_balance)) => {
                     match update_bot_balance_by_entry_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
