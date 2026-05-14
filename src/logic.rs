@@ -2394,8 +2394,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         if attempt >= MAX_RETRIES {
             return Ok(());
         }
+        tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
-        let tradeable = match get_random_symbol(pool, exchange).await {
+
+        let tradeable: crate::api::models::TradeAbleSymbol = match get_random_symbol(pool, exchange).await {
             Ok(Some(tradeable)) => tradeable,
             Ok(None) => {
                 let msg: String = format!("Failed get_random_symbol: None");
@@ -2569,7 +2571,6 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         log::error!("{}", msg);
                     }
                 }
-                tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
                 continue;
             }
         }
@@ -2595,7 +2596,10 @@ pub async fn make_hf_funds_margin_order(
     {
         Ok(_) => {}
         Err(e) => {
-            let msg: String = format!("Failed insert_db_msgsend: {}", e);
+            let msg: String = format!(
+                "Failed insert_db_msgsend: exchange:{} client_oid:{} side:{} symbol:{} funds:{} type:{} auto_borrow:{} auto_repay:{} {}",
+                exchange, client_oid, side, symbol, funds, type_, auto_borrow, auto_repay, e
+            );
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
                 Ok(_) => {}
@@ -2655,7 +2659,10 @@ pub async fn make_hf_size_margin_order(
     {
         Ok(_) => {}
         Err(e) => {
-            let msg: String = format!("Failed insert_db_msgsend: {}", e);
+            let msg: String = format!(
+                "Failed insert_db_msgsend: exchange:{} client_oid:{} side:{} symbol:{} size:{} type:{} auto_borrow:{} auto_repay:{} {}",
+                exchange, client_oid, side, symbol, size, type_, auto_borrow, auto_repay, e
+            );
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
                 Ok(_) => {}
