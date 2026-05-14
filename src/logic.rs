@@ -1687,7 +1687,18 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     }
                 }
                 Ok(None) => {
-                    log::error!("No records found or error occurred");
+                    let msg: String = format!("No records found in events:{}", client_oid);
+                    log::error!("{}", msg);
+                    match insert_db_error(pool, exchange, &msg).await {
+                        Ok(_) => {
+                            return Ok(());
+                        }
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            log::error!("{}", msg);
+                            return Ok(());
+                        }
+                    }
                 }
                 Err(e) => {
                     let msg: String = format!("Failed get_total_match_value_by_client_oid: {}", e);
