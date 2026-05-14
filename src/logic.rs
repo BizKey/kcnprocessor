@@ -2373,13 +2373,15 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
             let msg: String = format!("Failed to parse message: {} | Raw: {}", e, msg);
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
+                Ok(_) => {
+                    return Ok(());
+                }
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                     log::error!("{}", msg);
+                    return Err(e.into());
                 }
             }
-            return Err(e.into());
         }
     }
 }
