@@ -1905,6 +1905,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
         Some(_) => {}
         None => return Ok(()),
     }
+
     let msg: String = format!("Got error on stop order : {:?}", order);
     log::error!("{}", msg);
     match insert_db_error(pool, exchange, &msg).await {
