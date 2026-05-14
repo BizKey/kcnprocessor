@@ -2460,25 +2460,24 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                                 continue;
                             }
                         };
-                        let token_price_str: String = match get_ticker_price(&tradeable.symbol).await {
-                            Ok(token_price_str) => token_price_str,
+                        let token_price: f64 = match get_ticker_price(&tradeable.symbol).await {
+                            Ok(token_price_str) => match token_price_str.parse::<f64>() {
+                                Ok(token_price) => token_price,
+                                Err(e) => {
+                                    let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
+                                    log::error!("{}", msg);
+                                    match insert_db_error(pool, exchange, &msg).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                            log::error!("{}", msg);
+                                        }
+                                    }
+                                    continue;
+                                }
+                            },
                             Err(e) => {
                                 let msg: String = format!("Failed get price: {} {}", tradeable.symbol, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
-                                continue;
-                            }
-                        };
-                        let token_price: f64 = match token_price_str.parse::<f64>() {
-                            Ok(token_price) => token_price,
-                            Err(e) => {
-                                let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
                                 log::error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
                                     Ok(_) => {}
