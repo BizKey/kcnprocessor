@@ -2582,35 +2582,7 @@ pub async fn make_hf_funds_margin_order(
     match insert_db_msgsend(pool, exchange, Some(symbol), Some(side), None, Some(&funds), None, Some(args_time_in_force), Some(&type_), Some(&auto_borrow), Some(&auto_repay), Some(client_oid), None)
         .await
     {
-        Ok(_) => {
-            let msg: serde_json::Value = serde_json::json!({
-                "clientOid": client_oid,
-                "symbol": symbol,
-                "side": side,
-                "type": type_,
-                "autoBorrow": auto_borrow,
-                "autoRepay": auto_repay,
-                "timeInForce": args_time_in_force,
-                "funds": funds
-            });
-            log::info!("{}", msg);
-
-            match add_api_v3_hf_margin_order(msg.clone()).await {
-                Ok(data) => Ok(data),
-                Err(e) => {
-                    let msg: String = format!("Failed to send order: {}", e);
-                    log::error!("{}", msg);
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                        }
-                    }
-                    Err(msg.into())
-                }
-            }
-        }
+        Ok(_) => {}
         Err(e) => {
             let msg: String = format!("Failed insert_db_msgsend: {}", e);
             log::error!("{}", msg);
@@ -2622,6 +2594,33 @@ pub async fn make_hf_funds_margin_order(
                 }
             }
             return Err(e.into());
+        }
+    };
+    let msg: serde_json::Value = serde_json::json!({
+        "clientOid": client_oid,
+        "symbol": symbol,
+        "side": side,
+        "type": type_,
+        "autoBorrow": auto_borrow,
+        "autoRepay": auto_repay,
+        "timeInForce": args_time_in_force,
+        "funds": funds
+    });
+    log::info!("{}", msg);
+
+    match add_api_v3_hf_margin_order(msg.clone()).await {
+        Ok(data) => Ok(data),
+        Err(e) => {
+            let msg: String = format!("Failed to send order: {}", e);
+            log::error!("{}", msg);
+            match insert_db_error(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                    log::error!("{}", msg);
+                }
+            }
+            Err(msg.into())
         }
     }
 }
