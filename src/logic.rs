@@ -2157,19 +2157,34 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 };
             }
             KuCoinMessage::Error(data) => {
-                // sent error to pg
-                match insert_db_error(pool, exchange, &data.data).await {
-                    Ok(_) => {}
+                // passed
+                let msg: String = format!("Got error in WS {:?}", data);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {
+                        return Ok(());
+                    }
                     Err(e) => {
                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                         log::error!("{}", msg);
                     }
                 }
-                return Ok(());
+                return Err(msg.into());
             }
             KuCoinMessage::Unknown => {
-                log::warn!("Unknown WS message type");
-                return Ok(());
+                // passed
+                let msg: String = format!("Unknown WS message type");
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                return Err(msg.into());
             }
         },
         Err(e) => {
