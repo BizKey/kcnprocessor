@@ -2395,161 +2395,20 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
             return Ok(());
         }
         attempt += 1;
-        match get_random_symbol(pool, exchange).await {
-            Ok(Some(tradeable)) => {
-                let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable.symbol).await {
-                    Ok(Some(symbol_info)) => symbol_info,
-                    Ok(None) => {
-                        let msg: String = format!("Symbol info not found for {}", tradeable.symbol);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
-                        continue;
-                    }
-                    Err(e) => {
-                        let msg: String = format!("Fail fetch_symbol_info_by_symbol: {} {}", &tradeable.symbol, e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
-                        continue;
-                    }
-                };
-
-                let entry_client_oid: String = Uuid::new_v4().to_string();
-
-                match update_bot_entry_client_oid_by_id(pool, exchange, Some(&tradeable.symbol), Some(&entry_client_oid), trade_bot_id).await {
+        let tradeable = match get_random_symbol(pool, exchange).await {
+            Ok(Some(tradeable)) => tradeable,
+            Ok(None) => {
+                let msg: String = format!("Failed get_random_symbol: None");
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
                     Err(e) => {
-                        let msg: String = format!("Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}", entry_client_oid, trade_bot_id, e);
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                         log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
-                        continue;
                     }
                 }
-
-                let order_result = match get_random_side().as_str() {
-                    "sell" => {
-                        let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
-                            Ok(base_increment) => base_increment,
-                            Err(e) => {
-                                let msg: String = format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
-                                continue;
-                            }
-                        };
-                        let token_price: f64 = match get_ticker_price(&tradeable.symbol).await {
-                            Ok(token_price_str) => match token_price_str.parse::<f64>() {
-                                Ok(token_price) => token_price,
-                                Err(e) => {
-                                    let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                        }
-                                    }
-                                    continue;
-                                }
-                            },
-                            Err(e) => {
-                                let msg: String = format!("Failed get price: {} {}", tradeable.symbol, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
-                                continue;
-                            }
-                        };
-                        let token_size: f64 = balance_funds / token_price;
-                        make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable.symbol, format_assert(token_size, base_increment), "market".to_string(), true, false).await
-                    }
-                    "buy" => {
-                        let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
-                            Ok(quote_increment) => quote_increment,
-                            Err(e) => {
-                                let msg: String = format!("Failed parse quote_increment: {} {}", symbol_info.quote_increment, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
-                                continue;
-                            }
-                        };
-                        make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable.symbol, format_assert(balance_funds, quote_increment), "market".to_string(), true, false).await
-                    }
-                    _ => {
-                        continue;
-                    }
-                };
-
-                match order_result {
-                    Ok(_) => {
-                        log::info!("✅ Order placed: {} {} (attempt {}/{})", entry_client_oid, trade_bot_id, attempt, MAX_RETRIES);
-                        return Ok(());
-                    }
-                    Err(e) => {
-                        match update_bot_entry_client_oid_by_id(pool, exchange, None, None, trade_bot_id).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed update_bot_entry_client_oid_by_id: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
-                            }
-                        }
-                        let msg: String = format!("❌ Order failed (attempt {}/{}): {} - {}", attempt, MAX_RETRIES, tradeable.symbol, e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &e.to_string()).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
-                        tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
-                        continue;
-                    }
-                }
+                continue;
             }
-            Ok(None) => {}
             Err(e) => {
                 let msg: String = format!("Failed get_random_symbol: {}", e);
                 log::error!("{}", msg);
@@ -2560,6 +2419,158 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         log::error!("{}", msg);
                     }
                 }
+                continue;
+            }
+        };
+        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable.symbol).await {
+            Ok(Some(symbol_info)) => symbol_info,
+            Ok(None) => {
+                let msg: String = format!("Symbol info not found for {}", tradeable.symbol);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                continue;
+            }
+            Err(e) => {
+                let msg: String = format!("Fail fetch_symbol_info_by_symbol: {} {}", &tradeable.symbol, e);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                continue;
+            }
+        };
+
+        let entry_client_oid: String = Uuid::new_v4().to_string();
+
+        match update_bot_entry_client_oid_by_id(pool, exchange, Some(&tradeable.symbol), Some(&entry_client_oid), trade_bot_id).await {
+            Ok(_) => {}
+            Err(e) => {
+                let msg: String = format!("Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}", entry_client_oid, trade_bot_id, e);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                continue;
+            }
+        }
+
+        let order_result = match get_random_side().as_str() {
+            "sell" => {
+                let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
+                    Ok(base_increment) => base_increment,
+                    Err(e) => {
+                        let msg: String = format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e);
+                        log::error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                log::error!("{}", msg);
+                            }
+                        }
+                        continue;
+                    }
+                };
+                let token_price: f64 = match get_ticker_price(&tradeable.symbol).await {
+                    Ok(token_price_str) => match token_price_str.parse::<f64>() {
+                        Ok(token_price) => token_price,
+                        Err(e) => {
+                            let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
+                            log::error!("{}", msg);
+                            match insert_db_error(pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    log::error!("{}", msg);
+                                }
+                            }
+                            continue;
+                        }
+                    },
+                    Err(e) => {
+                        let msg: String = format!("Failed get price: {} {}", tradeable.symbol, e);
+                        log::error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                log::error!("{}", msg);
+                            }
+                        }
+                        continue;
+                    }
+                };
+                let token_size: f64 = balance_funds / token_price;
+                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable.symbol, format_assert(token_size, base_increment), "market".to_string(), true, false).await
+            }
+            "buy" => {
+                let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
+                    Ok(quote_increment) => quote_increment,
+                    Err(e) => {
+                        let msg: String = format!("Failed parse quote_increment: {} {}", symbol_info.quote_increment, e);
+                        log::error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                log::error!("{}", msg);
+                            }
+                        }
+                        continue;
+                    }
+                };
+                make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable.symbol, format_assert(balance_funds, quote_increment), "market".to_string(), true, false).await
+            }
+            _ => {
+                continue;
+            }
+        };
+
+        match order_result {
+            Ok(_) => {
+                log::info!("✅ Order placed: {} {} (attempt {}/{})", entry_client_oid, trade_bot_id, attempt, MAX_RETRIES);
+                return Ok(());
+            }
+            Err(e) => {
+                match update_bot_entry_client_oid_by_id(pool, exchange, None, None, trade_bot_id).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed update_bot_entry_client_oid_by_id: {}", e);
+                        log::error!("{}", msg);
+                        match insert_db_error(pool, exchange, &msg).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                log::error!("{}", msg);
+                            }
+                        }
+                    }
+                }
+                let msg: String = format!("❌ Order failed (attempt {}/{}): {} - {}", attempt, MAX_RETRIES, tradeable.symbol, e);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &e.to_string()).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
+                continue;
             }
         }
     }
