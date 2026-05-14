@@ -531,13 +531,15 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             let msg: String = format!("Failed insert_db_orderevent: {:.?} {}", order, e);
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
+                Ok(_) => {
+                    return Ok(());
+                }
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                     log::error!("{}", msg);
+                    return Err(e);
                 }
             }
-            return Err(e);
         }
     }
 
