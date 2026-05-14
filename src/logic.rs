@@ -2609,7 +2609,7 @@ pub async fn make_hf_funds_margin_order(
     log::info!("{}", msg);
 
     match add_api_v3_hf_margin_order(msg.clone()).await {
-        Ok(data) => Ok(data),
+        Ok(data) => return Ok(data),
         Err(e) => {
             let msg: String = format!("Failed to send order: {}", e);
             log::error!("{}", msg);
@@ -2669,7 +2669,7 @@ pub async fn make_hf_size_margin_order(
     log::info!("{}", msg);
 
     match add_api_v3_hf_margin_order(msg.clone()).await {
-        Ok(data) => Ok(data),
+        Ok(data) => return Ok(data),
         Err(e) => {
             let msg: String = format!("Failed to send order: {}", e);
             log::error!("{}", msg);
