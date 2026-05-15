@@ -1918,6 +1918,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
 
     const MAX_RETRIES: u32 = 1000;
     let mut attempt = 0;
+
     loop {
         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         if attempt >= MAX_RETRIES {
