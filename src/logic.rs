@@ -2578,6 +2578,20 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
     }
 }
 
+pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, mut rx_in: tokio::sync::mpsc::Receiver<String>) {
+    loop {
+        match rx_in.recv().await {
+            Some(msg) => match process_kcn_msg(pool, exchange, &msg).await {
+                Ok(_) => {}
+                Err(_) => {}
+            },
+            None => {
+                break;
+            }
+        }
+    }
+}
+
 pub async fn make_hf_funds_margin_order(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,

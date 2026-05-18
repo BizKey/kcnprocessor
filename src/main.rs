@@ -7,7 +7,7 @@ mod logic;
 use crate::api::db::{clear_orders_ids_for_bots, insert_db_error};
 
 use crate::api::requests::{batch_cancel_stop_orders, get_private_ws_url};
-use crate::logic::{auto_clean_account, build_subscription, create_init_orders, process_kcn_msg};
+use crate::logic::{auto_clean_account, build_subscription, create_init_orders, spawn_process_kcn_msg};
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
@@ -81,32 +81,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match auto_clean_account(&pool, &exchange).await {
             Ok(true) => break,
             Ok(false) => {}
-            Err(_) => {}
+            Err(e) => {
+                let msg: String = format!("Failed auto clean account: {}", e);
+                log::error!("{}", msg);
+                match insert_db_error(&pool, &exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                return Err(e);
+            }
         };
     }
 
     loop {
         // passed
         // websocket to pg
-        let (tx_in, mut rx_in) = mpsc::channel::<String>(1000);
+        let (tx_in, rx_in) = mpsc::channel::<String>(1000);
 
         let exchange_process: String = exchange.clone();
         let pool_process = pool.clone();
 
         // Work with income events
-        let _ = tokio::spawn(async move {
-            loop {
-                match rx_in.recv().await {
-                    Some(msg) => match process_kcn_msg(&pool_process, &exchange_process, &msg).await {
-                        Ok(_) => {}
-                        Err(_) => {}
-                    },
-                    None => {
-                        break;
-                    }
-                }
-            }
-        });
+        let spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, &exchange_process, rx_in).await });
 
         // Position/Orders/Balance/AdvancedOrders WS
         let (mut event_ws_write, mut event_ws_read) = match get_private_ws_url().await {
@@ -116,6 +115,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     log::error!("WebSocket connection failed:{}", e);
                     // sent error to pg
                     sleep(RECONNECT_DELAY).await;
+                    drop(tx_in);
+                    drop(spawn_process_kcn_msg_point);
                     continue;
                 }
             },
@@ -123,6 +124,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::error!("Failed to get WebSocket URL: {}", e);
                 // sent error to pg
                 sleep(RECONNECT_DELAY).await;
+                drop(tx_in);
+                drop(spawn_process_kcn_msg_point);
                 continue;
             }
         };
@@ -216,6 +219,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
 
         drop(tx_in);
+        drop(spawn_process_kcn_msg_point);
+        drop(event_ws_write);
+        drop(event_ws_read);
 
         log::error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
         sleep(RECONNECT_DELAY).await;
