@@ -7,7 +7,7 @@ mod logic;
 use crate::api::db::{clear_orders_ids_for_bots, insert_db_error};
 
 use crate::api::requests::{batch_cancel_stop_orders, get_private_ws_url};
-use crate::logic::{auto_clean_account, build_subscription, create_init_orders, spawn_process_kcn_msg};
+use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use dotenv::dotenv;
 
 use futures_util::{SinkExt, StreamExt};
@@ -145,24 +145,83 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         };
 
         // subscribtion
-        for subject in build_subscription() {
-            // passed
-            match event_ws_write.send(Message::text(subject.to_string())).await {
-                Ok(_) => {
-                    log::info!("Subscripte:{}", subject)
-                }
-                Err(e) => {
-                    let msg: String = format!("Failed to subscribe subject:{} {}", subject, e);
-                    log::error!("{}", msg);
-                    match insert_db_error(&pool, &exchange, &msg).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                        }
+        match event_ws_write
+            .send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string()))
+            .await
+        {
+            Ok(_) => {
+                log::info!("Subscribe:/spotMarket/tradeOrdersV2")
+            }
+            Err(e) => {
+                let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2 {}", e);
+                log::error!("{}", msg);
+                match insert_db_error(&pool, &exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
                     }
-                    continue;
                 }
+                continue;
+            }
+        }
+
+        match event_ws_write
+            .send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string()))
+            .await
+        {
+            Ok(_) => {
+                log::info!("Subscribe:/spotMarket/advancedOrders")
+            }
+            Err(e) => {
+                let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders {}", e);
+                log::error!("{}", msg);
+                match insert_db_error(&pool, &exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                continue;
+            }
+        }
+
+        match event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await
+        {
+            Ok(_) => {
+                log::info!("Subscribe:/account/balance")
+            }
+            Err(e) => {
+                let msg: String = format!("Failed to subscribe subject:/account/balance {}", e);
+                log::error!("{}", msg);
+                match insert_db_error(&pool, &exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                continue;
+            }
+        }
+
+        match event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await
+        {
+            Ok(_) => {
+                log::info!("Subscribe:/margin/position")
+            }
+            Err(e) => {
+                let msg: String = format!("Failed to subscribe subject:/margin/position {}", e);
+                log::error!("{}", msg);
+                match insert_db_error(&pool, &exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                continue;
             }
         }
 
