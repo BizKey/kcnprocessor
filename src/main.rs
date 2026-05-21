@@ -112,20 +112,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok(event_ws_url) => match connect_async(event_ws_url).await {
                 Ok((stream, _)) => stream.split(),
                 Err(e) => {
-                    log::error!("WebSocket connection failed:{}", e);
-                    // sent error to pg
-                    sleep(RECONNECT_DELAY).await;
+                    let msg: String = format!("WebSocket connection failed:{}", e);
+                    log::error!("{}", msg);
+                    match insert_db_error(&pool, &exchange, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            log::error!("{}", msg);
+                        }
+                    }
                     drop(tx_in);
                     drop(spawn_process_kcn_msg_point);
+                    sleep(RECONNECT_DELAY).await;
                     continue;
                 }
             },
             Err(e) => {
-                log::error!("Failed to get WebSocket URL: {}", e);
-                // sent error to pg
-                sleep(RECONNECT_DELAY).await;
+                let msg: String = format!("Failed to get WebSocket URL: {}", e);
+                log::error!("{}", msg);
+                match insert_db_error(&pool, &exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
                 drop(tx_in);
                 drop(spawn_process_kcn_msg_point);
+                sleep(RECONNECT_DELAY).await;
                 continue;
             }
         };
