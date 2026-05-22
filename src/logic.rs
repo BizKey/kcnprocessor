@@ -8,7 +8,7 @@ use crate::api::db::{
     update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id,
     update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
+use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol, TradeAbleSymbol};
 use crate::api::requests::{
     add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, create_repay_order, get_all_margin_accounts, get_ticker_price, sent_account_transfer,
 };
@@ -2390,7 +2390,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
-        let tradeable: crate::api::models::TradeAbleSymbol = match get_random_symbol(pool, exchange).await {
+        let tradeable: TradeAbleSymbol = match get_random_symbol(pool, exchange).await {
             Ok(Some(tradeable)) => tradeable,
             Ok(None) => {
                 let msg: String = format!("Failed get_random_symbol: None");
@@ -2402,7 +2402,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         log::error!("{}", msg);
                     }
                 }
-                continue;
+                return Ok(());
             }
             Err(e) => {
                 let msg: String = format!("Failed get_random_symbol: {}", e);
