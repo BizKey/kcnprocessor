@@ -459,7 +459,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     };
                     if token_available <= base_min_size || (token_price * token_available) <= quote_min_size {
-                        match sent_account_transfer(&account.currency.clone(), &account.available, "INTERNAL", "MARGIN", "TRADE").await {
+                        match sent_account_transfer(&account.currency, &account.available, "INTERNAL", "MARGIN", "TRADE").await {
                             Ok(_) => {}
                             Err(e) => {
                                 let msg: String = format!("Failed send {} to TRADE from MARGIN on {} {}", &account.currency.clone(), &account.available, e);
@@ -1929,7 +1929,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
         let order_result = match stop_ref.as_str() {
             "loss" => {
                 // need find sl
-                match update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool, exchange, &order_id_ref, &new_exit_client_oid).await {
+                match update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool, exchange, order_id_ref, &new_exit_client_oid).await {
                     Ok(_) => match side_ref.as_str() {
                         "buy" => match funds_clone {
                             Some(funds) => make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_ref, &symbol_ref, funds, "market", true, false).await,
@@ -1990,7 +1990,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
             }
             "entry" => {
                 // need find tp
-                match update_exit_tp_client_oid_bot_by_exit_tp_order_id(pool, exchange, &order_id_ref, &new_exit_client_oid).await {
+                match update_exit_tp_client_oid_bot_by_exit_tp_order_id(pool, exchange, order_id_ref, &new_exit_client_oid).await {
                     Ok(_) => match side_ref.as_str() {
                         "buy" => match funds_clone {
                             Some(funds) => make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_ref, &symbol_ref, funds, "market", true, false).await,
