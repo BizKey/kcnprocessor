@@ -54,24 +54,25 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
     for trade_bot in trade_bots.iter() {
         sleep(BOT_INIT_DELAY).await;
-        match trade_bot.balance.parse::<f64>() {
-            Ok(token_funds) => match make_random_trade(pool, exchange, token_funds, trade_bot.id).await {
-                Ok(_) => {}
-                Err(e) => {
-                    let msg: String = format!("Error in make_random_trade: {}", e);
-                    log::error!("{}", msg);
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                        }
-                    }
-                    return Err(e.into());
-                }
-            },
+        let token_funds = match trade_bot.balance.parse::<f64>() {
+            Ok(token_funds) => token_funds,
             Err(e) => {
                 let msg: String = format!("Failed parse balance: {} {}", trade_bot.balance, e);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                return Err(e.into());
+            }
+        };
+        match make_random_trade(pool, exchange, token_funds, trade_bot.id).await {
+            Ok(_) => {}
+            Err(e) => {
+                let msg: String = format!("Error in make_random_trade: {}", e);
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
