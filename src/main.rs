@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut init_order_execute: bool = true;
 
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let exchange: String = "kucoin".to_string();
+    let exchange = "kucoin";
 
     let pool = PgPoolOptions::new().max_connections(40).connect(&database_url).await.expect("Failed to create pool");
 
@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // websocket to pg
         let (tx_in, rx_in) = mpsc::channel::<String>(1000);
 
-        let exchange_process: String = exchange.clone();
+        let exchange_process = exchange;
         let pool_process = pool.clone();
 
         // Work with income events
@@ -233,7 +233,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if !init_order_execute {
             init_order_execute = true;
             let pool_clone = pool.clone();
-            let exchange_clone: String = exchange.clone();
+            let exchange_clone = exchange;
 
             tokio::spawn(async move {
                 sleep(INIT_ORDER_DELAY).await;
