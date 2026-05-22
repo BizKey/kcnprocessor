@@ -1932,7 +1932,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                 match update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool, exchange, order_id_ref, &new_exit_client_oid).await {
                     Ok(_) => match side_ref.as_str() {
                         "buy" => match funds_clone {
-                            Some(funds) => make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_ref, &symbol_ref, funds, "market", true, false).await,
+                            Some(funds) => make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, funds, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone,);
                                 log::error!("{}", msg);
@@ -1947,7 +1947,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                             }
                         },
                         "sell" => match size_clone {
-                            Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_ref, &symbol_ref, size, "market", true, false).await,
+                            Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, size, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,);
                                 log::error!("{}", msg);
@@ -1993,7 +1993,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                 match update_exit_tp_client_oid_bot_by_exit_tp_order_id(pool, exchange, order_id_ref, &new_exit_client_oid).await {
                     Ok(_) => match side_ref.as_str() {
                         "buy" => match funds_clone {
-                            Some(funds) => make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, &side_ref, &symbol_ref, funds, "market", true, false).await,
+                            Some(funds) => make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, funds, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone,);
                                 log::error!("{}", msg);
@@ -2008,7 +2008,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                             }
                         },
                         "sell" => match size_clone {
-                            Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_ref, &symbol_ref, size, "market", true, false).await,
+                            Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, size, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,);
                                 log::error!("{}", msg);
