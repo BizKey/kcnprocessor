@@ -168,9 +168,9 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     } else if account.currency != "USDT" && token_available == 0.0 {
                         // buy stock by market liability
-                        let trade_symbol: &String = &(account.currency.clone() + "-USDT");
+                        let trade_symbol: String = format!("{}-USDT", account.currency);
                         let client_oid: String = Uuid::new_v4().to_string();
-                        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, trade_symbol).await {
+                        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                             Ok(Some(info)) => info,
                             Ok(None) => {
                                 let msg: String = format!("Symbol info not found for {}", trade_symbol);
@@ -200,7 +200,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         // liability debt in tokens
                         // get price token
 
-                        let token_price: f64 = match get_ticker_price(trade_symbol).await {
+                        let token_price: f64 = match get_ticker_price(&trade_symbol).await {
                             Ok(token_price_str) => match token_price_str.parse::<f64>() {
                                 Ok(token_price) => token_price,
                                 Err(e) => {
@@ -300,8 +300,18 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         let min_funds_by_size: f64 = token_price * base_min_size;
 
                         if token_funds <= min_funds.max(min_funds_by_size) {
-                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", trade_symbol, format_assert(min_funds.max(min_funds_by_size), quote_increment), "market", false, false)
-                                .await
+                            match make_hf_funds_margin_order(
+                                pool,
+                                exchange,
+                                &client_oid,
+                                "buy",
+                                &trade_symbol,
+                                format_assert(min_funds.max(min_funds_by_size), quote_increment),
+                                "market",
+                                false,
+                                false,
+                            )
+                            .await
                             {
                                 Ok(_) => {}
                                 Err(e) => {
@@ -319,7 +329,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 }
                             }
                         } else {
-                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", trade_symbol, format_assert(token_funds, quote_increment), "market", false, false).await {
+                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, format_assert(token_funds, quote_increment), "market", false, false).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let msg: String = format!("Failed make_hf_funds_margin_order: {}", e);
@@ -340,9 +350,9 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     passed = false;
                     // sell stocks by market available/ works
                     let client_oid: String = Uuid::new_v4().to_string();
-                    let trade_symbol: &String = &(account.currency.clone() + "-USDT");
+                    let trade_symbol: String = format!("{}-USDT", account.currency);
 
-                    let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, trade_symbol).await {
+                    let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                         Ok(Some(symbol_info)) => symbol_info,
                         Ok(None) => {
                             let msg: String = format!("Symbol info not found for {}", trade_symbol);
@@ -386,7 +396,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     };
                     // get price token
-                    let token_price: f64 = match get_ticker_price(trade_symbol).await {
+                    let token_price: f64 = match get_ticker_price(&trade_symbol).await {
                         Ok(token_price_str) => match token_price_str.parse::<f64>() {
                             Ok(token_price) => token_price,
                             Err(e) => {
@@ -465,7 +475,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             }
                         }
                     } else {
-                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", trade_symbol, format_assert(token_available, base_increment), "market", false, false).await {
+                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, format_assert(token_available, base_increment), "market", false, false).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let msg: String = format!("Failed make_hf_size_margin_order: {}", e);
