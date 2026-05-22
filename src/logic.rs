@@ -2358,7 +2358,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         log::error!("{}", msg);
                     }
                 }
-                return Err(msg.into());
+                Err(msg.into())
             }
         },
         Err(e) => {
