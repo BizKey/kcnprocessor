@@ -2347,7 +2347,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
             }
             KuCoinMessage::Unknown => {
                 // passed
-                let msg: String = format!("Unknown WS message type");
+                let msg: String = "Unknown WS message type".to_string();
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {
@@ -2366,13 +2366,11 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
             let msg: String = format!("Failed to parse message: {} | Raw: {}", e, msg);
             log::error!("{}", msg);
             match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {
-                    return Ok(());
-                }
+                Ok(_) => Ok(()),
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                     log::error!("{}", msg);
-                    return Err(e);
+                    Err(e)
                 }
             }
         }
@@ -2393,7 +2391,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         let tradeable_symbol: String = match get_random_symbol(pool, exchange).await {
             Ok(Some(tradeable_symbol)) => tradeable_symbol,
             Ok(None) => {
-                let msg: String = format!("Failed get_random_symbol: None");
+                let msg: String = "Failed get_random_symbol: None".to_string();
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}

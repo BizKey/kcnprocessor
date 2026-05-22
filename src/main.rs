@@ -278,7 +278,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                         Some(Ok(_)) => {}
                         None => {
-                            let msg: String = format!("WebSocket stream ended");
+                            let msg: String = "WebSocket stream ended".to_string();
                             log::info!("{}", msg);
                             // sent error to pg
                             break;
