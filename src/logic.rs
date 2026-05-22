@@ -8,7 +8,7 @@ use crate::api::db::{
     update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id,
     update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol, TradeAbleSymbol};
+use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
 use crate::api::requests::{
     add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, create_repay_order, get_all_margin_accounts, get_ticker_price, sent_account_transfer,
 };
@@ -2390,8 +2390,8 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
-        let tradeable: TradeAbleSymbol = match get_random_symbol(pool, exchange).await {
-            Ok(Some(tradeable)) => tradeable,
+        let tradeable_symbol: String = match get_random_symbol(pool, exchange).await {
+            Ok(Some(tradeable_symbol)) => tradeable_symbol,
             Ok(None) => {
                 let msg: String = format!("Failed get_random_symbol: None");
                 log::error!("{}", msg);
@@ -2402,7 +2402,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         log::error!("{}", msg);
                     }
                 }
-                return Ok(());
+                return Ok(()); // Or Error?
             }
             Err(e) => {
                 let msg: String = format!("Failed get_random_symbol: {}", e);
@@ -2417,10 +2417,11 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 continue;
             }
         };
-        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable.symbol).await {
+
+        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable_symbol).await {
             Ok(Some(symbol_info)) => symbol_info,
             Ok(None) => {
-                let msg: String = format!("Symbol info not found for {}", tradeable.symbol);
+                let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
@@ -2432,7 +2433,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 continue;
             }
             Err(e) => {
-                let msg: String = format!("Fail fetch_symbol_info_by_symbol: {} {}", &tradeable.symbol, e);
+                let msg: String = format!("Fail fetch_symbol_info_by_symbol: {} {}", &tradeable_symbol, e);
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
@@ -2447,7 +2448,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
 
         let entry_client_oid: String = Uuid::new_v4().to_string();
 
-        match update_bot_entry_client_oid_by_id(pool, exchange, Some(&tradeable.symbol), Some(&entry_client_oid), trade_bot_id).await {
+        match update_bot_entry_client_oid_by_id(pool, exchange, Some(&tradeable_symbol), Some(&entry_client_oid), trade_bot_id).await {
             Ok(_) => {}
             Err(e) => {
                 let msg: String = format!("Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}", entry_client_oid, trade_bot_id, e);
@@ -2480,7 +2481,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         continue;
                     }
                 };
-                let token_price: f64 = match get_ticker_price(&tradeable.symbol).await {
+                let token_price: f64 = match get_ticker_price(&tradeable_symbol).await {
                     Ok(token_price_str) => match token_price_str.parse::<f64>() {
                         Ok(token_price) => token_price,
                         Err(e) => {
@@ -2497,7 +2498,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         }
                     },
                     Err(e) => {
-                        let msg: String = format!("Failed get price: {} {}", tradeable.symbol, e);
+                        let msg: String = format!("Failed get price: {} {}", tradeable_symbol, e);
                         log::error!("{}", msg);
                         match insert_db_error(pool, exchange, &msg).await {
                             Ok(_) => {}
@@ -2510,7 +2511,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     }
                 };
                 let token_size: f64 = balance_funds / token_price;
-                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable.symbol, format_assert(token_size, base_increment), "market".to_string(), true, false).await
+                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable_symbol, format_assert(token_size, base_increment), "market".to_string(), true, false).await
             }
             "buy" => {
                 let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
@@ -2528,7 +2529,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         continue;
                     }
                 };
-                make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable.symbol, format_assert(balance_funds, quote_increment), "market".to_string(), true, false).await
+                make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable_symbol, format_assert(balance_funds, quote_increment), "market".to_string(), true, false).await
             }
             _ => {
                 continue;
@@ -2555,7 +2556,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         }
                     }
                 }
-                let msg: String = format!("❌ Order failed (attempt {}/{}): {} - {}", attempt, MAX_RETRIES, tradeable.symbol, e);
+                let msg: String = format!("❌ Order failed (attempt {}/{}): {} - {}", attempt, MAX_RETRIES, tradeable_symbol, e);
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &e.to_string()).await {
                     Ok(_) => {}

@@ -1,4 +1,4 @@
-use crate::api::models::{BalanceData, BalanceRelationContext, Bot, OrderData, Symbol, TradeAbleSymbol};
+use crate::api::models::{BalanceData, BalanceRelationContext, Bot, OrderData, Symbol};
 
 use log;
 use sqlx::PgPool;
@@ -610,8 +610,8 @@ pub async fn get_all_bots_for_trade(pool: &PgPool, exchange: &str) -> Result<Vec
     }
 }
 
-pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Result<Option<TradeAbleSymbol>, Box<dyn std::error::Error + Send + Sync>> {
-    match sqlx::query_as::<_, TradeAbleSymbol>(
+pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+    match sqlx::query_scalar::<_, String>(
         r#"
         SELECT s.symbol
         FROM symbol s
@@ -637,7 +637,8 @@ pub async fn get_random_symbol(pool: &PgPool, exchange: &str) -> Result<Option<T
     .fetch_optional(pool)
     .await
     {
-        Ok(symbol) => Ok(symbol),
+        Ok(Some(symbol)) => Ok(Some(symbol)),
+        Ok(None) => Ok(None),
         Err(e) => Err(e.into()),
     }
 }

@@ -55,10 +55,6 @@ pub struct BalanceData {
     #[serde(rename = "relationContext")]
     pub relation_context: Option<BalanceRelationContext>,
 }
-#[derive(sqlx::FromRow, Debug)]
-pub struct TradeAbleSymbol {
-    pub symbol: String,
-}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {
