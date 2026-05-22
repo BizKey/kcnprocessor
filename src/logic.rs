@@ -465,7 +465,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             }
                         }
                     } else {
-                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", trade_symbol, format_assert(token_available, base_increment), "market".to_string(), false, false).await {
+                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", trade_symbol, format_assert(token_available, base_increment), "market", false, false).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let msg: String = format!("Failed make_hf_size_margin_order: {}", e);
@@ -1937,7 +1937,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                             }
                         },
                         "sell" => match size_clone {
-                            Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market".to_string(), true, false).await,
+                            Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_clone, new_exit_client_oid, size_clone,);
                                 log::error!("{}", msg);
@@ -1998,7 +1998,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                             }
                         },
                         "sell" => match size_clone {
-                            Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market".to_string(), true, false).await,
+                            Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, &side_clone, &symbol_clone, size, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_clone, new_exit_client_oid, size_clone,);
                                 log::error!("{}", msg);
@@ -2501,7 +2501,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     }
                 };
                 let token_size: f64 = balance_funds / token_price;
-                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable_symbol, format_assert(token_size, base_increment), "market".to_string(), true, false).await
+                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable_symbol, format_assert(token_size, base_increment), "market", true, false).await
             }
             "buy" => {
                 let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
@@ -2647,7 +2647,7 @@ pub async fn make_hf_size_margin_order(
     side: &str,
     symbol: &str,
     size: String,
-    type_: String,
+    type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
 ) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {

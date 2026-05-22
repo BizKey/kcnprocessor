@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let pool = PgPoolOptions::new().max_connections(40).connect(&database_url).await.expect("Failed to create pool");
 
     // clear orders ids for bots
-    match clear_orders_ids_for_bots(&pool, &exchange).await {
+    match clear_orders_ids_for_bots(&pool, exchange).await {
         // passed
         Ok(_) => {
             log::info!("clear orders ids bots")
@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Err(e) => {
             let msg: String = format!("Failed clear all orders_ids for bots: {}", e);
             log::error!("{}", msg);
-            match insert_db_error(&pool, &exchange, &msg).await {
+            match insert_db_error(&pool, exchange, &msg).await {
                 Ok(_) => {}
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Err(e) => {
             let msg: String = format!("Failed batch cancel stop orders: {}", e);
             log::error!("{}", msg);
-            match insert_db_error(&pool, &exchange, &msg).await {
+            match insert_db_error(&pool, exchange, &msg).await {
                 Ok(_) => {}
                 Err(e) => {
                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -78,13 +78,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     loop {
         // passed
         sleep(CLEAR_DELAY).await;
-        match auto_clean_account(&pool, &exchange).await {
+        match auto_clean_account(&pool, exchange).await {
             Ok(true) => break,
             Ok(false) => {}
             Err(e) => {
                 let msg: String = format!("Failed auto clean account: {}", e);
                 log::error!("{}", msg);
-                match insert_db_error(&pool, &exchange, &msg).await {
+                match insert_db_error(&pool, exchange, &msg).await {
                     Ok(_) => {}
                     Err(e) => {
                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -105,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let pool_process = pool.clone();
 
         // Work with income events
-        let spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, &exchange_process, rx_in).await });
+        let spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, exchange_process, rx_in).await });
 
         // Position/Orders/Balance/AdvancedOrders WS
         let (mut event_ws_write, mut event_ws_read) = match get_private_ws_url().await {
@@ -114,7 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 Err(e) => {
                     let msg: String = format!("WebSocket connection failed:{}", e);
                     log::error!("{}", msg);
-                    match insert_db_error(&pool, &exchange, &msg).await {
+                    match insert_db_error(&pool, exchange, &msg).await {
                         Ok(_) => {}
                         Err(e) => {
                             let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -130,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(e) => {
                 let msg: String = format!("Failed to get WebSocket URL: {}", e);
                 log::error!("{}", msg);
-                match insert_db_error(&pool, &exchange, &msg).await {
+                match insert_db_error(&pool, exchange, &msg).await {
                     Ok(_) => {}
                     Err(e) => {
                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -155,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2 {}", e);
                 log::error!("{}", msg);
-                match insert_db_error(&pool, &exchange, &msg).await {
+                match insert_db_error(&pool, exchange, &msg).await {
                     Ok(_) => {}
                     Err(e) => {
                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -176,7 +176,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders {}", e);
                 log::error!("{}", msg);
-                match insert_db_error(&pool, &exchange, &msg).await {
+                match insert_db_error(&pool, exchange, &msg).await {
                     Ok(_) => {}
                     Err(e) => {
                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -195,7 +195,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/account/balance {}", e);
                 log::error!("{}", msg);
-                match insert_db_error(&pool, &exchange, &msg).await {
+                match insert_db_error(&pool, exchange, &msg).await {
                     Ok(_) => {}
                     Err(e) => {
                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -214,7 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/margin/position {}", e);
                 log::error!("{}", msg);
-                match insert_db_error(&pool, &exchange, &msg).await {
+                match insert_db_error(&pool, exchange, &msg).await {
                     Ok(_) => {}
                     Err(e) => {
                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
@@ -238,7 +238,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             tokio::spawn(async move {
                 sleep(INIT_ORDER_DELAY).await;
                 log::info!("Initializing start orders...");
-                match create_init_orders(&pool_clone, &exchange_clone).await {
+                match create_init_orders(&pool_clone, exchange_clone).await {
                     Ok(_) => {}
                     Err(_) => {}
                 };
