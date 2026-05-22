@@ -54,7 +54,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
     for trade_bot in trade_bots.iter() {
         sleep(BOT_INIT_DELAY).await;
-        let token_funds = match trade_bot.balance.parse::<f64>() {
+        let token_funds: f64 = match trade_bot.balance.parse::<f64>() {
             Ok(token_funds) => token_funds,
             Err(e) => {
                 let msg: String = format!("Failed parse balance: {} {}", trade_bot.balance, e);
@@ -81,7 +81,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         log::error!("{}", msg);
                     }
                 }
-                return Err(e.into());
+                continue;
             }
         }
     }
