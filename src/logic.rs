@@ -509,7 +509,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     log::error!("{}", msg);
                 }
             }
-            return Ok(false);
+            Ok(false)
         }
     }
 }
