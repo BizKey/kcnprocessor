@@ -292,7 +292,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
 
         drop(tx_in);
-        drop(spawn_process_kcn_msg_point);
+
+        let _ = spawn_process_kcn_msg_point.await;
+
         drop(event_ws_write);
         drop(event_ws_read);
 

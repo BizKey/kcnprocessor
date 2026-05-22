@@ -2577,10 +2577,12 @@ pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: 
                 Err(_) => {}
             },
             None => {
+                log::info!("Channel closed, exiting message processor");
                 break;
             }
         }
     }
+    log::info!("Message processor stopped");
 }
 
 pub async fn make_hf_funds_margin_order(
