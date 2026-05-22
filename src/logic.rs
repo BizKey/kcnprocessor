@@ -86,7 +86,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         }
     }
     log::info!("All bots initialized!");
-    return Ok(());
+    Ok(())
 }
 
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
@@ -496,7 +496,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             if passed {
                 return Ok(true);
             } else {
-                return Ok(false);
+                Ok(false)
             }
         }
         Err(e) => {
@@ -1749,7 +1749,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         }
     }
 
-    return Ok(());
+    Ok(())
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -2173,9 +2173,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 let msg: String = format!("Failed handle_trade_order_event data: {:.?} {}", data.data, e);
                                 log::error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
+                                    Ok(_) => Ok(()),
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                         log::error!("{}", msg);
@@ -2203,16 +2201,12 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 } else if data.topic == "/spotMarket/advancedOrders" {
                     match AdvancedOrders::deserialize(&data.data) {
                         Ok(order) => match handle_advanced_orders(order, pool, exchange).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
+                            Ok(_) => Ok(()),
                             Err(e) => {
                                 let msg: String = format!("Failed handle_advanced_orders data: {:.?} {}", data.data, e);
                                 log::error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
+                                    Ok(_) => Ok(()),
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                         log::error!("{}", msg);
@@ -2226,9 +2220,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             let msg: String = format!("Failed to parse message {:?} {}", data.data, e);
                             log::error!("{}", msg);
                             match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {
-                                    return Ok(());
-                                }
+                                Ok(_) => Ok(()),
                                 Err(e) => {
                                     let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                     log::error!("{}", msg);
@@ -2248,9 +2240,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 let msg: String = format!("Failed handle_position_event data:{:.?} {}", data.data, e);
                                 log::error!("{}", msg);
                                 match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
+                                    Ok(_) => Ok(()),
                                     Err(e) => {
                                         let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                                         log::error!("{}", msg);
@@ -2281,9 +2271,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     log::error!("{}", msg);
                     // sent error to pg
                     match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {
-                            return Ok(());
-                        }
+                        Ok(_) => Ok(()),
                         Err(e) => {
                             let msg: String = format!("Failed insert error msg: {} {}", msg, e);
                             log::error!("{}", msg);
