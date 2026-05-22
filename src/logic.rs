@@ -8,7 +8,7 @@ use crate::api::db::{
     update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id,
     update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
+use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
 use crate::api::requests::{
     add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, create_repay_order, get_all_margin_accounts, get_ticker_price, sent_account_transfer,
 };
@@ -36,43 +36,8 @@ pub fn format_assert(size: f64, increment: f64) -> String {
 }
 
 pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match get_all_bots_for_trade(pool, exchange).await {
-        Ok(trade_bots) => {
-            for trade_bot in trade_bots.iter() {
-                sleep(BOT_INIT_DELAY).await;
-                match trade_bot.balance.parse::<f64>() {
-                    Ok(token_funds) => match make_random_trade(pool, exchange, token_funds, trade_bot.id).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!("Error in make_random_trade: {}", e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
-                            return Err(e.into());
-                        }
-                    },
-                    Err(e) => {
-                        let msg: String = format!("Failed parse balance: {} {}", trade_bot.balance, e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
-                        return Err(e.into());
-                    }
-                }
-            }
-            log::info!("All bots initialized!");
-            return Ok(());
-        }
+    let trade_bots: Vec<Bot> = match get_all_bots_for_trade(pool, exchange).await {
+        Ok(trade_bots) => trade_bots,
         Err(e) => {
             let msg: String = format!("Failed get_all_bots_for_trade: {}", e);
             log::error!("{}", msg);
@@ -85,7 +50,42 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             }
             return Err(e.into());
         }
+    };
+
+    for trade_bot in trade_bots.iter() {
+        sleep(BOT_INIT_DELAY).await;
+        match trade_bot.balance.parse::<f64>() {
+            Ok(token_funds) => match make_random_trade(pool, exchange, token_funds, trade_bot.id).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg: String = format!("Error in make_random_trade: {}", e);
+                    log::error!("{}", msg);
+                    match insert_db_error(pool, exchange, &msg).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                            log::error!("{}", msg);
+                        }
+                    }
+                    return Err(e.into());
+                }
+            },
+            Err(e) => {
+                let msg: String = format!("Failed parse balance: {} {}", trade_bot.balance, e);
+                log::error!("{}", msg);
+                match insert_db_error(pool, exchange, &msg).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                        log::error!("{}", msg);
+                    }
+                }
+                return Err(e.into());
+            }
+        }
     }
+    log::info!("All bots initialized!");
+    return Ok(());
 }
 
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
