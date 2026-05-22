@@ -1919,14 +1919,14 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
         attempt += 1;
 
         let order_id_ref = &order.order_id;
-        let stop_clone: String = order.stop.clone();
+        let stop_ref = &order.stop;
         let side_clone: String = order.side.clone();
         let symbol_clone: String = order.symbol.clone();
         let funds_clone: Option<String> = order.funds.clone();
         let size_clone: Option<String> = order.size.clone();
         let new_exit_client_oid: String = Uuid::new_v4().to_string();
 
-        let order_result = match stop_clone.as_str() {
+        let order_result = match stop_ref.as_str() {
             "loss" => {
                 // need find sl
                 match update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool, exchange, &order_id_ref, &new_exit_client_oid).await {
@@ -2050,7 +2050,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                 }
             }
             _ => {
-                let msg: String = format!("Fail match stop_clone:{}", stop_clone);
+                let msg: String = format!("Fail match stop_clone:{}", stop_ref);
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
                     Ok(_) => {}
