@@ -25,8 +25,8 @@ const RETRY_DELAY_BASE: u64 = 500;
 const BOT_INIT_DELAY: Duration = Duration::from_secs(5);
 const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(1);
 
-pub fn get_random_side() -> String {
-    if fastrand::bool() { "buy".to_string() } else { "sell".to_string() }
+pub fn get_random_side() -> &'static str {
+    if fastrand::bool() { "buy" } else { "sell" }
 }
 
 pub fn format_assert(size: f64, increment: f64) -> String {
@@ -2464,7 +2464,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
             }
         }
 
-        let order_result = match get_random_side().as_str() {
+        let order_result = match get_random_side() {
             "sell" => {
                 let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
                     Ok(base_increment) => base_increment,
