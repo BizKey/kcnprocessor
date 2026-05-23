@@ -493,11 +493,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     }
                 }
             }
-            if passed {
-                return Ok(true);
-            } else {
-                Ok(false)
-            }
+            if passed { Ok(true) } else { Ok(false) }
         }
         Err(e) => {
             let msg: String = format!("Failed to get margin accounts {}", e);
