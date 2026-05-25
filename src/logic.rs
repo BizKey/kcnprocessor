@@ -1056,7 +1056,6 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
             Ok(_) => {}
             Err(e) => {
                 let _ = handle_db_error(&pool, exchange, "Failed to insert asset margin account state:", e).await;
-
                 continue;
             }
         }
@@ -1072,15 +1071,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
         None => return Ok(()),
     }
 
-    let msg: String = format!("Got error on stop order : {:?}", order);
-    log::error!("{}", msg);
-    match insert_db_error(pool, exchange, &msg).await {
-        Ok(_) => {}
-        Err(e) => {
-            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-            log::error!("{}", msg);
-        }
-    }
+    let _ = handle_db_error(&pool, exchange, format!("Got error on stop order : {:?}", order).as_str(), "".into()).await;
 
     const MAX_RETRIES: u32 = 1000;
     let mut attempt = 0;
@@ -1241,14 +1232,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                 break Ok(());
             }
             Err(e) => {
-                log::error!("❌ Order failed: {} {} (attempt {}/{}) {}", order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES, e);
-                match insert_db_error(pool, exchange, &e.to_string()).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                return handle_db_error(&pool, exchange, format!("❌ Order failed: {} {} (attempt {}/{})", order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES).as_str(), e).await;
             }
         }
     }
