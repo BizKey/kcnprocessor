@@ -158,7 +158,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Initializing start orders...");
                 match create_init_orders(&pool_clone, exchange_clone).await {
                     Ok(_) => {}
-                    Err(_) => {}
+                    Err(e) => {
+                        let _ = handle_db_error(&pool_clone, exchange_clone, "Failed create_init_orders", e).await;
+                    }
                 };
             });
         }
