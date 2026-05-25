@@ -411,15 +411,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let quote_min_size: f64 = match symbol_info.quote_min_size.parse::<f64>() {
                         Ok(quote_min_size) => quote_min_size,
                         Err(e) => {
-                            let msg: String = format!("Failed parse quote_min_size: {} {}", symbol_info.quote_min_size, e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
+                            let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_min_size: {}", symbol_info.quote_min_size).as_str(), Box::new(e)).await;
                             continue;
                         }
                     };
@@ -783,18 +775,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {
-                                            return Ok(());
-                                        }
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                            return Err(e);
-                                        }
-                                    }
+                                    return handle_db_error(&pool, exchange, "Failed delete_exit_tp_id_bot_by_client_oid:", e).await;
                                 }
                             }
                             match api_v3_hf_margin_stop_order_cancel_by_client_oid(&exit_tp_client_oid).await {
@@ -802,18 +783,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                     log::info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                                 }
                                 Err(e) => {
-                                    let msg: String = format!("Failed cancel stop order: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {
-                                            return Ok(());
-                                        }
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                            return Err(e);
-                                        }
-                                    }
+                                    return handle_db_error(&pool, exchange, "Failed cancel stop order:", e).await;
                                 }
                             }
                         }
@@ -829,70 +799,26 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                         match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                                             Ok(_) => {}
                                             Err(e) => {
-                                                let msg: String = format!("Failed update_balance_bot_by_exit_sl_client_oid: {}", e);
-                                                log::error!("{}", msg);
-                                                match insert_db_error(pool, exchange, &msg).await {
-                                                    Ok(_) => {
-                                                        return Ok(());
-                                                    }
-                                                    Err(e) => {
-                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                        log::error!("{}", msg);
-                                                        return Err(e);
-                                                    }
-                                                }
+                                                return handle_db_error(&pool, exchange, "Failed update_balance_bot_by_exit_sl_client_oid:", e).await;
                                             }
                                         }
                                         // create new random order
                                         match make_random_trade(pool, exchange, new_balance, bot.id).await {
                                             Ok(()) => {}
                                             Err(e) => {
-                                                let msg: String = format!("Error in make_random_trade: {}", e);
-                                                log::error!("{}", msg);
-                                                match insert_db_error(pool, exchange, &msg).await {
-                                                    Ok(_) => {
-                                                        return Ok(());
-                                                    }
-                                                    Err(e) => {
-                                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                        log::error!("{}", msg);
-                                                        return Err(e);
-                                                    }
-                                                }
+                                                return handle_db_error(&pool, exchange, "Error in make_random_trade:", e).await;
                                             }
                                         }
                                     }
                                     Err(e) => {
-                                        let msg: String = format!("Failed parse balance: {} {}", bot.balance, e);
-                                        log::error!("{}", msg);
-                                        match insert_db_error(pool, exchange, &msg).await {
-                                            Ok(_) => {
-                                                return Ok(());
-                                            }
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                log::error!("{}", msg);
-                                                return Err(e);
-                                            }
-                                        }
+                                        return handle_db_error(&pool, exchange, format!("Failed parse balance: {}", bot.balance).as_str(), Box::new(e)).await;
                                     }
                                 }
                             } else if order.side == "sell" {
                                 match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
                                     Ok(_) => {}
                                     Err(e) => {
-                                        let msg: String = format!("Failed update_balance_bot_by_exit_sl_client_oid: {}", e);
-                                        log::error!("{}", msg);
-                                        match insert_db_error(pool, exchange, &msg).await {
-                                            Ok(_) => {
-                                                return Ok(());
-                                            }
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                log::error!("{}", msg);
-                                                return Err(e);
-                                            }
-                                        }
+                                        return handle_db_error(&pool, exchange, "Failed update_balance_bot_by_exit_sl_client_oid:", e).await;
                                     }
                                 }
 
@@ -900,18 +826,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 match make_random_trade(pool, exchange, return_balance, bot.id).await {
                                     Ok(()) => {}
                                     Err(e) => {
-                                        let msg: String = format!("Error in make_random_trade: {}", e);
-                                        log::error!("{}", msg);
-                                        match insert_db_error(pool, exchange, &msg).await {
-                                            Ok(_) => {
-                                                return Ok(());
-                                            }
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                log::error!("{}", msg);
-                                                return Err(e);
-                                            }
-                                        }
+                                        return handle_db_error(&pool, exchange, "Error in make_random_trade:", e).await;
                                     }
                                 }
                             }
@@ -920,18 +835,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             log::error!("No records found or error occurred");
                         }
                         Err(e) => {
-                            let msg: String = format!("Failed get_total_match_value_by_client_oid: {}", e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {
-                                    return Ok(());
-                                }
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                    return Err(e);
-                                }
-                            }
+                            return handle_db_error(&pool, exchange, "Failed get_total_match_value_by_client_oid:", e).await;
                         }
                     }
                 }
@@ -996,18 +900,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             match update_bot_balance_by_entry_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                 Ok(_) => {}
                 Err(e) => {
-                    let msg: String = format!("Failed update_bot_balance_by_entry_client_oid: {}", e);
-                    log::error!("{}", msg);
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {
-                            return Ok(());
-                        }
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                            return Err(e);
-                        }
-                    }
+                    return handle_db_error(&pool, exchange, "Failed update_bot_balance_by_entry_client_oid:", e).await;
                 }
             }
 
@@ -1055,36 +948,14 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        let msg: String = format!("Failed update_exit_tp_client_oid_bot_by_entry_client_oid: {}", e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                                return Ok(());
-                            }
-                        }
+                        return handle_db_error(&pool, exchange, "Failed update_exit_tp_client_oid_bot_by_entry_client_oid:", e).await;
                     }
                 }
                 // add exit_sl_client_oid by entry_id
                 match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        let msg: String = format!("Failed update_exit_sl_client_oid_bot_by_entry_client_oid: {}", e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                                return Ok(());
-                            }
-                        }
+                        return handle_db_error(&pool, exchange, "Failed update_exit_sl_client_oid_bot_by_entry_client_oid:", e).await;
                     }
                 }
 
@@ -1099,18 +970,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {
-                                            return Ok(());
-                                        }
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                            return Ok(());
-                                        }
-                                    }
+                                    return handle_db_error(&pool, exchange, "Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid:", e).await;
                                 }
                             },
                             None => {}
@@ -1120,18 +980,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {
-                                            return Ok(());
-                                        }
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                            return Ok(());
-                                        }
-                                    }
+                                    return handle_db_error(&pool, exchange, "Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid", e).await;
                                 }
                             },
                             None => {}
@@ -1145,18 +994,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
                                     Ok(_) => {}
                                     Err(e) => {
-                                        let msg: String = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
-                                        log::error!("{}", msg);
-                                        match insert_db_error(pool, exchange, &msg).await {
-                                            Ok(_) => {
-                                                return Ok(());
-                                            }
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                log::error!("{}", msg);
-                                                return Ok(());
-                                            }
-                                        }
+                                        return handle_db_error(&pool, exchange, "Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e).await;
                                     }
                                 };
                             }
@@ -1166,18 +1004,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed delete_exit_sl_id_bot_by_client_oid: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, "Failed delete_exit_sl_id_bot_by_client_oid", e).await;
                             }
                         }
 
@@ -1199,18 +1026,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {
-                                            return Ok(());
-                                        }
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                            return Ok(());
-                                        }
-                                    }
+                                    return handle_db_error(&pool, exchange, "Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e).await;
                                 }
                             },
                             None => {}
@@ -1219,18 +1035,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, "Failed delete_exit_tp_id_bot_by_client_oid", e).await;
                             }
                         }
 
@@ -1263,52 +1068,19 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed delete_symbol_bot_by_exit_sl_client_oid: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, "Failed delete_symbol_bot_by_exit_sl_client_oid", e).await;
                             }
                         }
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed delete_exit_sl_id_bot_by_client_oid: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, "Failed delete_exit_sl_id_bot_by_client_oid", e).await;
                             }
                         }
                         match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, "Failed delete_exit_tp_id_bot_by_client_oid", e).await;
                             }
                         }
                     }
@@ -1358,36 +1130,14 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        let msg: String = format!("Failed update_exit_tp_client_oid_bot_by_entry_client_oid: {}", e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                                return Ok(());
-                            }
-                        }
+                        return handle_db_error(&pool, exchange, "Failed update_exit_tp_client_oid_bot_by_entry_client_oid", e).await;
                     }
                 }
                 // add exit_sl_client_oid by entry_id
                 match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        let msg: String = format!("Failed update_exit_sl_client_oid_bot_by_entry_client_oid: {}", e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                                return Ok(());
-                            }
-                        }
+                        return handle_db_error(&pool, exchange, "Failed update_exit_sl_client_oid_bot_by_entry_client_oid", e).await;
                     }
                 }
 
@@ -1401,18 +1151,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {
-                                            return Ok(());
-                                        }
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                            return Ok(());
-                                        }
-                                    }
+                                    return handle_db_error(&pool, exchange, "Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid", e).await;
                                 }
                             },
                             None => {}
@@ -1422,18 +1161,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {
-                                            return Ok(());
-                                        }
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                            return Ok(());
-                                        }
-                                    }
+                                    return handle_db_error(&pool, exchange, "Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid", e).await;
                                 }
                             },
                             None => {}
@@ -1446,18 +1174,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {
-                                            return Ok(());
-                                        }
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                            return Ok(());
-                                        }
-                                    }
+                                    return handle_db_error(&pool, exchange, "Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e).await;
                                 }
                             },
                             None => {}
@@ -1466,18 +1183,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed delete_exit_sl_id_bot_by_client_oid: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, "Failed delete_exit_sl_id_bot_by_client_oid", e).await;
                             }
                         }
 
@@ -1500,18 +1206,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                                     Ok(_) => {}
                                     Err(e) => {
-                                        let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
-                                        log::error!("{}", msg);
-                                        match insert_db_error(pool, exchange, &msg).await {
-                                            Ok(_) => {
-                                                return Ok(());
-                                            }
-                                            Err(e) => {
-                                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                                log::error!("{}", msg);
-                                                return Ok(());
-                                            }
-                                        }
+                                        return handle_db_error(&pool, exchange, "Failed delete_exit_tp_id_bot_by_client_oid", e).await;
                                     }
                                 }
 
@@ -1529,18 +1224,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 }
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, "Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e).await;
                             }
                         },
                         None => {}
@@ -1561,18 +1245,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed delete_symbol_bot_by_exit_sl_client_oid: {}", e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, "Failed delete_symbol_bot_by_exit_sl_client_oid", e).await;
                             }
                         }
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
@@ -1596,19 +1269,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed delete_exit_tp_id_bot_by_client_oid: {}", e);
-                                log::error!("{}", msg);
-
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Ok(());
-                                    }
-                                }
+                                let _ = handle_db_error(&pool, exchange, "Failed delete_exit_tp_id_bot_by_client_oid:", e).await;
                             }
                         }
                     }
@@ -1619,35 +1280,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             match set_null_entry_client_oid_by_entry_client_oid(pool, exchange, client_oid).await {
                 Ok(_) => {}
                 Err(e) => {
-                    let msg: String = format!("Failed set_null_entry_client_oid_by_entry_client_oid: {}", e);
-                    log::error!("{}", msg);
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {
-                            return Ok(());
-                        }
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                            return Ok(());
-                        }
-                    }
+                    let _ = handle_db_error(&pool, exchange, "Failed set_null_entry_client_oid_by_entry_client_oid: {}", e).await;
                 }
             }
         }
         Ok(None) => {}
         Err(e) => {
-            let msg: String = format!("Failed get_bot_by_entry_client_oid: {}", e);
-            log::error!("{}", msg);
-            match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    log::error!("{}", msg);
-                    return Err(e);
-                }
-            }
+            let _ = handle_db_error(&pool, exchange, "Failed get_bot_by_entry_client_oid: {}", e).await;
         }
     }
 
@@ -1667,15 +1306,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                     log::info!("Repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
                                 }
                                 Err(e) => {
-                                    let msg: String = format!("Failed to repay liability:{} on asset:{} {}", token_liability_str, asset, e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                        }
-                                    }
+                                    let _ = handle_db_error(&pool, exchange, format!("Failed to repay liability:{} on asset:{}", token_liability_str, asset).as_str(), e).await;
                                     continue;
                                 }
                             }
@@ -1685,15 +1316,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                     log::info!("Partially repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
                                 }
                                 Err(e) => {
-                                    let msg: String = format!("Failed to partially repay liability:{} on asset:{} {}", token_liability_str, asset, e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                        }
-                                    }
+                                    let _ = handle_db_error(&pool, exchange, format!("Failed to partially repay liability:{} on asset:{}", token_liability_str, asset).as_str(), e).await;
                                     continue;
                                 }
                             }
@@ -1742,15 +1365,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
         Ok(_) => {}
         Err(e) => {
-            let msg: String = format!("Failed to upsert margin account state: {}", e);
-            log::error!("{}", msg);
-            match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
-                Err(e) => {
-                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    log::error!("{}", msg);
-                }
-            }
+            return handle_db_error(&pool, exchange, "Failed to upsert margin account state", e).await;
         }
     }
 
@@ -1758,15 +1373,8 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
         match upsert_position_debt(pool, exchange, symbol, amount).await {
             Ok(_) => {}
             Err(e) => {
-                let msg: String = format!("Failed to insert debt margin account state: {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, "Failed to insert debt margin account state", e).await;
+
                 continue;
             }
         }
@@ -1992,20 +1600,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(_) => {
                             return Ok(());
                         }
-                        Err(e) => {
-                            let msg: String = format!("Failed insert_db_event {}", e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {
-                                    return Ok(());
-                                }
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
-                            return Err(e);
-                        }
+                        Err(e) => return handle_db_error(&pool, exchange, "Failed insert_db_event", e).await,
                     },
                     Err(e) => {
                         let msg: String = format!("Failed to serialize event {:?}: {}", data, e);
@@ -2170,18 +1765,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             return Ok(());
                         }
                         Err(e) => {
-                            let msg: String = format!("Failed insert_db_event: {}", e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {
-                                    return Ok(());
-                                }
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
-                            return Err(e);
+                            return handle_db_error(&pool, exchange, "Failed insert_db_event", e).await;
                         }
                     },
                     Err(e) => {
@@ -2395,15 +1979,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 match update_bot_entry_client_oid_by_id(pool, exchange, None, None, trade_bot_id).await {
                     Ok(_) => {}
                     Err(e) => {
-                        let msg: String = format!("Failed update_bot_entry_client_oid_by_id: {}", e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
+                        return handle_db_error(&pool, exchange, "Failed update_bot_entry_client_oid_by_id", e).await;
                     }
                 }
                 let msg: String = format!("❌ Order failed (attempt {}/{}): {} - {}", attempt, MAX_RETRIES, tradeable_symbol, e);
@@ -2486,16 +2062,8 @@ pub async fn make_hf_funds_margin_order(
     match add_api_v3_hf_margin_order(msg.clone()).await {
         Ok(data) => Ok(data),
         Err(e) => {
-            let msg: String = format!("Failed to send order: {}", e);
-            log::error!("{}", msg);
-            match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {}
-                Err(e) => {
-                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    log::error!("{}", msg);
-                }
-            }
-            Err(msg.into())
+            let _ = handle_db_error(&pool, exchange, "Failed to send order", e).await;
+            return Err("".into());
         }
     }
 }
