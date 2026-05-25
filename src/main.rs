@@ -4,7 +4,7 @@ mod api {
     pub mod requests;
 }
 mod logic;
-use crate::api::db::{clear_orders_ids_for_bots, handle_db_error, insert_db_error};
+use crate::api::db::{clear_orders_ids_for_bots, handle_db_error};
 
 use crate::api::requests::{batch_cancel_stop_orders, get_private_ws_url};
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
@@ -75,15 +75,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok(event_ws_url) => match connect_async(event_ws_url).await {
                 Ok((stream, _)) => stream.split(),
                 Err(e) => {
-                    let msg: String = format!("WebSocket connection failed:{}", e);
-                    log::error!("{}", msg);
-                    match insert_db_error(&pool, exchange, &msg).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                        }
-                    }
+                    let _ = handle_db_error(&pool, exchange, "WebSocket connection failed:", Box::new(e)).await;
+
                     drop(tx_in);
                     drop(spawn_process_kcn_msg_point);
                     sleep(RECONNECT_DELAY).await;
@@ -91,15 +84,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
             },
             Err(e) => {
-                let msg: String = format!("Failed to get WebSocket URL: {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(&pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, "Failed to get WebSocket URL:", e).await;
+
                 drop(tx_in);
                 drop(spawn_process_kcn_msg_point);
                 sleep(RECONNECT_DELAY).await;
@@ -116,15 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Subscribe:/spotMarket/tradeOrdersV2")
             }
             Err(e) => {
-                let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2 {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(&pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, "Failed to subscribe topic:/spotMarket/tradeOrdersV2", Box::new(e)).await;
                 continue;
             }
         }
@@ -137,15 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Subscribe:/spotMarket/advancedOrders")
             }
             Err(e) => {
-                let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(&pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, "Failed to subscribe subject:/spotMarket/advancedOrders", Box::new(e)).await;
                 continue;
             }
         }
@@ -156,15 +126,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Subscribe:/account/balance")
             }
             Err(e) => {
-                let msg: String = format!("Failed to subscribe subject:/account/balance {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(&pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, "Failed to subscribe subject:/account/balance", Box::new(e)).await;
+
                 continue;
             }
         }
@@ -175,15 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Subscribe:/margin/position")
             }
             Err(e) => {
-                let msg: String = format!("Failed to subscribe subject:/margin/position {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(&pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, "Failed to subscribe subject:/margin/position", Box::new(e)).await;
                 continue;
             }
         }
@@ -227,27 +182,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
                         }
                         Some(Ok(Message::Close(close))) => {
-                            let msg: String = format!("Connection closed by server: {:?}", close);
-                            log::error!("{}", msg);
-                            match insert_db_error(&pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
+                            let _ = handle_db_error(&pool, exchange, "Connection closed by server:", "".into()).await;
                             break;
                         }
                         Some(Err(e)) => {
-                            let msg: String = format!("WebSocket read error: {}", e);
-                            log::error!("{}", msg);
-                            match insert_db_error(&pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
+                            let _ = handle_db_error(&pool, exchange, "WebSocket read error:", Box::new(e)).await;
                             break;
                         }
                         Some(Ok(_)) => {}
