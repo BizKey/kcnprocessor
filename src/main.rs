@@ -37,7 +37,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // clear orders ids for bots
     match clear_orders_ids_for_bots(&pool, exchange, "1").await {
-        // passed
         Ok(_) => {
             log::info!("clear orders ids bots")
         }
@@ -57,7 +56,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // cancel all stop orders
     match batch_cancel_stop_orders().await {
-        // passed
         Ok(_) => {
             log::info!("batch cancel stop orders")
         }
@@ -76,7 +74,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     // repay all liability assets and sell
     loop {
-        // passed
         sleep(CLEAR_DELAY).await;
         match auto_clean_account(&pool, exchange).await {
             Ok(true) => break,
@@ -97,7 +94,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     loop {
-        // passed
         // websocket to pg
         let (tx_in, rx_in) = mpsc::channel::<String>(1000);
 
@@ -247,7 +243,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         loop {
             tokio::select! {
-                // passed
                 // Events
                 event = event_ws_read.next() => {
                     match event {

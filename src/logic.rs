@@ -1751,7 +1751,6 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // repay borrow
     for (asset, token_liability_str) in &position.debt_list {
-        // passed
         match position.asset_list.get(asset) {
             Some(asset_info) => match (token_liability_str.parse::<f64>(), asset_info.available.parse::<f64>()) {
                 (Ok(liability), Ok(available)) => {
@@ -2082,7 +2081,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
     match serde_json::from_str::<KuCoinMessage>(msg) {
         Ok(event) => match event {
             KuCoinMessage::Welcome(data) => {
-                // passed
                 match serde_json::to_value(&data) {
                     Ok(data) => match insert_db_event(pool, exchange, data).await {
                         Ok(_) => {
@@ -2121,7 +2119,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
             }
             KuCoinMessage::Message(data) => {
                 if data.topic == "/account/balance" {
-                    // passed
                     match BalanceData::deserialize(&data.data) {
                         Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
                             Ok(_) => {
@@ -2226,7 +2223,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         }
                     }
                 } else if data.topic == "/margin/position" {
-                    // passed
                     match PositionData::deserialize(&data.data) {
                         Ok(position) => match handle_position_event(position, pool, exchange).await {
                             Ok(_) => {
@@ -2262,7 +2258,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         }
                     }
                 } else {
-                    // passed
                     let msg: String = format!("Unknown topic: {}", data.topic);
                     log::error!("{}", msg);
                     // sent error to pg
@@ -2277,7 +2272,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 }
             }
             KuCoinMessage::Ack(data) => {
-                // passed
                 match serde_json::to_value(&data) {
                     Ok(data) => match insert_db_event(pool, exchange, data).await {
                         Ok(_) => {
@@ -2315,7 +2309,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 };
             }
             KuCoinMessage::Error(data) => {
-                // passed
                 let msg: String = format!("Got error in WS {:?}", data);
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
@@ -2330,7 +2323,6 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 return Err(msg.into());
             }
             KuCoinMessage::Unknown => {
-                // passed
                 let msg: String = "Unknown WS message type".to_string();
                 log::error!("{}", msg);
                 match insert_db_error(pool, exchange, &msg).await {
