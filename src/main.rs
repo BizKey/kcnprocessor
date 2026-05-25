@@ -183,7 +183,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         Some(Ok(Message::Ping(data))) => {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
                         }
-                        Some(Ok(Message::Close(close))) => {
+                        Some(Ok(Message::Close(_close))) => {
                             let _ = handle_db_error(&pool, exchange, format!("Connection closed by server:")).await;
                             break;
                         }
