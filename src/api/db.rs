@@ -226,7 +226,7 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
         Err(e) => Err(e.into()),
     }
 }
-pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<f64>, Error> {
+pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<String>, Error> {
     match sqlx::query(
         r#"
         SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value
@@ -243,15 +243,16 @@ pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: 
     .await
     {
         Ok(row) => match row.try_get::<Option<String>, _>("total_match_value") {
-            Ok(Some(value_str)) => match value_str.parse::<f64>() {
-                Ok(value) => Ok(Some(value)),
-                Err(e) => Err(e.into()),
-            },
+            Ok(Some(value_str)) => Ok(Some(value_str)),
             Ok(None) => Ok(None),
-            Err(e) => Err(e.into()),
+            Err(e) => Err(e),
         },
         Err(e) => Err(e.into()),
     }
+    // match value_str.parse::<f64>() {
+    //             Ok(value) => Ok(Some(value)),
+    //             Err(e) => Err(e.into()),
+    //         }
 }
 pub async fn set_null_entry_client_oid_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<(), Error> {
     match sqlx::query(
@@ -685,7 +686,7 @@ pub async fn upsert_position_asset(pool: &PgPool, exchange: &str, asset_symbol: 
         Err(e) => Err(e.into()),
     }
 }
-pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, msg: String) -> Result<(), Error> {
+pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, msg: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     log::error!("{}", msg);
     match insert_db_error(pool, exchange, &msg).await {
         Ok(_) => {}
