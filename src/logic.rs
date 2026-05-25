@@ -2030,21 +2030,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             Ok(_) => {
                                 return Ok(());
                             }
-                            Err(e) => {
-                                let msg: String = format!("Failed insert_db_balance data: {:.?} {}", data.data, e);
-                                log::error!("{}", msg);
-
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Err(e);
-                                    }
-                                }
-                            }
+                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed insert_db_balance data: {:.?}", data.data).as_str(), e).await,
                         },
                         Err(e) => {
                             // sent balance parse error to pg
@@ -2301,27 +2287,11 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable_symbol).await {
             Ok(Some(symbol_info)) => symbol_info,
             Ok(None) => {
-                let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", tradeable_symbol).as_str(), "".into()).await;
                 continue;
             }
             Err(e) => {
-                let msg: String = format!("Fail fetch_symbol_info_by_symbol: {} {}", &tradeable_symbol, e);
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, format!("Fail fetch_symbol_info_by_symbol: {}", &tradeable_symbol).as_str(), e).await;
                 continue;
             }
         };
