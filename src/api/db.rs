@@ -484,7 +484,7 @@ pub async fn update_balance_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, excha
         Err(e) => Err(e.into()),
     }
 }
-pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str, balance: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match sqlx::query(
         r#"
         UPDATE bots
@@ -493,13 +493,14 @@ pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str) -> R
             exit_tp_client_oid = NULL,
             exit_sl_order_id = NULL,
             exit_sl_client_oid = NULL,
-            balance = '20',
+            balance = $1,
             symbol = NULL,
             updated_at = CURRENT_TIMESTAMP
-        WHERE exchange = $1;
+        WHERE exchange = $2;
         "#,
     )
     .bind(exchange)
+    .bind(balance)
     .execute(pool)
     .await
     {

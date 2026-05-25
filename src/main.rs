@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let pool = PgPoolOptions::new().max_connections(40).connect(&database_url).await.expect("Failed to create pool");
 
     // clear orders ids for bots
-    match clear_orders_ids_for_bots(&pool, exchange).await {
+    match clear_orders_ids_for_bots(&pool, exchange, "1").await {
         // passed
         Ok(_) => {
             log::info!("clear orders ids bots")
