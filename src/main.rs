@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(_) => {
             log::info!("clear orders ids bots")
         }
-        Err(e) => return handle_db_error(&pool, exchange, "Failed clear all orders_ids for bots:", e).await,
+        Err(e) => return handle_db_error(&pool, exchange, format!("Failed clear all orders_ids for bots:{}", e)).await,
     }
 
     // cancel all stop orders
@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(_) => {
             log::info!("batch cancel stop orders")
         }
-        Err(e) => return handle_db_error(&pool, exchange, "Failed batch cancel stop orders:", e).await,
+        Err(e) => return handle_db_error(&pool, exchange, format!("Failed batch cancel stop orders:{}", e)).await,
     }
     // repay all liability assets and sell
     loop {
@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match auto_clean_account(&pool, exchange).await {
             Ok(true) => break,
             Ok(false) => {}
-            Err(e) => return handle_db_error(&pool, exchange, "Failed auto clean account:", e).await,
+            Err(e) => return handle_db_error(&pool, exchange, format!("Failed auto clean account:{}", e)).await,
         };
     }
 
@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok(event_ws_url) => match connect_async(event_ws_url).await {
                 Ok((stream, _)) => stream.split(),
                 Err(e) => {
-                    let _ = handle_db_error(&pool, exchange, "WebSocket connection failed:", Box::new(e)).await;
+                    let _ = handle_db_error(&pool, exchange, format!("WebSocket connection failed:{}", e)).await;
 
                     drop(tx_in);
                     drop(spawn_process_kcn_msg_point);
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
             },
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, "Failed to get WebSocket URL:", e).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed to get WebSocket URL:{}", e)).await;
 
                 drop(tx_in);
                 drop(spawn_process_kcn_msg_point);
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Subscribe:/spotMarket/tradeOrdersV2")
             }
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, "Failed to subscribe topic:/spotMarket/tradeOrdersV2", Box::new(e)).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e)).await;
                 continue;
             }
         }
@@ -115,7 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Subscribe:/spotMarket/advancedOrders")
             }
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, "Failed to subscribe subject:/spotMarket/advancedOrders", Box::new(e)).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e)).await;
                 continue;
             }
         }
@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Subscribe:/account/balance")
             }
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, "Failed to subscribe subject:/account/balance", Box::new(e)).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/account/balance:{}", e)).await;
 
                 continue;
             }
@@ -138,7 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log::info!("Subscribe:/margin/position")
             }
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, "Failed to subscribe subject:/margin/position", Box::new(e)).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/margin/position:{}", e)).await;
                 continue;
             }
         }
@@ -159,7 +159,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 match create_init_orders(&pool_clone, exchange_clone).await {
                     Ok(_) => {}
                     Err(e) => {
-                        let _ = handle_db_error(&pool_clone, exchange_clone, "Failed create_init_orders", e).await;
+                        let _ = handle_db_error(&pool_clone, exchange_clone, format!("Failed create_init_orders:{}", e)).await;
                     }
                 };
             });
@@ -184,11 +184,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
                         }
                         Some(Ok(Message::Close(close))) => {
-                            let _ = handle_db_error(&pool, exchange, "Connection closed by server:", "".into()).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Connection closed by server:{}",close)).await;
                             break;
                         }
                         Some(Err(e)) => {
-                            let _ = handle_db_error(&pool, exchange, "WebSocket read error:", Box::new(e)).await;
+                            let _ = handle_db_error(&pool, exchange, format!("WebSocket read error:{}",e)).await;
                             break;
                         }
                         Some(Ok(_)) => {}

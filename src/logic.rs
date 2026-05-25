@@ -45,7 +45,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         sleep(BOT_INIT_DELAY).await;
         let token_funds: f64 = match trade_bot.balance.parse::<f64>() {
             Ok(token_funds) => token_funds,
-            Err(e) => return handle_db_error(&pool, exchange, format!("Failed parse balance: {}", trade_bot.balance).as_str(), Box::new(e)).await,
+            Err(e) => return handle_db_error(&pool, exchange, format!("Failed parse balance: {}", trade_bot.balance), Box::new(e)).await,
         };
         match make_random_trade(pool, exchange, token_funds, trade_bot.id).await {
             Ok(_) => {}
@@ -68,7 +68,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 let token_liability: f64 = match account.liability.parse::<f64>() {
                     Ok(token_liability) => token_liability,
                     Err(e) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", account.liability).as_str(), Box::new(e)).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", account.liability), Box::new(e)).await;
                         passed = false;
                         continue;
                     }
@@ -76,7 +76,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 let token_available: f64 = match account.available.parse::<f64>() {
                     Ok(token_liability) => token_liability,
                     Err(e) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", account.available).as_str(), Box::new(e)).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", account.available), Box::new(e)).await;
                         passed = false;
                         continue;
                     }
@@ -100,7 +100,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         match create_repay_order(&account.currency, &account.available).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, "Failed to partially repay debt:", e).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed to partially repay debt:{}", e)).await;
                                 continue;
                             }
                         }
@@ -111,11 +111,11 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                             Ok(Some(info)) => info,
                             Ok(None) => {
-                                let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol).as_str(), "".into()).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol)).await;
                                 continue;
                             }
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol).as_str(), "".into()).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol)).await;
                                 continue;
                             }
                         };
@@ -126,12 +126,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Ok(token_price_str) => match token_price_str.parse::<f64>() {
                                 Ok(token_price) => token_price,
                                 Err(e) => {
-                                    let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", token_price_str).as_str(), Box::new(e)).await;
+                                    let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {} {}", token_price_str, e)).await;
                                     continue;
                                 }
                             },
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, format!("Failed get price: {}", trade_symbol).as_str(), e).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed get price: {} {}", trade_symbol, e)).await;
                                 continue;
                             }
                         };
@@ -144,7 +144,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
                             Ok(quote_increment) => quote_increment,
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_increment: {}", symbol_info.quote_increment).as_str(), Box::new(e)).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_increment: {} {}", symbol_info.quote_increment, e)).await;
                                 continue;
                             }
                         };
@@ -153,19 +153,19 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Some(min_funds_str) => match min_funds_str.parse::<f64>() {
                                 Ok(min_funds) => min_funds,
                                 Err(e) => {
-                                    let _ = handle_db_error(&pool, exchange, format!("Failed parse min_funds: {:?}", symbol_info.min_funds).as_str(), Box::new(e)).await;
+                                    let _ = handle_db_error(&pool, exchange, format!("Failed parse min_funds: {:?}", symbol_info.min_funds), Box::new(e)).await;
                                     continue;
                                 }
                             },
                             None => {
-                                let _ = handle_db_error(&pool, exchange, format!("min_funds is None for symbol {}", trade_symbol).as_str(), "".into()).await;
+                                let _ = handle_db_error(&pool, exchange, format!("min_funds is None for symbol {}", trade_symbol)).await;
                                 continue;
                             }
                         };
                         let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
                             Ok(base_min_size) => base_min_size,
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e).as_str(), Box::new(e)).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e), Box::new(e)).await;
                                 continue;
                             }
                         };
@@ -212,12 +212,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                         Ok(Some(symbol_info)) => symbol_info,
                         Ok(None) => {
-                            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol).as_str(), "".into()).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol)).await;
 
                             continue;
                         }
                         Err(e) => {
-                            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol).as_str(), e).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol), e).await;
                             continue;
                         }
                     };
@@ -225,7 +225,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
                         Ok(base_increment) => base_increment,
                         Err(e) => {
-                            let _ = handle_db_error(&pool, exchange, format!("Failed parse base_increment: {}", symbol_info.base_increment).as_str(), Box::new(e)).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Failed parse base_increment: {}", symbol_info.base_increment), Box::new(e)).await;
                             continue;
                         }
                     };
@@ -234,12 +234,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Ok(token_price_str) => match token_price_str.parse::<f64>() {
                             Ok(token_price) => token_price,
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", token_price_str).as_str(), Box::new(e)).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", token_price_str), Box::new(e)).await;
                                 continue;
                             }
                         },
                         Err(e) => {
-                            let _ = handle_db_error(&pool, exchange, format!("Failed get price: {}", trade_symbol).as_str(), e).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Failed get price: {}", trade_symbol), e).await;
                             continue;
                         }
                     };
@@ -249,7 +249,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
                         Ok(base_min_size) => base_min_size,
                         Err(e) => {
-                            let _ = handle_db_error(&pool, exchange, format!("Failed parse base_min_size: {}", symbol_info.base_min_size).as_str(), Box::new(e)).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Failed parse base_min_size: {}", symbol_info.base_min_size), Box::new(e)).await;
 
                             continue;
                         }
@@ -257,7 +257,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let quote_min_size: f64 = match symbol_info.quote_min_size.parse::<f64>() {
                         Ok(quote_min_size) => quote_min_size,
                         Err(e) => {
-                            let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_min_size: {}", symbol_info.quote_min_size).as_str(), Box::new(e)).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_min_size: {}", symbol_info.quote_min_size), Box::new(e)).await;
                             continue;
                         }
                     };
@@ -265,7 +265,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         match sent_account_transfer(&account.currency, &account.available, "INTERNAL", "MARGIN", "TRADE").await {
                             Ok(_) => {}
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, format!("Failed send {} to TRADE from MARGIN on {}", &account.currency.clone(), &account.available).as_str(), e).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed send {} to TRADE from MARGIN on {}", &account.currency.clone(), &account.available), e).await;
                                 continue;
                             }
                         }
@@ -295,13 +295,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         Ok(_) => {
             log::info!("{:.?}", order);
         }
-        Err(e) => return handle_db_error(&pool, exchange, format!("Failed insert_db_orderevent: {:.?}", order).as_str(), e).await,
+        Err(e) => return handle_db_error(&pool, exchange, format!("Failed insert_db_orderevent: {:.?}", order), e).await,
     }
 
     let client_oid = match &order.client_oid {
         Some(client_oid) => client_oid,
         None => {
-            let _ = handle_db_error(&pool, exchange, format!("client_oid in order is none: {:.?}", order).as_str(), "".into()).await;
+            let _ = handle_db_error(&pool, exchange, format!("client_oid in order is none: {:.?}", order)).await;
             return Err("".into());
         }
     };
@@ -314,23 +314,23 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
         Ok(Some(symbol_info)) => symbol_info,
         Ok(None) => {
-            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", order.symbol).as_str(), "".into()).await;
+            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", order.symbol)).await;
             return Err("".into());
         }
         Err(e) => {
-            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", order.symbol).as_str(), e).await;
+            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", order.symbol), e).await;
             return Err("".into());
         }
     };
 
     let price_increment: f64 = match symbol_info.price_increment.parse::<f64>() {
         Ok(price_increment) => price_increment,
-        Err(e) => return handle_db_error(&pool, exchange, format!("Failed parse price_increment: {}", symbol_info.price_increment).as_str(), Box::new(e)).await,
+        Err(e) => return handle_db_error(&pool, exchange, format!("Failed parse price_increment: {}", symbol_info.price_increment), Box::new(e)).await,
     };
     let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
         Ok(quote_increment) => quote_increment,
         Err(e) => {
-            let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_increment: {}", symbol_info.quote_increment).as_str(), Box::new(e)).await;
+            let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_increment: {}", symbol_info.quote_increment), Box::new(e)).await;
             return Err("".into());
         }
     };
@@ -385,7 +385,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                     }
                                 }
                             }
-                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed parse balance: {}", bot.balance).as_str(), Box::new(e)).await,
+                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed parse balance: {}", bot.balance), Box::new(e)).await,
                         }
                     } else if order.side == "sell" {
                         match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
@@ -458,18 +458,18 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                             Err(e) => return handle_db_error(&pool, exchange, "Error in make_random_trade:", e).await,
                                         }
                                     }
-                                    Err(e) => return handle_db_error(&pool, exchange, format!("Failed parse balance: {}", bot.balance).as_str(), Box::new(e)).await,
+                                    Err(e) => return handle_db_error(&pool, exchange, format!("Failed parse balance: {}", bot.balance), Box::new(e)).await,
                                 }
                             } else if order.side == "sell" {
                                 match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
                                     Ok(_) => {}
-                                    Err(e) => return handle_db_error(&pool, exchange, "Failed update_balance_bot_by_exit_sl_client_oid:", e).await,
+                                    Err(e) => return handle_db_error(&pool, exchange, format!("Failed update_balance_bot_by_exit_sl_client_oid:{}", e)).await,
                                 }
 
                                 // create new random order
                                 match make_random_trade(pool, exchange, return_balance, bot.id).await {
                                     Ok(()) => {}
-                                    Err(e) => return handle_db_error(&pool, exchange, "Error in make_random_trade:", e).await,
+                                    Err(e) => return handle_db_error(&pool, exchange, format!("Error in make_random_trade:{}", e)).await,
                                 }
                             }
                         }
@@ -477,12 +477,12 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             log::error!("No records found or error occurred");
                         }
                         Err(e) => {
-                            return handle_db_error(&pool, exchange, "Failed get_total_match_value_by_client_oid:", e).await;
+                            return handle_db_error(&pool, exchange, format!("Failed get_total_match_value_by_client_oid:{}", e)).await;
                         }
                     }
                 }
                 Err(e) => {
-                    let _ = handle_db_error(&pool, exchange, "Failed delete_exit_sl_id_bot_by_client_oid:", e).await;
+                    let _ = handle_db_error(&pool, exchange, format!("Failed delete_exit_sl_id_bot_by_client_oid:{}", e)).await;
                 }
             }
 
@@ -490,7 +490,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         }
         Ok(None) => {}
         Err(e) => {
-            let _ = handle_db_error(&pool, exchange, "Failed get_bot_by_exit_sl_client_oid:", e).await;
+            let _ = handle_db_error(&pool, exchange, format!("Failed get_bot_by_exit_sl_client_oid:{}", e)).await;
         }
     }
 
@@ -503,24 +503,24 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 Some(filled_size) => match filled_size.parse::<f64>() {
                     Ok(filled_size_f64) => filled_size_f64,
                     Err(e) => {
-                        return handle_db_error(&pool, exchange, format!("Failed parse order.filled_size: {}", filled_size).as_str(), Box::new(e)).await;
+                        return handle_db_error(&pool, exchange, format!("Failed parse order.filled_size: {} {}", filled_size, e)).await;
                     }
                 },
                 None => {
-                    return handle_db_error(&pool, exchange, format!("Failed get filled_size from: {:?}", &order).as_str(), "".into()).await;
+                    return handle_db_error(&pool, exchange, format!("Failed get filled_size from: {:?}", &order)).await;
                 }
             };
 
             let new_balance = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                 Ok(Some(new_balance)) => new_balance,
-                Ok(None) => return handle_db_error(&pool, exchange, format!("No records found in events: {}", client_oid).as_str(), "".into()).await,
-                Err(e) => return handle_db_error(&pool, exchange, format!("Failed get_total_match_value_by_client_oid: {}", client_oid).as_str(), "".into()).await,
+                Ok(None) => return handle_db_error(&pool, exchange, format!("No records found in events: {}", client_oid)).await,
+                Err(e) => return handle_db_error(&pool, exchange, format!("Failed get_total_match_value_by_client_oid: {}", client_oid)).await,
             };
 
             match update_bot_balance_by_entry_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                 Ok(_) => {}
                 Err(e) => {
-                    return handle_db_error(&pool, exchange, "Failed update_bot_balance_by_entry_client_oid:", e).await;
+                    return handle_db_error(&pool, exchange, format!("Failed update_bot_balance_by_entry_client_oid:{}", e)).await;
                 }
             }
 
@@ -568,14 +568,14 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        return handle_db_error(&pool, exchange, "Failed update_exit_tp_client_oid_bot_by_entry_client_oid:", e).await;
+                        return handle_db_error(&pool, exchange, format!("Failed update_exit_tp_client_oid_bot_by_entry_client_oid:{}", e)).await;
                     }
                 }
                 // add exit_sl_client_oid by entry_id
                 match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        return handle_db_error(&pool, exchange, "Failed update_exit_sl_client_oid_bot_by_entry_client_oid:", e).await;
+                        return handle_db_error(&pool, exchange, format!("Failed update_exit_sl_client_oid_bot_by_entry_client_oid:{}", e)).await;
                     }
                 }
 
@@ -590,7 +590,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    return handle_db_error(&pool, exchange, "Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid:", e).await;
+                                    return handle_db_error(&pool, exchange, format!("Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid:{}", e)).await;
                                 }
                             },
                             None => {}
@@ -600,7 +600,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    return handle_db_error(&pool, exchange, "Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid", e).await;
+                                    return handle_db_error(&pool, exchange, format!("Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid:{}", e)).await;
                                 }
                             },
                             None => {}
@@ -614,7 +614,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
                                     Ok(_) => {}
                                     Err(e) => {
-                                        return handle_db_error(&pool, exchange, "Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e).await;
+                                        return handle_db_error(&pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
                                     }
                                 };
                             }
@@ -624,18 +624,18 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                return handle_db_error(&pool, exchange, "Failed delete_exit_sl_id_bot_by_client_oid", e).await;
+                                return handle_db_error(&pool, exchange, format!("Failed delete_exit_sl_id_bot_by_client_oid:{}", e)).await;
                             }
                         }
 
-                        let _ = handle_db_error(&pool, exchange, format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err).as_str(), "".into()).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err)).await;
                     }
                     (Ok(tp_resp), Err(sl_err)) => {
                         match tp_resp.data {
                             Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    return handle_db_error(&pool, exchange, "Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e).await;
+                                    return handle_db_error(&pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
                                 }
                             },
                             None => {}
@@ -648,26 +648,26 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             }
                         }
 
-                        let _ = handle_db_error(&pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err).as_str(), "".into()).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err)).await;
                     }
                     (Err(tp_err), Err(sl_err)) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err).as_str(), "".into()).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err)).await;
                         match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                return handle_db_error(&pool, exchange, "Failed delete_symbol_bot_by_exit_sl_client_oid", e).await;
+                                return handle_db_error(&pool, exchange, format!("Failed delete_symbol_bot_by_exit_sl_client_oid:{}", e)).await;
                             }
                         }
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                return handle_db_error(&pool, exchange, "Failed delete_exit_sl_id_bot_by_client_oid", e).await;
+                                return handle_db_error(&pool, exchange, format!("Failed delete_exit_sl_id_bot_by_client_oid:{}", e)).await;
                             }
                         }
                         match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                return handle_db_error(&pool, exchange, "Failed delete_exit_tp_id_bot_by_client_oid", e).await;
+                                return handle_db_error(&pool, exchange, format!("Failed delete_exit_tp_id_bot_by_client_oid:{}", e)).await;
                             }
                         }
                     }
@@ -717,14 +717,14 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        return handle_db_error(&pool, exchange, "Failed update_exit_tp_client_oid_bot_by_entry_client_oid", e).await;
+                        return handle_db_error(&pool, exchange, format!("Failed update_exit_tp_client_oid_bot_by_entry_client_oid:{}", e)).await;
                     }
                 }
                 // add exit_sl_client_oid by entry_id
                 match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        return handle_db_error(&pool, exchange, "Failed update_exit_sl_client_oid_bot_by_entry_client_oid", e).await;
+                        return handle_db_error(&pool, exchange, format!("Failed update_exit_sl_client_oid_bot_by_entry_client_oid:{}", e)).await;
                     }
                 }
 
@@ -738,7 +738,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    return handle_db_error(&pool, exchange, "Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid", e).await;
+                                    return handle_db_error(&pool, exchange, format!("Failed update_exit_tp_order_id_bot_by_exit_tp_client_oid:{}", e)).await;
                                 }
                             },
                             None => {}
@@ -748,7 +748,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    return handle_db_error(&pool, exchange, "Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid", e).await;
+                                    return handle_db_error(&pool, exchange, format!("Failed update_exit_sl_order_id_bot_by_exit_sl_client_oid:{}", e)).await;
                                 }
                             },
                             None => {}
@@ -761,7 +761,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    return handle_db_error(&pool, exchange, "Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e).await;
+                                    return handle_db_error(&pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
                                 }
                             },
                             None => {}
@@ -770,11 +770,11 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                return handle_db_error(&pool, exchange, "Failed delete_exit_sl_id_bot_by_client_oid", e).await;
+                                return handle_db_error(&pool, exchange, format!("Failed delete_exit_sl_id_bot_by_client_oid:{}", e)).await;
                             }
                         }
 
-                        let _ = handle_db_error(&pool, exchange, format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err).as_str(), "".into()).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err)).await;
                     }
                     (Ok(tp_resp), Err(sl_err)) => match tp_resp.data {
                         Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
@@ -782,35 +782,35 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                                     Ok(_) => {}
                                     Err(e) => {
-                                        return handle_db_error(&pool, exchange, "Failed delete_exit_tp_id_bot_by_client_oid", e).await;
+                                        return handle_db_error(&pool, exchange, format!("Failed delete_exit_tp_id_bot_by_client_oid:{}", e)).await;
                                     }
                                 }
-                                let _ = handle_db_error(&pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err).as_str(), "".into()).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err)).await;
                             }
                             Err(e) => {
-                                return handle_db_error(&pool, exchange, "Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e).await;
+                                return handle_db_error(&pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid", e)).await;
                             }
                         },
                         None => {}
                     },
                     (Err(tp_err), Err(sl_err)) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err).as_str(), "".into()).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err)).await;
                         match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                return handle_db_error(&pool, exchange, "Failed delete_symbol_bot_by_exit_sl_client_oid", e).await;
+                                return handle_db_error(&pool, exchange, format!("Failed delete_symbol_bot_by_exit_sl_client_oid:{}", e)).await;
                             }
                         }
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, "Failed delete_exit_sl_id_bot_by_client_oid:", e).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed delete_exit_sl_id_bot_by_client_oid:{}", e)).await;
                             }
                         }
                         match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let _ = handle_db_error(&pool, exchange, "Failed delete_exit_tp_id_bot_by_client_oid:", e).await;
+                                let _ = handle_db_error(&pool, exchange, format!("Failed delete_exit_tp_id_bot_by_client_oid:{}", e)).await;
                             }
                         }
                     }
@@ -821,13 +821,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             match set_null_entry_client_oid_by_entry_client_oid(pool, exchange, client_oid).await {
                 Ok(_) => {}
                 Err(e) => {
-                    let _ = handle_db_error(&pool, exchange, "Failed set_null_entry_client_oid_by_entry_client_oid: {}", e).await;
+                    let _ = handle_db_error(&pool, exchange, format!("Failed set_null_entry_client_oid_by_entry_client_oid: {}", e)).await;
                 }
             }
         }
         Ok(None) => {}
         Err(e) => {
-            let _ = handle_db_error(&pool, exchange, "Failed get_bot_by_entry_client_oid: {}", e).await;
+            let _ = handle_db_error(&pool, exchange, format!("Failed get_bot_by_entry_client_oid: {}", e)).await;
         }
     }
 
@@ -847,7 +847,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                     log::info!("Repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
                                 }
                                 Err(e) => {
-                                    let _ = handle_db_error(&pool, exchange, format!("Failed to repay liability:{} on asset:{}", token_liability_str, asset).as_str(), e).await;
+                                    let _ = handle_db_error(&pool, exchange, format!("Failed to repay liability:{} on asset:{} {}", token_liability_str, asset, e)).await;
                                     continue;
                                 }
                             }
@@ -857,7 +857,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                     log::info!("Partially repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
                                 }
                                 Err(e) => {
-                                    let _ = handle_db_error(&pool, exchange, format!("Failed to partially repay liability:{} on asset:{}", token_liability_str, asset).as_str(), e).await;
+                                    let _ = handle_db_error(&pool, exchange, format!("Failed to partially repay liability:{} on asset:{} {}", token_liability_str, asset, e)).await;
                                     continue;
                                 }
                             }
@@ -865,16 +865,16 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                     }
                 }
                 (Err(e), _) => {
-                    let _ = handle_db_error(&pool, exchange, format!("Failed to parse token_liability_str:{}", token_liability_str).as_str(), Box::new(e)).await;
+                    let _ = handle_db_error(&pool, exchange, format!("Failed to parse token_liability_str:{} {}", token_liability_str, e)).await;
                     continue;
                 }
                 (_, Err(e)) => {
-                    let _ = handle_db_error(&pool, exchange, format!("Failed to parse asset_info.available:{}", asset_info.available).as_str(), Box::new(e)).await;
+                    let _ = handle_db_error(&pool, exchange, format!("Failed to parse asset_info.available:{} {}", asset_info.available, e)).await;
                     continue;
                 }
             },
             None => {
-                let _ = handle_db_error(&pool, exchange, format!("Failed get asset:{} from:{:.?}", asset, position.asset_list).as_str(), "".into()).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed get asset:{} from:{:.?}", asset, position.asset_list)).await;
                 continue;
             }
         }
@@ -882,7 +882,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
         Ok(_) => {}
         Err(e) => {
-            return handle_db_error(&pool, exchange, "Failed to upsert margin account state", e).await;
+            return handle_db_error(&pool, exchange, format!("Failed to upsert margin account state:{}", e)).await;
         }
     }
 
@@ -890,7 +890,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
         match upsert_position_debt(pool, exchange, symbol, amount).await {
             Ok(_) => {}
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, "Failed to insert debt margin account state", e).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed to insert debt margin account state:{}", e)).await;
 
                 continue;
             }
@@ -900,7 +900,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
         match upsert_position_asset(pool, exchange, symbol, &symbol_info.total, &symbol_info.available, &symbol_info.hold).await {
             Ok(_) => {}
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, "Failed to insert asset margin account state:", e).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed to insert asset margin account state:{}", e)).await;
                 continue;
             }
         }
@@ -916,7 +916,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
         None => return Ok(()),
     }
 
-    let _ = handle_db_error(&pool, exchange, format!("Got error on stop order : {:?}", order).as_str(), "".into()).await;
+    let _ = handle_db_error(&pool, exchange, format!("Got error on stop order : {:?}", order)).await;
 
     const MAX_RETRIES: u32 = 1000;
     let mut attempt = 0;
@@ -944,36 +944,28 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                         "buy" => match funds_clone {
                             Some(funds) => make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, funds, "market", true, false).await,
                             None => {
-                                let _ = handle_db_error(
-                                    &pool,
-                                    exchange,
-                                    format!("Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone,).as_str(),
-                                    "".into(),
-                                )
-                                .await;
+                                let _ =
+                                    handle_db_error(&pool, exchange, format!("Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone,))
+                                        .await;
                                 continue;
                             }
                         },
                         "sell" => match size_clone {
                             Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, size, "market", true, false).await,
                             None => {
-                                let _ = handle_db_error(
-                                    &pool,
-                                    exchange,
-                                    format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,).as_str(),
-                                    "".into(),
-                                )
-                                .await;
+                                let _ =
+                                    handle_db_error(&pool, exchange, format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,))
+                                        .await;
                                 continue;
                             }
                         },
                         _ => {
-                            let _ = handle_db_error(&pool, exchange, format!("Fail match side_clone:{}", side_ref).as_str(), "".into()).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Fail match side_clone:{}", side_ref)).await;
                             continue;
                         }
                     },
                     Err(e) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}", order_id_ref, new_exit_client_oid).as_str(), e).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed save bot info: order_id_clone:{} new_exit_sl_client_oid:{}", order_id_ref, new_exit_client_oid), e).await;
                         continue;
                     }
                 }
@@ -988,8 +980,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                 let _ = handle_db_error(
                                     &pool,
                                     exchange,
-                                    format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone).as_str(),
-                                    "".into(),
+                                    format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone),
                                 )
                                 .await;
                                 continue;
@@ -1001,26 +992,25 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                 let _ = handle_db_error(
                                     &pool,
                                     exchange,
-                                    format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone).as_str(),
-                                    "".into(),
+                                    format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone),
                                 )
                                 .await;
                                 continue;
                             }
                         },
                         _ => {
-                            let _ = handle_db_error(&pool, exchange, format!("Fail match side_clone:{}", side_ref).as_str(), "".into()).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Fail match side_clone:{}", side_ref)).await;
                             continue;
                         }
                     },
                     Err(e) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed save bot info: order_id_clone:{} new_exit_tp_client_oid:{}", order_id_ref, new_exit_client_oid).as_str(), e).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed save bot info: order_id_clone:{} new_exit_tp_client_oid:{} {}", order_id_ref, new_exit_client_oid, e)).await;
                         continue;
                     }
                 }
             }
             _ => {
-                let _ = handle_db_error(&pool, exchange, format!("Fail match stop_clone:{}", stop_ref).as_str(), "".into()).await;
+                let _ = handle_db_error(&pool, exchange, format!("Fail match stop_clone:{}", stop_ref)).await;
                 continue;
             }
         };
@@ -1030,7 +1020,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                 log::info!("✅ Order re-placed: {} {} (attempt {}/{})", order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES);
                 break Ok(());
             }
-            Err(e) => return handle_db_error(&pool, exchange, format!("❌ Order failed: {} {} (attempt {}/{})", order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES).as_str(), e).await,
+            Err(e) => return handle_db_error(&pool, exchange, format!("❌ Order failed: {} {} (attempt {}/{}) {}", order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES, e)).await,
         }
     }
 }
@@ -1044,9 +1034,9 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(_) => {
                             return Ok(());
                         }
-                        Err(e) => return handle_db_error(&pool, exchange, "Failed insert_db_event", e).await,
+                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed insert_db_event:{}", e)).await,
                     },
-                    Err(e) => return handle_db_error(&pool, exchange, format!("Failed to serialize event {:?}:", data).as_str(), Box::new(e)).await,
+                    Err(e) => return handle_db_error(&pool, exchange, format!("Failed to serialize event {:?}:{}", data, e)).await,
                 };
             }
             KuCoinMessage::Message(data) => {
@@ -1056,9 +1046,9 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             Ok(_) => {
                                 return Ok(());
                             }
-                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed insert_db_balance data: {:.?}", data.data).as_str(), e).await,
+                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed insert_db_balance data: {:.?} {}", data.data, e)).await,
                         },
-                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message {:?}", data.data).as_str(), Box::new(e)).await,
+                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
                     }
                 } else if data.topic == "/spotMarket/tradeOrdersV2" {
                     match OrderData::deserialize(&data.data) {
@@ -1066,17 +1056,17 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             Ok(_) => {
                                 return Ok(());
                             }
-                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed handle_trade_order_event data: {:.?}", data.data).as_str(), e).await,
+                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed handle_trade_order_event data: {:.?} {}", data.data, e)).await,
                         },
-                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message {:?}", data.data).as_str(), Box::new(e)).await,
+                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
                     }
                 } else if data.topic == "/spotMarket/advancedOrders" {
                     match AdvancedOrders::deserialize(&data.data) {
                         Ok(order) => match handle_advanced_orders(order, pool, exchange).await {
                             Ok(_) => Ok(()),
-                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed handle_advanced_orders data: {:.?}", data.data).as_str(), e).await,
+                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed handle_advanced_orders data: {:.?} {}", data.data, e)).await,
                         },
-                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message {:?}", data.data).as_str(), Box::new(e)).await,
+                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
                     }
                 } else if data.topic == "/margin/position" {
                     match PositionData::deserialize(&data.data) {
@@ -1084,12 +1074,12 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             Ok(_) => {
                                 return Ok(());
                             }
-                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed handle_position_event data:{:.?}", data.data).as_str(), e).await,
+                            Err(e) => return handle_db_error(&pool, exchange, format!("Failed handle_position_event data:{:.?} {}", data.data, e)).await,
                         },
-                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message {:?}", data.data).as_str(), Box::new(e)).await,
+                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
                     }
                 } else {
-                    return handle_db_error(&pool, exchange, format!("Unknown topic: {}", data.topic).as_str(), "".into()).await;
+                    return handle_db_error(&pool, exchange, format!("Unknown topic: {}", data.topic)).await;
                 }
             }
             KuCoinMessage::Ack(data) => {
@@ -1098,15 +1088,15 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(_) => {
                             return Ok(());
                         }
-                        Err(e) => return handle_db_error(&pool, exchange, "Failed insert_db_event", e).await,
+                        Err(e) => return handle_db_error(&pool, exchange, format!("Failed insert_db_event:{}", e)).await,
                     },
-                    Err(e) => return handle_db_error(&pool, exchange, format!("Failed to serialize event:{:?}", data).as_str(), Box::new(e)).await,
+                    Err(e) => return handle_db_error(&pool, exchange, format!("Failed to serialize event:{:?} {}", data, e)).await,
                 };
             }
-            KuCoinMessage::Error(data) => return handle_db_error(&pool, exchange, format!("Got error in WS {:?}", data).as_str(), "".into()).await,
-            KuCoinMessage::Unknown => return handle_db_error(&pool, exchange, "Unknown WS message type", "".into()).await,
+            KuCoinMessage::Error(data) => return handle_db_error(&pool, exchange, format!("Got error in WS {:?}", data)).await,
+            KuCoinMessage::Unknown => return handle_db_error(&pool, exchange, format!("Unknown WS message type")).await,
         },
-        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message:{}", msg).as_str(), Box::new(e)).await,
+        Err(e) => return handle_db_error(&pool, exchange, format!("Failed to parse message:{}", msg), Box::new(e)).await,
     }
 }
 
@@ -1124,11 +1114,11 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         let tradeable_symbol: String = match get_random_symbol(pool, exchange).await {
             Ok(Some(tradeable_symbol)) => tradeable_symbol,
             Ok(None) => {
-                let _ = handle_db_error(&pool, exchange, "Failed get_random_symbol: None", "".into()).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed get_random_symbol: None")).await;
                 continue;
             }
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, "Failed get_random_symbol:", e).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed get_random_symbol:{}", e)).await;
 
                 continue;
             }
@@ -1137,11 +1127,11 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable_symbol).await {
             Ok(Some(symbol_info)) => symbol_info,
             Ok(None) => {
-                let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", tradeable_symbol).as_str(), "".into()).await;
+                let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", tradeable_symbol)).await;
                 continue;
             }
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, format!("Fail fetch_symbol_info_by_symbol: {}", &tradeable_symbol).as_str(), e).await;
+                let _ = handle_db_error(&pool, exchange, format!("Fail fetch_symbol_info_by_symbol: {} {}", &tradeable_symbol, e)).await;
                 continue;
             }
         };
@@ -1151,7 +1141,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         match update_bot_entry_client_oid_by_id(pool, exchange, Some(&tradeable_symbol), Some(&entry_client_oid), trade_bot_id).await {
             Ok(_) => {}
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, format!("Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}", entry_client_oid, trade_bot_id, e).as_str(), e).await;
+                let _ = handle_db_error(&pool, exchange, format!("Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}", entry_client_oid, trade_bot_id, e)).await;
                 continue;
             }
         }
@@ -1161,7 +1151,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
                     Ok(base_increment) => base_increment,
                     Err(e) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed parse base_increment: {}", symbol_info.base_increment).as_str(), Box::new(e)).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e)).await;
                         continue;
                     }
                 };
@@ -1169,12 +1159,12 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     Ok(token_price_str) => match token_price_str.parse::<f64>() {
                         Ok(token_price) => token_price,
                         Err(e) => {
-                            let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", token_price_str).as_str(), Box::new(e)).await;
+                            let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {} {}", token_price_str, e)).await;
                             continue;
                         }
                     },
                     Err(e) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed get price: {}", tradeable_symbol).as_str(), e).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed get price: {} {}", tradeable_symbol, e)).await;
                         continue;
                     }
                 };
@@ -1185,7 +1175,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
                     Ok(quote_increment) => quote_increment,
                     Err(e) => {
-                        let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_increment: {}", symbol_info.quote_increment).as_str(), Box::new(e)).await;
+                        let _ = handle_db_error(&pool, exchange, format!("Failed parse quote_increment: {} {}", symbol_info.quote_increment, e)).await;
                         continue;
                     }
                 };
@@ -1204,9 +1194,9 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
             Err(e) => {
                 match update_bot_entry_client_oid_by_id(pool, exchange, None, None, trade_bot_id).await {
                     Ok(_) => {}
-                    Err(e) => return handle_db_error(&pool, exchange, "Failed update_bot_entry_client_oid_by_id", e).await,
+                    Err(e) => return handle_db_error(&pool, exchange, format!("Failed update_bot_entry_client_oid_by_id:{}", e)).await,
                 }
-                let _ = handle_db_error(&pool, exchange, format!("❌ Order failed (attempt {}/{}): {}", attempt, MAX_RETRIES, tradeable_symbol).as_str(), e).await;
+                let _ = handle_db_error(&pool, exchange, format!("❌ Order failed (attempt {}/{}): {} {}", attempt, MAX_RETRIES, tradeable_symbol, e)).await;
                 continue;
             }
         }
@@ -1254,8 +1244,7 @@ pub async fn make_hf_funds_margin_order(
                 format!(
                     "Failed insert_db_msgsend: exchange:{} client_oid:{} side:{} symbol:{} funds:{} type:{} auto_borrow:{} auto_repay:{}",
                     exchange, client_oid, side, symbol, funds, type_, auto_borrow, auto_repay
-                )
-                .as_str(),
+                ),
                 e,
             )
             .await;
@@ -1277,7 +1266,7 @@ pub async fn make_hf_funds_margin_order(
     match add_api_v3_hf_margin_order(msg.clone()).await {
         Ok(data) => Ok(data),
         Err(e) => {
-            let _ = handle_db_error(&pool, exchange, "Failed to send order", e).await;
+            let _ = handle_db_error(&pool, exchange, format!("Failed to send order:{}", e)).await;
             return Err("".into());
         }
     }
@@ -1308,8 +1297,7 @@ pub async fn make_hf_size_margin_order(
                 format!(
                     "Failed insert_db_msgsend: exchange:{} client_oid:{} side:{} symbol:{} size:{} type:{} auto_borrow:{} auto_repay:{}",
                     exchange, client_oid, side, symbol, size, type_, auto_borrow, auto_repay
-                )
-                .as_str(),
+                ),
                 e,
             )
             .await;
