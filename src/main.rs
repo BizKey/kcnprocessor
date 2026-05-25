@@ -262,13 +262,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         Some(Ok(Message::Close(close))) => {
                             let msg: String = format!("Connection closed by server: {:?}", close);
                             log::error!("{}", msg);
-                            // sent error to pg
+                            match insert_db_error(&pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    log::error!("{}", msg);
+                                }
+                            }
                             break;
                         }
                         Some(Err(e)) => {
                             let msg: String = format!("WebSocket read error: {}", e);
                             log::error!("{}", msg);
-                            // sent error to pg
+                            match insert_db_error(&pool, exchange, &msg).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
+                                    log::error!("{}", msg);
+                                }
+                            }
                             break;
                         }
                         Some(Ok(_)) => {}
