@@ -33,7 +33,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let exchange = "kucoin";
 
-    let pool = PgPoolOptions::new().max_connections(40).connect(&database_url).await.expect("Failed to create pool");
+    let pool = PgPoolOptions::new()
+        .max_connections(40)
+        .min_connections(5)
+        .acquire_timeout(Duration::from_secs(10))
+        .idle_timeout(Duration::from_secs(600))
+        .max_lifetime(Duration::from_secs(1800))
+        .connect(&database_url)
+        .await
+        .expect("Failed to create pool");
 
     // clear orders ids for bots
     match clear_orders_ids_for_bots(&pool, exchange, "1").await {
