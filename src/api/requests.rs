@@ -82,8 +82,7 @@ impl KuCoinClient {
     fn generate_passphrase_signature(&self) -> String {
         let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes()).expect("HMAC can take key of any size");
         mac.update(self.api_passphrase.as_bytes());
-        let result = mac.finalize();
-        base64::engine::general_purpose::STANDARD.encode(result.into_bytes())
+        base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
 
     pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
