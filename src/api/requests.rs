@@ -291,16 +291,16 @@ impl KuCoinClient {
             })
             .unwrap_or_default();
 
-        let url = if !query_string.is_empty() { format!("{}{}?{}", self.base_url, endpoint, query_string) } else { format!("{}{}", self.base_url, endpoint) };
+        let url: String = if !query_string.is_empty() { format!("{}{}?{}", self.base_url, endpoint, query_string) } else { format!("{}{}", self.base_url, endpoint) };
 
         let mut request_builder = self.client.request(method.clone(), &url);
 
         if authenticated {
-            let body_str = body.as_ref().map(|b| serde_json::to_string(b).map_err(|e| format!("JSON serialization error: {}", e))).transpose()?.unwrap_or_default();
+            let body_str: String = body.as_ref().map(|b| serde_json::to_string(b).map_err(|e| format!("JSON serialization error: {}", e))).transpose()?.unwrap_or_default();
 
-            let signature = self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str);
+            let signature: String = self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str);
 
-            let passphrase_signature = self.generate_passphrase_signature();
+            let passphrase_signature: String = self.generate_passphrase_signature();
 
             request_builder = request_builder
                 .header("KC-API-KEY", &self.api_key)

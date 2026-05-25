@@ -45,17 +45,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // clear orders ids for bots
     match clear_orders_ids_for_bots(&pool, exchange, "1").await {
-        Ok(_) => {
-            log::info!("clear orders ids bots")
-        }
+        Ok(_) => log::info!("clear orders ids bots"),
         Err(e) => return handle_db_error(&pool, exchange, format!("Failed clear all orders_ids for bots:{}", e)).await,
     }
 
     // cancel all stop orders
     match batch_cancel_stop_orders().await {
-        Ok(_) => {
-            log::info!("batch cancel stop orders")
-        }
+        Ok(_) => log::info!("batch cancel stop orders"),
         Err(e) => return handle_db_error(&pool, exchange, format!("Failed batch cancel stop orders:{}", e)).await,
     }
     // repay all liability assets and sell
