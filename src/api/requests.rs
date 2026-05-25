@@ -407,3 +407,97 @@ pub async fn create_repay_order(currency: &str, size: &str) -> Result<(), Box<dy
         Err(e) => Err(e),
     }
 }
+
+// В конце файла src/api/requests.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::env;
+
+    #[test]
+    fn test_signature_consistency() {
+        let client = KuCoinClient {
+            client: Client::new(),
+            api_key: "test_key".to_string(),
+            api_secret: "test_secret".to_string(),
+            api_passphrase: "test_pass".to_string(),
+            base_url: "https://api.kucoin.com".to_string(),
+        };
+
+        let body = json!({
+            "clientOid": "test-123",
+            "side": "buy",
+            "symbol": "BTC-USDT",
+            "type": "market"
+        });
+
+        let body_str = serde_json::to_string(&body).unwrap();
+
+        let signature = client.generate_signature(1234567890, "POST", "/api/v3/hf/margin/order", "", &body_str);
+
+        assert!(!signature.is_empty(), "Signature should not be empty");
+        println!("Generated signature: {}", signature);
+
+        let decoded = base64::engine::general_purpose::STANDARD.decode(&signature);
+        assert!(decoded.is_ok(), "Signature should be valid base64");
+    }
+
+    #[test]
+    fn test_signature_changes_with_body() {
+        let client = KuCoinClient {
+            client: Client::new(),
+            api_key: "test_key".to_string(),
+            api_secret: "test_secret".to_string(),
+            api_passphrase: "test_pass".to_string(),
+            base_url: "https://api.kucoin.com".to_string(),
+        };
+
+        let body1 = json!({"amount": "100"});
+        let body2 = json!({"amount": "200"});
+
+        let body_str1 = serde_json::to_string(&body1).unwrap();
+        let body_str2 = serde_json::to_string(&body2).unwrap();
+
+        let signature1 = client.generate_signature(1234567890, "POST", "/api/test", "", &body_str1);
+        let signature2 = client.generate_signature(1234567890, "POST", "/api/test", "", &body_str2);
+
+        assert_ne!(signature1, signature2);
+    }
+
+    #[test]
+    fn test_empty_body_signature() {
+        let client = KuCoinClient {
+            client: Client::new(),
+            api_key: "test_key".to_string(),
+            api_secret: "test_secret".to_string(),
+            api_passphrase: "test_pass".to_string(),
+            base_url: "https://api.kucoin.com".to_string(),
+        };
+
+        let signature_with_empty = client.generate_signature(1234567890, "GET", "/api/test", "", "");
+
+        let signature_with_none = client.generate_signature(1234567890, "GET", "/api/test", "", "");
+
+        assert_eq!(signature_with_empty, signature_with_none);
+    }
+
+    #[test]
+    fn test_signature_with_query_params() {
+        let client = KuCoinClient {
+            client: Client::new(),
+            api_key: "test_key".to_string(),
+            api_secret: "test_secret".to_string(),
+            api_passphrase: "test_pass".to_string(),
+            base_url: "https://api.kucoin.com".to_string(),
+        };
+
+        let query = "symbol=BTC-USDT&limit=10";
+        let body_str = "";
+
+        let signature = client.generate_signature(1234567890, "GET", "/api/v1/market/orderbook/level1", query, body_str);
+
+        assert!(!signature.is_empty());
+        println!("Signature with query params: {}", signature);
+    }
+}
