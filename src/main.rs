@@ -98,9 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string()))
             .await
         {
-            Ok(_) => {
-                log::info!("Subscribe:/spotMarket/tradeOrdersV2")
-            }
+            Ok(_) => log::info!("Subscribe:/spotMarket/tradeOrdersV2"),
             Err(e) => {
                 let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e)).await;
                 continue;
@@ -111,9 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string()))
             .await
         {
-            Ok(_) => {
-                log::info!("Subscribe:/spotMarket/advancedOrders")
-            }
+            Ok(_) => log::info!("Subscribe:/spotMarket/advancedOrders"),
             Err(e) => {
                 let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e)).await;
                 continue;
@@ -122,9 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         match event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await
         {
-            Ok(_) => {
-                log::info!("Subscribe:/account/balance")
-            }
+            Ok(_) => log::info!("Subscribe:/account/balance"),
             Err(e) => {
                 let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/account/balance:{}", e)).await;
 
@@ -134,9 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         match event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await
         {
-            Ok(_) => {
-                log::info!("Subscribe:/margin/position")
-            }
+            Ok(_) => log::info!("Subscribe:/margin/position"),
             Err(e) => {
                 let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/margin/position:{}", e)).await;
                 continue;
