@@ -62,9 +62,7 @@ impl KuCoinClient {
     }
 
     fn generate_signature(&self, timestamp: u64, method: &str, endpoint: &str, query_string: &str, body: &str) -> String {
-        let method_upper = method.to_uppercase();
-
-        let mut str_to_sign = format!("{}{}{}", timestamp, method_upper, endpoint);
+        let mut str_to_sign = format!("{}{}{}", timestamp, method.to_uppercase(), endpoint);
 
         if !query_string.is_empty() {
             str_to_sign.push('?');
