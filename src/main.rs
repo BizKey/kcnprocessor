@@ -4,7 +4,7 @@ mod api {
     pub mod requests;
 }
 mod logic;
-use crate::api::db::{clear_orders_ids_for_bots, insert_db_error};
+use crate::api::db::{clear_orders_ids_for_bots, handle_db_error, insert_db_error};
 
 use crate::api::requests::{batch_cancel_stop_orders, get_private_ws_url};
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
@@ -40,18 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(_) => {
             log::info!("clear orders ids bots")
         }
-        Err(e) => {
-            let msg: String = format!("Failed clear all orders_ids for bots: {}", e);
-            log::error!("{}", msg);
-            match insert_db_error(&pool, exchange, &msg).await {
-                Ok(_) => {}
-                Err(e) => {
-                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    log::error!("{}", msg);
-                }
-            }
-            return Err(e);
-        }
+        Err(e) => return handle_db_error(&pool, exchange, "Failed clear all orders_ids for bots:", e).await,
     }
 
     // cancel all stop orders
@@ -59,18 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(_) => {
             log::info!("batch cancel stop orders")
         }
-        Err(e) => {
-            let msg: String = format!("Failed batch cancel stop orders: {}", e);
-            log::error!("{}", msg);
-            match insert_db_error(&pool, exchange, &msg).await {
-                Ok(_) => {}
-                Err(e) => {
-                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    log::error!("{}", msg);
-                }
-            }
-            return Err(e);
-        }
+        Err(e) => return handle_db_error(&pool, exchange, "Failed batch cancel stop orders:", e).await,
     }
     // repay all liability assets and sell
     loop {
@@ -78,18 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match auto_clean_account(&pool, exchange).await {
             Ok(true) => break,
             Ok(false) => {}
-            Err(e) => {
-                let msg: String = format!("Failed auto clean account: {}", e);
-                log::error!("{}", msg);
-                match insert_db_error(&pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
-                return Err(e);
-            }
+            Err(e) => return handle_db_error(&pool, exchange, "Failed auto clean account:", e).await,
         };
     }
 

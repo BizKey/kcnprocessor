@@ -734,3 +734,15 @@ pub async fn upsert_position_asset(
         Err(e) => Err(e.into()),
     }
 }
+pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, context: &str, err: Box<dyn std::error::Error + Send + Sync>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let msg = format!("{}: {}", context, err);
+    log::error!("{}", msg);
+
+    match insert_db_error(pool, exchange, &msg).await {
+        Ok(_) => {}
+        Err(db_err) => {
+            log::error!("Failed to insert error to DB: {} | Original: {}", db_err, msg);
+        }
+    }
+    Err(err)
+}
