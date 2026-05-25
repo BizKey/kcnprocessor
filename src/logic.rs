@@ -176,30 +176,16 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 }
                             },
                             None => {
-                                let msg: String = format!("min_funds is None for symbol {}", trade_symbol);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
+                                let _ = handle_db_error(&pool, exchange, format!("min_funds is None for symbol {}", trade_symbol).as_str(), "".into()).await;
+
                                 continue;
                             }
                         };
                         let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
                             Ok(base_min_size) => base_min_size,
                             Err(e) => {
-                                let msg: String = format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
+                                let _ = handle_db_error(&pool, exchange, format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e).as_str(), Box::new(e)).await;
+
                                 continue;
                             }
                         };
@@ -223,16 +209,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed make_hf_funds_margin_order: {}", e);
-                                    log::error!("{}", msg);
-
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                        }
-                                    }
+                                    let _ = handle_db_error(&pool, exchange, "Failed make_hf_funds_margin_order:", e).await;
                                     continue;
                                 }
                             }
@@ -240,15 +217,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, format_assert(token_funds, quote_increment), "market", false, false).await {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    let msg: String = format!("Failed make_hf_funds_margin_order: {}", e);
-                                    log::error!("{}", msg);
-                                    match insert_db_error(pool, exchange, &msg).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                            log::error!("{}", msg);
-                                        }
-                                    }
+                                    let _ = handle_db_error(&pool, exchange, "Failed make_hf_funds_margin_order:", e).await;
                                     continue;
                                 }
                             }
@@ -263,27 +232,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                         Ok(Some(symbol_info)) => symbol_info,
                         Ok(None) => {
-                            let msg: String = format!("Symbol info not found for {}", trade_symbol);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
+                            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol).as_str(), "".into()).await;
+
                             continue;
                         }
                         Err(e) => {
-                            let msg: String = format!("Symbol info not found for {} {}", trade_symbol, e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
+                            let _ = handle_db_error(&pool, exchange, format!("Symbol info not found for {}", trade_symbol).as_str(), e).await;
                             continue;
                         }
                     };
@@ -291,15 +245,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
                         Ok(base_increment) => base_increment,
                         Err(e) => {
-                            let msg: String = format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
+                            let _ = handle_db_error(&pool, exchange, format!("Failed parse base_increment: {}", symbol_info.base_increment).as_str(), Box::new(e)).await;
                             continue;
                         }
                     };
@@ -308,28 +254,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Ok(token_price_str) => match token_price_str.parse::<f64>() {
                             Ok(token_price) => token_price,
                             Err(e) => {
-                                let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
+                                let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", token_price_str).as_str(), Box::new(e)).await;
                                 continue;
                             }
                         },
                         Err(e) => {
-                            let msg: String = format!("Failed get price: {} {}", trade_symbol, e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
+                            let _ = handle_db_error(&pool, exchange, format!("Failed get price: {}", trade_symbol).as_str(), e).await;
                             continue;
                         }
                     };
@@ -386,18 +316,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             log::info!("{:.?}", order);
         }
         Err(e) => {
-            let msg: String = format!("Failed insert_db_orderevent: {:.?} {}", order, e);
-            log::error!("{}", msg);
-            match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    log::error!("{}", msg);
-                    return Err(e);
-                }
-            }
+            return handle_db_error(&pool, exchange, format!("Failed insert_db_orderevent: {:.?}", order).as_str(), e).await;
         }
     }
 
@@ -459,18 +378,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     let price_increment: f64 = match symbol_info.price_increment.parse::<f64>() {
         Ok(price_increment) => price_increment,
         Err(e) => {
-            let msg: String = format!("Failed parse price_increment: {} {}", symbol_info.price_increment, e);
-            log::error!("{}", msg);
-            match insert_db_error(pool, exchange, &msg).await {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                    log::error!("{}", msg);
-                    return Err(e);
-                }
-            }
+            return handle_db_error(&pool, exchange, format!("Failed parse price_increment: {}", symbol_info.price_increment).as_str(), Box::new(e)).await;
         }
     };
     let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
@@ -542,18 +450,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 }
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed parse balance: {} {}", bot.balance, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {
-                                        return Ok(());
-                                    }
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Err(e);
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, format!("Failed parse balance: {}", bot.balance).as_str(), Box::new(e)).await;
                             }
                         }
                     } else if order.side == "sell" {
@@ -686,33 +583,11 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 Some(filled_size) => match filled_size.parse::<f64>() {
                     Ok(filled_size_f64) => filled_size_f64,
                     Err(e) => {
-                        let msg: String = format!("Failed parse order.filled_size: {} {}", filled_size, e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                                return Ok(());
-                            }
-                        }
+                        return handle_db_error(&pool, exchange, format!("Failed parse order.filled_size: {}", filled_size).as_str(), Box::new(e)).await;
                     }
                 },
                 None => {
-                    let msg: String = format!("Failed get filled_size from: {:?}", &order);
-                    log::error!("{}", msg);
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {
-                            return Ok(());
-                        }
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                            return Err(e);
-                        }
-                    }
+                    return handle_db_error(&pool, exchange, format!("Failed get filled_size from: {:?}", &order).as_str(), "".into()).await;
                 }
             };
 
@@ -1149,28 +1024,12 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                     continue;
                 }
                 (_, Err(e)) => {
-                    let msg: String = format!("Failed to parse asset_info.available:{}  {}", asset_info.available, e);
-                    log::error!("{}", msg);
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                        }
-                    }
+                    let _ = handle_db_error(&pool, exchange, format!("Failed to parse asset_info.available:{}", asset_info.available).as_str(), Box::new(e)).await;
                     continue;
                 }
             },
             None => {
-                let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, format!("Failed get asset:{} from:{:.?}", asset, position.asset_list).as_str(), "".into()).await;
                 continue;
             }
         }
@@ -1264,15 +1123,13 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                         "sell" => match size_clone {
                             Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, size, "market", true, false).await,
                             None => {
-                                let msg: String = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                    }
-                                }
+                                let _ = handle_db_error(
+                                    &pool,
+                                    exchange,
+                                    format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,).as_str(),
+                                    "".into(),
+                                )
+                                .await;
                                 continue;
                             }
                         },
@@ -1409,18 +1266,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Err(e) => return handle_db_error(&pool, exchange, "Failed insert_db_event", e).await,
                     },
                     Err(e) => {
-                        let msg: String = format!("Failed to serialize event {:?}: {}", data, e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
-                        return Err(e.into());
+                        return handle_db_error(&pool, exchange, format!("Failed to serialize event {:?}:", data).as_str(), Box::new(e)).await;
                     }
                 };
             }
@@ -1434,19 +1280,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             Err(e) => return handle_db_error(&pool, exchange, format!("Failed insert_db_balance data: {:.?}", data.data).as_str(), e).await,
                         },
                         Err(e) => {
-                            // sent balance parse error to pg
-                            let msg: String = format!("Failed to parse message {:?} {}", data.data, e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {
-                                    return Ok(());
-                                }
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                    return Err(e);
-                                }
-                            }
+                            return handle_db_error(&pool, exchange, format!("Failed to parse message {:?}", data.data).as_str(), Box::new(e)).await;
                         }
                     }
                 } else if data.topic == "/spotMarket/tradeOrdersV2" {
@@ -1502,17 +1336,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             }
                         },
                         Err(e) => {
-                            // sent order error to pg
-                            let msg: String = format!("Failed to parse message {:?} {}", data.data, e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => Ok(()),
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                    return Err(e);
-                                }
-                            }
+                            return handle_db_error(&pool, exchange, format!("Failed to parse message {:?}", data.data).as_str(), Box::new(e)).await;
                         }
                     }
                 } else if data.topic == "/margin/position" {
@@ -1522,46 +1346,15 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 return Ok(());
                             }
                             Err(e) => {
-                                let msg: String = format!("Failed handle_position_event data:{:.?} {}", data.data, e);
-                                log::error!("{}", msg);
-                                match insert_db_error(pool, exchange, &msg).await {
-                                    Ok(_) => Ok(()),
-                                    Err(e) => {
-                                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                        log::error!("{}", msg);
-                                        return Err(e);
-                                    }
-                                }
+                                return handle_db_error(&pool, exchange, format!("Failed handle_position_event data:{:.?}", data.data).as_str(), e).await;
                             }
                         },
                         Err(e) => {
-                            // sent order error to pg
-                            let msg: String = format!("Failed to parse message {:?} {}", data.data, e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {
-                                    return Ok(());
-                                }
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                    return Err(e);
-                                }
-                            }
+                            return handle_db_error(&pool, exchange, format!("Failed to parse message {:?}", data.data).as_str(), Box::new(e)).await;
                         }
                     }
                 } else {
-                    let msg: String = format!("Unknown topic: {}", data.topic);
-                    log::error!("{}", msg);
-                    // sent error to pg
-                    match insert_db_error(pool, exchange, &msg).await {
-                        Ok(_) => Ok(()),
-                        Err(e) => {
-                            let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                            log::error!("{}", msg);
-                            return Err(e);
-                        }
-                    }
+                    return handle_db_error(&pool, exchange, format!("Unknown topic: {}", data.topic).as_str(), "".into()).await;
                 }
             }
             KuCoinMessage::Ack(data) => {
@@ -1649,16 +1442,8 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         let tradeable_symbol: String = match get_random_symbol(pool, exchange).await {
             Ok(Some(tradeable_symbol)) => tradeable_symbol,
             Ok(None) => {
-                let msg: String = "Failed get_random_symbol: None".to_string();
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
-                return Ok(()); // Or Error?
+                let _ = handle_db_error(&pool, exchange, "Failed get_random_symbol: None", "".into()).await;
+                continue;
             }
             Err(e) => {
                 let _ = handle_db_error(&pool, exchange, "Failed get_random_symbol:", e).await;
@@ -1684,15 +1469,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         match update_bot_entry_client_oid_by_id(pool, exchange, Some(&tradeable_symbol), Some(&entry_client_oid), trade_bot_id).await {
             Ok(_) => {}
             Err(e) => {
-                let msg: String = format!("Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}", entry_client_oid, trade_bot_id, e);
-                log::error!("{}", msg);
-                match insert_db_error(pool, exchange, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                        log::error!("{}", msg);
-                    }
-                }
+                let _ = handle_db_error(&pool, exchange, format!("Failed save bot info: entry_client_oid:{} trade_bot.id:{}, {}", entry_client_oid, trade_bot_id, e).as_str(), e).await;
                 continue;
             }
         }
@@ -1702,15 +1479,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
                     Ok(base_increment) => base_increment,
                     Err(e) => {
-                        let msg: String = format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
+                        let _ = handle_db_error(&pool, exchange, format!("Failed parse base_increment: {}", symbol_info.base_increment).as_str(), Box::new(e)).await;
                         continue;
                     }
                 };
@@ -1718,28 +1487,12 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     Ok(token_price_str) => match token_price_str.parse::<f64>() {
                         Ok(token_price) => token_price,
                         Err(e) => {
-                            let msg: String = format!("Failed parse price: {} {}", token_price_str, e);
-                            log::error!("{}", msg);
-                            match insert_db_error(pool, exchange, &msg).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                    log::error!("{}", msg);
-                                }
-                            }
+                            let _ = handle_db_error(&pool, exchange, format!("Failed parse price: {}", token_price_str).as_str(), Box::new(e)).await;
                             continue;
                         }
                     },
                     Err(e) => {
-                        let msg: String = format!("Failed get price: {} {}", tradeable_symbol, e);
-                        log::error!("{}", msg);
-                        match insert_db_error(pool, exchange, &msg).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                let msg: String = format!("Failed insert error msg: {} {}", msg, e);
-                                log::error!("{}", msg);
-                            }
-                        }
+                        let _ = handle_db_error(&pool, exchange, format!("Failed get price: {}", tradeable_symbol).as_str(), e).await;
                         continue;
                     }
                 };
