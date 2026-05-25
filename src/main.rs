@@ -54,6 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(_) => log::info!("batch cancel stop orders"),
         Err(e) => return handle_db_error(&pool, exchange, format!("Failed batch cancel stop orders:{}", e)).await,
     }
+
     // repay all liability assets and sell
     loop {
         sleep(CLEAR_DELAY).await;
