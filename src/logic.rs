@@ -177,7 +177,6 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             },
                             None => {
                                 let _ = handle_db_error(&pool, exchange, format!("min_funds is None for symbol {}", trade_symbol).as_str(), "".into()).await;
-
                                 continue;
                             }
                         };
@@ -185,7 +184,6 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             Ok(base_min_size) => base_min_size,
                             Err(e) => {
                                 let _ = handle_db_error(&pool, exchange, format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e).as_str(), Box::new(e)).await;
-
                                 continue;
                             }
                         };
