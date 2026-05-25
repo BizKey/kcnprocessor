@@ -228,13 +228,22 @@ impl KuCoinClient {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
     pub async fn margin_repay(&self, currency: &str, size: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let body: serde_json::Value = json!({
-            "currency": currency,
-            "size": size,
-            "isIsolated": false,
-            "isHf": true
-        });
-        match self.make_request(reqwest::Method::POST, "/api/v3/margin/repay", None, Some(body), true, self.get_system_timestamp_ms()).await {
+        match self
+            .make_request(
+                reqwest::Method::POST,
+                "/api/v3/margin/repay",
+                None,
+                Some(json!({
+                    "currency": currency,
+                    "size": size,
+                    "isIsolated": false,
+                    "isHf": true
+                })),
+                true,
+                self.get_system_timestamp_ms(),
+            )
+            .await
+        {
             Ok(response) => match response.status().as_str() {
                 "200" => {
                     log::info!("Successfully repaid {} {} debt", size, currency);
