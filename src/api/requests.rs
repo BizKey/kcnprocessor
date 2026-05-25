@@ -2,7 +2,7 @@ use crate::api::models::{ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MakeStop
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use log;
-use reqwest::{Client, Response};
+use reqwest::{Client, Error, Response};
 use serde_json::json;
 use sha2::Sha256;
 use std::collections::HashMap;
@@ -38,7 +38,7 @@ impl KuCoinClient {
     }
 
     pub async fn api_v1_bullet_private(&self) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
-        return match self.make_request(reqwest::Method::POST, "/api/v1/bullet-private", None, None, true, self.get_system_timestamp_ms()).await {
+        return match self.make_request(reqwest::Method::POST, "/api/v1/bullet-private", None, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<ApiV3BulletPrivate>(&text) {
@@ -86,7 +86,7 @@ impl KuCoinClient {
     pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("clientOid", client_oid);
-        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", Some(query_params), None, true, self.get_system_timestamp_ms()).await {
+        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", Some(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(_) => Ok(()),
@@ -105,7 +105,7 @@ impl KuCoinClient {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
-        match self.make_request(reqwest::Method::GET, "/api/v3/margin/accounts", Some(query_params), None, true, self.get_system_timestamp_ms()).await {
+        match self.make_request(reqwest::Method::GET, "/api/v3/margin/accounts", Some(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MarginAccount>(&text) {
@@ -126,7 +126,7 @@ impl KuCoinClient {
     pub async fn batch_cancel_stop_orders(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
-        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", Some(query_params), None, true, self.get_system_timestamp_ms()).await {
+        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", Some(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => Ok(()),
                 status => match response.text().await {
@@ -155,7 +155,8 @@ impl KuCoinClient {
             "fromAccountType": from_account_type,
             "toAccountType": to_account_type
         });
-        match self.make_request(reqwest::Method::POST, "/api/v3/accounts/universal-transfer", None, Some(body), true, self.get_system_timestamp_ms()).await {
+        let body_str = self.serialize_body(&Some(body))?;
+        match self.make_request(reqwest::Method::POST, "/api/v3/accounts/universal-transfer", None, body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => {
@@ -175,7 +176,8 @@ impl KuCoinClient {
 
     pub async fn api_v3_hf_margin_stop_order(&self, body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add stop margin hf order
-        match self.make_request(reqwest::Method::POST, "/api/v3/hf/margin/stop-order", None, Some(body.clone()), true, self.get_system_timestamp_ms()).await {
+        let body_str = self.serialize_body(&Some(body))?;
+        match self.make_request(reqwest::Method::POST, "/api/v3/hf/margin/stop-order", None, body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MakeStopOrderRes>(&text) {
@@ -201,7 +203,8 @@ impl KuCoinClient {
 
     pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add margin hf order
-        match self.make_request(reqwest::Method::POST, "/api/v3/hf/margin/order", None, Some(body.clone()), true, self.get_system_timestamp_ms()).await {
+        let body_str = self.serialize_body(&Some(body))?;
+        match self.make_request(reqwest::Method::POST, "/api/v3/hf/margin/order", None, body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MakeOrderRes>(&text) {
@@ -228,22 +231,14 @@ impl KuCoinClient {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
     pub async fn margin_repay(&self, currency: &str, size: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        match self
-            .make_request(
-                reqwest::Method::POST,
-                "/api/v3/margin/repay",
-                None,
-                Some(json!({
-                    "currency": currency,
-                    "size": size,
-                    "isIsolated": false,
-                    "isHf": true
-                })),
-                true,
-                self.get_system_timestamp_ms(),
-            )
-            .await
-        {
+        let body = json!({
+            "currency": currency,
+            "size": size,
+            "isIsolated": false,
+            "isHf": true
+        });
+        let body_str = self.serialize_body(&Some(body))?;
+        match self.make_request(reqwest::Method::POST, "/api/v3/margin/repay", None, body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => {
                     log::info!("Successfully repaid {} {} debt", size, currency);
@@ -261,7 +256,7 @@ impl KuCoinClient {
         let mut query_params = std::collections::HashMap::new();
         query_params.insert("symbol", symbol);
 
-        match self.make_request(reqwest::Method::GET, "/api/v1/market/orderbook/level1", Some(query_params), None, false, 0).await {
+        match self.make_request(reqwest::Method::GET, "/api/v1/market/orderbook/level1", Some(query_params), String::new(), false, 0).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<ActualPrice>(&text) {
@@ -279,15 +274,14 @@ impl KuCoinClient {
         }
     }
 
-    async fn make_request(
-        &self,
-        method: reqwest::Method,
-        endpoint: &str,
-        query_params: Option<HashMap<&str, &str>>,
-        body: Option<serde_json::Value>,
-        authenticated: bool,
-        timestamp: u64,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
+    fn serialize_body(&self, body: &Option<serde_json::Value>) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        match body {
+            Some(b) => serde_json::to_string(b).map_err(|e| format!("JSON serialization error: {}", e).into()),
+            None => Ok(String::new()),
+        }
+    }
+
+    async fn make_request(&self, method: reqwest::Method, endpoint: &str, query_params: Option<HashMap<&str, &str>>, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, Error> {
         let query_string: String = query_params
             .as_ref()
             .map(|params| {
@@ -302,8 +296,6 @@ impl KuCoinClient {
         let mut request_builder = self.client.request(method.clone(), &url);
 
         if authenticated {
-            let body_str: String = body.as_ref().map(|b| serde_json::to_string(b).map_err(|e| format!("JSON serialization error: {}", e))).transpose()?.unwrap_or_default();
-
             let signature: String = self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str);
 
             let passphrase_signature: String = self.generate_passphrase_signature();
