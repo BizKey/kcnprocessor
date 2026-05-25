@@ -324,20 +324,15 @@ impl KuCoinClient {
             Err(e) => {
                 {
                     if e.is_timeout() {
-                        let msg: String = format!("Timeout {}: {}", url, e);
-                        log::error!("{}", msg);
+                        log::error!("{}", format!("Timeout {}: {}", url, e));
                     } else if e.is_connect() {
-                        let msg: String = format!("Error connection {}: {}", url, e);
-                        log::error!("{}", msg);
+                        log::error!("{}", format!("Error connection {}: {}", url, e));
                     } else if e.is_request() {
-                        let msg: String = format!("Error prepare request {}: {}", url, e);
-                        log::error!("{}", msg);
+                        log::error!("{}", format!("Error prepare request {}: {}", url, e));
                     } else if e.is_body() {
-                        let msg: String = format!("Error in body {}: {}", url, e);
-                        log::error!("{}", msg);
+                        log::error!("{}", format!("Error in body {}: {}", url, e));
                     } else {
-                        let msg: String = format!("Unexpected error {}: {}", url, e);
-                        log::error!("{}", msg);
+                        log::error!("{}", format!("Unexpected error {}: {}", url, e));
                     }
                 }
                 Err(e.into())
