@@ -9,8 +9,10 @@ use crate::api::db::{
 use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
 use crate::api::requests::{
     add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, create_repay_order, get_all_margin_accounts, get_ticker_price, sent_account_transfer,
+    serialize_body,
 };
 use serde::Deserialize;
+use serde_json::json;
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
 
@@ -83,8 +85,16 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     passed = false;
                     if token_available >= token_liability {
                         log::info!("Can repay {} {} liability with available {}", account.liability, &account.currency, account.available);
+                        let body = json!({
+                            "currency": &account.currency,
+                            "size": &account.liability,
+                            "isIsolated": false,
+                            "isHf": true
+                        });
 
-                        match create_repay_order(&account.currency, &account.liability).await {
+                        let body_str: String = serialize_body(&Some(body))?;
+
+                        match create_repay_order(body_str).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let _ = handle_db_error(pool, exchange, format!("Failed to repay liability:{}", e)).await;
@@ -94,7 +104,16 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     } else if token_available > 0.0 {
                         log::info!("Can partially repay {} {} liability with available {}", account.liability, &account.currency, account.available);
 
-                        match create_repay_order(&account.currency, &account.available).await {
+                        let body = json!({
+                            "currency": &account.currency,
+                            "size": &account.available,
+                            "isIsolated": false,
+                            "isHf": true
+                        });
+
+                        let body_str: String = serialize_body(&Some(body))?;
+
+                        match create_repay_order(body_str).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let _ = handle_db_error(pool, exchange, format!("Failed to partially repay debt:{}", e)).await;
@@ -247,7 +266,6 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Ok(base_min_size) => base_min_size,
                         Err(e) => {
                             let _ = handle_db_error(pool, exchange, format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e)).await;
-
                             continue;
                         }
                     };
@@ -259,7 +277,17 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     };
                     if token_available <= base_min_size || (token_price * token_available) <= quote_min_size {
-                        match sent_account_transfer(&account.currency, &account.available, "INTERNAL", "MARGIN", "TRADE").await {
+                        let body: serde_json::Value = json!({
+                            "currency": &account.currency,
+                            "clientOid": Uuid::new_v4().to_string(),
+                            "amount": &account.available,
+                            "type": "INTERNAL",
+                            "fromAccountType": "MARGIN",
+                            "toAccountType": "TRADE"
+                        });
+                        let body_str: String = serialize_body(&Some(body))?;
+
+                        match sent_account_transfer(body_str).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let _ = handle_db_error(pool, exchange, format!("Failed send {} to TRADE from MARGIN on {} {}", &account.currency.clone(), &account.available, e)).await;
@@ -854,7 +882,16 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                 (Ok(liability), Ok(available)) => {
                     if liability > 0.0 {
                         if available >= liability {
-                            match create_repay_order(asset, token_liability_str).await {
+                            let body = json!({
+                                "currency": asset,
+                                "size": token_liability_str,
+                                "isIsolated": false,
+                                "isHf": true
+                            });
+
+                            let body_str: String = serialize_body(&Some(body))?;
+
+                            match create_repay_order(body_str).await {
                                 Ok(_) => {
                                     log::info!("Repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
                                 }
@@ -864,7 +901,16 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                 }
                             }
                         } else if available > 0.0 {
-                            match create_repay_order(asset, &asset_info.available).await {
+                            let body = json!({
+                                "currency": asset,
+                                "size": &asset_info.available,
+                                "isIsolated": false,
+                                "isHf": true
+                            });
+
+                            let body_str: String = serialize_body(&Some(body))?;
+
+                            match create_repay_order(body_str).await {
                                 Ok(_) => {
                                     log::info!("Partially repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
                                 }

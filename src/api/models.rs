@@ -204,6 +204,31 @@ pub struct MakeStopOrderRes {
     pub msg: Option<String>,
     pub data: Option<MakeStopOrderResData>,
 }
+#[derive(Debug, Deserialize)]
+pub struct ApiV3MarginRepayResData {
+    pub timestamp: i32,
+    #[serde(rename = "orderNo")]
+    pub order_no: String,
+    #[serde(rename = "actualSize")]
+    pub actual_size: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3MarginRepayRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3MarginRepayResData>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3AccountsUniversalTransferResData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3AccountsUniversalTransferRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3AccountsUniversalTransferResData>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountDataAccount {
