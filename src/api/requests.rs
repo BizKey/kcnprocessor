@@ -77,18 +77,12 @@ impl KuCoinClient {
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
 
-    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<String, Error> {
-        let mut query_params: Map<&str, &str, 8> = Map::new();
-
-        query_params.insert("clientOid", client_oid);
-
-        let response: Response = match self
-            .make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms())
-            .await
-        {
-            Ok(response) => response,
-            Err(e) => return Err(e),
-        };
+    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, query_string_str: String) -> Result<String, Error> {
+        let response: Response =
+            match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string_str, String::new(), true, self.get_system_timestamp_ms()).await {
+                Ok(response) => response,
+                Err(e) => return Err(e),
+            };
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
@@ -107,7 +101,7 @@ impl KuCoinClient {
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
 
-        let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
+        let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -129,7 +123,7 @@ impl KuCoinClient {
         query_params.insert("tradeType", "MARGIN_TRADE");
 
         let response: Response =
-            match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
+            match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
                 Ok(response) => response,
                 Err(e) => return Err(e),
             };
@@ -222,7 +216,7 @@ impl KuCoinClient {
 
         query_params.insert("symbol", symbol);
 
-        let response: Response = match self.make_request(Method::GET, "/api/v1/market/orderbook/level1", self.build_query_string(query_params), String::new(), false, 0).await {
+        let response: Response = match self.make_request(Method::GET, "/api/v1/market/orderbook/level1", build_query_string(query_params), String::new(), false, 0).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -236,28 +230,6 @@ impl KuCoinClient {
             Ok(response_string) => Ok(response_string),
             Err(e) => return Err(e),
         }
-    }
-
-    fn build_query_string(&self, query_params: Map<&str, &str, 8>) -> String {
-        if query_params.is_empty() {
-            return String::new();
-        }
-
-        let mut params: SmallVec<[(&str, &str); 8]> = query_params.into_iter().collect();
-        params.sort_by(|a, b| a.0.cmp(b.0));
-
-        let capacity = params.iter().map(|(k, v)| k.len() + v.len() + 1).sum::<usize>() + params.len() - 1;
-
-        let mut result: String = String::with_capacity(capacity);
-        for (i, (k, v)) in params.iter().enumerate() {
-            if i > 0 {
-                result.push('&');
-            }
-            result.push_str(&encode(k));
-            result.push('=');
-            result.push_str(&encode(v));
-        }
-        result
     }
 
     async fn make_request(&self, method: Method, endpoint: &str, query_string: String, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, Error> {
@@ -291,6 +263,28 @@ pub fn serialize_body(body: &Option<serde_json::Value>) -> Result<String, Box<dy
         Some(b) => serde_json::to_string(b).map_err(|e| format!("JSON serialization error: {}", e).into()),
         None => Ok(String::new()),
     }
+}
+
+pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
+    if query_params.is_empty() {
+        return String::new();
+    }
+
+    let mut params: SmallVec<[(&str, &str); 8]> = query_params.into_iter().collect();
+    params.sort_by(|a, b| a.0.cmp(b.0));
+
+    let capacity = params.iter().map(|(k, v)| k.len() + v.len() + 1).sum::<usize>() + params.len() - 1;
+
+    let mut result: String = String::with_capacity(capacity);
+    for (i, (k, v)) in params.iter().enumerate() {
+        if i > 0 {
+            result.push('&');
+        }
+        result.push_str(&encode(k));
+        result.push('=');
+        result.push_str(&encode(v));
+    }
+    result
 }
 
 fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Send + Sync>> {
@@ -337,13 +331,17 @@ pub async fn get_all_margin_accounts() -> Result<MarginAccount, Box<dyn std::err
         Err(e) => Err(e.into()),
     }
 }
-pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id: &str) -> Result<ApiV3HfMarginStopOrderCancelByClientOidRes, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(client_oid: &str) -> Result<ApiV3HfMarginStopOrderCancelByClientOidRes, Box<dyn std::error::Error + Send + Sync>> {
+    let mut query_params: Map<&str, &str, 8> = Map::new();
+
+    query_params.insert("clientOid", client_oid);
+
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
 
-    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id).await {
+    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };
