@@ -263,7 +263,7 @@ impl KuCoinClient {
     async fn make_request(&self, method: Method, endpoint: &str, query_string: String, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, Error> {
         let url: String = if !query_string.is_empty() { format!("{}{}?{}", self.base_url, endpoint, query_string) } else { format!("{}{}", self.base_url, endpoint) };
 
-        let mut request_builder = self.client.request(method.clone(), &url);
+        let mut request_builder: reqwest::RequestBuilder = self.client.request(method.clone(), &url);
 
         if authenticated {
             request_builder = request_builder
