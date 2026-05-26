@@ -402,8 +402,7 @@ pub async fn batch_cancel_stop_orders() -> Result<ApiV3HfMarginStopOrderCancelRe
         Err(e) => Err(e.into()),
     }
 }
-pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let body_str: String = serialize_body(&Some(body))?;
+pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),

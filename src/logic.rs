@@ -618,9 +618,11 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         return handle_db_error(pool, exchange, format!("Failed update_exit_sl_client_oid_bot_by_entry_client_oid:{}", e)).await;
                     }
                 }
+                let msg_tp_order2: String = serialize_body(&Some(msg_tp_order))?;
+                let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order2);
 
-                let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order);
-                let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order);
+                let msg_sl_order2: String = serialize_body(&Some(msg_sl_order))?;
+                let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order2);
 
                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
@@ -768,8 +770,11 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     }
                 }
 
-                let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order);
-                let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order);
+                let msg_tp_order2: String = serialize_body(&Some(msg_tp_order))?;
+                let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order2);
+
+                let msg_sl_order2: String = serialize_body(&Some(msg_sl_order))?;
+                let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order2);
                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
                 match (&tp_res, &sl_res) {
