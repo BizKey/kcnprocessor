@@ -8,9 +8,10 @@ use crate::api::db::{
 };
 use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
 use crate::api::requests::{
-    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, create_repay_order, get_all_margin_accounts, get_ticker_price, sent_account_transfer,
-    serialize_body,
+    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, build_query_string, create_repay_order, get_all_margin_accounts, get_ticker_price,
+    sent_account_transfer, serialize_body,
 };
+use micromap::Map;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::time::{Duration, sleep};
@@ -379,7 +380,11 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             let _ = handle_db_error(pool, exchange, format!("Failed delete_exit_sl_id_bot_by_client_oid:{}", e)).await;
                         }
                     }
-                    match api_v3_hf_margin_stop_order_cancel_by_client_oid(&exit_sl_client_oid).await {
+                    let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                    query_params.insert("clientOid", &exit_sl_client_oid);
+
+                    match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
                         Ok(_) => {
                             log::info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
                         }
@@ -462,7 +467,11 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 Ok(_) => {}
                                 Err(e) => return handle_db_error(pool, exchange, format!("Failed delete_exit_tp_id_bot_by_client_oid:{}", e)).await,
                             }
-                            match api_v3_hf_margin_stop_order_cancel_by_client_oid(&exit_tp_client_oid).await {
+                            let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                            query_params.insert("clientOid", &exit_tp_client_oid);
+
+                            match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
                                 Ok(_) => {
                                     log::info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                                 }
@@ -653,7 +662,11 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     (Err(tp_err), Ok(sl_resp)) => {
                         match sl_resp.data {
                             Some(ref response_data) => {
-                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
+                                let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                                query_params.insert("clientOid", &response_data.client_oid);
+
+                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         return handle_db_error(pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
@@ -674,12 +687,18 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     }
                     (Ok(tp_resp), Err(sl_err)) => {
                         match tp_resp.data {
-                            Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    return handle_db_error(pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
+                            Some(ref response_data) => {
+                                let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                                query_params.insert("clientOid", &response_data.client_oid);
+
+                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        return handle_db_error(pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
+                                    }
                                 }
-                            },
+                            }
                             None => {}
                         }
 
@@ -803,12 +822,17 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     }
                     (Err(tp_err), Ok(sl_resp)) => {
                         match sl_resp.data {
-                            Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    return handle_db_error(pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
+                            Some(ref response_data) => {
+                                let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                                query_params.insert("clientOid", &response_data.client_oid);
+                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        return handle_db_error(pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
+                                    }
                                 }
-                            },
+                            }
                             None => {}
                         }
 
@@ -822,20 +846,25 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         let _ = handle_db_error(pool, exchange, format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err)).await;
                     }
                     (Ok(tp_resp), Err(sl_err)) => match tp_resp.data {
-                        Some(ref response_data) => match api_v3_hf_margin_stop_order_cancel_by_client_oid(&response_data.client_oid).await {
-                            Ok(_) => {
-                                match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        return handle_db_error(pool, exchange, format!("Failed delete_exit_tp_id_bot_by_client_oid:{}", e)).await;
+                        Some(ref response_data) => {
+                            let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                            query_params.insert("clientOid", &response_data.client_oid);
+                            match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                                Ok(_) => {
+                                    match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            return handle_db_error(pool, exchange, format!("Failed delete_exit_tp_id_bot_by_client_oid:{}", e)).await;
+                                        }
                                     }
+                                    let _ = handle_db_error(pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err)).await;
                                 }
-                                let _ = handle_db_error(pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err)).await;
+                                Err(e) => {
+                                    return handle_db_error(pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
+                                }
                             }
-                            Err(e) => {
-                                return handle_db_error(pool, exchange, format!("Failed api_v3_hf_margin_stop_order_cancel_by_client_oid:{}", e)).await;
-                            }
-                        },
+                        }
                         None => {}
                     },
                     (Err(tp_err), Err(sl_err)) => {

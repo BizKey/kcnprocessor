@@ -331,17 +331,13 @@ pub async fn get_all_margin_accounts() -> Result<MarginAccount, Box<dyn std::err
         Err(e) => Err(e.into()),
     }
 }
-pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(client_oid: &str) -> Result<ApiV3HfMarginStopOrderCancelByClientOidRes, Box<dyn std::error::Error + Send + Sync>> {
-    let mut query_params: Map<&str, &str, 8> = Map::new();
-
-    query_params.insert("clientOid", client_oid);
-
+pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str: String) -> Result<ApiV3HfMarginStopOrderCancelByClientOidRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
 
-    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };
