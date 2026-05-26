@@ -401,7 +401,7 @@ pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<Make
     }
 }
 pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let client = match get_client() {
+    let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
