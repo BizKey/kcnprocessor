@@ -90,8 +90,10 @@ impl KuCoinClient {
 
         query_params.insert("clientOid", client_oid);
 
-        let query_string: String = self.build_query_string(query_params);
-        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string, String::new(), true, self.get_system_timestamp_ms()).await {
+        match self
+            .make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms())
+            .await
+        {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(_) => Ok(()),
@@ -112,8 +114,7 @@ impl KuCoinClient {
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
 
-        let query_string: String = self.build_query_string(query_params);
-        match self.make_request(reqwest::Method::GET, "/api/v3/margin/accounts", query_string, String::new(), true, self.get_system_timestamp_ms()).await {
+        match self.make_request(reqwest::Method::GET, "/api/v3/margin/accounts", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<MarginAccount>(&text) {
@@ -136,8 +137,7 @@ impl KuCoinClient {
 
         query_params.insert("tradeType", "MARGIN_TRADE");
 
-        let query_string: String = self.build_query_string(query_params);
-        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", query_string, String::new(), true, self.get_system_timestamp_ms()).await {
+        match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
                 "200" => Ok(()),
                 status => match response.text().await {
@@ -269,9 +269,7 @@ impl KuCoinClient {
 
         query_params.insert("symbol", symbol);
 
-        let query_string: String = self.build_query_string(query_params);
-
-        match self.make_request(reqwest::Method::GET, "/api/v1/market/orderbook/level1", query_string, String::new(), false, 0).await {
+        match self.make_request(reqwest::Method::GET, "/api/v1/market/orderbook/level1", self.build_query_string(query_params), String::new(), false, 0).await {
             Ok(response) => match response.status().as_str() {
                 "200" => match response.text().await {
                     Ok(text) => match serde_json::from_str::<ActualPrice>(&text) {
