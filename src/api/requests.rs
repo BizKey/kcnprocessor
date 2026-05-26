@@ -85,7 +85,7 @@ impl KuCoinClient {
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
 
-    pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<(), Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
         query_params.insert("clientOid", client_oid);
@@ -95,7 +95,7 @@ impl KuCoinClient {
             .await
         {
             Ok(response) => response,
-            Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
+            Err(e) => return Err(e),
         };
 
         let response: Response = match response.error_for_status() {
@@ -105,7 +105,7 @@ impl KuCoinClient {
 
         match response.text().await {
             Ok(_) => Ok(()),
-            Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
+            Err(e) => return Err(e),
         }
     }
 
@@ -356,35 +356,58 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
     }
 }
 pub async fn get_all_margin_accounts() -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => client.get_margin_accounts().await,
-        Err(e) => Err(e),
-    }
+    let client = match get_client() {
+        Ok(client) => client,
+        Err(e) => return Err(e.into()),
+    };
+
+    let response_string: String = match client.get_margin_accounts().await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e.into()),
+    };
 }
 pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => client.api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id).await,
-        Err(e) => Err(e),
-    }
+    let client: &KuCoinClient = match get_client() {
+        Ok(client) => client,
+        Err(e) => return Err(e.into()),
+    };
+    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id).await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e.into()),
+    };
 }
 pub async fn sent_account_transfer(currency: &str, amount: &str, type_: &str, from_account_type: &str, to_account_type: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => client.account_transfer(currency, &Uuid::new_v4().to_string(), amount, type_, from_account_type, to_account_type).await,
-        Err(e) => Err(e),
-    }
+    let client: &KuCoinClient = match get_client() {
+        Ok(client) => client,
+        Err(e) => return Err(e.into()),
+    };
+
+    let response_string: String = match client.account_transfer(currency, &Uuid::new_v4().to_string(), amount, type_, from_account_type, to_account_type).await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e.into()),
+    };
 }
 pub async fn get_ticker_price(symbol: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => client.get_ticker_price(symbol).await,
-        Err(e) => Err(e),
-    }
+    let client: &KuCoinClient = match get_client() {
+        Ok(client) => client,
+        Err(e) => return Err(e.into()),
+    };
+
+    let response_string: String = match client.get_ticker_price(symbol).await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e.into()),
+    };
 }
 
 pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => client.batch_cancel_stop_orders().await,
-        Err(e) => Err(e),
-    }
+    let client: &KuCoinClient = match get_client() {
+        Ok(client) => client,
+        Err(e) => return Err(e.into()),
+    };
+    let response_string: String = match client.batch_cancel_stop_orders().await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e.into()),
+    };
 }
 pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     match get_client() {
