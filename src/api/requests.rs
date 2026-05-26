@@ -296,15 +296,11 @@ impl KuCoinClient {
         let mut request_builder = self.client.request(method.clone(), &url);
 
         if authenticated {
-            let signature: String = self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str);
-
-            let passphrase_signature: String = self.generate_passphrase_signature();
-
             request_builder = request_builder
                 .header("KC-API-KEY", &self.api_key)
-                .header("KC-API-SIGN", signature)
+                .header("KC-API-SIGN", self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str))
                 .header("KC-API-TIMESTAMP", timestamp.to_string())
-                .header("KC-API-PASSPHRASE", passphrase_signature)
+                .header("KC-API-PASSPHRASE", self.generate_passphrase_signature())
                 .header("KC-API-KEY-VERSION", "2");
 
             if !body_str.is_empty() {
@@ -313,22 +309,7 @@ impl KuCoinClient {
         }
         match request_builder.send().await {
             Ok(response) => Ok(response),
-            Err(e) => {
-                {
-                    if e.is_timeout() {
-                        log::error!("{}", format!("Timeout {}: {}", url, e));
-                    } else if e.is_connect() {
-                        log::error!("{}", format!("Error connection {}: {}", url, e));
-                    } else if e.is_request() {
-                        log::error!("{}", format!("Error prepare request {}: {}", url, e));
-                    } else if e.is_body() {
-                        log::error!("{}", format!("Error in body {}: {}", url, e));
-                    } else {
-                        log::error!("{}", format!("Unexpected error {}: {}", url, e));
-                    }
-                }
-                Err(e.into())
-            }
+            Err(e) => Err(e),
         }
     }
 }
