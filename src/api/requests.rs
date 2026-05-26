@@ -170,7 +170,7 @@ impl KuCoinClient {
         let body_str: String = self.serialize_body(&Some(body))?;
         let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
-            Err(e) => return Err(format!("Account transfer request failed: {}", e).into()),
+            Err(e) => return Err(e),
         };
 
         let response: Response = match response.error_for_status() {
@@ -193,7 +193,7 @@ impl KuCoinClient {
 
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
-            Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
+            Err(e) => return Err(e),
         };
 
         let response: Response = match response.error_for_status() {
