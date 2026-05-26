@@ -2,6 +2,7 @@ use crate::api::models::{ActualPrice, ApiV3BulletPrivate, MakeOrderRes, MakeStop
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use log;
+use micromap::Map;
 use reqwest::{Client, Error, Response};
 use serde_json::json;
 use sha2::Sha256;
@@ -85,8 +86,10 @@ impl KuCoinClient {
     }
 
     pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut query_params = std::collections::HashMap::new();
+        let mut query_params: Map<&str, &str, 8> = Map::new();
+
         query_params.insert("clientOid", client_oid);
+
         let query_string: String = self.build_query_string(query_params);
         match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
@@ -104,9 +107,11 @@ impl KuCoinClient {
     }
 
     pub async fn get_margin_accounts(&self) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
-        let mut query_params = std::collections::HashMap::new();
+        let mut query_params: Map<&str, &str, 8> = Map::new();
+
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
+
         let query_string: String = self.build_query_string(query_params);
         match self.make_request(reqwest::Method::GET, "/api/v3/margin/accounts", query_string, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
@@ -127,8 +132,10 @@ impl KuCoinClient {
     }
 
     pub async fn batch_cancel_stop_orders(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut query_params = std::collections::HashMap::new();
+        let mut query_params: Map<&str, &str, 8> = Map::new();
+
         query_params.insert("tradeType", "MARGIN_TRADE");
+
         let query_string: String = self.build_query_string(query_params);
         match self.make_request(reqwest::Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", query_string, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => match response.status().as_str() {
@@ -258,7 +265,8 @@ impl KuCoinClient {
         }
     }
     pub async fn get_ticker_price(&self, symbol: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let mut query_params = std::collections::HashMap::new();
+        let mut query_params: Map<&str, &str, 8> = Map::new();
+
         query_params.insert("symbol", symbol);
 
         let query_string: String = self.build_query_string(query_params);
@@ -288,7 +296,7 @@ impl KuCoinClient {
         }
     }
 
-    fn build_query_string(&self, query_params: HashMap<&str, &str>) -> String {
+    fn build_query_string(&self, query_params: Map<&str, &str, 8>) -> String {
         if query_params.is_empty() {
             return String::new();
         }
