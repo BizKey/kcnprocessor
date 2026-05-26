@@ -1324,7 +1324,8 @@ pub async fn make_hf_funds_margin_order(
     });
     log::info!("{}", msg);
 
-    match add_api_v3_hf_margin_order(msg.clone()).await {
+    let body_str: String = serialize_body(&Some(msg))?;
+    match add_api_v3_hf_margin_order(body_str).await {
         Ok(data) => Ok(data),
         Err(e) => {
             let _ = handle_db_error(pool, exchange, format!("Failed to send order:{}", e)).await;
@@ -1376,7 +1377,8 @@ pub async fn make_hf_size_margin_order(
     });
     log::info!("{}", msg);
 
-    match add_api_v3_hf_margin_order(msg.clone()).await {
+    let body_str: String = serialize_body(&Some(msg))?;
+    match add_api_v3_hf_margin_order(body_str).await {
         Ok(data) => Ok(data),
         Err(e) => {
             let _ = handle_db_error(pool, exchange, format!("Failed to send order:{}", e)).await;

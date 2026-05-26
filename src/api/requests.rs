@@ -418,8 +418,7 @@ pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrd
         Err(e) => Err(e.into()),
     }
 }
-pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    let body_str: String = serialize_body(&Some(body))?;
+pub async fn add_api_v3_hf_margin_order(body_str: String) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
