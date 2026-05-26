@@ -39,7 +39,7 @@ impl KuCoinClient {
     }
 
     pub async fn api_v1_bullet_private(&self) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
-        let response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
+        let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
         };
@@ -116,7 +116,7 @@ impl KuCoinClient {
         query_params.insert("quoteCurrency", "USDT");
         query_params.insert("queryType", "MARGIN");
 
-        let response = match self.make_request(Method::GET, "/api/v3/margin/accounts", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
+        let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
         };
@@ -141,11 +141,11 @@ impl KuCoinClient {
 
         query_params.insert("tradeType", "MARGIN_TRADE");
 
-        let response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await
-        {
-            Ok(response) => response,
-            Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
-        };
+        let response: Response =
+            match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", self.build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
+                Ok(response) => response,
+                Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
+            };
 
         match response.status().as_str() {
             "200" => Ok(()),
@@ -174,7 +174,7 @@ impl KuCoinClient {
             "toAccountType": to_account_type
         });
         let body_str = self.serialize_body(&Some(body))?;
-        let response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
+        let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Account transfer request failed: {}", e).into()),
         };
@@ -197,7 +197,7 @@ impl KuCoinClient {
     pub async fn api_v3_hf_margin_stop_order(&self, body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add stop margin hf order
         let body_str = self.serialize_body(&Some(body))?;
-        let response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
+        let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
         };
@@ -226,7 +226,7 @@ impl KuCoinClient {
     pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add margin hf order
         let body_str = self.serialize_body(&Some(body))?;
-        let response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
+        let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
         };
@@ -263,7 +263,7 @@ impl KuCoinClient {
         });
         let body_str = self.serialize_body(&Some(body))?;
 
-        let response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
+        let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
         };
@@ -284,7 +284,7 @@ impl KuCoinClient {
 
         query_params.insert("symbol", symbol);
 
-        let response = match self.make_request(Method::GET, "/api/v1/market/orderbook/level1", self.build_query_string(query_params), String::new(), false, 0).await {
+        let response: Response = match self.make_request(Method::GET, "/api/v1/market/orderbook/level1", self.build_query_string(query_params), String::new(), false, 0).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
         };
