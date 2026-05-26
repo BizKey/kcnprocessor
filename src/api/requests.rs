@@ -304,7 +304,9 @@ impl KuCoinClient {
         let mut params: SmallVec<[(&str, &str); 8]> = query_params.into_iter().collect();
         params.sort_by(|a, b| a.0.cmp(b.0));
 
-        let mut result = String::new();
+        let capacity = params.iter().map(|(k, v)| k.len() + v.len() + 1).sum::<usize>() + params.len() - 1;
+
+        let mut result: String = String::with_capacity(capacity);
         for (i, (k, v)) in params.iter().enumerate() {
             if i > 0 {
                 result.push('&');
