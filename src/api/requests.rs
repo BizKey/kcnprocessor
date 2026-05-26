@@ -1,5 +1,6 @@
 use crate::api::models::{
-    ApiV1MarketOrderbookLevel1Res, ApiV3AccountsUniversalTransferRes, ApiV3BulletPrivate, ApiV3HfMarginStopOrderCancelRes, ApiV3MarginRepayRes, MakeOrderRes, MakeStopOrderRes, MarginAccount,
+    ApiV1MarketOrderbookLevel1Res, ApiV3AccountsUniversalTransferRes, ApiV3BulletPrivate, ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelRes, ApiV3MarginRepayRes,
+    MakeOrderRes, MakeStopOrderRes, MarginAccount,
 };
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -336,17 +337,18 @@ pub async fn get_all_margin_accounts() -> Result<MarginAccount, Box<dyn std::err
         Err(e) => Err(e.into()),
     }
 }
-pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id: &str) -> Result<ApiV3HfMarginStopOrderCancelByClientOidRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
+
     let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };
 
-    match serde_json::from_str::<MarginAccount>(&response_string) {
+    match serde_json::from_str::<ApiV3HfMarginStopOrderCancelByClientOidRes>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => Err(e.into()),
     }
@@ -380,7 +382,7 @@ pub async fn get_ticker_price(symbol: &str) -> Result<String, Box<dyn std::error
 
     match serde_json::from_str::<ApiV1MarketOrderbookLevel1Res>(&response_string) {
         Ok(res) => Ok(res.data.price),
-        Err(e) => Err(e).into(),
+        Err(e) => Err(e.into()),
     }
 }
 

@@ -63,7 +63,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         Ok(accounts) => {
             sleep(AUTO_CLEAN_DELAY).await;
             let mut passed: bool = true;
-            for account in accounts.accounts.iter() {
+            for account in accounts.data.accounts.iter() {
                 let token_liability: f64 = match account.liability.parse::<f64>() {
                     Ok(token_liability) => token_liability,
                     Err(e) => {
