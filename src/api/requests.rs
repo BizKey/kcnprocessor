@@ -25,7 +25,7 @@ pub struct KuCoinClient {
 }
 
 impl KuCoinClient {
-    pub fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         match Client::builder().timeout(Duration::from_secs(15)).connect_timeout(Duration::from_secs(5)).tcp_keepalive(Duration::from_secs(60)).build() {
             Ok(client) => Ok(Self {
                 client,
@@ -38,7 +38,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn api_v1_bullet_private(&self) -> Result<String, Error> {
+    async fn api_v1_bullet_private(&self) -> Result<String, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -101,7 +101,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn get_margin_accounts(&self) -> Result<String, Error> {
+    async fn get_margin_accounts(&self) -> Result<String, Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
         query_params.insert("quoteCurrency", "USDT");
@@ -123,7 +123,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn batch_cancel_stop_orders(&self) -> Result<String, Error> {
+    async fn batch_cancel_stop_orders(&self) -> Result<String, Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
         query_params.insert("tradeType", "MARGIN_TRADE");
@@ -145,7 +145,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn account_transfer(&self, body_str: String) -> Result<String, Error> {
+    async fn account_transfer(&self, body_str: String) -> Result<String, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -162,7 +162,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<String, Error> {
+    async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<String, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -200,7 +200,7 @@ impl KuCoinClient {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
 
-    pub async fn margin_repay(&self, body_str: String) -> Result<String, Error> {
+    async fn margin_repay(&self, body_str: String) -> Result<String, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -217,7 +217,7 @@ impl KuCoinClient {
         };
     }
 
-    pub async fn get_ticker_price(&self, symbol: &str) -> Result<String, Error> {
+    async fn get_ticker_price(&self, symbol: &str) -> Result<String, Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
         query_params.insert("symbol", symbol);
