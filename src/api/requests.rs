@@ -179,76 +179,66 @@ impl KuCoinClient {
             Err(e) => return Err(format!("Account transfer request failed: {}", e).into()),
         };
 
-        match response.status().as_str() {
-            "200" => match response.text().await {
-                Ok(text) => {
-                    log::info!("flex transfer {}", text);
-                    Ok(())
-                }
-                Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-            },
-            status => match response.text().await {
-                Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
-                Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-            },
-        }
+        let response: Response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(e) => return Err(e.into()),
+        };
+
+        match response.text().await {
+            Ok(response_string) => {
+                log::info!("{}", response_string);
+                return Ok(());
+            }
+            Err(e) => return Err(e.into()),
+        };
     }
 
     pub async fn api_v3_hf_margin_stop_order(&self, body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add stop margin hf order
         let body_str = self.serialize_body(&Some(body))?;
+
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
         };
 
-        match response.status().as_str() {
-            "200" => match response.text().await {
-                Ok(text) => match serde_json::from_str::<MakeStopOrderRes>(&text) {
-                    Ok(res) => {
-                        if res.code == "200000" {
-                            Ok(res)
-                        } else {
-                            Err(format!("API business error: code={}, msg={:?}", res.code, res.msg).into())
-                        }
-                    }
-                    Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
-                },
-                Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-            },
-            status => match response.text().await {
-                Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
-                Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-            },
+        let response: Response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(e) => return Err(e.into()),
+        };
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => return Err(e.into()),
+        };
+
+        match serde_json::from_str::<MakeStopOrderRes>(&response_string) {
+            Ok(res) => Ok(res),
+            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
         }
     }
 
     pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
         // add margin hf order
-        let body_str = self.serialize_body(&Some(body))?;
+        let body_str: String = self.serialize_body(&Some(body))?;
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
         };
 
-        match response.status().as_str() {
-            "200" => match response.text().await {
-                Ok(text) => match serde_json::from_str::<MakeOrderRes>(&text) {
-                    Ok(res) => {
-                        if res.code == "200000" {
-                            Ok(res)
-                        } else {
-                            Err(format!("API business error: code={}, msg={:?}", res.code, res.msg).into())
-                        }
-                    }
-                    Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
-                },
-                Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-            },
-            status => match response.text().await {
-                Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
-                Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-            },
+        let response: Response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(e) => return Err(e.into()),
+        };
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => return Err(e.into()),
+        };
+
+        match serde_json::from_str::<MakeOrderRes>(&response_string) {
+            Ok(res) => Ok(res),
+            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
         }
     }
     fn get_system_timestamp_ms(&self) -> u64 {
