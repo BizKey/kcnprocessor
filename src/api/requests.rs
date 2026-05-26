@@ -281,15 +281,18 @@ impl KuCoinClient {
         }
     }
 
-    async fn make_request(&self, method: reqwest::Method, endpoint: &str, query_params: Option<HashMap<&str, &str>>, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, Error> {
-        let query_string: String = query_params
-            .as_ref()
+    fn build_query_string(&self, query_params: Option<&HashMap<&str, &str>>) -> String {
+        query_params
             .map(|params| {
                 let mut pairs: Vec<_> = params.iter().collect();
                 pairs.sort_by(|a, b| a.0.cmp(b.0));
                 pairs.iter().map(|(k, v)| format!("{}={}", encode(k), encode(v))).collect::<Vec<_>>().join("&")
             })
-            .unwrap_or_default();
+            .unwrap_or_default()
+    }
+
+    async fn make_request(&self, method: reqwest::Method, endpoint: &str, query_params: Option<HashMap<&str, &str>>, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, Error> {
+        let query_string = self.build_query_string(query_params.as_ref());
 
         let url: String = if !query_string.is_empty() { format!("{}{}?{}", self.base_url, endpoint, query_string) } else { format!("{}{}", self.base_url, endpoint) };
 
