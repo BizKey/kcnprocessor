@@ -60,7 +60,12 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 }
 
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    match get_all_margin_accounts().await {
+    let mut query_params: Map<&str, &str, 8> = Map::new();
+
+    query_params.insert("quoteCurrency", "USDT");
+    query_params.insert("queryType", "MARGIN");
+
+    match get_all_margin_accounts(build_query_string(query_params)).await {
         Ok(accounts) => {
             sleep(AUTO_CLEAN_DELAY).await;
             let mut passed: bool = true;

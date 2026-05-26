@@ -99,13 +99,8 @@ impl KuCoinClient {
         }
     }
 
-    async fn get_margin_accounts(&self) -> Result<String, Error> {
-        let mut query_params: Map<&str, &str, 8> = Map::new();
-
-        query_params.insert("quoteCurrency", "USDT");
-        query_params.insert("queryType", "MARGIN");
-
-        let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
+    async fn get_margin_accounts(&self, query_params_str: String) -> Result<String, Error> {
+        let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -308,13 +303,13 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
     };
     ws.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, ws.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
 }
-pub async fn get_all_margin_accounts() -> Result<MarginAccount, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn get_all_margin_accounts(query_params_str: String) -> Result<MarginAccount, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
 
-    let response_string: String = match client.get_margin_accounts().await {
+    let response_string: String = match client.get_margin_accounts(query_params_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };
