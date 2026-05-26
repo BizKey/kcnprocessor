@@ -218,11 +218,11 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<String, Error> {
         let body_str: String = self.serialize_body(&Some(body))?;
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
-            Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
+            Err(e) => return Err(e),
         };
 
         let response: Response = match response.error_for_status() {
@@ -408,7 +408,7 @@ pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeO
 
     let response_string: String = match client.add_api_v3_hf_margin_order(body).await {
         Ok(response_string) => response_string,
-        Err(e) => return Err(e),
+        Err(e) => return Err(e.into()),
     };
 
     match serde_json::from_str::<MakeOrderRes>(&response_string) {
