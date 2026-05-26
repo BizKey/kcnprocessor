@@ -5,6 +5,7 @@ use log;
 use reqwest::{Client, Error, Response};
 use serde_json::json;
 use sha2::Sha256;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::env;
 use std::sync::OnceLock;
@@ -292,9 +293,19 @@ impl KuCoinClient {
             return String::new();
         }
 
-        let mut pairs: Vec<_> = query_params.iter().collect();
-        pairs.sort_by(|a, b| a.0.cmp(b.0));
-        pairs.iter().map(|(k, v)| format!("{}={}", encode(k), encode(v))).collect::<Vec<_>>().join("&")
+        let mut params: SmallVec<[(&str, &str); 8]> = query_params.into_iter().collect();
+        params.sort_by(|a, b| a.0.cmp(b.0));
+
+        let mut result = String::new();
+        for (i, (k, v)) in params.iter().enumerate() {
+            if i > 0 {
+                result.push('&');
+            }
+            result.push_str(&encode(k));
+            result.push('=');
+            result.push_str(&encode(v));
+        }
+        result
     }
 
     async fn make_request(&self, method: reqwest::Method, endpoint: &str, query_string: String, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, Error> {
