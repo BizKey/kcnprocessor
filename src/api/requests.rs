@@ -38,7 +38,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn api_v1_bullet_private(&self) -> Result<ApiV3BulletPrivate, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn api_v1_bullet_private(&self) -> Result<ApiV3BulletPrivate, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
@@ -109,7 +109,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn get_margin_accounts(&self) -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_margin_accounts(&self) -> Result<MarginAccountData, Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
         query_params.insert("quoteCurrency", "USDT");
@@ -136,7 +136,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn batch_cancel_stop_orders(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn batch_cancel_stop_orders(&self) -> Result<(), Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
         query_params.insert("tradeType", "MARGIN_TRADE");
@@ -156,15 +156,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn account_transfer(
-        &self,
-        currency: &str,
-        client_oid: &str,
-        amount: &str,
-        type_: &str,
-        from_account_type: &str,
-        to_account_type: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn account_transfer(&self, currency: &str, client_oid: &str, amount: &str, type_: &str, from_account_type: &str, to_account_type: &str) -> Result<(), Error> {
         let body: serde_json::Value = json!({
             "currency": currency,
             "clientOid": client_oid,
@@ -193,7 +185,7 @@ impl KuCoinClient {
         };
     }
 
-    pub async fn api_v3_hf_margin_stop_order(&self, body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn api_v3_hf_margin_stop_order(&self, body: serde_json::Value) -> Result<MakeStopOrderRes, Error> {
         // add stop margin hf order
         let body_str = self.serialize_body(&Some(body))?;
 
@@ -238,7 +230,7 @@ impl KuCoinClient {
     fn get_system_timestamp_ms(&self) -> u64 {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
-    pub async fn margin_repay(&self, currency: &str, size: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn margin_repay(&self, currency: &str, size: &str) -> Result<(), Error> {
         let body = json!({
             "currency": currency,
             "size": size,
@@ -249,35 +241,35 @@ impl KuCoinClient {
 
         let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
-            Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
+            Err(e) => return Err(e),
         };
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         log::info!("Successfully repaid {} {} debt", size, currency);
         return Ok(());
     }
-    pub async fn get_ticker_price(&self, symbol: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_ticker_price(&self, symbol: &str) -> Result<String, Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
         query_params.insert("symbol", symbol);
 
         let response: Response = match self.make_request(Method::GET, "/api/v1/market/orderbook/level1", self.build_query_string(query_params), String::new(), false, 0).await {
             Ok(response) => response,
-            Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
+            Err(e) => return Err(e),
         };
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         let response_string: String = match response.text().await {
             Ok(response_string) => response_string,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         match serde_json::from_str::<ActualPrice>(&response_string) {
