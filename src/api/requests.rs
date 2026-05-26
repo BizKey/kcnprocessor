@@ -173,7 +173,7 @@ impl KuCoinClient {
             "fromAccountType": from_account_type,
             "toAccountType": to_account_type
         });
-        let body_str = self.serialize_body(&Some(body))?;
+        let body_str: String = self.serialize_body(&Some(body))?;
         let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(format!("Account transfer request failed: {}", e).into()),
@@ -218,8 +218,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-        // add margin hf order
+    pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let body_str: String = self.serialize_body(&Some(body))?;
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
@@ -231,15 +230,10 @@ impl KuCoinClient {
             Err(e) => return Err(e.into()),
         };
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
+        match response.text().await {
+            Ok(response_string) => return Ok(response_string),
             Err(e) => return Err(e.into()),
         };
-
-        match serde_json::from_str::<MakeOrderRes>(&response_string) {
-            Ok(res) => Ok(res),
-            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
-        }
     }
     fn get_system_timestamp_ms(&self) -> u64 {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
@@ -407,9 +401,19 @@ pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<Make
     }
 }
 pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => client.add_api_v3_hf_margin_order(body).await,
-        Err(e) => Err(e),
+    let client = match get_client() {
+        Ok(client) => client,
+        Err(e) => return Err(e.into()),
+    };
+
+    let response_string: String = match client.add_api_v3_hf_margin_order(body).await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e),
+    };
+
+    match serde_json::from_str::<MakeOrderRes>(&response_string) {
+        Ok(res) => Ok(res),
+        Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
     }
 }
 
