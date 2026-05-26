@@ -44,23 +44,22 @@ impl KuCoinClient {
             Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
         };
 
-        match response.status().as_str() {
-            "200" => match response.text().await {
-                Ok(text) => match serde_json::from_str::<ApiV3BulletPrivate>(&text) {
-                    Ok(r) => match r.code.as_str() {
-                        "200000" => Ok(r),
-                        _ => Err(format!("API error: code {}", r.code).into()),
-                    },
-                    Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
-                },
-                Err(e) => {
-                    return Err(format!("Error get text response from HTTP:'{}'", e).into());
-                }
+        let response: Response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(e) => return Err(e.into()),
+        };
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => return Err(e.into()),
+        };
+
+        match serde_json::from_str::<ApiV3BulletPrivate>(&response_string) {
+            Ok(r) => match r.code.as_str() {
+                "200000" => Ok(r),
+                _ => Err(format!("API error: code {}", r.code).into()),
             },
-            status => match response.text().await {
-                Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
-                Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-            },
+            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
         }
     }
 
@@ -98,15 +97,15 @@ impl KuCoinClient {
             Ok(response) => response,
             Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
         };
-        match response.status().as_str() {
-            "200" => match response.text().await {
-                Ok(_) => Ok(()),
-                Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-            },
-            status => match response.text().await {
-                Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
-                Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-            },
+
+        let response: Response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(e) => return Err(e.into()),
+        };
+
+        match response.text().await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
         }
     }
 
@@ -121,18 +120,19 @@ impl KuCoinClient {
             Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
         };
 
-        match response.status().as_str() {
-            "200" => match response.text().await {
-                Ok(text) => match serde_json::from_str::<MarginAccount>(&text) {
-                    Ok(res) => Ok(res.data),
-                    Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
-                },
-                Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-            },
-            status => match response.text().await {
-                Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
-                Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-            },
+        let response: Response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(e) => return Err(e.into()),
+        };
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => return Err(e.into()),
+        };
+
+        match serde_json::from_str::<MarginAccount>(&response_string) {
+            Ok(res) => Ok(res.data),
+            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
         }
     }
 
@@ -258,16 +258,13 @@ impl KuCoinClient {
             Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
         };
 
-        match response.status().as_str() {
-            "200" => {
-                log::info!("Successfully repaid {} {} debt", size, currency);
-                Ok(())
-            }
-            status => match response.text().await {
-                Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
-                Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-            },
-        }
+        let response: Response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(e) => return Err(e.into()),
+        };
+
+        log::info!("Successfully repaid {} {} debt", size, currency);
+        return Ok(());
     }
     pub async fn get_ticker_price(&self, symbol: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
@@ -279,18 +276,19 @@ impl KuCoinClient {
             Err(e) => return Err(format!("Margin repay request failed: {}", e).into()),
         };
 
-        match response.status().as_str() {
-            "200" => match response.text().await {
-                Ok(text) => match serde_json::from_str::<ActualPrice>(&text) {
-                    Ok(res) => Ok(res.data.price),
-                    Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, text).into()),
-                },
-                Err(e) => Err(format!("Error get text response from HTTP:'{}'", e).into()),
-            },
-            status => match response.text().await {
-                Ok(text) => Err(format!("Wrong HTTP status: '{}' with body: '{}'", status, text).into()),
-                Err(_) => Err(format!("Wrong HTTP status: '{}'", status).into()),
-            },
+        let response: Response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(e) => return Err(e.into()),
+        };
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => return Err(e.into()),
+        };
+
+        match serde_json::from_str::<ActualPrice>(&response_string) {
+            Ok(res) => Ok(res.data.price),
+            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
         }
     }
 
