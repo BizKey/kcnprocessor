@@ -116,16 +116,11 @@ impl KuCoinClient {
         }
     }
 
-    async fn batch_cancel_stop_orders(&self) -> Result<String, Error> {
-        let mut query_params: Map<&str, &str, 8> = Map::new();
-
-        query_params.insert("tradeType", "MARGIN_TRADE");
-
-        let response: Response =
-            match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", build_query_string(query_params), String::new(), true, self.get_system_timestamp_ms()).await {
-                Ok(response) => response,
-                Err(e) => return Err(e),
-            };
+    async fn batch_cancel_stop_orders(&self, query_params_str: String) -> Result<String, Error> {
+        let response: Response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
+            Ok(response) => response,
+            Err(e) => return Err(e),
+        };
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
@@ -367,13 +362,13 @@ pub async fn get_ticker_price(query_params_str: String) -> Result<String, Box<dy
         Err(e) => Err(e.into()),
     }
 }
-pub async fn batch_cancel_stop_orders() -> Result<ApiV3HfMarginStopOrderCancelRes, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn batch_cancel_stop_orders(query_params_str: String) -> Result<ApiV3HfMarginStopOrderCancelRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
 
-    let response_string: String = match client.batch_cancel_stop_orders().await {
+    let response_string: String = match client.batch_cancel_stop_orders(query_params_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };

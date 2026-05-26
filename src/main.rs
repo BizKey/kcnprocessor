@@ -5,13 +5,16 @@ mod api {
 }
 mod logic;
 use crate::api::db::{clear_orders_ids_for_bots, handle_db_error};
-
+use crate::api::requests::{
+    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, build_query_string, create_repay_order, get_all_margin_accounts, get_ticker_price,
+    sent_account_transfer, serialize_body,
+};
 use crate::api::requests::{batch_cancel_stop_orders, get_private_ws_url};
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use dotenv::dotenv;
-
 use futures_util::{SinkExt, StreamExt};
 use log;
+use micromap::Map;
 
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -50,7 +53,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     // cancel all stop orders
-    match batch_cancel_stop_orders().await {
+    let mut query_params: Map<&str, &str, 8> = Map::new();
+
+    query_params.insert("tradeType", "MARGIN_TRADE");
+
+    match batch_cancel_stop_orders(build_query_string(query_params)).await {
         Ok(_) => log::info!("batch cancel stop orders"),
         Err(e) => return handle_db_error(&pool, exchange, format!("Failed batch cancel stop orders:{}", e)).await,
     }
