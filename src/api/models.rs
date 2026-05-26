@@ -138,12 +138,25 @@ pub struct ErrorData {
     pub data: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ActualPriceData {
+pub struct ApiV1MarketOrderbookLevel1ResData {
+    pub time: f64,
+    pub sequence: String,
     pub price: String,
+    pub size: String,
+    #[serde(rename = "bestBid")]
+    pub best_bid: String,
+    #[serde(rename = "bestBidSize")]
+    pub best_bid_size: String,
+    #[serde(rename = "bestAsk")]
+    pub best_ask: String,
+    #[serde(rename = "bestAskSize")]
+    pub best_ask_size: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ActualPrice {
-    pub data: ActualPriceData,
+pub struct ApiV1MarketOrderbookLevel1Res {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: ApiV1MarketOrderbookLevel1ResData,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -222,6 +235,17 @@ pub struct ApiV3MarginRepayRes {
 pub struct ApiV3AccountsUniversalTransferResData {
     #[serde(rename = "orderId")]
     pub order_id: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelResData {
+    #[serde(rename = "cancelledOrderIds")]
+    pub cancelled_order_ids: Vec<String>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3HfMarginStopOrderCancelResData>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ApiV3AccountsUniversalTransferRes {

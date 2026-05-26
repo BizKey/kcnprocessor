@@ -1,10 +1,10 @@
-use crate::api::models::{ActualPrice, ApiV3AccountsUniversalTransferRes, ApiV3BulletPrivate, ApiV3MarginRepayRes, MakeOrderRes, MakeStopOrderRes, MarginAccount, MarginAccountData};
+use crate::api::models::{
+    ApiV1MarketOrderbookLevel1Res, ApiV3AccountsUniversalTransferRes, ApiV3BulletPrivate, ApiV3HfMarginStopOrderCancelRes, ApiV3MarginRepayRes, MakeOrderRes, MakeStopOrderRes, MarginAccount,
+};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use log;
 use micromap::Map;
 use reqwest::{Client, Error, Method, Response};
-use serde_json::json;
 use sha2::Sha256;
 use smallvec::SmallVec;
 use std::env;
@@ -12,7 +12,6 @@ use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use urlencoding::encode;
-use uuid::Uuid;
 type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Debug, Clone)]
@@ -38,10 +37,10 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn api_v1_bullet_private(&self) -> Result<ApiV3BulletPrivate, Error> {
+    pub async fn api_v1_bullet_private(&self) -> Result<String, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
-            Err(e) => return Err(format!("Error HTTP:'{}'", e).into()),
+            Err(e) => return Err(e),
         };
 
         let response: Response = match response.error_for_status() {
@@ -49,17 +48,9 @@ impl KuCoinClient {
             Err(e) => return Err(e.into()),
         };
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
+        match response.text().await {
+            Ok(response_string) => Ok(response_string),
             Err(e) => return Err(e.into()),
-        };
-
-        match serde_json::from_str::<ApiV3BulletPrivate>(&response_string) {
-            Ok(r) => match r.code.as_str() {
-                "200000" => Ok(r),
-                _ => Err(format!("API error: code {}", r.code).into()),
-            },
-            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
         }
     }
 
@@ -85,7 +76,7 @@ impl KuCoinClient {
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
 
-    pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<String, Error> {
+    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, client_oid: &str) -> Result<String, Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
         query_params.insert("clientOid", client_oid);
@@ -170,7 +161,7 @@ impl KuCoinClient {
         }
     }
 
-    pub async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<MakeStopOrderRes, Error> {
+    pub async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<String, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -181,19 +172,13 @@ impl KuCoinClient {
             Err(e) => return Err(e.into()),
         };
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
+        match response.text().await {
+            Ok(response_string) => Ok(response_string),
             Err(e) => return Err(e.into()),
-        };
-
-        match serde_json::from_str::<MakeStopOrderRes>(&response_string) {
-            Ok(res) => Ok(res),
-            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
         }
     }
 
-    pub async fn add_api_v3_hf_margin_order(&self, body: serde_json::Value) -> Result<String, Error> {
-        let body_str: String = serialize_body(&Some(body))?;
+    async fn add_api_v3_hf_margin_order(&self, body_str: String) -> Result<String, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -209,9 +194,11 @@ impl KuCoinClient {
             Err(e) => return Err(e.into()),
         };
     }
+
     fn get_system_timestamp_ms(&self) -> u64 {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
+
     pub async fn margin_repay(&self, body_str: String) -> Result<String, Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
@@ -228,6 +215,7 @@ impl KuCoinClient {
             Err(e) => return Err(e.into()),
         };
     }
+
     pub async fn get_ticker_price(&self, symbol: &str) -> Result<String, Error> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
 
@@ -243,14 +231,9 @@ impl KuCoinClient {
             Err(e) => return Err(e),
         };
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
+        match response.text().await {
+            Ok(response_string) => Ok(response_string),
             Err(e) => return Err(e),
-        };
-
-        match serde_json::from_str::<ActualPrice>(&response_string) {
-            Ok(res) => Ok(res.data.price),
-            Err(e) => Err(format!("Error JSON deserialize:'{}' with data: '{}'", e, response_string).into()),
         }
     }
 
@@ -326,12 +309,16 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
         Err(e) => return Err(e.into()),
     };
 
-    match client.api_v1_bullet_private().await {
-        Ok(bullet_private) => {
-            bullet_private.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
-        }
-        Err(e) => Err(e),
-    }
+    let response_string: String = match client.api_v1_bullet_private().await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e.into()),
+    };
+
+    let ws: ApiV3BulletPrivate = match serde_json::from_str::<ApiV3BulletPrivate>(&response_string) {
+        Ok(res) => res,
+        Err(e) => return Err(e.into()),
+    };
+    ws.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, ws.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
 }
 pub async fn get_all_margin_accounts() -> Result<MarginAccount, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
@@ -358,6 +345,11 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(order_id: &str) ->
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };
+
+    match serde_json::from_str::<MarginAccount>(&response_string) {
+        Ok(res) => Ok(res),
+        Err(e) => Err(e.into()),
+    }
 }
 pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniversalTransferRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
@@ -385,17 +377,28 @@ pub async fn get_ticker_price(symbol: &str) -> Result<String, Box<dyn std::error
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };
+
+    match serde_json::from_str::<ApiV1MarketOrderbookLevel1Res>(&response_string) {
+        Ok(res) => Ok(res.data.price),
+        Err(e) => Err(e).into(),
+    }
 }
 
-pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn batch_cancel_stop_orders() -> Result<ApiV3HfMarginStopOrderCancelRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
+
     let response_string: String = match client.batch_cancel_stop_orders().await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };
+
+    match serde_json::from_str::<ApiV3HfMarginStopOrderCancelRes>(&response_string) {
+        Ok(res) => Ok(res),
+        Err(e) => Err(e.into()),
+    }
 }
 pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let body_str: String = serialize_body(&Some(body))?;
@@ -415,12 +418,13 @@ pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<Make
     }
 }
 pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
+    let body_str: String = serialize_body(&Some(body))?;
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
 
-    let response_string: String = match client.add_api_v3_hf_margin_order(body).await {
+    let response_string: String = match client.add_api_v3_hf_margin_order(body_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e.into()),
     };
