@@ -139,7 +139,11 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         // liability debt in tokens
                         // get price token
 
-                        let token_price: f64 = match get_ticker_price(&trade_symbol).await {
+                        let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                        query_params.insert("symbol", &trade_symbol);
+
+                        let token_price: f64 = match get_ticker_price(build_query_string(query_params)).await {
                             Ok(token_price_str) => match token_price_str.parse::<f64>() {
                                 Ok(token_price) => token_price,
                                 Err(e) => {
@@ -247,7 +251,11 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     };
                     // get price token
-                    let token_price: f64 = match get_ticker_price(&trade_symbol).await {
+                    let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                    query_params.insert("symbol", &trade_symbol);
+
+                    let token_price: f64 = match get_ticker_price(build_query_string(query_params)).await {
                         Ok(token_price_str) => match token_price_str.parse::<f64>() {
                             Ok(token_price) => token_price,
                             Err(e) => {
@@ -1246,7 +1254,11 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         continue;
                     }
                 };
-                let token_price: f64 = match get_ticker_price(&tradeable_symbol).await {
+                let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                query_params.insert("symbol", &tradeable_symbol);
+
+                let token_price: f64 = match get_ticker_price(build_query_string(query_params)).await {
                     Ok(token_price_str) => match token_price_str.parse::<f64>() {
                         Ok(token_price) => token_price,
                         Err(e) => {
