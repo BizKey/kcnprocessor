@@ -345,18 +345,20 @@ fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Sen
 }
 
 pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => match client.api_v1_bullet_private().await {
-            Ok(bullet_private) => {
-                bullet_private.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
-            }
-            Err(e) => Err(e),
-        },
+    let client: &KuCoinClient = match get_client() {
+        Ok(client) => client,
+        Err(e) => Err(e),
+    };
+
+    match client.api_v1_bullet_private().await {
+        Ok(bullet_private) => {
+            bullet_private.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, bullet_private.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
+        }
         Err(e) => Err(e),
     }
 }
 pub async fn get_all_margin_accounts() -> Result<MarginAccountData, Box<dyn std::error::Error + Send + Sync>> {
-    let client = match get_client() {
+    let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
     };
@@ -410,10 +412,15 @@ pub async fn batch_cancel_stop_orders() -> Result<(), Box<dyn std::error::Error 
     };
 }
 pub async fn api_v3_hf_margin_stop_order(body: serde_json::Value) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => client.api_v3_hf_margin_stop_order(body).await,
+    let client: &KuCoinClient = match get_client() {
+        Ok(client) => client,
         Err(e) => Err(e),
-    }
+    };
+
+    let response_string: String = match client.api_v3_hf_margin_stop_order(body).await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e.into()),
+    };
 }
 pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
@@ -433,10 +440,15 @@ pub async fn add_api_v3_hf_margin_order(body: serde_json::Value) -> Result<MakeO
 }
 
 pub async fn create_repay_order(currency: &str, size: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match get_client() {
-        Ok(client) => client.margin_repay(currency, size).await,
+    let client: &KuCoinClient = match get_client() {
+        Ok(client) => client,
         Err(e) => Err(e),
-    }
+    };
+
+    let response_string: String = match client.margin_repay(currency, size).await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e.into()),
+    };
 }
 
 // В конце файла src/api/requests.rs
