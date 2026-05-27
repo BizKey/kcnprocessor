@@ -1,6 +1,5 @@
 use crate::api::models::{BalanceData, BalanceRelationContext, Bot, OrderData, Symbol};
 
-use log;
 use sqlx::Row;
 
 pub async fn insert_db_error(pool: &sqlx::PgPool, exchange: &str, msg: &str) -> Result<(), sqlx::Error> {
