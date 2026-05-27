@@ -154,6 +154,33 @@ pub struct ApiV1MarketOrderbookLevel1ResData {
     #[serde(rename = "bestAskSize")]
     pub best_ask_size: String,
 }
+
+impl ApiV1MarketOrderbookLevel1ResData {
+    pub fn price_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.price)
+    }
+
+    pub fn size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.size)
+    }
+
+    pub fn best_bid_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.best_bid)
+    }
+
+    pub fn best_bid_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.best_bid_size)
+    }
+
+    pub fn best_ask_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.best_ask)
+    }
+
+    pub fn best_ask_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.best_ask_size)
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ApiV1MarketOrderbookLevel1Res {
     pub code: String,
