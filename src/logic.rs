@@ -79,7 +79,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
     for trade_bot in trade_bots.iter() {
         sleep(BOT_INIT_DELAY).await;
-        let token_funds: f64 = match trade_bot.balance.parse::<f64>() {
+        let token_funds = match trade_bot.balance_decimal() {
             Ok(token_funds) => token_funds,
             Err(e) => return handle_db_error(pool, exchange, format!("Failed parse balance: {} {}", trade_bot.balance, e)).await,
         };
@@ -449,24 +449,23 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 Ok(Some(return_balance)) => {
                     {
                         if order.side == "buy" {
-                            match bot.balance.parse::<f64>() {
-                                Ok(old_balance) => {
-                                    let new_balance: f64 = old_balance + old_balance - return_balance;
-                                    match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            let _ = handle_db_error(pool, exchange, format!("Failed update_balance_bot_by_exit_tp_client_oid:{}", e)).await;
-                                        }
-                                    }
-                                    // create new random order
-                                    match make_random_trade(pool, exchange, new_balance, bot.id).await {
-                                        Ok(()) => {}
-                                        Err(e) => {
-                                            let _ = handle_db_error(pool, exchange, format!("Error in make_random_trade:{}", e)).await;
-                                        }
-                                    }
-                                }
+                            let old_balance = match &bot.balance_decimal() {
+                                Ok(old_balance) => old_balance,
                                 Err(e) => return handle_db_error(pool, exchange, format!("Failed parse balance: {} {}", bot.balance, e)).await,
+                            };
+                            let new_balance = old_balance + old_balance - return_balance;
+                            match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let _ = handle_db_error(pool, exchange, format!("Failed update_balance_bot_by_exit_tp_client_oid:{}", e)).await;
+                                }
+                            }
+                            // create new random order
+                            match make_random_trade(pool, exchange, new_balance, bot.id).await {
+                                Ok(()) => {}
+                                Err(e) => {
+                                    let _ = handle_db_error(pool, exchange, format!("Error in make_random_trade:{}", e)).await;
+                                }
                             }
                         } else if order.side == "sell" {
                             match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
@@ -531,20 +530,19 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                         Ok(Some(return_balance)) => {
                             if order.side == "buy" {
-                                match bot.balance.parse::<f64>() {
-                                    Ok(old_balance) => {
-                                        let new_balance: f64 = old_balance + old_balance - return_balance;
-                                        match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
-                                            Ok(_) => {}
-                                            Err(e) => return handle_db_error(pool, exchange, format!("Failed update_balance_bot_by_exit_sl_client_oid:{}", e)).await,
-                                        }
-                                        // create new random order
-                                        match make_random_trade(pool, exchange, new_balance, bot.id).await {
-                                            Ok(()) => {}
-                                            Err(e) => return handle_db_error(pool, exchange, format!("Error in make_random_trade:{}", e)).await,
-                                        }
-                                    }
+                                let old_balance = match &bot.balance_decimal() {
+                                    Ok(old_balance) => old_balance,
                                     Err(e) => return handle_db_error(pool, exchange, format!("Failed parse balance: {} {}", bot.balance, e)).await,
+                                };
+                                let new_balance = old_balance + old_balance - return_balance;
+                                match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
+                                    Ok(_) => {}
+                                    Err(e) => return handle_db_error(pool, exchange, format!("Failed update_balance_bot_by_exit_sl_client_oid:{}", e)).await,
+                                }
+                                // create new random order
+                                match make_random_trade(pool, exchange, new_balance, bot.id).await {
+                                    Ok(()) => {}
+                                    Err(e) => return handle_db_error(pool, exchange, format!("Error in make_random_trade:{}", e)).await,
                                 }
                             } else if order.side == "sell" {
                                 match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
@@ -1287,7 +1285,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
                     Ok(token_price_obj) => token_price_obj,
                     Err(e) => {
-                        let _ = handle_db_error(pool, exchange, format!("Failed get price: {} {}", trade_symbol, e)).await;
+                        let _ = handle_db_error(pool, exchange, format!("Failed get price: {} {}", &tradeable_symbol, e)).await;
                         continue;
                     }
                 };

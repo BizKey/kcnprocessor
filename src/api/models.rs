@@ -371,6 +371,12 @@ pub struct Bot {
     pub exit_sl_client_oid: Option<String>,
 }
 
+impl Bot {
+    pub fn balance_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.balance)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AdvancedOrders {
     #[serde(rename = "createdAt")]
