@@ -64,6 +64,11 @@ pub struct AssetInfo {
     pub available: String,
     pub hold: String,
 }
+impl AssetInfo {
+    pub fn available_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.available)
+    }
+}
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PositionData {
     #[serde(rename = "debtRatio")]
