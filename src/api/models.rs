@@ -236,6 +236,10 @@ impl Symbol {
         Decimal::from_str(&self.base_min_size)
     }
 
+    pub fn quote_min_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.quote_min_size)
+    }
+
     pub fn min_funds_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
         let min_funds = match &self.min_funds {
             Some(min_funds_str) => min_funds_str,
@@ -325,8 +329,19 @@ pub struct ApiV3HfMarginStopOrderCancelByClientOidRes {
 pub struct MarginAccountDataAccount {
     pub currency: String,
     pub available: String,
-    pub liability: String, // borrow
+    pub liability: String,
 }
+
+impl MarginAccountDataAccount {
+    pub fn available_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.available)
+    }
+
+    pub fn liability_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.liability)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountData {
     pub accounts: Vec<MarginAccountDataAccount>,

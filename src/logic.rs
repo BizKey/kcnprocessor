@@ -12,6 +12,7 @@ use crate::api::requests::{
     sent_account_transfer, serialize_body,
 };
 use micromap::Map;
+use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::time::{Duration, sleep};
@@ -33,6 +34,13 @@ pub fn format_assert(size: f64, increment: f64) -> String {
     let precision = if increment >= 1.0 { 0 } else { (increment.recip().log10().ceil() as usize).min(10) };
     let rounded = (size / increment).round() * increment;
     format!("{:.prec$}", rounded, prec = precision)
+}
+
+fn format_assert_decimal(size: Decimal, increment: Decimal) -> String {
+    let rounded = (size / increment).round() * increment;
+    let precision = increment.scale() as usize;
+    let formatted = format!("{:.prec$}", rounded, prec = precision);
+    formatted.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
 pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -70,7 +78,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             sleep(AUTO_CLEAN_DELAY).await;
             let mut passed: bool = true;
             for account in accounts.data.accounts.iter() {
-                let token_liability: f64 = match account.liability.parse::<f64>() {
+                let token_liability: Decimal = match account.liability_decimal() {
                     Ok(token_liability) => token_liability,
                     Err(e) => {
                         let _ = handle_db_error(pool, exchange, format!("Failed parse price: {} {}", account.liability, e)).await;
@@ -78,7 +86,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         continue;
                     }
                 };
-                let token_available: f64 = match account.available.parse::<f64>() {
+                let token_available: Decimal = match account.available_decimal() {
                     Ok(token_liability) => token_liability,
                     Err(e) => {
                         let _ = handle_db_error(pool, exchange, format!("Failed parse price: {} {}", account.available, e)).await;
@@ -87,7 +95,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     }
                 };
 
-                if token_liability > 0.0 {
+                if token_liability > Decimal::ZERO {
                     passed = false;
                     if token_available >= token_liability {
                         log::info!("Can repay {} {} liability with available {}", account.liability, &account.currency, account.available);
@@ -107,7 +115,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 continue;
                             }
                         }
-                    } else if token_available > 0.0 {
+                    } else if token_available > Decimal::ZERO {
                         log::info!("Can partially repay {} {} liability with available {}", account.liability, &account.currency, account.available);
 
                         let body = json!({
@@ -126,7 +134,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 continue;
                             }
                         }
-                    } else if account.currency != "USDT" && token_available == 0.0 {
+                    } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                         // buy stock by market liability
                         let trade_symbol: String = format!("{}-USDT", account.currency);
                         let client_oid: String = Uuid::new_v4().to_string();
@@ -148,16 +156,18 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
                         query_params.insert("symbol", &trade_symbol);
 
-                        let token_price: f64 = match get_ticker_price(build_query_string(query_params)).await {
-                            Ok(token_price_str) => match token_price_str.data.price.parse::<f64>() {
-                                Ok(token_price) => token_price,
-                                Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, format!("Failed parse price: {:?} {}", token_price_str, e)).await;
-                                    continue;
-                                }
-                            },
+                        let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
+                            Ok(token_price_obj) => token_price_obj,
                             Err(e) => {
                                 let _ = handle_db_error(pool, exchange, format!("Failed get price: {} {}", trade_symbol, e)).await;
+                                continue;
+                            }
+                        };
+
+                        let token_price: Decimal = match token_price_obj.data.price_decimal() {
+                            Ok(token_price) => token_price,
+                            Err(e) => {
+                                let _ = handle_db_error(pool, exchange, format!("Failed parse price: {:?} {}", token_price_obj, e)).await;
                                 continue;
                             }
                         };
@@ -165,9 +175,9 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
 
                         // calc price token on amount liability token
-                        let token_funds: f64 = token_price * token_liability;
+                        let token_funds: Decimal = token_price * token_liability;
 
-                        let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
+                        let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
                             Ok(quote_increment) => quote_increment,
                             Err(e) => {
                                 let _ = handle_db_error(pool, exchange, format!("Failed parse quote_increment: {} {}", symbol_info.quote_increment, e)).await;
@@ -175,20 +185,14 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             }
                         };
                         // parse min_funds to int
-                        let min_funds: f64 = match &symbol_info.min_funds {
-                            Some(min_funds_str) => match min_funds_str.parse::<f64>() {
-                                Ok(min_funds) => min_funds,
-                                Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, format!("Failed parse min_funds: {:?} {}", symbol_info.min_funds, e)).await;
-                                    continue;
-                                }
-                            },
-                            None => {
-                                let _ = handle_db_error(pool, exchange, format!("min_funds is None for symbol {}", trade_symbol)).await;
+                        let min_funds: Decimal = match symbol_info.min_funds_decimal() {
+                            Ok(min_funds) => min_funds,
+                            Err(e) => {
+                                let _ = handle_db_error(pool, exchange, format!("Failed parse min_funds: {:?} {}", symbol_info.min_funds, e)).await;
                                 continue;
                             }
                         };
-                        let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
+                        let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
                             Ok(base_min_size) => base_min_size,
                             Err(e) => {
                                 let _ = handle_db_error(pool, exchange, format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e)).await;
@@ -197,7 +201,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         };
 
                         // calc price token on amount base_min_size token
-                        let min_funds_by_size: f64 = token_price * base_min_size;
+                        let min_funds_by_size: Decimal = token_price * base_min_size;
 
                         if token_funds <= min_funds.max(min_funds_by_size) {
                             match make_hf_funds_margin_order(
@@ -206,7 +210,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 &client_oid,
                                 "buy",
                                 &trade_symbol,
-                                format_assert(min_funds.max(min_funds_by_size), quote_increment),
+                                format_assert_decimal(min_funds.max(min_funds_by_size), quote_increment),
                                 "market",
                                 false,
                                 false,
@@ -220,7 +224,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 }
                             }
                         } else {
-                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, format_assert(token_funds, quote_increment), "market", false, false).await {
+                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, format_assert_decimal(token_funds, quote_increment), "market", false, false).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     let _ = handle_db_error(pool, exchange, format!("Failed make_hf_funds_margin_order:{}", e)).await;
@@ -229,7 +233,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             }
                         };
                     }
-                } else if account.currency != "USDT" && token_available > 0.0 {
+                } else if account.currency != "USDT" && token_available > Decimal::ZERO {
                     passed = false;
                     // sell stocks by market available/ works
                     let client_oid: String = Uuid::new_v4().to_string();
@@ -248,7 +252,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     };
 
-                    let base_increment: f64 = match symbol_info.base_increment.parse::<f64>() {
+                    let base_increment: Decimal = match symbol_info.base_increment_decimal() {
                         Ok(base_increment) => base_increment,
                         Err(e) => {
                             let _ = handle_db_error(pool, exchange, format!("Failed parse base_increment: {} {}", symbol_info.base_increment, e)).await;
@@ -260,30 +264,32 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
                     query_params.insert("symbol", &trade_symbol);
 
-                    let token_price: f64 = match get_ticker_price(build_query_string(query_params)).await {
-                        Ok(token_price_str) => match token_price_str.data.price.parse::<f64>() {
-                            Ok(token_price) => token_price,
-                            Err(e) => {
-                                let _ = handle_db_error(pool, exchange, format!("Failed parse price: {:?} {}", token_price_str, e)).await;
-                                continue;
-                            }
-                        },
+                    let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
+                        Ok(token_price_obj) => token_price_obj,
                         Err(e) => {
                             let _ = handle_db_error(pool, exchange, format!("Failed get price: {} {}", trade_symbol, e)).await;
                             continue;
                         }
                     };
 
+                    let token_price: Decimal = match token_price_obj.data.price_decimal() {
+                        Ok(token_price) => token_price,
+                        Err(e) => {
+                            let _ = handle_db_error(pool, exchange, format!("Failed parse price: {:?} {}", token_price_obj, e)).await;
+                            continue;
+                        }
+                    };
+
                     log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
 
-                    let base_min_size: f64 = match symbol_info.base_min_size.parse::<f64>() {
+                    let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
                         Ok(base_min_size) => base_min_size,
                         Err(e) => {
                             let _ = handle_db_error(pool, exchange, format!("Failed parse base_min_size: {} {}", symbol_info.base_min_size, e)).await;
                             continue;
                         }
                     };
-                    let quote_min_size: f64 = match symbol_info.quote_min_size.parse::<f64>() {
+                    let quote_min_size: Decimal = match symbol_info.quote_min_size_decimal() {
                         Ok(quote_min_size) => quote_min_size,
                         Err(e) => {
                             let _ = handle_db_error(pool, exchange, format!("Failed parse quote_min_size: {} {}", symbol_info.quote_min_size, e)).await;
@@ -309,7 +315,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             }
                         }
                     } else {
-                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, format_assert(token_available, base_increment), "market", false, false).await {
+                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, format_assert_decimal(token_available, base_increment), "market", false, false).await {
                             Ok(_) => {}
                             Err(e) => {
                                 let _ = handle_db_error(pool, exchange, format!("Failed make_hf_size_margin_order:{}", e)).await;
