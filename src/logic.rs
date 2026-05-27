@@ -35,12 +35,32 @@ pub fn format_assert(size: f64, increment: f64) -> String {
     let rounded = (size / increment).round() * increment;
     format!("{:.prec$}", rounded, prec = precision)
 }
-
-fn format_assert_decimal(size: Decimal, increment: Decimal) -> String {
-    let rounded = (size / increment).round() * increment;
+pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> String {
     let precision = increment.scale() as usize;
-    let formatted = format!("{:.prec$}", rounded, prec = precision);
-    formatted.trim_end_matches('0').trim_end_matches('.').to_string()
+
+    if precision == 0 {
+        // Целый increment - округляем вниз до ближайшего кратного
+        let increment_int: i64 = increment.to_string().parse().unwrap_or(1);
+        let size_int: i64 = size.floor().to_string().parse().unwrap_or(0);
+        let rounded_down = (size_int / increment_int) * increment_int;
+        return rounded_down.to_string();
+    }
+
+    // Дробный increment (0.01, 0.001, и т.д.)
+    let s = size.to_string();
+
+    if let Some(dot_pos) = s.find('.') {
+        let integer_part = &s[..dot_pos];
+        let fractional_part = &s[dot_pos + 1..];
+
+        let truncated = if fractional_part.len() >= precision { &fractional_part[..precision] } else { fractional_part };
+
+        let trimmed = truncated.trim_end_matches('0');
+
+        if trimmed.is_empty() { integer_part.to_string() } else { format!("{}.{}", integer_part, trimmed) }
+    } else {
+        if precision == 0 { s } else { format!("{}.{}", s, "0".repeat(precision)) }
+    }
 }
 
 pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -1436,5 +1456,79 @@ pub async fn make_hf_size_margin_order(
             let _ = handle_db_error(pool, exchange, format!("Failed to send order:{}", e)).await;
             return Err(e);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal::Decimal;
+    use rust_decimal::prelude::*;
+
+    #[test]
+    fn test_format_assert_decimal_real_data() {
+        // Increment = 1000 (precision 0)
+        let inc_1000 = Decimal::from_str("1000").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("1234.56").unwrap(), inc_1000), "1000");
+
+        // Increment = 100 (precision 0)
+        let inc_100 = Decimal::from_str("100").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_100), "100");
+        assert_eq!(format_assert_decimal(Decimal::from_str("199").unwrap(), inc_100), "100");
+        assert_eq!(format_assert_decimal(Decimal::from_str("200").unwrap(), inc_100), "200");
+
+        // Increment = 50 (precision 0)
+        let inc_50 = Decimal::from_str("50").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_50), "100");
+        assert_eq!(format_assert_decimal(Decimal::from_str("149").unwrap(), inc_50), "100");
+        assert_eq!(format_assert_decimal(Decimal::from_str("150").unwrap(), inc_50), "150");
+
+        // Increment = 10 (precision 0)
+        let inc_10 = Decimal::from_str("10").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_10), "120");
+        assert_eq!(format_assert_decimal(Decimal::from_str("125").unwrap(), inc_10), "120");
+
+        // Increment = 1 (precision 0)
+        let inc_1 = Decimal::from_str("1").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1), "123");
+        assert_eq!(format_assert_decimal(Decimal::from_str("100").unwrap(), inc_1), "100");
+
+        // Increment = 0.1 (precision 1)
+        let inc_1 = Decimal::from_str("0.1").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1), "123.4");
+        assert_eq!(format_assert_decimal(Decimal::from_str("99.999").unwrap(), inc_1), "99.9");
+
+        // Increment = 0.01 (precision 2)
+        let inc_2 = Decimal::from_str("0.01").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_2), "123.45");
+        assert_eq!(format_assert_decimal(Decimal::from_str("99.999").unwrap(), inc_2), "99.99");
+
+        // Increment = 0.001 (precision 3)
+        let inc_3 = Decimal::from_str("0.001").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.4567").unwrap(), inc_3), "123.456");
+
+        // Increment = 0.0001 (precision 4)
+        let inc_4 = Decimal::from_str("0.0001").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_4), "123.4567");
+
+        // Increment = 0.0001 (precision 5)
+        let inc_5 = Decimal::from_str("0.00001").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_5), "123.45678");
+
+        // Increment = 0.000001 (precision 6)
+        let inc_6 = Decimal::from_str("0.000001").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.456789").unwrap(), inc_6), "123.456789");
+
+        // Increment = 0.0000001 (precision 7)
+        let inc_7 = Decimal::from_str("0.0000001").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("123.4567891").unwrap(), inc_7), "123.4567891");
+
+        // Increment = 0.00000001 (precision 8)
+        let inc_8 = Decimal::from_str("0.00000001").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("0.123456789").unwrap(), inc_8), "0.12345678");
+
+        // Increment = 0.000000001 (precision 9)
+        let inc_9 = Decimal::from_str("0.000000001").unwrap();
+        assert_eq!(format_assert_decimal(Decimal::from_str("0.00000000123").unwrap(), inc_9), "0.000000001");
     }
 }
