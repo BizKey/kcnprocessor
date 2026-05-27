@@ -424,7 +424,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             match &bot.exit_sl_client_oid {
                 Some(exit_sl_client_oid) => {
                     // clear exit_sl_client_oid in bots by id !!
-                    match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
+                    match delete_exit_sl_id_bot_by_client_oid(pool, exchange, exit_sl_client_oid).await {
                         Ok(_) => {}
                         Err(e) => {
                             let _ = handle_db_error(pool, exchange, format!("Failed delete_exit_sl_id_bot_by_client_oid:{}", e)).await;
@@ -432,7 +432,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     }
                     let mut query_params: Map<&str, &str, 8> = Map::new();
 
-                    query_params.insert("clientOid", &exit_sl_client_oid);
+                    query_params.insert("clientOid", exit_sl_client_oid);
 
                     match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
                         Ok(_) => {
@@ -509,13 +509,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     match &bot.exit_tp_client_oid {
                         Some(exit_tp_client_oid) => {
                             // clear exit_tp_client_oid in bots by entry_id
-                            match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
+                            match delete_exit_tp_id_bot_by_client_oid(pool, exchange, exit_tp_client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => return handle_db_error(pool, exchange, format!("Failed delete_exit_tp_id_bot_by_client_oid:{}", e)).await,
                             }
                             let mut query_params: Map<&str, &str, 8> = Map::new();
 
-                            query_params.insert("clientOid", &exit_tp_client_oid);
+                            query_params.insert("clientOid", exit_tp_client_oid);
 
                             match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
                                 Ok(_) => {
@@ -1167,9 +1167,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 if data.topic == "/account/balance" {
                     match BalanceData::deserialize(&data.data) {
                         Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
+                            Ok(_) => Ok(()),
                             Err(e) => return handle_db_error(pool, exchange, format!("Failed insert_db_balance data: {:.?} {}", data.data, e)).await,
                         },
                         Err(e) => return handle_db_error(pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
@@ -1177,9 +1175,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 } else if data.topic == "/spotMarket/tradeOrdersV2" {
                     match OrderData::deserialize(&data.data) {
                         Ok(order) => match handle_trade_order_event(order, pool, exchange).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
+                            Ok(_) => Ok(()),
                             Err(e) => return handle_db_error(pool, exchange, format!("Failed handle_trade_order_event data: {:.?} {}", data.data, e)).await,
                         },
                         Err(e) => return handle_db_error(pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
@@ -1195,9 +1191,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 } else if data.topic == "/margin/position" {
                     match PositionData::deserialize(&data.data) {
                         Ok(position) => match handle_position_event(position, pool, exchange).await {
-                            Ok(_) => {
-                                return Ok(());
-                            }
+                            Ok(_) => Ok(()),
                             Err(e) => return handle_db_error(pool, exchange, format!("Failed handle_position_event data:{:.?} {}", data.data, e)).await,
                         },
                         Err(e) => return handle_db_error(pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
@@ -1398,7 +1392,7 @@ pub async fn make_hf_funds_margin_order(
         Ok(data) => Ok(data),
         Err(e) => {
             let _ = handle_db_error(pool, exchange, format!("Failed to send order:{}", e)).await;
-            return Err("".into());
+            Err("".into())
         }
     }
 }
@@ -1451,7 +1445,7 @@ pub async fn make_hf_size_margin_order(
         Ok(data) => Ok(data),
         Err(e) => {
             let _ = handle_db_error(pool, exchange, format!("Failed to send order:{}", e)).await;
-            return Err(e);
+            Err(e)
         }
     }
 }

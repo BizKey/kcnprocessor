@@ -72,12 +72,12 @@ impl KuCoinClient {
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         match response.text().await {
             Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         }
     }
 
@@ -90,7 +90,7 @@ impl KuCoinClient {
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         match response.text().await {
@@ -107,12 +107,12 @@ impl KuCoinClient {
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         match response.text().await {
             Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         }
     }
 
@@ -124,7 +124,7 @@ impl KuCoinClient {
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         match response.text().await {
@@ -141,12 +141,12 @@ impl KuCoinClient {
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         match response.text().await {
             Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         }
     }
 
@@ -158,12 +158,12 @@ impl KuCoinClient {
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         match response.text().await {
             Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         }
     }
 
@@ -175,12 +175,12 @@ impl KuCoinClient {
 
         let response: Response = match response.error_for_status() {
             Ok(response) => response,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
 
         match response.text().await {
             Ok(response_string) => return Ok(response_string),
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
     }
 
@@ -197,7 +197,7 @@ impl KuCoinClient {
 
         match response.text().await {
             Ok(response_string) => return Ok(response_string),
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         };
     }
 
@@ -284,7 +284,7 @@ fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Sen
 pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.api_v1_bullet_private().await {
@@ -301,7 +301,7 @@ pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + 
 pub async fn get_all_margin_accounts(query_params_str: String) -> Result<MarginAccount, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.get_margin_accounts(query_params_str).await {
@@ -317,7 +317,7 @@ pub async fn get_all_margin_accounts(query_params_str: String) -> Result<MarginA
 pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str: String) -> Result<ApiV3HfMarginStopOrderCancelByClientOidRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str).await {
@@ -333,7 +333,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str: 
 pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniversalTransferRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.account_transfer(body_str).await {
@@ -349,7 +349,7 @@ pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniv
 pub async fn get_ticker_price(query_params_str: String) -> Result<ApiV1MarketOrderbookLevel1Res, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.get_ticker_price(query_params_str).await {
@@ -365,7 +365,7 @@ pub async fn get_ticker_price(query_params_str: String) -> Result<ApiV1MarketOrd
 pub async fn batch_cancel_stop_orders(query_params_str: String) -> Result<ApiV3HfMarginStopOrderCancelRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.batch_cancel_stop_orders(query_params_str).await {
@@ -381,7 +381,7 @@ pub async fn batch_cancel_stop_orders(query_params_str: String) -> Result<ApiV3H
 pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.api_v3_hf_margin_stop_order(body_str).await {
@@ -397,7 +397,7 @@ pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrd
 pub async fn add_api_v3_hf_margin_order(body_str: String) -> Result<MakeOrderRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.add_api_v3_hf_margin_order(body_str).await {
@@ -413,7 +413,7 @@ pub async fn add_api_v3_hf_margin_order(body_str: String) -> Result<MakeOrderRes
 pub async fn create_repay_order(body_str: String) -> Result<ApiV3MarginRepayRes, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let response_string: String = match client.margin_repay(body_str).await {
