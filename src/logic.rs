@@ -309,6 +309,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             continue;
                         }
                     };
+
                     let quote_min_size: Decimal = match symbol_info.quote_min_size_decimal() {
                         Ok(quote_min_size) => quote_min_size,
                         Err(e) => {
@@ -316,6 +317,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             continue;
                         }
                     };
+
                     if token_available <= base_min_size || (token_price * token_available) <= quote_min_size {
                         let body: serde_json::Value = json!({
                             "currency": &account.currency,
