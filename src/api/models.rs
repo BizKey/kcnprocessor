@@ -1,5 +1,7 @@
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
     pub endpoint: String,
@@ -188,6 +190,32 @@ pub struct Symbol {
     pub quote_increment: String,
     pub base_min_size: String,
     pub quote_min_size: String,
+}
+
+impl Symbol {
+    pub fn base_increment_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.base_increment)
+    }
+
+    pub fn quote_increment_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.quote_increment)
+    }
+
+    pub fn price_increment_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.price_increment)
+    }
+
+    pub fn base_min_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        Decimal::from_str(&self.base_min_size)
+    }
+
+    pub fn min_funds_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        let min_funds = match &self.min_funds {
+            Some(min_funds_str) => min_funds_str,
+            None => return Err(format!("min_funds is None for symbol {}", &self.symbol).into()),
+        };
+        Decimal::from_str(min_funds)
+    }
 }
 
 #[derive(Debug, Deserialize)]

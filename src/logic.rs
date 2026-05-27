@@ -149,10 +149,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         query_params.insert("symbol", &trade_symbol);
 
                         let token_price: f64 = match get_ticker_price(build_query_string(query_params)).await {
-                            Ok(token_price_str) => match token_price_str.parse::<f64>() {
+                            Ok(token_price_str) => match token_price_str.data.price.parse::<f64>() {
                                 Ok(token_price) => token_price,
                                 Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, format!("Failed parse price: {} {}", token_price_str, e)).await;
+                                    let _ = handle_db_error(pool, exchange, format!("Failed parse price: {:?} {}", token_price_str, e)).await;
                                     continue;
                                 }
                             },
@@ -261,10 +261,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     query_params.insert("symbol", &trade_symbol);
 
                     let token_price: f64 = match get_ticker_price(build_query_string(query_params)).await {
-                        Ok(token_price_str) => match token_price_str.parse::<f64>() {
+                        Ok(token_price_str) => match token_price_str.data.price.parse::<f64>() {
                             Ok(token_price) => token_price,
                             Err(e) => {
-                                let _ = handle_db_error(pool, exchange, format!("Failed parse price: {} {}", token_price_str, e)).await;
+                                let _ = handle_db_error(pool, exchange, format!("Failed parse price: {:?} {}", token_price_str, e)).await;
                                 continue;
                             }
                         },
@@ -1264,10 +1264,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 query_params.insert("symbol", &tradeable_symbol);
 
                 let token_price: f64 = match get_ticker_price(build_query_string(query_params)).await {
-                    Ok(token_price_str) => match token_price_str.parse::<f64>() {
+                    Ok(token_price_str) => match token_price_str.data.price.parse::<f64>() {
                         Ok(token_price) => token_price,
                         Err(e) => {
-                            let _ = handle_db_error(pool, exchange, format!("Failed parse price: {} {}", token_price_str, e)).await;
+                            let _ = handle_db_error(pool, exchange, format!("Failed parse price: {:?} {}", token_price_str, e)).await;
                             continue;
                         }
                     },

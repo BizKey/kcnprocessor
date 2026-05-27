@@ -346,7 +346,7 @@ pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniv
         Err(e) => Err(e.into()),
     }
 }
-pub async fn get_ticker_price(query_params_str: String) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn get_ticker_price(query_params_str: String) -> Result<ApiV1MarketOrderbookLevel1Res, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e.into()),
@@ -358,7 +358,7 @@ pub async fn get_ticker_price(query_params_str: String) -> Result<String, Box<dy
     };
 
     match serde_json::from_str::<ApiV1MarketOrderbookLevel1Res>(&response_string) {
-        Ok(res) => Ok(res.data.price),
+        Ok(res) => Ok(res),
         Err(e) => Err(e.into()),
     }
 }
