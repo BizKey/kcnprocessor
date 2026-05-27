@@ -421,7 +421,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     let _ = handle_db_error(pool, exchange, format!("Failed delete_exit_tp_id_bot_by_client_oid:{}", e)).await;
                 }
             }
-            match bot.exit_sl_client_oid {
+            match &bot.exit_sl_client_oid {
                 Some(exit_sl_client_oid) => {
                     // clear exit_sl_client_oid in bots by id !!
                     match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
@@ -449,7 +449,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 Ok(Some(return_balance)) => {
                     {
                         if order.side == "buy" {
-                            let old_balance = match &bot.balance_decimal() {
+                            let old_balance = match bot.balance_decimal() {
                                 Ok(old_balance) => old_balance,
                                 Err(e) => return handle_db_error(pool, exchange, format!("Failed parse balance: {} {}", bot.balance, e)).await,
                             };
@@ -506,7 +506,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             // delete exit_sl_client_oid stop order
             match delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await {
                 Ok(_) => {
-                    match bot.exit_tp_client_oid {
+                    match &bot.exit_tp_client_oid {
                         Some(exit_tp_client_oid) => {
                             // clear exit_tp_client_oid in bots by entry_id
                             match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
@@ -530,7 +530,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                         Ok(Some(return_balance)) => {
                             if order.side == "buy" {
-                                let old_balance = match &bot.balance_decimal() {
+                                let old_balance = match bot.balance_decimal() {
                                     Ok(old_balance) => old_balance,
                                     Err(e) => return handle_db_error(pool, exchange, format!("Failed parse balance: {} {}", bot.balance, e)).await,
                                 };
@@ -941,67 +941,69 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // repay borrow
-    for (asset, token_liability_str) in &position.debt_pairs() {
-        match position.asset_list.get(asset) {
-            Some(asset_info) => match (token_liability_str.parse::<f64>(), asset_info.available.parse::<f64>()) {
-                (Ok(liability), Ok(available)) => {
-                    if liability > 0.0 {
-                        if available >= liability {
-                            let body = json!({
-                                "currency": asset,
-                                "size": token_liability_str,
-                                "isIsolated": false,
-                                "isHf": true
-                            });
+    match position.debt_pairs() {
+        Ok(debt_pair) => {
+            for (asset, token_liability) in debt_pair {
+                match position.asset_list.get(&asset) {
+                    Some(asset_info) => match asset_info.available_decimal() {
+                        Ok(available) => {
+                            if token_liability > Decimal::ZERO {
+                                if available >= token_liability {
+                                    let body = json!({
+                                        "currency": asset,
+                                        "size": token_liability,
+                                        "isIsolated": false,
+                                        "isHf": true
+                                    });
 
-                            let body_str: String = serialize_body(&Some(body))?;
+                                    let body_str: String = serialize_body(&Some(body))?;
 
-                            match create_repay_order(body_str).await {
-                                Ok(_) => {
-                                    log::info!("Repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
-                                }
-                                Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, format!("Failed to repay liability:{} on asset:{} {}", token_liability_str, asset, e)).await;
-                                    continue;
-                                }
-                            }
-                        } else if available > 0.0 {
-                            let body = json!({
-                                "currency": asset,
-                                "size": &asset_info.available,
-                                "isIsolated": false,
-                                "isHf": true
-                            });
+                                    match create_repay_order(body_str).await {
+                                        Ok(_) => {
+                                            log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
+                                        }
+                                        Err(e) => {
+                                            let _ = handle_db_error(pool, exchange, format!("Failed to repay liability:{} on asset:{} {}", token_liability, asset, e)).await;
+                                            continue;
+                                        }
+                                    }
+                                } else if available > Decimal::ZERO {
+                                    let body = json!({
+                                        "currency": asset,
+                                        "size": &asset_info.available,
+                                        "isIsolated": false,
+                                        "isHf": true
+                                    });
 
-                            let body_str: String = serialize_body(&Some(body))?;
+                                    let body_str: String = serialize_body(&Some(body))?;
 
-                            match create_repay_order(body_str).await {
-                                Ok(_) => {
-                                    log::info!("Partially repay {} {} liability with available {}", token_liability_str, asset, &asset_info.available);
-                                }
-                                Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, format!("Failed to partially repay liability:{} on asset:{} {}", token_liability_str, asset, e)).await;
-                                    continue;
+                                    match create_repay_order(body_str).await {
+                                        Ok(_) => {
+                                            log::info!("Partially repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
+                                        }
+                                        Err(e) => {
+                                            let _ = handle_db_error(pool, exchange, format!("Failed to partially repay liability:{} on asset:{} {}", token_liability, asset, e)).await;
+                                            continue;
+                                        }
+                                    }
                                 }
                             }
                         }
+                        Err(e) => {
+                            let _ = handle_db_error(pool, exchange, format!("Failed to parse asset_info.available:{} {}", asset_info.available, e)).await;
+                            continue;
+                        }
+                    },
+                    None => {
+                        let _ = handle_db_error(pool, exchange, format!("Failed get asset:{} from:{:.?}", asset, position.asset_list)).await;
+                        continue;
                     }
                 }
-                (Err(e), _) => {
-                    let _ = handle_db_error(pool, exchange, format!("Failed to parse token_liability_str:{} {}", token_liability_str, e)).await;
-                    continue;
-                }
-                (_, Err(e)) => {
-                    let _ = handle_db_error(pool, exchange, format!("Failed to parse asset_info.available:{} {}", asset_info.available, e)).await;
-                    continue;
-                }
-            },
-            None => {
-                let _ = handle_db_error(pool, exchange, format!("Failed get asset:{} from:{:.?}", asset, position.asset_list)).await;
-                continue;
             }
         }
+        Err(e) => return Err(e.into()),
     }
+
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
         Ok(_) => {}
         Err(e) => {
