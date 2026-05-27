@@ -1,6 +1,7 @@
 use crate::api::models::{BalanceData, BalanceRelationContext, Bot, OrderData, Symbol};
-
+use rust_decimal::Decimal;
 use sqlx::Row;
+use std::str::FromStr;
 
 pub async fn insert_db_error(pool: &sqlx::PgPool, exchange: &str, msg: &str) -> Result<(), sqlx::Error> {
     match sqlx::query(
@@ -223,7 +224,7 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
         Err(e) => Err(e),
     }
 }
-pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<String>, sqlx::Error> {
+pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<Decimal>, sqlx::Error> {
     match sqlx::query(
         r#"
         SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value
@@ -240,7 +241,7 @@ pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: 
     .await
     {
         Ok(row) => match row.try_get::<Option<String>, _>("total_match_value") {
-            Ok(Some(value_str)) => Ok(Some(value_str)),
+            Ok(Some(value_str)) => Ok(Some(Decimal::from_str(&value_str).unwrap())),
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         },

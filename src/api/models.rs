@@ -123,6 +123,16 @@ pub struct OrderData {
     pub order_time: i64,
     pub ts: i64,
 }
+impl OrderData {
+    pub fn filled_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+        let filled_size = match &self.filled_size {
+            Some(filled_size_str) => filled_size_str,
+            None => return Err(format!("filled_size is None:{:?}", &self).into()),
+        };
+        Decimal::from_str(filled_size)
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct MessageData {
     pub topic: String,
