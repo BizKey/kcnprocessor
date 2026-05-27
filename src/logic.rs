@@ -15,13 +15,26 @@ use micromap::Map;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::json;
+use std::str::FromStr;
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
 
-const TP_BUY_PERCENT: f64 = 1.07; // +7%
-const SL_BUY_PERCENT: f64 = 0.95; // -5%
-const TP_SELL_PERCENT: f64 = 0.93; // -7%
-const SL_SELL_PERCENT: f64 = 1.05; // +5%
+fn tp_buy_percent() -> Decimal {
+    Decimal::from_str("1.07").unwrap() // +7%
+}
+
+fn sl_buy_percent() -> Decimal {
+    Decimal::from_str("0.95").unwrap() // -5%
+}
+
+fn tp_sell_percent() -> Decimal {
+    Decimal::from_str("0.93").unwrap() // -7%
+}
+
+fn sl_sell_percent() -> Decimal {
+    Decimal::from_str("1.05").unwrap() // +5%
+}
+
 const RETRY_DELAY_BASE: u64 = 500;
 const BOT_INIT_DELAY: Duration = Duration::from_secs(5);
 const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(1);
@@ -30,11 +43,6 @@ pub fn get_random_side() -> &'static str {
     if fastrand::bool() { "buy" } else { "sell" }
 }
 
-pub fn format_assert(size: f64, increment: f64) -> String {
-    let precision = if increment >= 1.0 { 0 } else { (increment.recip().log10().ceil() as usize).min(10) };
-    let rounded = (size / increment).round() * increment;
-    format!("{:.prec$}", rounded, prec = precision)
-}
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> String {
     let precision = increment.scale() as usize;
 
@@ -616,8 +624,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
             if order.side == "buy" {
                 let match_price: f64 = new_balance / filled_size_f64;
-                let trigger_tp_price: f64 = match_price * TP_BUY_PERCENT; // price + 7%
-                let trigger_sl_price: f64 = match_price * SL_BUY_PERCENT; // price - 5%
+                let trigger_tp_price: f64 = match_price * tp_buy_percent(); // price + 7%
+                let trigger_sl_price: f64 = match_price * sl_buy_percent(); // price - 5%
 
                 let exit_tp_client_oid: String = Uuid::new_v4().to_string();
                 let exit_sl_client_oid: String = Uuid::new_v4().to_string();
@@ -629,7 +637,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     "symbol": order.symbol,
                     "type": "market",
                     "stop": "entry",
-                    "stopPrice": format_assert(trigger_tp_price, price_increment),
+                    "stopPrice": format_assert_decimal(trigger_tp_price, price_increment),
                     "isIsolated": false,
                     "autoBorrow": true,
                     "autoRepay": false,
@@ -643,7 +651,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     "symbol": order.symbol,
                     "type": "market",
                     "stop": "loss",
-                    "stopPrice": format_assert(trigger_sl_price, price_increment),
+                    "stopPrice": format_assert_decimal(trigger_sl_price, price_increment),
                     "isIsolated": false,
                     "autoBorrow": true,
                     "autoRepay": false,
@@ -776,8 +784,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 }
             } else if order.side == "sell" {
                 let match_price: f64 = new_balance / filled_size_f64;
-                let trigger_tp_price: f64 = match_price * TP_SELL_PERCENT; // price - 7%
-                let trigger_sl_price: f64 = match_price * SL_SELL_PERCENT; // price + 5%
+                let trigger_tp_price: f64 = match_price * tp_sell_percent(); // price - 7%
+                let trigger_sl_price: f64 = match_price * sl_sell_percent(); // price + 5%
 
                 let funds_tp: f64 = trigger_tp_price * filled_size_f64;
                 let funds_sl: f64 = trigger_sl_price * filled_size_f64;
@@ -791,12 +799,12 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     "symbol": order.symbol,
                     "type": "market",
                     "stop": "loss",
-                    "stopPrice": format_assert(trigger_tp_price, price_increment), // price - 7%
+                    "stopPrice": format_assert_decimal(trigger_tp_price, price_increment), // price - 7%
                     "isIsolated": false,
                     "autoBorrow": true,
                     "autoRepay": false,
                     "timeInForce": "GTC",
-                    "funds": format_assert(funds_tp, quote_increment),
+                    "funds": format_assert_decimal(funds_tp, quote_increment),
                 });
                 let msg_sl_order: serde_json::Value = serde_json::json!({
                    "clientOid": exit_sl_client_oid,
@@ -804,12 +812,12 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     "symbol": order.symbol,
                     "type": "market",
                     "stop": "entry",
-                    "stopPrice": format_assert(trigger_sl_price, price_increment), // price + 5%
+                    "stopPrice": format_assert_decimal(trigger_sl_price, price_increment), // price + 5%
                     "isIsolated": false,
                     "autoBorrow": true,
                     "autoRepay": false,
                     "timeInForce": "GTC",
-                    "funds": format_assert(funds_sl, quote_increment),
+                    "funds": format_assert_decimal(funds_sl, quote_increment),
                 });
 
                 log::info!("Stop profit order:{}", msg_tp_order);
@@ -1305,7 +1313,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     }
                 };
                 let token_size: f64 = balance_funds / token_price;
-                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable_symbol, format_assert(token_size, base_increment), "market", true, false).await
+                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable_symbol, format_assert_decimal(token_size, base_increment), "market", true, false).await
             }
             "buy" => {
                 let quote_increment: f64 = match symbol_info.quote_increment.parse::<f64>() {
@@ -1315,7 +1323,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         continue;
                     }
                 };
-                make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable_symbol, format_assert(balance_funds, quote_increment), "market", true, false).await
+                make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable_symbol, format_assert_decimal(balance_funds, quote_increment), "market", true, false).await
             }
             _ => {
                 continue;
