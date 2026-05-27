@@ -5,7 +5,7 @@ use crate::api::models::{
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use micromap::Map;
-use reqwest::{Client, Error, Method, Response};
+use reqwest::{Client, Method, Response};
 use sha2::Sha256;
 use smallvec::SmallVec;
 use std::env;
@@ -64,7 +64,7 @@ impl KuCoinClient {
         base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
     }
 
-    async fn api_v1_bullet_private(&self) -> Result<String, Error> {
+    async fn api_v1_bullet_private(&self) -> Result<String, reqwest::Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -81,7 +81,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, query_string_str: String) -> Result<String, Error> {
+    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, query_string_str: String) -> Result<String, reqwest::Error> {
         let response: Response =
             match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string_str, String::new(), true, self.get_system_timestamp_ms()).await {
                 Ok(response) => response,
@@ -99,7 +99,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn get_margin_accounts(&self, query_params_str: String) -> Result<String, Error> {
+    async fn get_margin_accounts(&self, query_params_str: String) -> Result<String, reqwest::Error> {
         let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -116,7 +116,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn batch_cancel_stop_orders(&self, query_params_str: String) -> Result<String, Error> {
+    async fn batch_cancel_stop_orders(&self, query_params_str: String) -> Result<String, reqwest::Error> {
         let response: Response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -133,7 +133,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn account_transfer(&self, body_str: String) -> Result<String, Error> {
+    async fn account_transfer(&self, body_str: String) -> Result<String, reqwest::Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -150,7 +150,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<String, Error> {
+    async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<String, reqwest::Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -167,7 +167,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn add_api_v3_hf_margin_order(&self, body_str: String) -> Result<String, Error> {
+    async fn add_api_v3_hf_margin_order(&self, body_str: String) -> Result<String, reqwest::Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -184,7 +184,7 @@ impl KuCoinClient {
         };
     }
 
-    async fn margin_repay(&self, body_str: String) -> Result<String, Error> {
+    async fn margin_repay(&self, body_str: String) -> Result<String, reqwest::Error> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -201,7 +201,7 @@ impl KuCoinClient {
         };
     }
 
-    async fn get_ticker_price(&self, query_params_str: String) -> Result<String, Error> {
+    async fn get_ticker_price(&self, query_params_str: String) -> Result<String, reqwest::Error> {
         let response: Response = match self.make_request(Method::GET, "/api/v1/market/orderbook/level1", query_params_str, String::new(), false, 0).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -218,7 +218,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn make_request(&self, method: Method, endpoint: &str, query_string: String, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, Error> {
+    async fn make_request(&self, method: Method, endpoint: &str, query_string: String, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, reqwest::Error> {
         let url: String = if !query_string.is_empty() { format!("{}{}?{}", self.base_url, endpoint, query_string) } else { format!("{}{}", self.base_url, endpoint) };
 
         let mut request_builder: reqwest::RequestBuilder = self.client.request(method.clone(), &url);
