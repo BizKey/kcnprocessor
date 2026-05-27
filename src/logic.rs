@@ -941,7 +941,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // repay borrow
-    for (asset, token_liability_str) in &position.debt_list {
+    for (asset, token_liability_str) in &position.debt_pairs() {
         match position.asset_list.get(asset) {
             Some(asset_info) => match (token_liability_str.parse::<f64>(), asset_info.available.parse::<f64>()) {
                 (Ok(liability), Ok(available)) => {

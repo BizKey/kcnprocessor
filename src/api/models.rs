@@ -85,12 +85,10 @@ pub struct PositionData {
     pub debt_list: HashMap<String, String>, // ключ: актив, значение: строка долга
     pub timestamp: i64,
 }
+
 impl PositionData {
-    pub fn get_debt_decimal(&self, asset: &str) -> Result<Decimal, rust_decimal::Error> {
-        match self.debt_list.get(asset) {
-            Some(debt_str) => Decimal::from_str(debt_str),
-            None => Err(rust_decimal::Error::ParseError("Asset not found".to_string())),
-        }
+    pub fn debt_pairs(&self) -> Result<Vec<(String, Decimal)>, rust_decimal::Error> {
+        self.debt_list.iter().map(|(asset, debt_str)| Ok((asset.clone(), Decimal::from_str(debt_str)?))).collect()
     }
 }
 
