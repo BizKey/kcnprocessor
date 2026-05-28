@@ -2,13 +2,13 @@ use crate::api::models::{
     ApiV1MarketOrderbookLevel1Res, ApiV3AccountsUniversalTransferRes, ApiV3BulletPrivate, ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelRes, ApiV3MarginRepayRes,
     MakeOrderRes, MakeStopOrderRes, MarginAccount,
 };
+use crate::api::tools::get_env;
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use micromap::Map;
 use reqwest::{Client, Method, Response};
 use sha2::Sha256;
 use smallvec::SmallVec;
-use std::env;
 use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -26,14 +26,23 @@ pub struct KuCoinClient {
 
 impl KuCoinClient {
     fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let api_key: String = match get_env("KUCOIN_KEY") {
+            Ok(api_key) => api_key,
+            Err(e) => return Err(e.into()),
+        };
+
+        let api_secret: String = match get_env("KUCOIN_SECRET") {
+            Ok(api_secret) => api_secret,
+            Err(e) => return Err(e.into()),
+        };
+
+        let api_passphrase: String = match get_env("KUCOIN_PASS") {
+            Ok(api_passphrase) => api_passphrase,
+            Err(e) => return Err(e.into()),
+        };
+
         match Client::builder().timeout(Duration::from_secs(15)).connect_timeout(Duration::from_secs(5)).tcp_keepalive(Duration::from_secs(60)).build() {
-            Ok(client) => Ok(Self {
-                client,
-                api_key: env::var("KUCOIN_KEY")?.trim().to_string(),
-                api_secret: env::var("KUCOIN_SECRET")?.trim().to_string(),
-                api_passphrase: env::var("KUCOIN_PASS")?.trim().to_string(),
-                base_url,
-            }),
+            Ok(client) => Ok(Self { client, api_key: api_key, api_secret: api_secret, api_passphrase: api_passphrase, base_url }),
             Err(e) => Err(e.into()),
         }
     }
@@ -278,7 +287,10 @@ pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
 fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Send + Sync>> {
     KUCLIENT
         .get_or_init(|| {
-            let base_url = env::var("KUCOIN_BASE_URL").unwrap_or_else(|_| "https://api.kucoin.com".to_string());
+            let base_url: String = match get_env("KUCOIN_BASE_URL") {
+                Ok(base_url) => base_url,
+                Err(e) => return Err(e),
+            };
 
             KuCoinClient::new(base_url).map_err(|e| format!("Failed to init KuCoinClient: {}", e))
         })
