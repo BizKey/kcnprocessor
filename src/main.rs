@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     loop {
         // websocket to pg
-        let (tx_in, rx_in) = mpsc::channel::<String>(1000);
+        let (tx_in, rx_in) = mpsc::channel::<String>(10000);
 
         let exchange_process = exchange;
         let pool_process = pool.clone();
