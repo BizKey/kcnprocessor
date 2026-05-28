@@ -25,7 +25,12 @@ pub struct KuCoinClient {
 }
 
 impl KuCoinClient {
-    fn new(base_url: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let base_url: String = match get_env("KUCOIN_BASE_URL") {
+            Ok(base_url) => base_url,
+            Err(e) => return Err(e.into()),
+        };
+
         let api_key: String = match get_env("KUCOIN_KEY") {
             Ok(api_key) => api_key,
             Err(e) => return Err(e.into()),
@@ -285,17 +290,7 @@ pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
     result
 }
 fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Send + Sync>> {
-    KUCLIENT
-        .get_or_init(|| {
-            let base_url: String = match get_env("KUCOIN_BASE_URL") {
-                Ok(base_url) => base_url,
-                Err(e) => return Err(e),
-            };
-
-            KuCoinClient::new(base_url).map_err(|e| format!("Failed to init KuCoinClient: {}", e))
-        })
-        .as_ref()
-        .map_err(|e| e.clone().into())
+    KUCLIENT.get_or_init(|| KuCoinClient::new().map_err(|e| format!("Failed to init KuCoinClient: {}", e))).as_ref().map_err(|e| e.clone().into())
 }
 pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
