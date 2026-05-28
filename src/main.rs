@@ -2,6 +2,7 @@ mod api {
     pub mod db;
     pub mod models;
     pub mod requests;
+    pub mod tools;
 }
 mod logic;
 use crate::api::db::{clear_orders_ids_for_bots, handle_db_error};
