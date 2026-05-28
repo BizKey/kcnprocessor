@@ -7,6 +7,7 @@ mod api {
 mod logic;
 use crate::api::db::{clear_orders_ids_for_bots, handle_db_error};
 use crate::api::requests::{batch_cancel_stop_orders, build_query_string, get_private_ws_url};
+use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use dotenvy::dotenv;
 use futures_util::{SinkExt, StreamExt};
@@ -14,7 +15,6 @@ use log;
 use micromap::Map;
 
 use sqlx::postgres::PgPoolOptions;
-use std::env;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -30,7 +30,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     dotenv().ok();
     let mut init_order_execute: bool = true;
 
-    let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url: String = match get_env("DATABASE_URL") {
+        Ok(database_url) => database_url,
+        Err(e) => return Err(e.into()),
+    };
+
     let exchange = "kucoin";
 
     let pool = PgPoolOptions::new()
