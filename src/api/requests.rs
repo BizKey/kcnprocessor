@@ -290,7 +290,7 @@ pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
     result
 }
 fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Send + Sync>> {
-    KUCLIENT
+    match KUCLIENT
         .get_or_init({
             || match KuCoinClient::new() {
                 Ok(client) => Ok(client),
@@ -298,7 +298,10 @@ fn get_client() -> Result<&'static KuCoinClient, Box<dyn std::error::Error + Sen
             }
         })
         .as_ref()
-        .map_err(|e| e.clone().into())
+    {
+        Ok(client) => Ok(client),
+        Err(e) => Err(format!("{}", e).into()),
+    }
 }
 pub async fn get_private_ws_url() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let client: &KuCoinClient = match get_client() {
