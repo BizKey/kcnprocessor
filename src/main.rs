@@ -7,7 +7,7 @@ mod logic;
 use crate::api::db::{clear_orders_ids_for_bots, handle_db_error};
 use crate::api::requests::{batch_cancel_stop_orders, build_query_string, get_private_ws_url};
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log;
 use micromap::Map;
