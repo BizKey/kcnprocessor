@@ -134,7 +134,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             "isHf": true
                         });
 
-                        let body_str: String = serialize_body(&Some(body))?;
+                        let body_str: String = serialize_body(Some(body))?;
 
                         match create_repay_order(body_str).await {
                             Ok(_) => {}
@@ -153,7 +153,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             "isHf": true
                         });
 
-                        let body_str: String = serialize_body(&Some(body))?;
+                        let body_str: String = serialize_body(Some(body))?;
 
                         match create_repay_order(body_str).await {
                             Ok(_) => {}
@@ -335,7 +335,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             "fromAccountType": "MARGIN",
                             "toAccountType": "TRADE"
                         });
-                        let body_str: String = serialize_body(&Some(body))?;
+                        let body_str: String = serialize_body(Some(body))?;
 
                         match sent_account_transfer(body_str).await {
                             Ok(_) => {}
@@ -658,10 +658,10 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         return handle_db_error(pool, exchange, format!("Failed update_exit_sl_client_oid_bot_by_entry_client_oid:{}", e)).await;
                     }
                 }
-                let msg_tp_order2: String = serialize_body(&Some(msg_tp_order))?;
+                let msg_tp_order2: String = serialize_body(Some(msg_tp_order))?;
                 let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order2);
 
-                let msg_sl_order2: String = serialize_body(&Some(msg_sl_order))?;
+                let msg_sl_order2: String = serialize_body(Some(msg_sl_order))?;
                 let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order2);
 
                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
@@ -820,10 +820,10 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     }
                 }
 
-                let msg_tp_order2: String = serialize_body(&Some(msg_tp_order))?;
+                let msg_tp_order2: String = serialize_body(Some(msg_tp_order))?;
                 let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order2);
 
-                let msg_sl_order2: String = serialize_body(&Some(msg_sl_order))?;
+                let msg_sl_order2: String = serialize_body(Some(msg_sl_order))?;
                 let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order2);
                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
@@ -956,7 +956,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                         "isHf": true
                                     });
 
-                                    let body_str: String = serialize_body(&Some(body))?;
+                                    let body_str: String = serialize_body(Some(body))?;
 
                                     match create_repay_order(body_str).await {
                                         Ok(_) => {
@@ -975,7 +975,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                         "isHf": true
                                     });
 
-                                    let body_str: String = serialize_body(&Some(body))?;
+                                    let body_str: String = serialize_body(Some(body))?;
 
                                     match create_repay_order(body_str).await {
                                         Ok(_) => {
@@ -1387,7 +1387,7 @@ pub async fn make_hf_funds_margin_order(
     });
     log::info!("{}", msg);
 
-    let body_str: String = serialize_body(&Some(msg))?;
+    let body_str: String = serialize_body(Some(msg))?;
     match add_api_v3_hf_margin_order(body_str).await {
         Ok(data) => Ok(data),
         Err(e) => {
@@ -1440,7 +1440,7 @@ pub async fn make_hf_size_margin_order(
     });
     log::info!("{}", msg);
 
-    let body_str: String = serialize_body(&Some(msg))?;
+    let body_str: String = serialize_body(Some(msg))?;
     match add_api_v3_hf_margin_order(body_str).await {
         Ok(data) => Ok(data),
         Err(e) => {
