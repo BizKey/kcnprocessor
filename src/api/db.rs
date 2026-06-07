@@ -16,7 +16,7 @@ pub async fn insert_db_error(pool: &sqlx::PgPool, exchange: &str, msg: &str) -> 
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail inster into errors msg:{} exchange:{} error:{}", msg, exchange, e)),
     }
 }
 pub async fn insert_db_event(pool: &sqlx::PgPool, exchange: &str, msg: &serde_json::Value) -> Result<(), String> {
@@ -72,7 +72,10 @@ pub async fn insert_db_msgsend(
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!(
+            "Fail insert into msgsend args_symbol:{} args_side:{} args_size:{} args_funds:{} args_price:{} args_time_in_force:{} args_type:{} args_auto_borrow:{} args_auto_repay:{} args_client_oid:{} args_order_id:{} exchange:{} error:{}",
+            args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id, exchange, e
+        )),
     }
 }
 pub async fn insert_db_balance(pool: &sqlx::PgPool, exchange: &str, balance: BalanceData) -> Result<(), String> {

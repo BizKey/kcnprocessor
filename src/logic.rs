@@ -1182,7 +1182,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
         Ok(event) => match event {
             KuCoinMessage::Welcome(data) => {
                 match serde_json::to_value(&data) {
-                    Ok(data) => match insert_db_event(pool, exchange, data).await {
+                    Ok(data) => match insert_db_event(pool, exchange, &data).await {
                         Ok(_) => {
                             return Ok(());
                         }
@@ -1230,7 +1230,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
             }
             KuCoinMessage::Ack(data) => {
                 match serde_json::to_value(&data) {
-                    Ok(data) => match insert_db_event(pool, exchange, data).await {
+                    Ok(data) => match insert_db_event(pool, exchange, &data).await {
                         Ok(_) => {
                             return Ok(());
                         }
