@@ -85,7 +85,7 @@ impl KuCoinClient {
         Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
     }
 
-    async fn api_v1_bullet_private(&self) -> Result<String, reqwest::Error> {
+    async fn api_v1_bullet_private(&self) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
