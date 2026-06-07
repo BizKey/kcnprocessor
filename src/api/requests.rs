@@ -9,6 +9,7 @@ use micromap::Map;
 use reqwest::{Client, Method, Response};
 use sha2::Sha256;
 use smallvec::SmallVec;
+use std::fmt::format;
 use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -91,13 +92,13 @@ impl KuCoinClient {
             Err(e) => return Err(e),
         };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => return Err(format!("Fail read text from response:{}", e)),
         };
 
-        match response.text().await {
-            Ok(response_string) => Ok(response_string),
+        match response.error_for_status() {
+            Ok(_) => Ok(response_string),
             Err(e) => return Err(e),
         }
     }
