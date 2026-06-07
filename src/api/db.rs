@@ -73,17 +73,17 @@ pub async fn insert_db_msgsend(
     {
         Ok(_) => Ok(()),
         Err(e) => Err(format!(
-            "Fail insert into msgsend args_symbol:{} args_side:{} args_size:{} args_funds:{} args_price:{} args_time_in_force:{} args_type:{} args_auto_borrow:{} args_auto_repay:{} args_client_oid:{} args_order_id:{} exchange:{} error:{}",
+            "Fail insert into msgsend args_symbol:{:?} args_side:{:?} args_size:{:?} args_funds:{:?} args_price:{:?} args_time_in_force:{:?} args_type:{:?} args_auto_borrow:{:?} args_auto_repay:{:?} args_client_oid:{:?} args_order_id:{:?} exchange:{} error:{}",
             args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id, exchange, e
         )),
     }
 }
 pub async fn insert_db_balance(pool: &sqlx::PgPool, exchange: &str, balance: BalanceData) -> Result<(), String> {
-    let relation_context: BalanceRelationContext = match balance.relation_context {
+    let relation_context: &BalanceRelationContext = match &balance.relation_context {
         Some(ctx) => ctx,
         None => {
             log::error!("Missing relationContext for balance");
-            BalanceRelationContext { symbol: None, order_id: None, trade_id: None }
+            &BalanceRelationContext { symbol: None, order_id: None, trade_id: None }
         }
     };
     match sqlx::query(
@@ -93,24 +93,24 @@ pub async fn insert_db_balance(pool: &sqlx::PgPool, exchange: &str, balance: Bal
         "#,
     )
     .bind(exchange)
-    .bind(balance.account_id)
-    .bind(balance.available)
-    .bind(balance.available_change)
-    .bind(balance.currency)
-    .bind(balance.hold)
-    .bind(balance.hold_change)
-    .bind(balance.relation_event)
-    .bind(balance.relation_event_id)
-    .bind(balance.time)
-    .bind(balance.total)
-    .bind(relation_context.symbol)
-    .bind(relation_context.order_id)
-    .bind(relation_context.trade_id)
+    .bind(&balance.account_id)
+    .bind(&balance.available)
+    .bind(&balance.available_change)
+    .bind(&balance.currency)
+    .bind(&balance.hold)
+    .bind(&balance.hold_change)
+    .bind(&balance.relation_event)
+    .bind(&balance.relation_event_id)
+    .bind(&balance.time)
+    .bind(&balance.total)
+    .bind(&relation_context.symbol)
+    .bind(&relation_context.order_id)
+    .bind(&relation_context.trade_id)
     .execute(pool)
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail insert into balance balance:{:?} relation_context:{:?} exchange:{} error:{}", balance, relation_context, exchange, e)),
     }
 }
 
@@ -147,7 +147,7 @@ pub async fn insert_db_orderevent(pool: &sqlx::PgPool, exchange: &str, order: &O
         .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail insert into orderevent status:{} type_:{} symbol:{} side:{} order_type:{} fee_type:{:?} liquidity:{:?} price:{:?} order_id:{} client_oid:{:?} trade_id:{:?} origin_size:{:?} size:{:?} filled_size:{:?} match_size:{:?} match_price:{:?} canceled_size:{:?} old_size:{:?} remain_size:{:?} remain_funds:{:?} order_time:{} ts:{} exchange:{} error:{}", order.status, order.type_,order.symbol, order.side,order.order_type, order.fee_type, order.liquidity, order.price, order.order_id, order.client_oid, order.trade_id,order.origin_size, order.size, order.filled_size, order.match_size, order.match_price, order.canceled_size, order.old_size, order.remain_size, order.remain_funds,order.order_time,  order.ts,exchange,e)),
     }
 }
 pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_sl_client_oid: &str) -> Result<(), String> {
