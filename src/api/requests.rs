@@ -56,7 +56,7 @@ impl KuCoinClient {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
 
-    fn generate_signature(&self, timestamp: u64, method: &str, endpoint: &str, query_string: &str, body: &str) -> String {
+    fn generate_signature(&self, timestamp: u64, method: &str, endpoint: &str, query_string: &str, body: &str) -> Result<String, String> {
         let mut str_to_sign = format!("{}{}{}", timestamp, method.to_uppercase(), endpoint);
 
         if !query_string.is_empty() {
@@ -67,15 +67,22 @@ impl KuCoinClient {
             str_to_sign.push_str(body);
         }
 
-        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes()).expect("HMAC can take key of any size");
+        let mut mac = match HmacSha256::new_from_slice(self.api_secret.as_bytes()) {
+            Ok(mac) => mac,
+            Err(e) => return Err(format!("Fail get api secret:{}", e)),
+        };
+
         mac.update(str_to_sign.as_bytes());
-        base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
+        Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
     }
 
-    fn generate_passphrase_signature(&self) -> String {
-        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes()).expect("HMAC can take key of any size");
+    fn generate_passphrase_signature(&self) -> Result<String, String> {
+        let mut mac = match HmacSha256::new_from_slice(self.api_secret.as_bytes()) {
+            Ok(mac) => mac,
+            Err(e) => return Err(format!("Fail get api secret:{}", e)),
+        };
         mac.update(self.api_passphrase.as_bytes());
-        base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
+        Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
     }
 
     async fn api_v1_bullet_private(&self) -> Result<String, reqwest::Error> {
@@ -232,17 +239,27 @@ impl KuCoinClient {
         }
     }
 
-    async fn make_request(&self, method: Method, endpoint: &str, query_string: String, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, reqwest::Error> {
+    async fn make_request(&self, method: Method, endpoint: &str, query_string: String, body_str: String, authenticated: bool, timestamp: u64) -> Result<Response, String> {
         let url: String = if !query_string.is_empty() { format!("{}{}?{}", self.base_url, endpoint, query_string) } else { format!("{}{}", self.base_url, endpoint) };
 
         let mut request_builder: reqwest::RequestBuilder = self.client.request(method.clone(), &url);
 
         if authenticated {
+            let kc_api_sign: String = match self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str) {
+                Ok(kc_api_sign) => kc_api_sign,
+                Err(e) => return Err(e),
+            };
+
+            let kc_api_passphrase: String = match self.generate_passphrase_signature() {
+                Ok(kc_api_passphrase) => kc_api_passphrase,
+                Err(e) => return Err(e),
+            };
+
             request_builder = request_builder
                 .header("KC-API-KEY", &self.api_key)
-                .header("KC-API-SIGN", self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str))
+                .header("KC-API-SIGN", kc_api_sign)
                 .header("KC-API-TIMESTAMP", timestamp.to_string())
-                .header("KC-API-PASSPHRASE", self.generate_passphrase_signature())
+                .header("KC-API-PASSPHRASE", kc_api_passphrase)
                 .header("KC-API-KEY-VERSION", "2");
 
             if !body_str.is_empty() {
@@ -251,7 +268,7 @@ impl KuCoinClient {
         }
         match request_builder.send().await {
             Ok(response) => Ok(response),
-            Err(e) => Err(e),
+            Err(e) => Err(e.to_string()),
         }
     }
 }
