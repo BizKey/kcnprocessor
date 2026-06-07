@@ -368,7 +368,7 @@ pub async fn update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool: &sqlx::PgPo
         Err(e) => Err(e),
     }
 }
-pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, entry_client_oid: &str, exit_sl_client_oid: &str) -> Result<(), sqlx::Error> {
+pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, entry_client_oid: &str, exit_sl_client_oid: &str) -> Result<(), String> {
     match sqlx::query(
         r#"
         UPDATE bots
@@ -385,10 +385,10 @@ pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPo
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail update exit_sl_client_oid:{} by entry_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, entry_client_oid, exchange, e)),
     }
 }
-pub async fn update_balance_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_tp_client_oid: &str, balance: &str) -> Result<(), sqlx::Error> {
+pub async fn update_balance_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_tp_client_oid: &str, balance: &str) -> Result<(), String> {
     match sqlx::query(
         r#"
         UPDATE bots
@@ -406,7 +406,7 @@ pub async fn update_balance_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, excha
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail update balance to:{} by exit_tp_client_oid:{} exchange:{} error:{}", balance, exit_tp_client_oid, exchange, e)),
     }
 }
 pub async fn update_bot_balance_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, entry_client_oid: &str, balance: &str) -> Result<(), sqlx::Error> {
