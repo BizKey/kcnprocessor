@@ -147,7 +147,11 @@ pub async fn insert_db_orderevent(pool: &sqlx::PgPool, exchange: &str, order: &O
         .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!("Fail insert into orderevent status:{} type_:{} symbol:{} side:{} order_type:{} fee_type:{:?} liquidity:{:?} price:{:?} order_id:{} client_oid:{:?} trade_id:{:?} origin_size:{:?} size:{:?} filled_size:{:?} match_size:{:?} match_price:{:?} canceled_size:{:?} old_size:{:?} remain_size:{:?} remain_funds:{:?} order_time:{} ts:{} exchange:{} error:{}", order.status, order.type_,order.symbol, order.side,order.order_type, order.fee_type, order.liquidity, order.price, order.order_id, order.client_oid, order.trade_id,order.origin_size, order.size, order.filled_size, order.match_size, order.match_price, order.canceled_size, order.old_size, order.remain_size, order.remain_funds,order.order_time,  order.ts,exchange,e)),
+        Err(e) => Err(format!(
+            "Fail insert into orderevent status:{} type_:{} symbol:{} side:{} order_type:{} fee_type:{:?} liquidity:{:?} price:{:?} order_id:{} client_oid:{:?} trade_id:{:?} origin_size:{:?} size:{:?} filled_size:{:?} match_size:{:?} match_price:{:?} canceled_size:{:?} old_size:{:?} remain_size:{:?} remain_funds:{:?} order_time:{} ts:{} exchange:{} error:{}",
+            order.status, order.type_,order.symbol, order.side,order.order_type, order.fee_type, order.liquidity, order.price, order.order_id, order.client_oid, order.trade_id,order.origin_size, order.size, order.filled_size, order.match_size, order.match_price, order.canceled_size, order.old_size, order.remain_size, order.remain_funds,order.order_time,  order.ts,exchange,e
+        )
+    ),
     }
 }
 pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_sl_client_oid: &str) -> Result<(), String> {
