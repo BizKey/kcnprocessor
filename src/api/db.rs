@@ -550,7 +550,7 @@ pub async fn get_bot_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, en
     .await
     {
         Ok(bot) => Ok(bot),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail get bot by entry_client_oid:{} exchange:{} error:{}", entry_client_oid, exchange, e)),
     }
 }
 
@@ -567,7 +567,7 @@ pub async fn get_all_bots_for_trade(pool: &sqlx::PgPool, exchange: &str) -> Resu
     .await
     {
         Ok(bots) => Ok(bots),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail get bots by exchange:{} error:{}", exchange, e)),
     }
 }
 
@@ -600,7 +600,7 @@ pub async fn get_random_symbol(pool: &sqlx::PgPool, exchange: &str) -> Result<Op
     {
         Ok(Some(symbol)) => Ok(Some(symbol)),
         Ok(None) => Ok(None),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail get random symbol by exchange:{} error:{}", exchange, e)),
     }
 }
 
@@ -627,7 +627,10 @@ pub async fn upsert_position_ratio(pool: &sqlx::PgPool, exchange: &str, debt_rat
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!(
+            "Fail insert to positionratio debt_ratio:{} total_asset:{} margin_coefficient_total_asset:{} total_debt:{} exchange:{} error:{}",
+            debt_ratio, total_asset, margin_coefficient_total_asset, total_debt, exchange, e
+        )),
     }
 }
 
@@ -677,7 +680,10 @@ pub async fn upsert_position_asset(pool: &sqlx::PgPool, exchange: &str, asset_sy
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!(
+            "Fail insert to positionasset asset_symbol:{} asset_total:{} asset_available:{} asset_hold:{} exchange:{} error:{}",
+            asset_symbol, asset_total, asset_available, asset_hold, exchange, e
+        )),
     }
 }
 pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, msg: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
