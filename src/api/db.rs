@@ -474,7 +474,7 @@ pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str, bala
         Err(e) => Err(e),
     }
 }
-pub async fn update_bot_entry_client_oid_by_id(pool: &sqlx::PgPool, exchange: &str, symbol: Option<&str>, entry_client_oid: Option<&str>, trade_bot_id: i32) -> Result<(), sqlx::Error> {
+pub async fn update_bot_entry_client_oid_by_id(pool: &sqlx::PgPool, exchange: &str, symbol: Option<&str>, entry_client_oid: Option<&str>, id: i32) -> Result<(), String> {
     match sqlx::query(
         r#"
         UPDATE bots
@@ -487,12 +487,12 @@ pub async fn update_bot_entry_client_oid_by_id(pool: &sqlx::PgPool, exchange: &s
     .bind(entry_client_oid)
     .bind(symbol)
     .bind(exchange)
-    .bind(trade_bot_id)
+    .bind(id)
     .execute(pool)
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail update entry_client_oid:{:?} and symbol:{:?} by id:{} exchange:{} error:{}", entry_client_oid, symbol, id, exchange, e)),
     }
 }
 
