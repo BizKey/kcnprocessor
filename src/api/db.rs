@@ -19,7 +19,7 @@ pub async fn insert_db_error(pool: &sqlx::PgPool, exchange: &str, msg: &str) -> 
         Err(e) => Err(e),
     }
 }
-pub async fn insert_db_event(pool: &sqlx::PgPool, exchange: &str, json_value: serde_json::Value) -> Result<(), String> {
+pub async fn insert_db_event(pool: &sqlx::PgPool, exchange: &str, msg: &serde_json::Value) -> Result<(), String> {
     match sqlx::query(
         r#"
         INSERT INTO events (exchange, msg)
@@ -27,12 +27,12 @@ pub async fn insert_db_event(pool: &sqlx::PgPool, exchange: &str, json_value: se
         "#,
     )
     .bind(exchange)
-    .bind(json_value)
+    .bind(msg)
     .execute(pool)
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail insert into events msg:{} exchange:{} error:{}", msg, exchange, e)),
     }
 }
 pub async fn insert_db_msgsend(
