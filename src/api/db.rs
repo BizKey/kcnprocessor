@@ -147,7 +147,7 @@ pub async fn insert_db_orderevent(pool: &sqlx::PgPool, exchange: &str, order: &O
         Err(e) => Err(e),
     }
 }
-pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_sl_client_oid: &str) -> Result<(), sqlx::Error> {
     match sqlx::query(
         r#"
         UPDATE bots
@@ -158,7 +158,7 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
             exchange = $2;
         "#,
     )
-    .bind(client_oid)
+    .bind(exit_sl_client_oid)
     .bind(exchange)
     .execute(pool)
     .await
@@ -204,7 +204,7 @@ pub async fn delete_symbol_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchan
         Err(e) => Err(e),
     }
 }
-pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_tp_client_oid: &str) -> Result<(), sqlx::Error> {
     match sqlx::query(
         r#"
         UPDATE bots
@@ -215,7 +215,7 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
             exchange = $2;
         "#,
     )
-    .bind(client_oid)
+    .bind(exit_tp_client_oid)
     .bind(exchange)
     .execute(pool)
     .await
@@ -248,7 +248,7 @@ pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: 
         Err(e) => Err(e),
     }
 }
-pub async fn set_null_entry_client_oid_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<(), sqlx::Error> {
+pub async fn set_null_entry_client_oid_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, entry_client_oid: &str) -> Result<(), sqlx::Error> {
     match sqlx::query(
         r#"
         UPDATE bots
@@ -258,7 +258,7 @@ pub async fn set_null_entry_client_oid_by_entry_client_oid(pool: &sqlx::PgPool, 
             exchange = $2;
         "#,
     )
-    .bind(client_oid)
+    .bind(entry_client_oid)
     .bind(exchange)
     .execute(pool)
     .await
@@ -496,7 +496,7 @@ pub async fn update_bot_entry_client_oid_by_id(pool: &sqlx::PgPool, exchange: &s
     }
 }
 
-pub async fn get_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, sqlx::Error> {
+pub async fn get_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_sl_client_oid: &str) -> Result<Option<Bot>, String> {
     match sqlx::query_as::<_, Bot>(
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
@@ -507,15 +507,15 @@ pub async fn get_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchange: &str, 
         "#,
     )
     .bind(exchange)
-    .bind(client_oid)
+    .bind(exit_sl_client_oid)
     .fetch_optional(pool)
     .await
     {
         Ok(bot) => Ok(bot),
-        Err(e) => Err(e),
+        Err(e) => Err(format!("Fail get bot by exit_sl_client_oid:{} exchange:{} error:{} ", exit_sl_client_oid, exchange, e)),
     }
 }
-pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, sqlx::Error> {
+pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_tp_client_oid: &str) -> Result<Option<Bot>, sqlx::Error> {
     match sqlx::query_as::<_, Bot>(
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
@@ -526,7 +526,7 @@ pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exchange: &str, 
         "#,
     )
     .bind(exchange)
-    .bind(client_oid)
+    .bind(exit_tp_client_oid)
     .fetch_optional(pool)
     .await
     {
@@ -534,7 +534,7 @@ pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exchange: &str, 
         Err(e) => Err(e),
     }
 }
-pub async fn get_bot_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, sqlx::Error> {
+pub async fn get_bot_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, entry_client_oid: &str) -> Result<Option<Bot>, sqlx::Error> {
     match sqlx::query_as::<_, Bot>(
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
@@ -545,7 +545,7 @@ pub async fn get_bot_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, cl
         "#,
     )
     .bind(exchange)
-    .bind(client_oid)
+    .bind(entry_client_oid)
     .fetch_optional(pool)
     .await
     {
