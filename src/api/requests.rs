@@ -371,7 +371,7 @@ pub fn serialize_body(body: Option<serde_json::Value>) -> Result<String, String>
         Some(clear_value) => clear_value,
         None => return Ok(String::new()),
     };
-    
+
     match serde_json::to_string(&clear_value) {
         Ok(json_string) => Ok(json_string),
         Err(e) => {
