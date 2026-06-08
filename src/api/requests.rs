@@ -402,7 +402,7 @@ fn get_client() -> Result<&'static KuCoinClient, String> {
         .get_or_init({
             || match KuCoinClient::new() {
                 Ok(client) => Ok(client),
-                Err(e) => return Err(e),
+                Err(e) => Err(e),
             }
         })
         .as_ref()
