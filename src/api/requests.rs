@@ -92,151 +92,205 @@ impl KuCoinClient {
             Err(e) => return Err(e),
         };
 
+        let status: reqwest::StatusCode = response.status();
+
         let response_string: String = match response.text().await {
             Ok(response_string) => response_string,
-            Err(e) => return Err(format!("Fail read text from response:{}", e)),
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.error_for_status() {
-            Ok(_) => Ok(response_string),
-            Err(e) => return Err(e),
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
         }
     }
 
-    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, query_string_str: String) -> Result<String, reqwest::Error> {
+    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, query_string_str: String) -> Result<String, String> {
         let response: Response =
             match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string_str, String::new(), true, self.get_system_timestamp_ms()).await {
                 Ok(response) => response,
                 Err(e) => return Err(e),
             };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.text().await {
-            Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e),
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
         }
     }
 
-    async fn get_margin_accounts(&self, query_params_str: String) -> Result<String, reqwest::Error> {
+    async fn get_margin_accounts(&self, query_params_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.text().await {
-            Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e),
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
         }
     }
 
-    async fn batch_cancel_stop_orders(&self, query_params_str: String) -> Result<String, reqwest::Error> {
+    async fn batch_cancel_stop_orders(&self, query_params_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.text().await {
-            Ok(response_string) => Ok(response_string),
-            Err(e) => Err(e.into()),
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
         }
     }
 
-    async fn account_transfer(&self, body_str: String) -> Result<String, reqwest::Error> {
+    async fn account_transfer(&self, body_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.text().await {
-            Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e),
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
         }
     }
 
-    async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<String, reqwest::Error> {
+    async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.text().await {
-            Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e),
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
         }
     }
 
-    async fn add_api_v3_hf_margin_order(&self, body_str: String) -> Result<String, reqwest::Error> {
+    async fn add_api_v3_hf_margin_order(&self, body_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.text().await {
-            Ok(response_string) => return Ok(response_string),
-            Err(e) => return Err(e),
-        };
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
+        }
     }
 
-    async fn margin_repay(&self, body_str: String) -> Result<String, reqwest::Error> {
+    async fn margin_repay(&self, body_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.text().await {
-            Ok(response_string) => return Ok(response_string),
-            Err(e) => return Err(e),
-        };
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
+        }
     }
 
-    async fn get_ticker_price(&self, query_params_str: String) -> Result<String, reqwest::Error> {
+    async fn get_ticker_price(&self, query_params_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::GET, "/api/v1/market/orderbook/level1", query_params_str, String::new(), false, 0).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
 
-        let response: Response = match response.error_for_status() {
-            Ok(response) => response,
-            Err(e) => return Err(e),
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
-        match response.text().await {
-            Ok(response_string) => Ok(response_string),
-            Err(e) => return Err(e),
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => Err(format!("API returned error status {}: {}", status_code, response_string)),
         }
     }
 
