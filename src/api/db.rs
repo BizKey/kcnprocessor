@@ -16,7 +16,11 @@ pub async fn insert_db_error(pool: &sqlx::PgPool, exchange: &str, msg: &str) -> 
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!("Fail inster into errors msg:{} exchange:{} error:{}", msg, exchange, e)),
+        Err(e) => {
+            let msg: String = format!("Fail inster into errors msg:{} exchange:{} error:{}", msg, exchange, e);
+            log::error!("{}", msg);
+            Err(msg)
+        }
     }
 }
 pub async fn insert_db_event(pool: &sqlx::PgPool, exchange: &str, msg: &serde_json::Value) -> Result<(), String> {
@@ -32,7 +36,11 @@ pub async fn insert_db_event(pool: &sqlx::PgPool, exchange: &str, msg: &serde_js
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!("Fail insert into events msg:{} exchange:{} error:{}", msg, exchange, e)),
+        Err(e) => {
+            let msg: String = format!("Fail insert into events msg:{} exchange:{} error:{}", msg, exchange, e);
+            log::error!("{}", msg);
+            Err(msg)
+        }
     }
 }
 pub async fn insert_db_msgsend(
@@ -72,10 +80,14 @@ pub async fn insert_db_msgsend(
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!(
-            "Fail insert into msgsend args_symbol:{:?} args_side:{:?} args_size:{:?} args_funds:{:?} args_price:{:?} args_time_in_force:{:?} args_type:{:?} args_auto_borrow:{:?} args_auto_repay:{:?} args_client_oid:{:?} args_order_id:{:?} exchange:{} error:{}",
-            args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id, exchange, e
-        )),
+        Err(e) => {
+            let msg: String = format!(
+                "Fail insert into msgsend args_symbol:{:?} args_side:{:?} args_size:{:?} args_funds:{:?} args_price:{:?} args_time_in_force:{:?} args_type:{:?} args_auto_borrow:{:?} args_auto_repay:{:?} args_client_oid:{:?} args_order_id:{:?} exchange:{} error:{}",
+                args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id, exchange, e
+            );
+            log::error!("{}", msg);
+            Err(msg)
+        }
     }
 }
 pub async fn insert_db_balance(pool: &sqlx::PgPool, exchange: &str, balance: BalanceData) -> Result<(), String> {
@@ -110,7 +122,11 @@ pub async fn insert_db_balance(pool: &sqlx::PgPool, exchange: &str, balance: Bal
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!("Fail insert into balance balance:{:?} relation_context:{:?} exchange:{} error:{}", balance, relation_context, exchange, e)),
+        Err(e) => {
+            let msg: String = format!("Fail insert into balance balance:{:?} relation_context:{:?} exchange:{} error:{}", balance, relation_context, exchange, e);
+            log::error!("{}", msg);
+            Err(msg)
+        }
     }
 }
 
@@ -147,11 +163,15 @@ pub async fn insert_db_orderevent(pool: &sqlx::PgPool, exchange: &str, order: &O
         .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!(
+        Err(e) => {
+            let msg: String = format!(
             "Fail insert into orderevent status:{} type_:{} symbol:{} side:{} order_type:{} fee_type:{:?} liquidity:{:?} price:{:?} order_id:{} client_oid:{:?} trade_id:{:?} origin_size:{:?} size:{:?} filled_size:{:?} match_size:{:?} match_price:{:?} canceled_size:{:?} old_size:{:?} remain_size:{:?} remain_funds:{:?} order_time:{} ts:{} exchange:{} error:{}",
             order.status, order.type_,order.symbol, order.side,order.order_type, order.fee_type, order.liquidity, order.price, order.order_id, order.client_oid, order.trade_id,order.origin_size, order.size, order.filled_size, order.match_size, order.match_price, order.canceled_size, order.old_size, order.remain_size, order.remain_funds,order.order_time,  order.ts,exchange,e
-        )
-    ),
+        );
+            log::error!("{}", msg);
+            Err(msg)
+        }
+
     }
 }
 pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_sl_client_oid: &str) -> Result<(), String> {
@@ -171,7 +191,11 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!("Fail update bot exit_sl_client_oid:NULL and exit_sl_order_id:NULL by exit_sl_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, exchange, e)),
+        Err(e) => {
+            let msg: String = format!("Fail update bot exit_sl_client_oid:NULL and exit_sl_order_id:NULL by exit_sl_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, exchange, e);
+            log::error!("{}", msg);
+            Err(msg)
+        }
     }
 }
 pub async fn fetch_symbol_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, symbol: &str) -> Result<Option<Symbol>, String> {
@@ -189,7 +213,11 @@ pub async fn fetch_symbol_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, exch
     .await
     {
         Ok(res) => Ok(res),
-        Err(e) => Err(format!("Fail get symbol by symbol:{} exchange:{} error:{}", symbol, exchange, e)),
+        Err(e) => {
+            let msg: String = format!("Fail get symbol by symbol:{} exchange:{} error:{}", symbol, exchange, e);
+            log::error!("{}", msg);
+            Err(msg)
+        }
     }
 }
 pub async fn delete_symbol_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_sl_client_oid: &str) -> Result<(), String> {
@@ -208,7 +236,11 @@ pub async fn delete_symbol_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchan
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!("Fail update bot symbol:NULL by exit_sl_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, exchange, e)),
+        Err(e) => {
+            let msg: String = format!("Fail update bot symbol:NULL by exit_sl_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, exchange, e);
+            log::error!("{}", msg);
+            Err(msg)
+        }
     }
 }
 pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_tp_client_oid: &str) -> Result<(), String> {
@@ -778,10 +810,14 @@ pub async fn upsert_position_asset(pool: &sqlx::PgPool, exchange: &str, asset_sy
     .await
     {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!(
-            "Fail insert to positionasset asset_symbol:{} asset_total:{} asset_available:{} asset_hold:{} exchange:{} error:{}",
-            asset_symbol, asset_total, asset_available, asset_hold, exchange, e
-        )),
+        Err(e) => {
+            let msg: String = format!(
+                "Fail insert to positionasset asset_symbol:{} asset_total:{} asset_available:{} asset_hold:{} exchange:{} error:{}",
+                asset_symbol, asset_total, asset_available, asset_hold, exchange, e
+            );
+            log::error!("{}", msg);
+            Err(msg)
+        }
     }
 }
 pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, msg: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
