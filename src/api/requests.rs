@@ -109,7 +109,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -137,7 +137,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -164,7 +164,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -191,7 +191,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -218,7 +218,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -245,7 +245,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -272,7 +272,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -299,7 +299,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -326,7 +326,7 @@ impl KuCoinClient {
         match status.as_u16() {
             200 => Ok(response_string),
             status_code => {
-                let msg = format!("API returned error status {}: {}", status_code, response_string);
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
                 return Err(msg);
             }
