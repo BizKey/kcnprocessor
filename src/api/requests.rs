@@ -91,7 +91,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -119,7 +119,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -173,7 +173,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -227,7 +227,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -356,23 +356,23 @@ impl KuCoinClient {
                 if e.is_timeout() {
                     let msg: String = format!("Timeout {}: {}", url, e);
                     log::error!("{}", msg);
-                    return Err(msg);
+                    Err(msg)
                 } else if e.is_connect() {
                     let msg: String = format!("Error connection {}: {}", url, e);
                     log::error!("{}", msg);
-                    return Err(msg);
+                    Err(msg)
                 } else if e.is_request() {
                     let msg: String = format!("Error prepare request {}: {}", url, e);
                     log::error!("{}", msg);
-                    return Err(msg);
+                    Err(msg)
                 } else if e.is_body() {
                     let msg: String = format!("Error in body {}: {}", url, e);
                     log::error!("{}", msg);
-                    return Err(msg);
+                    Err(msg)
                 } else {
                     let msg: String = format!("Unexpected error {}: {}", url, e);
                     log::error!("{}", msg);
-                    return Err(msg);
+                    Err(msg)
                 }
             }
         }
@@ -459,7 +459,7 @@ pub async fn get_all_margin_accounts(query_params_str: String) -> Result<MarginA
 
     let response_string: String = match client.get_margin_accounts(query_params_str).await {
         Ok(response_string) => response_string,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     match serde_json::from_str::<MarginAccount>(&response_string) {
@@ -467,7 +467,7 @@ pub async fn get_all_margin_accounts(query_params_str: String) -> Result<MarginA
         Err(e) => {
             let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e);
             log::error!("{}", error_msg);
-            return Err(error_msg);
+            Err(error_msg)
         }
     }
 }
@@ -479,7 +479,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str: 
 
     let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str).await {
         Ok(response_string) => response_string,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     match serde_json::from_str::<ApiV3HfMarginStopOrderCancelByClientOidRes>(&response_string) {
@@ -487,7 +487,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str: 
         Err(e) => {
             let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelByClientOidRes), e);
             log::error!("{}", error_msg);
-            return Err(error_msg);
+            Err(error_msg)
         }
     }
 }
@@ -499,7 +499,7 @@ pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniv
 
     let response_string: String = match client.account_transfer(body_str).await {
         Ok(response_string) => response_string,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     match serde_json::from_str::<ApiV3AccountsUniversalTransferRes>(&response_string) {
@@ -507,7 +507,7 @@ pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniv
         Err(e) => {
             let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3AccountsUniversalTransferRes), e);
             log::error!("{}", error_msg);
-            return Err(error_msg);
+            Err(error_msg)
         }
     }
 }
@@ -519,7 +519,7 @@ pub async fn get_ticker_price(query_params_str: String) -> Result<ApiV1MarketOrd
 
     let response_string: String = match client.get_ticker_price(query_params_str).await {
         Ok(response_string) => response_string,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     match serde_json::from_str::<ApiV1MarketOrderbookLevel1Res>(&response_string) {
@@ -527,7 +527,7 @@ pub async fn get_ticker_price(query_params_str: String) -> Result<ApiV1MarketOrd
         Err(e) => {
             let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV1MarketOrderbookLevel1Res), e);
             log::error!("{}", error_msg);
-            return Err(error_msg);
+            Err(error_msg)
         }
     }
 }
@@ -539,7 +539,7 @@ pub async fn batch_cancel_stop_orders(query_params_str: String) -> Result<ApiV3H
 
     let response_string: String = match client.batch_cancel_stop_orders(query_params_str).await {
         Ok(response_string) => response_string,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     match serde_json::from_str::<ApiV3HfMarginStopOrderCancelRes>(&response_string) {
@@ -547,7 +547,7 @@ pub async fn batch_cancel_stop_orders(query_params_str: String) -> Result<ApiV3H
         Err(e) => {
             let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelRes), e);
             log::error!("{}", error_msg);
-            return Err(error_msg);
+            Err(error_msg)
         }
     }
 }
@@ -559,7 +559,7 @@ pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrd
 
     let response_string: String = match client.api_v3_hf_margin_stop_order(body_str).await {
         Ok(response_string) => response_string,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     match serde_json::from_str::<MakeStopOrderRes>(&response_string) {
@@ -567,7 +567,7 @@ pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrd
         Err(e) => {
             let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MakeStopOrderRes), e);
             log::error!("{}", error_msg);
-            return Err(error_msg);
+            Err(error_msg)
         }
     }
 }
@@ -579,7 +579,7 @@ pub async fn add_api_v3_hf_margin_order(body_str: String) -> Result<MakeOrderRes
 
     let response_string: String = match client.add_api_v3_hf_margin_order(body_str).await {
         Ok(response_string) => response_string,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     match serde_json::from_str::<MakeOrderRes>(&response_string) {
@@ -587,7 +587,7 @@ pub async fn add_api_v3_hf_margin_order(body_str: String) -> Result<MakeOrderRes
         Err(e) => {
             let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MakeOrderRes), e);
             log::error!("{}", error_msg);
-            return Err(error_msg);
+            Err(error_msg)
         }
     }
 }
@@ -607,7 +607,7 @@ pub async fn create_repay_order(body_str: String) -> Result<ApiV3MarginRepayRes,
         Err(e) => {
             let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3MarginRepayRes), e);
             log::error!("{}", error_msg);
-            return Err(error_msg);
+            Err(error_msg)
         }
     }
 }
