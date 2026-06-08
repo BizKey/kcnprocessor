@@ -385,8 +385,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         Ok(_) => {
             log::info!("{:.?}", order);
         }
-        Err(e) => match handle_db_error(&pool, exchange, e).await {
-            Ok(_) => return Err(e),
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
             Err(error_msg) => return Err(error_msg),
         },
     }
@@ -418,8 +418,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
     let price_increment = match symbol_info.price_increment_decimal() {
         Ok(price_increment) => price_increment,
-        Err(e) => match handle_db_error(&pool, exchange, e).await {
-            Ok(_) => return Err(e),
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
             Err(error_msg) => return Err(error_msg),
         },
     };
@@ -472,8 +472,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         if order.side == "buy" {
                             let old_balance = match bot.balance_decimal() {
                                 Ok(old_balance) => old_balance,
-                                Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                    Ok(_) => return Err(e),
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             };
@@ -535,8 +535,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             // clear exit_tp_client_oid in bots by entry_id
                             match delete_exit_tp_id_bot_by_client_oid(pool, exchange, exit_tp_client_oid).await {
                                 Ok(_) => {}
-                                Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                    Ok(_) => return Err(e),
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             }
@@ -548,8 +548,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 Ok(_) => {
                                     log::info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                                 }
-                                Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                    Ok(_) => return Err(e),
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             }
@@ -562,32 +562,32 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             if order.side == "buy" {
                                 let old_balance = match bot.balance_decimal() {
                                     Ok(old_balance) => old_balance,
-                                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                        Ok(_) => return Err(e),
+                                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                                        Ok(error_msg) => return Err(error_msg),
                                         Err(error_msg) => return Err(error_msg),
                                     },
                                 };
                                 let new_balance = old_balance + old_balance - return_balance;
                                 match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                                     Ok(_) => {}
-                                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                        Ok(_) => return Err(e),
+                                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                                        Ok(error_msg) => return Err(error_msg),
                                         Err(error_msg) => return Err(error_msg),
                                     },
                                 }
                                 // create new random order
                                 match make_random_trade(pool, exchange, new_balance, bot.id).await {
                                     Ok(()) => {}
-                                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                        Ok(_) => return Err(e),
+                                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                                        Ok(error_msg) => return Err(error_msg),
                                         Err(error_msg) => return Err(error_msg),
                                     },
                                 }
                             } else if order.side == "sell" {
                                 match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
                                     Ok(_) => {}
-                                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                        Ok(_) => return Err(e),
+                                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                                        Ok(error_msg) => return Err(error_msg),
                                         Err(error_msg) => return Err(error_msg),
                                     },
                                 }
@@ -595,8 +595,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 // create new random order
                                 match make_random_trade(pool, exchange, return_balance, bot.id).await {
                                     Ok(()) => {}
-                                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                        Ok(_) => return Err(e),
+                                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                                        Ok(error_msg) => return Err(error_msg),
                                         Err(error_msg) => return Err(error_msg),
                                     },
                                 }
@@ -605,8 +605,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         Ok(None) => {
                             log::error!("No records found or error occurred");
                         }
-                        Err(e) => match handle_db_error(&pool, exchange, e).await {
-                            Ok(_) => return Err(e),
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(error_msg) => return Err(error_msg),
                             Err(error_msg) => return Err(error_msg),
                         },
                     }
@@ -641,7 +641,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 Ok(Some(new_balance)) => new_balance,
                 Ok(None) => return handle_db_error(pool, exchange, format!("No records found in events: {}", client_oid)).await,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => return Err(e),
+                    Ok(error_msg) => return Err(error_msg),
                     Err(error_msg) => return Err(error_msg),
                 },
             };
@@ -649,7 +649,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             match update_bot_balance_by_entry_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                 Ok(_) => {}
                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => return Err(e),
+                    Ok(error_msg) => return Err(error_msg),
                     Err(error_msg) => return Err(error_msg),
                 },
             }
@@ -697,16 +697,16 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 // add exit_tp_client_oid by entry_id
                 match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
                     Ok(_) => {}
-                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                        Ok(_) => return Err(e),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
                     },
                 }
                 // add exit_sl_client_oid by entry_id
                 match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
                     Ok(_) => {}
-                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                        Ok(_) => return Err(e),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
                     },
                 }
@@ -730,8 +730,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match tp_resp.data {
                             Some(ref response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
-                                Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                    Ok(_) => return Err(e),
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             },
@@ -741,8 +741,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match sl_resp.data {
                             Some(ref response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
-                                Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                    Ok(_) => return Err(e),
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             },
@@ -760,8 +760,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                                 match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
                                     Ok(_) => {}
-                                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                        Ok(_) => return Err(e),
+                                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                                        Ok(error_msg) => return Err(error_msg),
                                         Err(error_msg) => return Err(error_msg),
                                     },
                                 };
@@ -771,8 +771,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         }
@@ -788,8 +788,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                                 match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
                                     Ok(_) => {}
-                                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                        Ok(_) => return Err(e),
+                                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                                        Ok(error_msg) => return Err(error_msg),
                                         Err(error_msg) => return Err(error_msg),
                                     },
                                 }
@@ -799,8 +799,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                         match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         }
@@ -811,22 +811,22 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         let _ = handle_db_error(pool, exchange, format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err)).await;
                         match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         }
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         }
                         match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         }
@@ -876,16 +876,16 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 // add exit_tp_client_oid by entry_id
                 match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
                     Ok(_) => {}
-                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                        Ok(_) => return Err(e),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
                     },
                 }
                 // add exit_sl_client_oid by entry_id
                 match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
                     Ok(_) => {}
-                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                        Ok(_) => return Err(e),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
                     },
                 }
@@ -908,8 +908,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         match tp_resp.data {
                             Some(ref response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
-                                Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                    Ok(_) => return Err(e),
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             },
@@ -920,7 +920,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Some(ref response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    Ok(_) => return Err(e),
+                                    Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             },
@@ -937,8 +937,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 query_params.insert("clientOid", &response_data.client_oid);
                                 match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
                                     Ok(_) => {}
-                                    Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                        Ok(_) => return Err(e),
+                                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                                        Ok(error_msg) => return Err(error_msg),
                                         Err(error_msg) => return Err(error_msg),
                                     },
                                 }
@@ -948,8 +948,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         }
@@ -965,15 +965,15 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 Ok(_) => {
                                     match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                                         Ok(_) => {}
-                                        Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                            Ok(_) => return Err(e),
+                                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                                            Ok(error_msg) => return Err(error_msg),
                                             Err(error_msg) => return Err(error_msg),
                                         },
                                     }
                                     let _ = handle_db_error(pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err)).await;
                                 }
-                                Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                    Ok(_) => return Err(e),
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             }
@@ -984,8 +984,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         let _ = handle_db_error(pool, exchange, format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err)).await;
                         match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         }
@@ -1095,7 +1095,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
         Ok(_) => {}
-        Err(e) => match handle_db_error(&pool, exchange, e).await {
+        Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(error_msg) => return Err(error_msg),
             Err(error_msg) => return Err(error_msg),
         },
@@ -1248,8 +1248,8 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(_) => {
                             return Ok(());
                         }
-                        Err(e) => match handle_db_error(&pool, exchange, e).await {
-                            Ok(_) => return Err(e),
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(error_msg) => return Err(error_msg),
                             Err(error_msg) => return Err(error_msg),
                         },
                     },
@@ -1268,8 +1268,8 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     match BalanceData::deserialize(&data.data) {
                         Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
                             Ok(_) => Ok(()),
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         },
@@ -1286,8 +1286,8 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     match OrderData::deserialize(&data.data) {
                         Ok(order) => match handle_trade_order_event(order, pool, exchange).await {
                             Ok(_) => Ok(()),
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         },
@@ -1304,8 +1304,8 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     match AdvancedOrders::deserialize(&data.data) {
                         Ok(order) => match handle_advanced_orders(order, pool, exchange).await {
                             Ok(_) => Ok(()),
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         },
@@ -1323,7 +1323,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(position) => match handle_position_event(position, pool, exchange).await {
                             Ok(_) => Ok(()),
                             Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(_) => return Err(e),
+                                Ok(error_msg) => return Err(error_msg),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         },
@@ -1347,7 +1347,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             return Ok(());
                         }
                         Err(e) => match handle_db_error(pool, exchange, e).await {
-                            Ok(_) => return Err(e),
+                            Ok(error_msg) => return Err(error_msg),
                             Err(error_msg) => return Err(error_msg),
                         },
                     },
