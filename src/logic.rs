@@ -71,7 +71,7 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> String {
     }
 }
 
-pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     let trade_bots: Vec<Bot> = match get_all_bots_for_trade(pool, exchange).await {
         Ok(trade_bots) => trade_bots,
         Err(e) => return handle_db_error(pool, exchange, format!("Failed get_all_bots_for_trade:{}", e)).await,
