@@ -366,14 +366,19 @@ impl KuCoinClient {
 
 static KUCLIENT: OnceLock<Result<KuCoinClient, String>> = OnceLock::new();
 
-pub fn serialize_body(body: Option<serde_json::Value>) -> Result<String, serde_json::Error> {
+pub fn serialize_body(body: Option<serde_json::Value>) -> Result<String, String> {
     let clear_value: serde_json::Value = match body {
         Some(clear_value) => clear_value,
         None => return Ok(String::new()),
     };
+    
     match serde_json::to_string(&clear_value) {
         Ok(json_string) => Ok(json_string),
-        Err(e) => Err(e),
+        Err(e) => {
+            let error_msg: String = format!("Failed to deserialize body '{}' {}", clear_value, e);
+            log::error!("{}", error_msg);
+            Err(error_msg)
+        }
     }
 }
 pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
