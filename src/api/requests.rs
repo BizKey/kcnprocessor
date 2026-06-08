@@ -32,7 +32,7 @@ impl KuCoinClient {
         let api_passphrase: String = get_env("KUCOIN_PASS")?;
 
         match Client::builder().timeout(Duration::from_secs(15)).connect_timeout(Duration::from_secs(5)).tcp_keepalive(Duration::from_secs(60)).build() {
-            Ok(client) => Ok(Self { client, api_key: api_key, api_secret: api_secret, api_passphrase: api_passphrase, base_url }),
+            Ok(client) => Ok(Self { client, api_key, api_secret, api_passphrase, base_url }),
             Err(e) => {
                 let msg: String = format!("Get error on Client::builder:{}", e);
                 log::error!("{}", msg);
