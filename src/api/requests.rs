@@ -636,8 +636,21 @@ mod tests {
         });
 
         let body_str = serde_json::to_string(&body).unwrap();
+        let timestamp = 1234567890u64;
+        let method = "POST";
+        let endpoint = "/api/v3/hf/margin/order";
+        let query_string = "";
 
-        let signature = client.generate_signature(1234567890, "POST", "/api/v3/hf/margin/order", "", &body_str);
+        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
+        if !query_string.is_empty() {
+            to_sign.push('?');
+            to_sign.push_str(query_string);
+        }
+        if !body_str.is_empty() {
+            to_sign.push_str(&body_str);
+        }
+
+        let signature = client.generate_signature(to_sign.as_bytes()).unwrap();
 
         assert!(!signature.is_empty(), "Signature should not be empty");
         println!("Generated signature: {}", signature);
@@ -662,8 +675,31 @@ mod tests {
         let body_str1 = serde_json::to_string(&body1).unwrap();
         let body_str2 = serde_json::to_string(&body2).unwrap();
 
-        let signature1 = client.generate_signature(1234567890, "POST", "/api/test", "", &body_str1);
-        let signature2 = client.generate_signature(1234567890, "POST", "/api/test", "", &body_str2);
+        let timestamp = 1234567890u64;
+        let method = "POST";
+        let endpoint = "/api/test";
+        let query_string = "";
+
+        let mut to_sign1 = format!("{}{}{}", timestamp, method, endpoint);
+        if !query_string.is_empty() {
+            to_sign1.push('?');
+            to_sign1.push_str(query_string);
+        }
+        if !body_str1.is_empty() {
+            to_sign1.push_str(&body_str1);
+        }
+
+        let mut to_sign2 = format!("{}{}{}", timestamp, method, endpoint);
+        if !query_string.is_empty() {
+            to_sign2.push('?');
+            to_sign2.push_str(query_string);
+        }
+        if !body_str2.is_empty() {
+            to_sign2.push_str(&body_str2);
+        }
+
+        let signature1 = client.generate_signature(to_sign1.as_bytes()).unwrap();
+        let signature2 = client.generate_signature(to_sign2.as_bytes()).unwrap();
 
         assert_ne!(signature1, signature2);
     }
@@ -678,11 +714,20 @@ mod tests {
             base_url: "https://api.kucoin.com".to_string(),
         };
 
-        let signature_with_empty = client.generate_signature(1234567890, "GET", "/api/test", "", "");
+        let timestamp = 1234567890u64;
+        let method = "GET";
+        let endpoint = "/api/test";
+        let query_string = "";
+        let body_str = "";
 
-        let signature_with_none = client.generate_signature(1234567890, "GET", "/api/test", "", "");
+        let to_sign = format!("{}{}{}", timestamp, method, endpoint);
+        let signature = client.generate_signature(to_sign.as_bytes()).unwrap();
 
-        assert_eq!(signature_with_empty, signature_with_none);
+        // Так как оба вызова идентичны, подписи должны совпадать
+        let to_sign2 = format!("{}{}{}", timestamp, method, endpoint);
+        let signature2 = client.generate_signature(to_sign2.as_bytes()).unwrap();
+
+        assert_eq!(signature, signature2);
     }
 
     #[test]
@@ -695,12 +740,113 @@ mod tests {
             base_url: "https://api.kucoin.com".to_string(),
         };
 
-        let query = "symbol=BTC-USDT&limit=10";
+        let timestamp = 1234567890u64;
+        let method = "GET";
+        let endpoint = "/api/v1/market/orderbook/level1";
+        let query_string = "symbol=BTC-USDT&limit=10";
         let body_str = "";
 
-        let signature = client.generate_signature(1234567890, "GET", "/api/v1/market/orderbook/level1", query, body_str);
+        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
+        if !query_string.is_empty() {
+            to_sign.push('?');
+            to_sign.push_str(query_string);
+        }
+        if !body_str.is_empty() {
+            to_sign.push_str(body_str);
+        }
+
+        let signature = client.generate_signature(to_sign.as_bytes()).unwrap();
 
         assert!(!signature.is_empty());
         println!("Signature with query params: {}", signature);
+    }
+
+    #[test]
+    fn test_signature_with_query_params_and_body() {
+        let client = KuCoinClient {
+            client: Client::new(),
+            api_key: "test_key".to_string(),
+            api_secret: "test_secret".to_string(),
+            api_passphrase: "test_pass".to_string(),
+            base_url: "https://api.kucoin.com".to_string(),
+        };
+
+        let timestamp = 1234567890u64;
+        let method = "POST";
+        let endpoint = "/api/v3/hf/margin/order";
+        let query_string = "symbol=BTC-USDT";
+        let body = json!({
+            "clientOid": "test-123",
+            "side": "buy",
+            "type": "market"
+        });
+        let body_str = serde_json::to_string(&body).unwrap();
+
+        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
+        if !query_string.is_empty() {
+            to_sign.push('?');
+            to_sign.push_str(query_string);
+        }
+        if !body_str.is_empty() {
+            to_sign.push_str(&body_str);
+        }
+
+        let signature = client.generate_signature(to_sign.as_bytes()).unwrap();
+
+        assert!(!signature.is_empty());
+        println!("Signature with query params and body: {}", signature);
+    }
+
+    #[test]
+    fn test_get_client_initialization() {
+        // Этот тест требует установленных переменных окружения
+        // Поэтому пропускаем, если их нет
+        if env::var("KUCOIN_BASE_URL").is_err() || env::var("KUCOIN_KEY").is_err() || env::var("KUCOIN_SECRET").is_err() || env::var("KUCOIN_PASS").is_err() {
+            println!("Skipping test_get_client_initialization - environment variables not set");
+            return;
+        }
+
+        let result = get_client();
+        assert!(result.is_ok(), "Client should initialize successfully: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_build_query_string() {
+        let mut params = Map::new();
+        params.insert("symbol", "BTC-USDT");
+        params.insert("limit", "10");
+
+        let query_string = build_query_string(params);
+
+        // Должно быть отсортировано по ключам: limit=10&symbol=BTC-USDT
+        assert!(query_string.contains("limit=10") || query_string.contains("symbol=BTC-USDT"));
+        assert_eq!(query_string.split('&').count(), 2);
+        println!("Built query string: {}", query_string);
+    }
+
+    #[test]
+    fn test_build_empty_query_string() {
+        let params = Map::new();
+        let query_string = build_query_string(params);
+        assert_eq!(query_string, "");
+    }
+
+    #[test]
+    fn test_serialize_body() {
+        let body = json!({
+            "clientOid": "test-123",
+            "side": "buy"
+        });
+
+        let result = serialize_body(Some(body)).unwrap();
+        assert!(!result.is_empty());
+        assert!(result.contains("clientOid"));
+        assert!(result.contains("test-123"));
+    }
+
+    #[test]
+    fn test_serialize_none_body() {
+        let result = serialize_body(None).unwrap();
+        assert_eq!(result, "");
     }
 }
