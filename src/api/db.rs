@@ -820,13 +820,14 @@ pub async fn upsert_position_asset(pool: &sqlx::PgPool, exchange: &str, asset_sy
         }
     }
 }
-pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, msg: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    log::error!("{}", msg);
-    match insert_db_error(pool, exchange, &msg).await {
+pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, error_msg: String) -> Result<(), String> {
+    match insert_db_error(pool, exchange, &error_msg).await {
         Ok(_) => {}
         Err(db_err) => {
-            log::error!("Failed to insert error to DB: {} | Original: {}", db_err, msg);
+            let msg: String = format!("Failed to insert error to DB: {} | Original: {}", db_err, error_msg);
+            log::error!("{}", msg);
+            return Err(msg);
         }
     }
-    Err(msg.into())
+    Err(error_msg)
 }

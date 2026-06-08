@@ -65,7 +65,7 @@ pub struct AssetInfo {
     pub hold: String,
 }
 impl AssetInfo {
-    pub fn available_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn available_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.available)
     }
 }
@@ -87,7 +87,7 @@ pub struct PositionData {
 }
 
 impl PositionData {
-    pub fn debt_pairs(&self) -> Result<Vec<(String, Decimal)>, rust_decimal::Error> {
+    pub fn debt_pairs(&self) -> Result<Vec<(String, Decimal)>, String> {
         self.debt_list.iter().map(|(asset, debt_str)| Ok((asset.clone(), Decimal::from_str(debt_str)?))).collect()
     }
 }
@@ -135,7 +135,7 @@ pub struct OrderData {
     pub ts: i64,
 }
 impl OrderData {
-    pub fn filled_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn filled_size_decimal(&self) -> Result<Decimal, String> {
         let filled_size = match &self.filled_size {
             Some(filled_size_str) => filled_size_str,
             None => return Err(format!("filled_size is None:{:?}", &self).into()),
@@ -177,28 +177,35 @@ pub struct ApiV1MarketOrderbookLevel1ResData {
 }
 
 impl ApiV1MarketOrderbookLevel1ResData {
-    pub fn price_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn price_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.price)
     }
 
-    pub fn size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn size_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.size)
     }
 
-    pub fn best_bid_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn best_bid_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.best_bid)
     }
 
-    pub fn best_bid_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn best_bid_size_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.best_bid_size)
     }
 
-    pub fn best_ask_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn best_ask_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.best_ask)
     }
 
-    pub fn best_ask_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
-        Decimal::from_str(&self.best_ask_size)
+    pub fn best_ask_size_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.best_ask_size) {
+            Ok(best_ask_size) => Ok(best_ask_size),
+            Err(e) => {
+                let msg = format!("Fail parse decimal:{} {}", self.best_ask_size, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
     }
 }
 
@@ -241,27 +248,27 @@ pub struct Symbol {
 }
 
 impl Symbol {
-    pub fn base_increment_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn base_increment_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.base_increment)
     }
 
-    pub fn quote_increment_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn quote_increment_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.quote_increment)
     }
 
-    pub fn price_increment_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn price_increment_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.price_increment)
     }
 
-    pub fn base_min_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn base_min_size_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.base_min_size)
     }
 
-    pub fn quote_min_size_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn quote_min_size_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.quote_min_size)
     }
 
-    pub fn min_funds_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn min_funds_decimal(&self) -> Result<Decimal, String> {
         let min_funds = match &self.min_funds {
             Some(min_funds_str) => min_funds_str,
             None => return Err(format!("min_funds is None for symbol {}", &self.symbol).into()),
@@ -354,11 +361,11 @@ pub struct MarginAccountDataAccount {
 }
 
 impl MarginAccountDataAccount {
-    pub fn available_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn available_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.available)
     }
 
-    pub fn liability_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn liability_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.liability)
     }
 }
@@ -383,7 +390,7 @@ pub struct Bot {
 }
 
 impl Bot {
-    pub fn balance_decimal(&self) -> Result<Decimal, rust_decimal::Error> {
+    pub fn balance_decimal(&self) -> Result<Decimal, String> {
         Decimal::from_str(&self.balance)
     }
 }

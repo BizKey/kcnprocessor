@@ -25,7 +25,7 @@ const PING_INTERVAL: Duration = Duration::from_secs(5);
 const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn main() -> Result<(), String> {
     env_logger::init();
     dotenv().ok();
     let mut init_order_execute: bool = true;

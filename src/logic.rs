@@ -374,7 +374,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
     }
 }
 
-pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     match insert_db_orderevent(pool, exchange, &order).await {
         Ok(_) => {
             log::info!("{:.?}", order);
@@ -961,7 +961,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     Ok(())
 }
 
-pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     // repay borrow
     match position.debt_pairs() {
         Ok(debt_pair) => {
@@ -1062,7 +1062,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
     Ok(())
 }
 
-pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     log::info!("{:.?}", order);
     match order.error {
         Some(_) => {}
@@ -1177,7 +1177,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
     }
 }
 
-pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, msg: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, msg: &str) -> Result<(), String> {
     match serde_json::from_str::<KuCoinMessage>(msg) {
         Ok(event) => match event {
             KuCoinMessage::Welcome(data) => {
@@ -1246,7 +1246,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
     }
 }
 
-pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, balance_funds: Decimal, trade_bot_id: i32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, balance_funds: Decimal, trade_bot_id: i32) -> Result<(), String> {
     const MAX_RETRIES: u32 = 10;
     let mut attempt = 0;
 
