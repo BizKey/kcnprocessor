@@ -142,7 +142,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
                         let body_str: String = match serialize_body(Some(body)) {
                             Ok(body_str) => body_str,
-                            Err(e) => return Err(e.into()),
+                            Err(e) => return Err(e),
                         };
 
                         match create_repay_order(body_str).await {
@@ -164,7 +164,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
                         let body_str: String = match serialize_body(Some(body)) {
                             Ok(body_str) => body_str,
-                            Err(e) => return Err(e.into()),
+                            Err(e) => return Err(e),
                         };
 
                         match create_repay_order(body_str).await {
@@ -349,7 +349,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         });
                         let body_str: String = match serialize_body(Some(body)) {
                             Ok(body_str) => body_str,
-                            Err(e) => return Err(e.into()),
+                            Err(e) => return Err(e),
                         };
 
                         match sent_account_transfer(body_str).await {
@@ -633,7 +633,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 Ok(filled_size) => filled_size,
                 Err(e) => {
                     let _ = handle_db_error(pool, exchange, format!("Failed parse filled_size: {:?} {}", &order, e)).await;
-                    return Err(e.into());
+                    return Err(e);
                 }
             };
 
@@ -721,13 +721,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                 let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
                     Ok(body_str) => body_str,
-                    Err(e) => return Err(e.into()),
+                    Err(e) => return Err(e),
                 };
                 let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order2);
 
                 let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
                     Ok(body_str) => body_str,
-                    Err(e) => return Err(e.into()),
+                    Err(e) => return Err(e),
                 };
                 let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order2);
 
@@ -1258,43 +1258,39 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
 pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, msg: &str) -> Result<(), String> {
     match serde_json::from_str::<KuCoinMessage>(msg) {
         Ok(event) => match event {
-            KuCoinMessage::Welcome(data) => {
-                match serde_json::to_value(&data) {
-                    Ok(data) => match insert_db_event(pool, exchange, &data).await {
-                        Ok(_) => {
-                            return Ok(());
-                        }
-                        Err(e) => match handle_db_error(pool, exchange, e).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        },
+            KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
+                Ok(data) => match insert_db_event(pool, exchange, &data).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => Err(error_msg),
+                        Err(error_msg) => Err(error_msg),
                     },
-                    Err(e) => {
-                        let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(WelcomeData), e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        }
+                },
+                Err(e) => {
+                    let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(WelcomeData), e);
+                    log::error!("{}", msg);
+                    match handle_db_error(pool, exchange, msg).await {
+                        Ok(error_msg) => Err(error_msg),
+                        Err(error_msg) => Err(error_msg),
                     }
-                };
-            }
+                }
+            },
             KuCoinMessage::Message(data) => {
                 if data.topic == "/account/balance" {
                     match BalanceData::deserialize(&data.data) {
                         Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
                             Ok(_) => Ok(()),
                             Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
+                                Ok(error_msg) => Err(error_msg),
+                                Err(error_msg) => Err(error_msg),
                             },
                         },
                         Err(e) => {
                             let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(BalanceData), e);
                             log::error!("{}", msg);
                             match handle_db_error(pool, exchange, msg).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
+                                Ok(error_msg) => Err(error_msg),
+                                Err(error_msg) => Err(error_msg),
                             }
                         }
                     }
@@ -1303,16 +1299,16 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(order) => match handle_trade_order_event(order, pool, exchange).await {
                             Ok(_) => Ok(()),
                             Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
+                                Ok(error_msg) => Err(error_msg),
+                                Err(error_msg) => Err(error_msg),
                             },
                         },
                         Err(e) => {
                             let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(OrderData), e);
                             log::error!("{}", msg);
                             match handle_db_error(pool, exchange, msg).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
+                                Ok(error_msg) => Err(error_msg),
+                                Err(error_msg) => Err(error_msg),
                             }
                         }
                     }
@@ -1321,16 +1317,16 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(order) => match handle_advanced_orders(order, pool, exchange).await {
                             Ok(_) => Ok(()),
                             Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
+                                Ok(error_msg) => Err(error_msg),
+                                Err(error_msg) => Err(error_msg),
                             },
                         },
                         Err(e) => {
                             let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(AdvancedOrders), e);
                             log::error!("{}", msg);
                             match handle_db_error(pool, exchange, msg).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
+                                Ok(error_msg) => Err(error_msg),
+                                Err(error_msg) => Err(error_msg),
                             }
                         }
                     }
@@ -1339,16 +1335,16 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(position) => match handle_position_event(position, pool, exchange).await {
                             Ok(_) => Ok(()),
                             Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
+                                Ok(error_msg) => Err(error_msg),
+                                Err(error_msg) => Err(error_msg),
                             },
                         },
                         Err(e) => {
                             let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(PositionData), e);
                             log::error!("{}", error_msg);
                             match handle_db_error(pool, exchange, error_msg).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
+                                Ok(error_msg) => Err(error_msg),
+                                Err(error_msg) => Err(error_msg),
                             }
                         }
                     }
@@ -1356,38 +1352,34 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     let msg = format!("Unknown topic: {}", data.topic);
                     log::error!("{}", msg);
                     match handle_db_error(pool, exchange, msg).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
+                        Ok(error_msg) => Err(error_msg),
+                        Err(error_msg) => Err(error_msg),
                     }
                 }
             }
-            KuCoinMessage::Ack(data) => {
-                match serde_json::to_value(&data) {
-                    Ok(data) => match insert_db_event(pool, exchange, &data).await {
-                        Ok(_) => {
-                            return Ok(());
-                        }
-                        Err(e) => match handle_db_error(pool, exchange, e).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        },
+            KuCoinMessage::Ack(data) => match serde_json::to_value(&data) {
+                Ok(data) => match insert_db_event(pool, exchange, &data).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => Err(error_msg),
+                        Err(error_msg) => Err(error_msg),
                     },
-                    Err(e) => {
-                        let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(AckData), e);
-                        log::error!("{}", error_msg);
-                        match handle_db_error(pool, exchange, error_msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        }
+                },
+                Err(e) => {
+                    let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(AckData), e);
+                    log::error!("{}", error_msg);
+                    match handle_db_error(pool, exchange, error_msg).await {
+                        Ok(error_msg) => Err(error_msg),
+                        Err(error_msg) => Err(error_msg),
                     }
-                };
-            }
+                }
+            },
             KuCoinMessage::Error(data) => {
                 let msg = format!("Got error in WS {:?}", data);
                 log::error!("{}", msg);
                 match handle_db_error(pool, exchange, msg).await {
-                    Ok(error_msg) => return Err(error_msg),
-                    Err(error_msg) => return Err(error_msg),
+                    Ok(error_msg) => Err(error_msg),
+                    Err(error_msg) => Err(error_msg),
                 }
             }
 
@@ -1395,8 +1387,8 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 let msg: String = format!("Unknown WS message type");
                 log::error!("{}", msg);
                 match handle_db_error(pool, exchange, msg).await {
-                    Ok(error_msg) => return Err(error_msg),
-                    Err(error_msg) => return Err(error_msg),
+                    Ok(error_msg) => Err(error_msg),
+                    Err(error_msg) => Err(error_msg),
                 }
             }
         },
@@ -1404,8 +1396,8 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
             let msg: String = format!("Failed to parse message:{} {}", msg, e);
             log::error!("{}", msg);
             match handle_db_error(pool, exchange, msg).await {
-                Ok(error_msg) => return Err(error_msg),
-                Err(error_msg) => return Err(error_msg),
+                Ok(error_msg) => Err(error_msg),
+                Err(error_msg) => Err(error_msg),
             }
         }
     }
@@ -1585,7 +1577,7 @@ pub async fn make_hf_funds_margin_order(
 
     let body_str: String = match serialize_body(Some(msg)) {
         Ok(body_str) => body_str,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
     match add_api_v3_hf_margin_order(body_str).await {
         Ok(data) => Ok(data),
@@ -1641,13 +1633,13 @@ pub async fn make_hf_size_margin_order(
 
     let body_str: String = match serialize_body(Some(msg)) {
         Ok(body_str) => body_str,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
     match add_api_v3_hf_margin_order(body_str).await {
         Ok(data) => Ok(data),
         Err(e) => {
             let _ = handle_db_error(pool, exchange, format!("Failed to send order:{}", e)).await;
-            Err(e.into())
+            Err(e)
         }
     }
 }
