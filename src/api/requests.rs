@@ -431,7 +431,14 @@ pub async fn get_private_ws_url() -> Result<String, String> {
             return Err(msg);
         }
     };
-    ws.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, ws.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
+    match ws.data.instance_servers.first() {
+        Some(data) => Ok(format!("{}?token={}", data.endpoint, ws.data.token)),
+        None => {
+            let msg: String = format!("No instance servers in bullet response{:?}", ws);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    }
 }
 pub async fn get_all_margin_accounts(query_params_str: String) -> Result<MarginAccount, String> {
     let client: &KuCoinClient = match get_client() {

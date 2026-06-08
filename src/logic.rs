@@ -1635,8 +1635,8 @@ pub async fn make_hf_size_margin_order(
     match add_api_v3_hf_margin_order(body_str).await {
         Ok(data) => Ok(data),
         Err(e) => match handle_db_error(pool, exchange, e).await {
-            Ok(error_msg) => return Err(error_msg),
-            Err(error_msg) => return Err(error_msg),
+            Ok(error_msg) => Err(error_msg),
+            Err(error_msg) => Err(error_msg),
         },
     }
 }
