@@ -147,7 +147,6 @@ async fn main() -> Result<(), String> {
             Ok(_) => log::info!("Subscribe:/account/balance"),
             Err(e) => {
                 let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/account/balance:{}", e)).await;
-
                 continue;
             }
         }
