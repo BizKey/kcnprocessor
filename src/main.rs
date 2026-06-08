@@ -30,14 +30,11 @@ async fn main() -> Result<(), String> {
     dotenv().ok();
     let mut init_order_execute: bool = true;
 
-    let database_url: String = match get_env("DATABASE_URL") {
-        Ok(database_url) => database_url,
-        Err(e) => return Err(e),
-    };
+    let database_url: String = get_env("DATABASE_URL")?;
 
     let exchange = "kucoin";
 
-    let pool = PgPoolOptions::new()
+    let pool = match PgPoolOptions::new()
         .max_connections(40)
         .min_connections(5)
         .acquire_timeout(Duration::from_secs(10))
@@ -45,12 +42,22 @@ async fn main() -> Result<(), String> {
         .max_lifetime(Duration::from_secs(1800))
         .connect(&database_url)
         .await
-        .expect("Failed to create pool");
+    {
+        Ok(pool) => pool,
+        Err(e) => {
+            let msg = format!("Failed to create pool:{}", e);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    };
 
     // clear orders ids for bots
     match clear_orders_ids_for_bots(&pool, exchange, "1").await {
         Ok(_) => log::info!("clear orders ids bots"),
-        Err(e) => return handle_db_error(&pool, exchange, format!("Failed clear all orders_ids for bots:{}", e)).await,
+        Err(e) => match handle_db_error(&pool, exchange, e).await {
+            Ok(_) => return Err(e),
+            Err(error_msg) => return Err(error_msg),
+        },
     }
 
     // cancel all stop orders
