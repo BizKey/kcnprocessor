@@ -32,7 +32,7 @@ async fn main() -> Result<(), String> {
 
     let database_url: String = match get_env("DATABASE_URL") {
         Ok(database_url) => database_url,
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
     let exchange = "kucoin";

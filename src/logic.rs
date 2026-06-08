@@ -838,13 +838,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                 let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
                     Ok(body_str) => body_str,
-                    Err(e) => return Err(e.into()),
+                    Err(e) => return Err(e),
                 };
                 let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order2);
 
                 let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
                     Ok(body_str) => body_str,
-                    Err(e) => return Err(e.into()),
+                    Err(e) => return Err(e),
                 };
                 let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order2);
                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
@@ -980,7 +980,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 
                                     let body_str: String = match serialize_body(Some(body)) {
                                         Ok(body_str) => body_str,
-                                        Err(e) => return Err(e.into()),
+                                        Err(e) => return Err(e),
                                     };
 
                                     match create_repay_order(body_str).await {
@@ -1002,7 +1002,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 
                                     let body_str: String = match serialize_body(Some(body)) {
                                         Ok(body_str) => body_str,
-                                        Err(e) => return Err(e.into()),
+                                        Err(e) => return Err(e),
                                     };
 
                                     match create_repay_order(body_str).await {
@@ -1029,7 +1029,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                 }
             }
         }
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     }
 
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
