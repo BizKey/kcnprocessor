@@ -178,23 +178,58 @@ pub struct ApiV1MarketOrderbookLevel1ResData {
 
 impl ApiV1MarketOrderbookLevel1ResData {
     pub fn price_decimal(&self) -> Result<Decimal, String> {
-        Decimal::from_str(&self.price)
+        match Decimal::from_str(&self.price) {
+            Ok(price) => Ok(price),
+            Err(e) => {
+                let msg = format!("Fail parse decimal:{} {}", self.price, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
     }
 
     pub fn size_decimal(&self) -> Result<Decimal, String> {
-        Decimal::from_str(&self.size)
+        match Decimal::from_str(&self.size) {
+            Ok(size) => Ok(size),
+            Err(e) => {
+                let msg = format!("Fail parse decimal:{} {}", self.size, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
     }
 
     pub fn best_bid_decimal(&self) -> Result<Decimal, String> {
-        Decimal::from_str(&self.best_bid)
+        match Decimal::from_str(&self.best_bid) {
+            Ok(best_bid) => Ok(best_bid),
+            Err(e) => {
+                let msg = format!("Fail parse decimal:{} {}", self.best_bid, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
     }
 
     pub fn best_bid_size_decimal(&self) -> Result<Decimal, String> {
-        Decimal::from_str(&self.best_bid_size)
+        match Decimal::from_str(&self.best_bid_size) {
+            Ok(best_bid_size) => Ok(best_bid_size),
+            Err(e) => {
+                let msg = format!("Fail parse decimal:{} {}", self.best_bid_size, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
     }
 
     pub fn best_ask_decimal(&self) -> Result<Decimal, String> {
-        Decimal::from_str(&self.best_ask)
+        match Decimal::from_str(&self.best_ask) {
+            Ok(best_ask) => Ok(best_ask),
+            Err(e) => {
+                let msg = format!("Fail parse decimal:{} {}", self.best_ask, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
     }
 
     pub fn best_ask_size_decimal(&self) -> Result<Decimal, String> {
