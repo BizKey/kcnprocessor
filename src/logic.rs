@@ -1253,7 +1253,14 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             Err(error_msg) => return Err(error_msg),
                         },
                     },
-                    Err(e) => return handle_db_error(pool, exchange, format!("Failed to serialize event {:?}:{}", data, e)).await,
+                    Err(e) => {
+                        let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(WelcomeData), e);
+                        log::error!("{}", error_msg);
+                        match handle_db_error(pool, exchange, error_msg).await {
+                            Ok(_) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        }
+                    }
                 };
             }
             KuCoinMessage::Message(data) => {
@@ -1266,7 +1273,14 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 Err(error_msg) => return Err(error_msg),
                             },
                         },
-                        Err(e) => return handle_db_error(pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
+                        Err(e) => {
+                            let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(BalanceData), e);
+                            log::error!("{}", error_msg);
+                            match handle_db_error(pool, exchange, error_msg).await {
+                                Ok(_) => return Err(error_msg),
+                                Err(error_msg) => return Err(error_msg),
+                            }
+                        }
                     }
                 } else if data.topic == "/spotMarket/tradeOrdersV2" {
                     match OrderData::deserialize(&data.data) {
@@ -1277,7 +1291,14 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 Err(error_msg) => return Err(error_msg),
                             },
                         },
-                        Err(e) => return handle_db_error(pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
+                        Err(e) => {
+                            let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(OrderData), e);
+                            log::error!("{}", error_msg);
+                            match handle_db_error(pool, exchange, error_msg).await {
+                                Ok(_) => return Err(error_msg),
+                                Err(error_msg) => return Err(error_msg),
+                            }
+                        }
                     }
                 } else if data.topic == "/spotMarket/advancedOrders" {
                     match AdvancedOrders::deserialize(&data.data) {
@@ -1288,18 +1309,32 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                                 Err(error_msg) => return Err(error_msg),
                             },
                         },
-                        Err(e) => return handle_db_error(pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
+                        Err(e) => {
+                            let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(AdvancedOrders), e);
+                            log::error!("{}", error_msg);
+                            match handle_db_error(pool, exchange, error_msg).await {
+                                Ok(_) => return Err(error_msg),
+                                Err(error_msg) => return Err(error_msg),
+                            }
+                        }
                     }
                 } else if data.topic == "/margin/position" {
                     match PositionData::deserialize(&data.data) {
                         Ok(position) => match handle_position_event(position, pool, exchange).await {
                             Ok(_) => Ok(()),
-                            Err(e) => match handle_db_error(&pool, exchange, e).await {
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
                                 Ok(_) => return Err(e),
                                 Err(error_msg) => return Err(error_msg),
                             },
                         },
-                        Err(e) => return handle_db_error(pool, exchange, format!("Failed to parse message {:?} {}", data.data, e)).await,
+                        Err(e) => {
+                            let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(PositionData), e);
+                            log::error!("{}", error_msg);
+                            match handle_db_error(pool, exchange, error_msg).await {
+                                Ok(_) => return Err(error_msg),
+                                Err(error_msg) => return Err(error_msg),
+                            }
+                        }
                     }
                 } else {
                     return handle_db_error(pool, exchange, format!("Unknown topic: {}", data.topic)).await;
@@ -1311,12 +1346,19 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                         Ok(_) => {
                             return Ok(());
                         }
-                        Err(e) => match handle_db_error(&pool, exchange, e).await {
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
                             Ok(_) => return Err(e),
                             Err(error_msg) => return Err(error_msg),
                         },
                     },
-                    Err(e) => return handle_db_error(pool, exchange, format!("Failed to serialize event:{:?} {}", data, e)).await,
+                    Err(e) => {
+                        let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(AckData), e);
+                        log::error!("{}", error_msg);
+                        match handle_db_error(pool, exchange, error_msg).await {
+                            Ok(_) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        }
+                    }
                 };
             }
             KuCoinMessage::Error(data) => return handle_db_error(pool, exchange, format!("Got error in WS {:?}", data)).await,
