@@ -60,27 +60,7 @@ impl KuCoinClient {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
 
-    fn generate_signature(&self, timestamp: u64, method: &str, endpoint: &str, query_string: &str, body: &str) -> Result<String, String> {
-        let mut str_to_sign = format!("{}{}{}", timestamp, method.to_uppercase(), endpoint);
-
-        if !query_string.is_empty() {
-            str_to_sign.push('?');
-            str_to_sign.push_str(query_string);
-        }
-        if !body.is_empty() {
-            str_to_sign.push_str(body);
-        }
-
-        let mut mac = match HmacSha256::new_from_slice(self.api_secret.as_bytes()) {
-            Ok(mac) => mac,
-            Err(e) => return Err(format!("Fail get api secret:{}", e)),
-        };
-
-        mac.update(str_to_sign.as_bytes());
-        Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
-    }
-
-    fn generate_passphrase_signature(&self, to_sign: &[u8]) -> Result<String, String> {
+    fn generate_signature(&self, to_sign: &[u8]) -> Result<String, String> {
         let mut mac = match HmacSha256::new_from_slice(self.api_secret.as_bytes()) {
             Ok(mac) => mac,
             Err(e) => return Err(format!("Fail get api secret:{}", e)),
@@ -339,12 +319,22 @@ impl KuCoinClient {
         let mut request_builder: reqwest::RequestBuilder = self.client.request(method.clone(), &url);
 
         if authenticated {
-            let kc_api_sign: String = match self.generate_signature(timestamp, method.as_ref(), endpoint, &query_string, &body_str) {
+            let mut str_to_sign: String = format!("{}{}{}", timestamp, method.as_ref().to_uppercase(), endpoint);
+
+            if !&query_string.is_empty() {
+                str_to_sign.push('?');
+                str_to_sign.push_str(&query_string);
+            }
+            if !&body_str.is_empty() {
+                str_to_sign.push_str(&body_str);
+            }
+
+            let kc_api_sign: String = match self.generate_signature(str_to_sign.as_bytes()) {
                 Ok(kc_api_sign) => kc_api_sign,
                 Err(e) => return Err(e),
             };
 
-            let kc_api_passphrase: String = match self.generate_passphrase_signature(self.api_passphrase.as_bytes()) {
+            let kc_api_passphrase: String = match self.generate_signature(self.api_passphrase.as_bytes()) {
                 Ok(kc_api_passphrase) => kc_api_passphrase,
                 Err(e) => return Err(e),
             };
