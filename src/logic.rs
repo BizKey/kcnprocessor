@@ -92,7 +92,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         match make_random_trade(pool, exchange, token_funds, trade_bot.id).await {
             Ok(_) => {}
             Err(e) => {
-                let _ = handle_db_error(pool, exchange, format!("Error in make_random_trade:{}", e)).await;
+                let _ = handle_db_error(pool, exchange, e).await;
                 continue;
             }
         }
@@ -115,7 +115,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 let token_liability: Decimal = match account.liability_decimal() {
                     Ok(token_liability) => token_liability,
                     Err(e) => {
-                        let _ = handle_db_error(pool, exchange, format!("Failed parse price: {} {}", account.liability, e)).await;
+                        let _ = handle_db_error(pool, exchange, e).await;
                         passed = false;
                         continue;
                     }
@@ -123,7 +123,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 let token_available: Decimal = match account.available_decimal() {
                     Ok(token_liability) => token_liability,
                     Err(e) => {
-                        let _ = handle_db_error(pool, exchange, format!("Failed parse price: {} {}", account.available, e)).await;
+                        let _ = handle_db_error(pool, exchange, e).await;
                         passed = false;
                         continue;
                     }
@@ -207,7 +207,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         let token_price: Decimal = match token_price_obj.data.price_decimal() {
                             Ok(token_price) => token_price,
                             Err(e) => {
-                                let _ = handle_db_error(pool, exchange, format!("Failed parse price: {:?} {}", token_price_obj, e)).await;
+                                let _ = handle_db_error(pool, exchange, e).await;
                                 continue;
                             }
                         };
@@ -307,7 +307,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
                         Ok(token_price_obj) => token_price_obj,
                         Err(e) => {
-                            let _ = handle_db_error(pool, exchange, format!("Failed get price: {} {}", trade_symbol, e)).await;
+                            let _ = handle_db_error(pool, exchange, e).await;
                             continue;
                         }
                     };
@@ -363,7 +363,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, format_assert_decimal(token_available, base_increment), "market", false, false).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let _ = handle_db_error(pool, exchange, format!("Failed make_hf_size_margin_order:{}", e)).await;
+                                let _ = handle_db_error(pool, exchange, e).await;
                                 continue;
                             }
                         }
@@ -411,7 +411,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             return Err("".into());
         }
         Err(e) => {
-            let _ = handle_db_error(pool, exchange, format!("Symbol info not found for {} {}", order.symbol, e)).await;
+            let _ = handle_db_error(pool, exchange, e).await;
             return Err("".into());
         }
     };
