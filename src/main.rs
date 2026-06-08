@@ -110,7 +110,7 @@ async fn main() -> Result<(), String> {
                 }
             },
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, format!("Failed to get WebSocket URL:{}", e)).await;
+                let _ = handle_db_error(&pool, exchange, e).await;
 
                 drop(tx_in);
                 drop(spawn_process_kcn_msg_point);
@@ -177,7 +177,7 @@ async fn main() -> Result<(), String> {
                 match create_init_orders(&pool_clone, exchange_clone).await {
                     Ok(_) => {}
                     Err(e) => {
-                        let _ = handle_db_error(&pool_clone, exchange_clone, format!("Failed create_init_orders:{}", e)).await;
+                        let _ = handle_db_error(&pool_clone, exchange_clone, e).await;
                     }
                 };
             });
