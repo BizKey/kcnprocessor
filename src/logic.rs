@@ -1479,7 +1479,7 @@ pub async fn make_hf_size_margin_order(
         Ok(data) => Ok(data),
         Err(e) => {
             let _ = handle_db_error(pool, exchange, format!("Failed to send order:{}", e)).await;
-            Err(e)
+            Err(e.into())
         }
     }
 }
