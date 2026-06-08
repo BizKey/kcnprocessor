@@ -25,7 +25,7 @@ const PING_INTERVAL: Duration = Duration::from_secs(5);
 const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> Result<String, String> {
     env_logger::init();
     dotenv().ok();
     let mut init_order_execute: bool = true;
@@ -55,7 +55,7 @@ async fn main() -> Result<(), String> {
     match clear_orders_ids_for_bots(&pool, exchange, "1").await {
         Ok(_) => log::info!("clear orders ids bots"),
         Err(e) => match handle_db_error(&pool, exchange, e).await {
-            Ok(_) => return Err(e),
+            Ok(error_msg) => return Err(error_msg),
             Err(error_msg) => return Err(error_msg),
         },
     }
