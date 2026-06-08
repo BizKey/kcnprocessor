@@ -403,15 +403,7 @@ pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
     result
 }
 fn get_client() -> Result<&'static KuCoinClient, String> {
-    match KUCLIENT
-        .get_or_init({
-            || match KuCoinClient::new() {
-                Ok(client) => Ok(client),
-                Err(e) => Err(e),
-            }
-        })
-        .as_ref()
-    {
+    match KUCLIENT.get_or_init(|| KuCoinClient::new()).as_ref() {
         Ok(client) => Ok(client),
         Err(e) => {
             let msg: String = format!("Fail get or init KuCoinClient:{}", e);
