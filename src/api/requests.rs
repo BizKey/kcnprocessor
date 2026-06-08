@@ -269,7 +269,29 @@ impl KuCoinClient {
         }
         match request_builder.send().await {
             Ok(response) => Ok(response),
-            Err(e) => Err(e.to_string()),
+            Err(e) => {
+                if e.is_timeout() {
+                    let msg: String = format!("Timeout {}: {}", url, e);
+                    log::error!("{}", msg);
+                    return Err(msg);
+                } else if e.is_connect() {
+                    let msg: String = format!("Error connection {}: {}", url, e);
+                    log::error!("{}", msg);
+                    return Err(msg);
+                } else if e.is_request() {
+                    let msg: String = format!("Error prepare request {}: {}", url, e);
+                    log::error!("{}", msg);
+                    return Err(msg);
+                } else if e.is_body() {
+                    let msg: String = format!("Error in body {}: {}", url, e);
+                    log::error!("{}", msg);
+                    return Err(msg);
+                } else {
+                    let msg: String = format!("Unexpected error {}: {}", url, e);
+                    log::error!("{}", msg);
+                    return Err(msg);
+                }
+            }
         }
     }
 }
