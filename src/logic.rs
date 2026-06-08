@@ -1340,16 +1340,16 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                             },
                         },
                         Err(e) => {
-                            let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(PositionData), e);
-                            log::error!("{}", error_msg);
-                            match handle_db_error(pool, exchange, error_msg).await {
+                            let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(PositionData), e);
+                            log::error!("{}", msg);
+                            match handle_db_error(pool, exchange, msg).await {
                                 Ok(error_msg) => Err(error_msg),
                                 Err(error_msg) => Err(error_msg),
                             }
                         }
                     }
                 } else {
-                    let msg = format!("Unknown topic: {}", data.topic);
+                    let msg: String = format!("Unknown topic: {}", data.topic);
                     log::error!("{}", msg);
                     match handle_db_error(pool, exchange, msg).await {
                         Ok(error_msg) => Err(error_msg),
@@ -1366,16 +1366,16 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                     },
                 },
                 Err(e) => {
-                    let error_msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(AckData), e);
-                    log::error!("{}", error_msg);
-                    match handle_db_error(pool, exchange, error_msg).await {
+                    let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(AckData), e);
+                    log::error!("{}", msg);
+                    match handle_db_error(pool, exchange, msg).await {
                         Ok(error_msg) => Err(error_msg),
                         Err(error_msg) => Err(error_msg),
                     }
                 }
             },
             KuCoinMessage::Error(data) => {
-                let msg = format!("Got error in WS {:?}", data);
+                let msg: String = format!("Got error in WS {:?}", data);
                 log::error!("{}", msg);
                 match handle_db_error(pool, exchange, msg).await {
                     Ok(error_msg) => Err(error_msg),

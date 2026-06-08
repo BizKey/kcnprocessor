@@ -375,9 +375,9 @@ pub fn serialize_body(body: Option<serde_json::Value>) -> Result<String, String>
     match serde_json::to_string(&clear_value) {
         Ok(json_string) => Ok(json_string),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize body '{}' {}", clear_value, e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize body '{}' {}", clear_value, e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -426,9 +426,9 @@ pub async fn get_private_ws_url() -> Result<String, String> {
     let ws: ApiV3BulletPrivate = match serde_json::from_str::<ApiV3BulletPrivate>(&response_string) {
         Ok(res) => res,
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3BulletPrivate), e);
-            log::error!("{}", error_msg);
-            return Err(error_msg);
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3BulletPrivate), e);
+            log::error!("{}", msg);
+            return Err(msg);
         }
     };
     ws.data.instance_servers.first().map(|s| format!("{}?token={}", s.endpoint, ws.data.token)).ok_or_else(|| "No instance servers in bullet response".into())
@@ -447,9 +447,9 @@ pub async fn get_all_margin_accounts(query_params_str: String) -> Result<MarginA
     match serde_json::from_str::<MarginAccount>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -467,9 +467,9 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str: 
     match serde_json::from_str::<ApiV3HfMarginStopOrderCancelByClientOidRes>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelByClientOidRes), e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelByClientOidRes), e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -487,9 +487,9 @@ pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniv
     match serde_json::from_str::<ApiV3AccountsUniversalTransferRes>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3AccountsUniversalTransferRes), e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3AccountsUniversalTransferRes), e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -507,9 +507,9 @@ pub async fn get_ticker_price(query_params_str: String) -> Result<ApiV1MarketOrd
     match serde_json::from_str::<ApiV1MarketOrderbookLevel1Res>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV1MarketOrderbookLevel1Res), e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV1MarketOrderbookLevel1Res), e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -527,9 +527,9 @@ pub async fn batch_cancel_stop_orders(query_params_str: String) -> Result<ApiV3H
     match serde_json::from_str::<ApiV3HfMarginStopOrderCancelRes>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelRes), e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelRes), e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -547,9 +547,9 @@ pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrd
     match serde_json::from_str::<MakeStopOrderRes>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MakeStopOrderRes), e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MakeStopOrderRes), e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -567,9 +567,9 @@ pub async fn add_api_v3_hf_margin_order(body_str: String) -> Result<MakeOrderRes
     match serde_json::from_str::<MakeOrderRes>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MakeOrderRes), e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MakeOrderRes), e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -587,9 +587,9 @@ pub async fn create_repay_order(body_str: String) -> Result<ApiV3MarginRepayRes,
     match serde_json::from_str::<ApiV3MarginRepayRes>(&response_string) {
         Ok(res) => Ok(res),
         Err(e) => {
-            let error_msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3MarginRepayRes), e);
-            log::error!("{}", error_msg);
-            Err(error_msg)
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3MarginRepayRes), e);
+            log::error!("{}", msg);
+            Err(msg)
         }
     }
 }
@@ -623,7 +623,7 @@ mod tests {
         let endpoint = "/api/v3/hf/margin/order";
         let query_string = "";
 
-        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign: String = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign.push('?');
             to_sign.push_str(query_string);
@@ -662,7 +662,7 @@ mod tests {
         let endpoint = "/api/test";
         let query_string = "";
 
-        let mut to_sign1 = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign1: String = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign1.push('?');
             to_sign1.push_str(query_string);
@@ -671,7 +671,7 @@ mod tests {
             to_sign1.push_str(&body_str1);
         }
 
-        let mut to_sign2 = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign2: String = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign2.push('?');
             to_sign2.push_str(query_string);
@@ -702,12 +702,12 @@ mod tests {
         let query_string = "";
         let body_str = "";
 
-        let to_sign = format!("{}{}{}", timestamp, method, endpoint);
-        let signature = client.generate_signature(to_sign.as_bytes()).unwrap();
+        let to_sign: String = format!("{}{}{}", timestamp, method, endpoint);
+        let signature: String = client.generate_signature(to_sign.as_bytes()).unwrap();
 
         // Так как оба вызова идентичны, подписи должны совпадать
-        let to_sign2 = format!("{}{}{}", timestamp, method, endpoint);
-        let signature2 = client.generate_signature(to_sign2.as_bytes()).unwrap();
+        let to_sign2: String = format!("{}{}{}", timestamp, method, endpoint);
+        let signature2: String = client.generate_signature(to_sign2.as_bytes()).unwrap();
 
         assert_eq!(signature, signature2);
     }
@@ -728,7 +728,7 @@ mod tests {
         let query_string = "symbol=BTC-USDT&limit=10";
         let body_str = "";
 
-        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign: String = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign.push('?');
             to_sign.push_str(query_string);
@@ -764,7 +764,7 @@ mod tests {
         });
         let body_str = serde_json::to_string(&body).unwrap();
 
-        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign: String = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign.push('?');
             to_sign.push_str(query_string);
