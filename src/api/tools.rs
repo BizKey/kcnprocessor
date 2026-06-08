@@ -6,7 +6,7 @@ pub fn get_env(key: &str) -> Result<String, String> {
         Err(e) => {
             let msg: String = format!("Don't find ENV:{} {}", key, e);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }

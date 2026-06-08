@@ -26,32 +26,17 @@ pub struct KuCoinClient {
 
 impl KuCoinClient {
     fn new() -> Result<Self, String> {
-        let base_url: String = match get_env("KUCOIN_BASE_URL") {
-            Ok(base_url) => base_url,
-            Err(e) => return Err(e),
-        };
-
-        let api_key: String = match get_env("KUCOIN_KEY") {
-            Ok(api_key) => api_key,
-            Err(e) => return Err(e),
-        };
-
-        let api_secret: String = match get_env("KUCOIN_SECRET") {
-            Ok(api_secret) => api_secret,
-            Err(e) => return Err(e),
-        };
-
-        let api_passphrase: String = match get_env("KUCOIN_PASS") {
-            Ok(api_passphrase) => api_passphrase,
-            Err(e) => return Err(e),
-        };
+        let base_url: String = get_env("KUCOIN_BASE_URL")?;
+        let api_key: String = get_env("KUCOIN_KEY")?;
+        let api_secret: String = get_env("KUCOIN_SECRET")?;
+        let api_passphrase: String = get_env("KUCOIN_PASS")?;
 
         match Client::builder().timeout(Duration::from_secs(15)).connect_timeout(Duration::from_secs(5)).tcp_keepalive(Duration::from_secs(60)).build() {
             Ok(client) => Ok(Self { client, api_key: api_key, api_secret: api_secret, api_passphrase: api_passphrase, base_url }),
             Err(e) => {
                 let msg: String = format!("Get error on Client::builder:{}", e);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -146,7 +131,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -200,7 +185,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -254,7 +239,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -281,7 +266,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -308,7 +293,7 @@ impl KuCoinClient {
             status_code => {
                 let msg: String = format!("API returned error status {}: {}", status_code, response_string);
                 log::error!("{}", msg);
-                return Err(msg);
+                Err(msg)
             }
         }
     }
@@ -426,7 +411,7 @@ fn get_client() -> Result<&'static KuCoinClient, String> {
         Err(e) => {
             let msg: String = format!("Fail get or init KuCoinClient:{}", e);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
