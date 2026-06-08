@@ -74,8 +74,8 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> String {
 pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     let trade_bots: Vec<Bot> = match get_all_bots_for_trade(pool, exchange).await {
         Ok(trade_bots) => trade_bots,
-        Err(e) => match handle_db_error(&pool, exchange, e).await {
-            Ok(_) => return Err(e),
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
             Err(error_msg) => return Err(error_msg),
         },
     };
@@ -84,8 +84,8 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         sleep(BOT_INIT_DELAY).await;
         let token_funds = match trade_bot.balance_decimal() {
             Ok(token_funds) => token_funds,
-            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                Ok(_) => return Err(e),
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
                 Err(error_msg) => return Err(error_msg),
             },
         };
@@ -640,7 +640,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             let new_balance: Decimal = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
                 Ok(Some(new_balance)) => new_balance,
                 Ok(None) => return handle_db_error(pool, exchange, format!("No records found in events: {}", client_oid)).await,
-                Err(e) => match handle_db_error(&pool, exchange, e).await {
+                Err(e) => match handle_db_error(pool, exchange, e).await {
                     Ok(_) => return Err(e),
                     Err(error_msg) => return Err(error_msg),
                 },
@@ -648,7 +648,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
             match update_bot_balance_by_entry_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                 Ok(_) => {}
-                Err(e) => match handle_db_error(&pool, exchange, e).await {
+                Err(e) => match handle_db_error(pool, exchange, e).await {
                     Ok(_) => return Err(e),
                     Err(error_msg) => return Err(error_msg),
                 },
@@ -1096,7 +1096,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
         Ok(_) => {}
         Err(e) => match handle_db_error(&pool, exchange, e).await {
-            Ok(_) => return Err(e),
+            Ok(error_msg) => return Err(error_msg),
             Err(error_msg) => return Err(error_msg),
         },
     }
@@ -1470,7 +1470,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 match update_bot_entry_client_oid_by_id(pool, exchange, None, None, trade_bot_id).await {
                     Ok(_) => {}
                     Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => return Err(e),
+                        Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
                     },
                 }
