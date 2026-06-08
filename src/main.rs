@@ -25,7 +25,7 @@ const PING_INTERVAL: Duration = Duration::from_secs(5);
 const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
 
 #[tokio::main]
-async fn main() -> Result<String, String> {
+async fn main() -> Result<(), String> {
     env_logger::init();
     dotenv().ok();
     let mut init_order_execute: bool = true;
@@ -67,8 +67,11 @@ async fn main() -> Result<String, String> {
 
     match batch_cancel_stop_orders(build_query_string(query_params)).await {
         Ok(_) => log::info!("batch cancel stop orders"),
-        Err(e) => return handle_db_error(&pool, exchange, format!("Failed batch cancel stop orders:{}", e)).await,
-    }
+        Err(e) => match handle_db_error(&pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
 
     // repay all liability assets and sell
     loop {
