@@ -80,12 +80,12 @@ impl KuCoinClient {
         Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
     }
 
-    fn generate_passphrase_signature(&self) -> Result<String, String> {
+    fn generate_passphrase_signature(&self, to_sign: &[u8]) -> Result<String, String> {
         let mut mac = match HmacSha256::new_from_slice(self.api_secret.as_bytes()) {
             Ok(mac) => mac,
             Err(e) => return Err(format!("Fail get api secret:{}", e)),
         };
-        mac.update(self.api_passphrase.as_bytes());
+        mac.update(to_sign);
         Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
     }
 
@@ -344,7 +344,7 @@ impl KuCoinClient {
                 Err(e) => return Err(e),
             };
 
-            let kc_api_passphrase: String = match self.generate_passphrase_signature() {
+            let kc_api_passphrase: String = match self.generate_passphrase_signature(self.api_passphrase.as_bytes()) {
                 Ok(kc_api_passphrase) => kc_api_passphrase,
                 Err(e) => return Err(e),
             };
