@@ -6,7 +6,7 @@ mod api {
 }
 mod logic;
 use crate::api::db::{handle_db_error, wipe_bots_info};
-use crate::api::requests::{api_v3_hf_margin_stop_order_cancel_delete, build_query_string, get_private_ws_url};
+use crate::api::requests::{api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_delete, build_query_string};
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use dotenvy::dotenv;
@@ -99,7 +99,7 @@ async fn main() -> Result<(), String> {
         let spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, exchange_process, rx_in).await });
 
         // Position/Orders/Balance/AdvancedOrders WS
-        let (mut event_ws_write, mut event_ws_read) = match get_private_ws_url().await {
+        let (mut event_ws_write, mut event_ws_read) = match api_v1_bullet_private_post().await {
             Ok(event_ws_url) => match connect_async(event_ws_url).await {
                 Ok((stream, _)) => stream.split(),
                 Err(e) => {

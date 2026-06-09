@@ -8,8 +8,8 @@ use crate::api::db::{
 };
 use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, MarginAccountData, OrderData, PositionData, Symbol};
 use crate::api::requests::{
-    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, api_v3_margin_accounts_get, build_query_string, create_repay_order, get_ticker_price,
-    sent_account_transfer, serialize_body,
+    api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
+    api_v3_margin_accounts_get, api_v3_margin_repay_post, build_query_string, serialize_body,
 };
 use micromap::Map;
 use rust_decimal::Decimal;
@@ -177,7 +177,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     Err(e) => return Err(e),
                 };
 
-                match create_repay_order(body_str).await {
+                match api_v3_margin_repay_post(body_str).await {
                     Ok(_) => {}
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(_) => continue,
@@ -199,7 +199,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     Err(e) => return Err(e),
                 };
 
-                match create_repay_order(body_str).await {
+                match api_v3_margin_repay_post(body_str).await {
                     Ok(_) => {}
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(_) => continue,
@@ -233,7 +233,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
                 query_params.insert("symbol", &trade_symbol);
 
-                let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
+                let token_price_obj = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
                     Ok(token_price_obj) => token_price_obj,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(_) => continue,
@@ -355,7 +355,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
             query_params.insert("symbol", &trade_symbol);
 
-            let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
+            let token_price_obj = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
                 Ok(token_price_obj) => token_price_obj,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
                     Ok(_) => continue,
@@ -403,7 +403,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     Err(e) => return Err(e),
                 };
 
-                match sent_account_transfer(body_str).await {
+                match api_v3_accounts_universal_transfer_post(body_str).await {
                     Ok(_) => {}
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(_) => continue,
@@ -522,7 +522,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                     query_params.insert("clientOid", exit_sl_client_oid);
 
-                    match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                    match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
                         Ok(_) => {
                             log::info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
                         }
@@ -618,7 +618,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                             query_params.insert("clientOid", exit_tp_client_oid);
 
-                            match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
                                 Ok(_) => {
                                     log::info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                                 }
@@ -864,7 +864,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                                 query_params.insert("clientOid", &response_data.client_oid);
 
-                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                                match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
                                     Ok(_) => {}
                                     Err(e) => match handle_db_error(pool, exchange, e).await {
                                         Ok(error_msg) => return Err(error_msg),
@@ -898,7 +898,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                                 query_params.insert("clientOid", &response_data.client_oid);
 
-                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                                match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
                                     Ok(_) => {}
                                     Err(e) => match handle_db_error(pool, exchange, e).await {
                                         Ok(error_msg) => return Err(error_msg),
@@ -1103,7 +1103,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                 let mut query_params: Map<&str, &str, 8> = Map::new();
 
                                 query_params.insert("clientOid", &response_data.client_oid);
-                                match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                                match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
                                     Ok(_) => {}
                                     Err(e) => match handle_db_error(pool, exchange, e).await {
                                         Ok(error_msg) => return Err(error_msg),
@@ -1135,7 +1135,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             let mut query_params: Map<&str, &str, 8> = Map::new();
 
                             query_params.insert("clientOid", &response_data.client_oid);
-                            match api_v3_hf_margin_stop_order_cancel_by_client_oid(build_query_string(query_params)).await {
+                            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
                                 Ok(_) => {
                                     match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                                         Ok(_) => {}
@@ -1234,7 +1234,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                         Err(e) => return Err(e),
                                     };
 
-                                    match create_repay_order(body_str).await {
+                                    match api_v3_margin_repay_post(body_str).await {
                                         Ok(_) => {
                                             log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
                                         }
@@ -1256,7 +1256,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                         Err(e) => return Err(e),
                                     };
 
-                                    match create_repay_order(body_str).await {
+                                    match api_v3_margin_repay_post(body_str).await {
                                         Ok(_) => {
                                             log::info!("Partially repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
                                         }
@@ -1683,7 +1683,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
 
                 query_params.insert("symbol", &tradeable_symbol);
 
-                let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
+                let token_price_obj = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
                     Ok(token_price_obj) => token_price_obj,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(_) => continue,
@@ -1819,7 +1819,7 @@ pub async fn make_hf_funds_margin_order(
         Ok(body_str) => body_str,
         Err(e) => return Err(e),
     };
-    match add_api_v3_hf_margin_order(body_str).await {
+    match api_v3_hf_margin_order_post(body_str).await {
         Ok(data) => Ok(data),
         Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(error_msg) => Err(error_msg),
@@ -1867,7 +1867,7 @@ pub async fn make_hf_size_margin_order(
         Ok(body_str) => body_str,
         Err(e) => return Err(e),
     };
-    match add_api_v3_hf_margin_order(body_str).await {
+    match api_v3_hf_margin_order_post(body_str).await {
         Ok(data) => Ok(data),
         Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(error_msg) => Err(error_msg),

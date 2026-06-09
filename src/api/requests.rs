@@ -54,7 +54,7 @@ impl KuCoinClient {
         Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
     }
 
-    async fn api_v1_bullet_private(&self) -> Result<String, String> {
+    async fn api_v1_bullet_private_post(&self) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -81,7 +81,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(&self, query_string_str: String) -> Result<String, String> {
+    async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&self, query_string_str: String) -> Result<String, String> {
         let response: Response =
             match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string_str, String::new(), true, self.get_system_timestamp_ms()).await {
                 Ok(response) => response,
@@ -164,7 +164,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn account_transfer(&self, body_str: String) -> Result<String, String> {
+    async fn api_v3_accounts_universal_transfer_post(&self, body_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -218,7 +218,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn add_api_v3_hf_margin_order(&self, body_str: String) -> Result<String, String> {
+    async fn api_v3_hf_margin_order_post(&self, body_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -245,7 +245,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn margin_repay(&self, body_str: String) -> Result<String, String> {
+    async fn api_v3_margin_repay_post(&self, body_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -272,7 +272,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn get_ticker_price(&self, query_params_str: String) -> Result<String, String> {
+    async fn api_v1_market_orderbook_level1_get(&self, query_params_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::GET, "/api/v1/market/orderbook/level1", query_params_str, String::new(), false, 0).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -413,13 +413,13 @@ fn get_client() -> Result<&'static KuCoinClient, String> {
         }
     }
 }
-pub async fn get_private_ws_url() -> Result<String, String> {
+pub async fn api_v1_bullet_private_post() -> Result<String, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.api_v1_bullet_private().await {
+    let response_string: String = match client.api_v1_bullet_private_post().await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };
@@ -452,7 +452,7 @@ pub async fn api_v3_margin_accounts_get(query_params_str: String) -> Result<Marg
         Err(e) => return Err(e),
     };
 
-    let response = match serde_json::from_str::<MarginAccount>(&response_string) {
+    let response: MarginAccount = match serde_json::from_str::<MarginAccount>(&response_string) {
         Ok(res) => res,
         Err(e) => {
             let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e);
@@ -470,13 +470,13 @@ pub async fn api_v3_margin_accounts_get(query_params_str: String) -> Result<Marg
         }
     }
 }
-pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str: String) -> Result<ApiV3HfMarginStopOrderCancelByClientOidRes, String> {
+pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_string_str: String) -> Result<ApiV3HfMarginStopOrderCancelByClientOidRes, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str).await {
+    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_string_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };
@@ -490,13 +490,13 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid(query_string_str: 
         }
     }
 }
-pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniversalTransferRes, String> {
+pub async fn api_v3_accounts_universal_transfer_post(body_str: String) -> Result<ApiV3AccountsUniversalTransferRes, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.account_transfer(body_str).await {
+    let response_string: String = match client.api_v3_accounts_universal_transfer_post(body_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };
@@ -510,13 +510,13 @@ pub async fn sent_account_transfer(body_str: String) -> Result<ApiV3AccountsUniv
         }
     }
 }
-pub async fn get_ticker_price(query_params_str: String) -> Result<ApiV1MarketOrderbookLevel1Res, String> {
+pub async fn api_v1_market_orderbook_level1_get(query_params_str: String) -> Result<ApiV1MarketOrderbookLevel1Res, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.get_ticker_price(query_params_str).await {
+    let response_string: String = match client.api_v1_market_orderbook_level1_get(query_params_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };
@@ -570,13 +570,13 @@ pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrd
         }
     }
 }
-pub async fn add_api_v3_hf_margin_order(body_str: String) -> Result<MakeOrderRes, String> {
+pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<MakeOrderRes, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.add_api_v3_hf_margin_order(body_str).await {
+    let response_string: String = match client.api_v3_hf_margin_order_post(body_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };
@@ -590,13 +590,13 @@ pub async fn add_api_v3_hf_margin_order(body_str: String) -> Result<MakeOrderRes
         }
     }
 }
-pub async fn create_repay_order(body_str: String) -> Result<ApiV3MarginRepayRes, String> {
+pub async fn api_v3_margin_repay_post(body_str: String) -> Result<ApiV3MarginRepayRes, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.margin_repay(body_str).await {
+    let response_string: String = match client.api_v3_margin_repay_post(body_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };
