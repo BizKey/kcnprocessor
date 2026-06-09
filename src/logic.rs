@@ -198,18 +198,18 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
                         let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
                             Ok(token_price_obj) => token_price_obj,
-                            Err(e) => {
-                                let _ = handle_db_error(pool, exchange, e).await;
-                                continue;
-                            }
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(_) => continue,
+                                Err(_) => continue,
+                            },
                         };
 
                         let token_price: Decimal = match token_price_obj.data.price_decimal() {
                             Ok(token_price) => token_price,
-                            Err(e) => {
-                                let _ = handle_db_error(pool, exchange, e).await;
-                                continue;
-                            }
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(_) => continue,
+                                Err(_) => continue,
+                            },
                         };
 
                         log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
@@ -409,10 +409,10 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             let _ = handle_db_error(pool, exchange, format!("Symbol info not found for {}", order.symbol)).await;
             return Err("".into());
         }
-        Err(e) => {
-            let _ = handle_db_error(pool, exchange, e).await;
-            return Err("".into());
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
     };
 
     let price_increment: Decimal = match symbol_info.price_increment_decimal() {
@@ -425,10 +425,10 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
     let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
         Ok(quote_increment) => quote_increment,
-        Err(e) => {
-            let _ = handle_db_error(pool, exchange, e).await;
-            return Err("".into());
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
     };
     // if clientOid in bots entry_id (2 phase)
     match get_bot_by_exit_tp_client_oid(pool, exchange, client_oid).await {
