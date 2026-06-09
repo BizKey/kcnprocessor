@@ -1184,10 +1184,10 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                             continue;
                         }
                     },
-                    Err(e) => {
-                        let _ = handle_db_error(pool, exchange, e).await;
-                        continue;
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => continue,
+                        Err(_) => continue,
+                    },
                 }
             }
             "entry" => {
@@ -1223,10 +1223,10 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                             continue;
                         }
                     },
-                    Err(e) => {
-                        let _ = handle_db_error(pool, exchange, e).await;
-                        continue;
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => continue,
+                        Err(_) => continue,
+                    },
                 }
             }
             _ => {
@@ -1418,10 +1418,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 let _ = handle_db_error(pool, exchange, format!("Failed get_random_symbol:")).await;
                 continue;
             }
-            Err(e) => {
-                let _ = handle_db_error(pool, exchange, e).await;
-                continue;
-            }
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(_) => continue,
+                Err(_) => continue,
+            },
         };
 
         let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable_symbol).await {
@@ -1430,30 +1430,30 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 let _ = handle_db_error(pool, exchange, format!("Symbol info not found for {}", tradeable_symbol)).await;
                 continue;
             }
-            Err(e) => {
-                let _ = handle_db_error(pool, exchange, e).await;
-                continue;
-            }
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(_) => continue,
+                Err(_) => continue,
+            },
         };
 
         let entry_client_oid: String = Uuid::new_v4().to_string();
 
         match update_bot_entry_client_oid_by_id(pool, exchange, Some(&tradeable_symbol), Some(&entry_client_oid), trade_bot_id).await {
             Ok(_) => {}
-            Err(e) => {
-                let _ = handle_db_error(pool, exchange, e).await;
-                continue;
-            }
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(_) => continue,
+                Err(_) => continue,
+            },
         }
 
         let order_result = match get_random_side() {
             "sell" => {
                 let base_increment: Decimal = match symbol_info.base_increment_decimal() {
                     Ok(base_increment) => base_increment,
-                    Err(e) => {
-                        let _ = handle_db_error(pool, exchange, e).await;
-                        continue;
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => continue,
+                        Err(_) => continue,
+                    },
                 };
 
                 let mut query_params: Map<&str, &str, 8> = Map::new();
@@ -1578,10 +1578,10 @@ pub async fn make_hf_funds_margin_order(
     };
     match add_api_v3_hf_margin_order(body_str).await {
         Ok(data) => Ok(data),
-        Err(e) => {
-            let _ = handle_db_error(pool, exchange, e).await;
-            Err("".into())
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
     }
 }
 
@@ -1603,18 +1603,10 @@ pub async fn make_hf_size_margin_order(
         .await
     {
         Ok(_) => {}
-        Err(e) => {
-            let _ = handle_db_error(
-                pool,
-                exchange,
-                format!(
-                    "Failed insert_db_msgsend: exchange:{} client_oid:{} side:{} symbol:{} size:{} type:{} auto_borrow:{} auto_repay:{} {}",
-                    exchange, client_oid, side, symbol, size, type_, auto_borrow, auto_repay, e
-                ),
-            )
-            .await;
-            return Err("".into());
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
     };
     let msg: serde_json::Value = serde_json::json!({
         "clientOid": client_oid,
