@@ -436,7 +436,7 @@ pub async fn get_private_ws_url() -> Result<String, String> {
         None => {
             let msg: String = format!("No instance servers in bullet response{:?}", ws);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }

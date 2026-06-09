@@ -45,7 +45,7 @@ async fn main() -> Result<(), String> {
     {
         Ok(pool) => pool,
         Err(e) => {
-            let msg: String = format!("Failed to create pool:{}", e);
+            let msg: String = format!("Failed to create pg pool:{}", e);
             log::error!("{}", msg);
             return Err(msg);
         }
