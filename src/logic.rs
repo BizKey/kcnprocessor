@@ -469,14 +469,14 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 Ok(Some(return_balance)) => {
                     {
                         if order.side == "buy" {
-                            let old_balance = match bot.balance_decimal() {
+                            let old_balance: Decimal = match bot.balance_decimal() {
                                 Ok(old_balance) => old_balance,
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
                                     Ok(error_msg) => return Err(error_msg),
                                     Err(error_msg) => return Err(error_msg),
                                 },
                             };
-                            let new_balance = old_balance + old_balance - return_balance;
+                            let new_balance: Decimal = old_balance + old_balance - return_balance;
                             match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                                 Ok(_) => {}
                                 Err(e) => {
