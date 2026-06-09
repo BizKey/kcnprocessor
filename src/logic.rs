@@ -191,8 +191,13 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                             Ok(Some(info)) => info,
                             Ok(None) => {
-                                let _ = handle_db_error(pool, exchange, format!("Symbol info not found for {}", trade_symbol)).await;
-                                continue;
+                                let msg = format!("Symbol info not found for {}", trade_symbol);
+                                log::error!("{}", msg);
+
+                                match handle_db_error(pool, exchange, msg).await {
+                                    Ok(_) => continue,
+                                    Err(_) => continue,
+                                }
                             }
                             Err(e) => match handle_db_error(pool, exchange, e).await {
                                 Ok(_) => continue,
@@ -292,8 +297,13 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                         Ok(Some(symbol_info)) => symbol_info,
                         Ok(None) => {
-                            let _ = handle_db_error(pool, exchange, format!("Symbol info not found for {}", trade_symbol)).await;
-                            continue;
+                            let msg = format!("Symbol info not found for {}", trade_symbol);
+                            log::error!("{}", msg);
+
+                            match handle_db_error(pool, exchange, msg).await {
+                                Ok(_) => continue,
+                                Err(_) => continue,
+                            }
                         }
                         Err(e) => match handle_db_error(pool, exchange, e).await {
                             Ok(_) => continue,
@@ -381,11 +391,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             }
             if passed { Ok(true) } else { Ok(false) }
         }
-        Err(e) => {
-            let _ = handle_db_error(pool, exchange, e).await;
-
-            Ok(false)
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(_) => Ok(false),
+            Err(_) => Ok(false),
+        },
     }
 }
 
@@ -447,18 +456,20 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             // delete exit_tp_client_oid stop order
             match delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await {
                 Ok(_) => {}
-                Err(e) => {
-                    let _ = handle_db_error(pool, exchange, e).await;
-                }
+                Err(e) => match handle_db_error(pool, exchange, e).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                },
             }
             match &bot.exit_sl_client_oid {
                 Some(exit_sl_client_oid) => {
                     // clear exit_sl_client_oid in bots by id !!
                     match delete_exit_sl_id_bot_by_client_oid(pool, exchange, exit_sl_client_oid).await {
                         Ok(_) => {}
-                        Err(e) => {
-                            let _ = handle_db_error(pool, exchange, e).await;
-                        }
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        },
                     }
                     let mut query_params: Map<&str, &str, 8> = Map::new();
 
@@ -468,9 +479,10 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         Ok(_) => {
                             log::info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
                         }
-                        Err(e) => {
-                            let _ = handle_db_error(pool, exchange, e).await;
-                        }
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        },
                     }
                 }
                 None => {}
@@ -489,30 +501,34 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             let new_balance: Decimal = old_balance + old_balance - return_balance;
                             match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                                 Ok(_) => {}
-                                Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, e).await;
-                                }
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(_) => {}
+                                    Err(_) => {}
+                                },
                             }
                             // create new random order
                             match make_random_trade(pool, exchange, new_balance, bot.id).await {
                                 Ok(()) => {}
-                                Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, e).await;
-                                }
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(_) => {}
+                                    Err(_) => {}
+                                },
                             }
                         } else if order.side == "sell" {
                             match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
                                 Ok(_) => {}
-                                Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, e).await;
-                                }
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(_) => {}
+                                    Err(_) => {}
+                                },
                             }
                             // create new random order
                             match make_random_trade(pool, exchange, return_balance, bot.id).await {
                                 Ok(()) => {}
-                                Err(e) => {
-                                    let _ = handle_db_error(pool, exchange, e).await;
-                                }
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(_) => {}
+                                    Err(_) => {}
+                                },
                             }
                         }
                     }
@@ -520,16 +536,18 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 Ok(None) => {
                     log::error!("No records found or error occurred");
                 }
-                Err(e) => {
-                    let _ = handle_db_error(pool, exchange, e).await;
-                }
+                Err(e) => match handle_db_error(pool, exchange, e).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                },
             }
             return Ok(());
         }
         Ok(None) => {}
-        Err(e) => {
-            let _ = handle_db_error(pool, exchange, e).await;
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(_) => {}
+            Err(_) => {}
+        },
     }
 
     // if clientOid in bots entry_id (2 phase)
@@ -620,17 +638,19 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         },
                     }
                 }
-                Err(e) => {
-                    let _ = handle_db_error(pool, exchange, e).await;
-                }
+                Err(e) => match handle_db_error(pool, exchange, e).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                },
             }
 
             return Ok(());
         }
         Ok(None) => {}
-        Err(e) => {
-            let _ = handle_db_error(pool, exchange, e).await;
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(_) => {}
+            Err(_) => {}
+        },
     }
 
     // if clientOid in bots entry_id (1 phase)
@@ -1008,15 +1028,17 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         }
                         match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => {
-                                let _ = handle_db_error(pool, exchange, e).await;
-                            }
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(_) => {}
+                                Err(_) => {}
+                            },
                         }
                         match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                             Ok(_) => {}
-                            Err(e) => {
-                                let _ = handle_db_error(pool, exchange, e).await;
-                            }
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(_) => {}
+                                Err(_) => {}
+                            },
                         }
                     }
                 }
@@ -1025,15 +1047,17 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             // delete entry_id from db
             match set_null_entry_client_oid_by_entry_client_oid(pool, exchange, client_oid).await {
                 Ok(_) => {}
-                Err(e) => {
-                    let _ = handle_db_error(pool, exchange, e).await;
-                }
+                Err(e) => match handle_db_error(pool, exchange, e).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                },
             }
         }
         Ok(None) => {}
-        Err(e) => {
-            let _ = handle_db_error(pool, exchange, e).await;
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(_) => {}
+            Err(_) => {}
+        },
     }
 
     Ok(())

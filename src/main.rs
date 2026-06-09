@@ -109,14 +109,20 @@ async fn main() -> Result<(), String> {
                     continue;
                 }
             },
-            Err(e) => {
-                let _ = handle_db_error(&pool, exchange, e).await;
-
-                drop(tx_in);
-                drop(spawn_process_kcn_msg_point);
-                sleep(RECONNECT_DELAY).await;
-                continue;
-            }
+            Err(e) => match handle_db_error(&pool, exchange, e).await {
+                Ok(_) => {
+                    drop(tx_in);
+                    drop(spawn_process_kcn_msg_point);
+                    sleep(RECONNECT_DELAY).await;
+                    continue;
+                }
+                Err(_) => {
+                    drop(tx_in);
+                    drop(spawn_process_kcn_msg_point);
+                    sleep(RECONNECT_DELAY).await;
+                    continue;
+                }
+            },
         };
 
         // subscribtion
@@ -175,9 +181,10 @@ async fn main() -> Result<(), String> {
                 log::info!("Initializing start orders...");
                 match create_init_orders(&pool_clone, exchange_clone).await {
                     Ok(_) => {}
-                    Err(e) => {
-                        let _ = handle_db_error(&pool_clone, exchange_clone, e).await;
-                    }
+                    Err(e) => match handle_db_error(&pool_clone, exchange_clone, e).await {
+                        Ok(_) => {}
+                        Err(_) => {}
+                    },
                 };
             });
         }
