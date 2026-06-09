@@ -5,8 +5,8 @@ mod api {
     pub mod tools;
 }
 mod logic;
-use crate::api::db::{clear_orders_ids_for_bots, handle_db_error};
-use crate::api::requests::{batch_cancel_stop_orders, build_query_string, get_private_ws_url};
+use crate::api::db::{handle_db_error, wipe_bots_info};
+use crate::api::requests::{api_v3_hf_margin_stop_order_cancel_delete, build_query_string, get_private_ws_url};
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use dotenvy::dotenv;
@@ -32,6 +32,8 @@ async fn main() -> Result<(), String> {
 
     let database_url: String = get_env("DATABASE_URL")?;
 
+    let init_balance_per_bot: String = get_env("INIT_BALANCE_PER_BOT")?;
+
     let exchange = "kucoin";
 
     let pool = match PgPoolOptions::new()
@@ -52,8 +54,8 @@ async fn main() -> Result<(), String> {
     };
 
     // clear orders ids for bots
-    match clear_orders_ids_for_bots(&pool, exchange, "1").await {
-        Ok(_) => log::info!("clear orders ids bots"),
+    match wipe_bots_info(&pool, exchange, &init_balance_per_bot).await {
+        Ok(_) => log::info!("wipe_bots_info"),
         Err(e) => match handle_db_error(&pool, exchange, e).await {
             Ok(error_msg) => return Err(error_msg),
             Err(error_msg) => return Err(error_msg),
@@ -65,7 +67,7 @@ async fn main() -> Result<(), String> {
 
     query_params.insert("tradeType", "MARGIN_TRADE");
 
-    match batch_cancel_stop_orders(build_query_string(query_params)).await {
+    match api_v3_hf_margin_stop_order_cancel_delete(build_query_string(query_params)).await {
         Ok(_) => log::info!("batch cancel stop orders"),
         Err(e) => match handle_db_error(&pool, exchange, e).await {
             Ok(error_msg) => return Err(error_msg),

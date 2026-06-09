@@ -136,7 +136,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn batch_cancel_stop_orders(&self, query_params_str: String) -> Result<String, String> {
+    async fn api_v3_hf_margin_stop_order_cancel_delete(&self, query_params_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -520,13 +520,13 @@ pub async fn get_ticker_price(query_params_str: String) -> Result<ApiV1MarketOrd
         }
     }
 }
-pub async fn batch_cancel_stop_orders(query_params_str: String) -> Result<ApiV3HfMarginStopOrderCancelRes, String> {
+pub async fn api_v3_hf_margin_stop_order_cancel_delete(query_params_str: String) -> Result<ApiV3HfMarginStopOrderCancelRes, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.batch_cancel_stop_orders(query_params_str).await {
+    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_delete(query_params_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };

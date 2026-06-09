@@ -541,7 +541,7 @@ pub async fn update_balance_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, excha
         }
     }
 }
-pub async fn clear_orders_ids_for_bots(pool: &sqlx::PgPool, exchange: &str, balance: &str) -> Result<(), String> {
+pub async fn wipe_bots_info(pool: &sqlx::PgPool, exchange: &str, balance: &str) -> Result<(), String> {
     match sqlx::query(
         r#"
         UPDATE bots
