@@ -502,6 +502,8 @@ pub struct MarginAccountData {
 }
 #[derive(Debug, Deserialize)]
 pub struct MarginAccount {
+    pub code: String,
+    pub msg: Option<String>,
     pub data: MarginAccountData,
 }
 #[derive(sqlx::FromRow, Debug)]

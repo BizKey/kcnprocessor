@@ -6,9 +6,9 @@ use crate::api::db::{
     update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id,
     update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, OrderData, PositionData, Symbol};
+use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, MarginAccountData, OrderData, PositionData, Symbol};
 use crate::api::requests::{
-    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, build_query_string, create_repay_order, get_all_margin_accounts, get_ticker_price,
+    add_api_v3_hf_margin_order, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid, api_v3_margin_accounts_get, build_query_string, create_repay_order, get_ticker_price,
     sent_account_transfer, serialize_body,
 };
 use micromap::Map;
@@ -110,22 +110,30 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
     Ok(())
 }
 
-pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, String> {
+pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
     let mut query_params: Map<&str, &str, 8> = Map::new();
-
     query_params.insert("quoteCurrency", "USDT");
     query_params.insert("queryType", "MARGIN");
 
-    let accounts = match get_all_margin_accounts(build_query_string(query_params)).await {
+    match api_v3_margin_accounts_get(build_query_string(query_params)).await {
+        Ok(accounts) => Ok(accounts),
+        Err(e) => Err(e),
+    }
+}
+
+pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, String> {
+    sleep(AUTO_CLEAN_DELAY).await;
+
+    let accounts: MarginAccountData = match get_all_accounts_data().await {
         Ok(accounts) => accounts,
         Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(_) => return Ok(false),
             Err(_) => return Ok(false),
         },
     };
-    sleep(AUTO_CLEAN_DELAY).await;
+
     let mut passed: bool = true;
-    for account in accounts.data.accounts.iter() {
+    for account in accounts.accounts.iter() {
         let token_liability: Decimal = match account.liability_decimal() {
             Ok(token_liability) => token_liability,
             Err(e) => match handle_db_error(pool, exchange, e).await {

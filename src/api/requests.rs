@@ -1,6 +1,6 @@
 use crate::api::models::{
     ApiV1MarketOrderbookLevel1Res, ApiV3AccountsUniversalTransferRes, ApiV3BulletPrivate, ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelRes, ApiV3MarginRepayRes,
-    MakeOrderRes, MakeStopOrderRes, MarginAccount,
+    MakeOrderRes, MakeStopOrderRes, MarginAccount, MarginAccountData,
 };
 use crate::api::tools::get_env;
 use base64::Engine;
@@ -109,7 +109,8 @@ impl KuCoinClient {
         }
     }
 
-    async fn get_margin_accounts(&self, query_params_str: String) -> Result<String, String> {
+    async fn api_v3_margin_accounts_get(&self, query_params_str: String) -> Result<String, String> {
+        // https://www.kucoin.com/docs-new/rest/account-info/account-funding/get-account-cross-margin
         let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -440,23 +441,32 @@ pub async fn get_private_ws_url() -> Result<String, String> {
         }
     }
 }
-pub async fn get_all_margin_accounts(query_params_str: String) -> Result<MarginAccount, String> {
+pub async fn api_v3_margin_accounts_get(query_params_str: String) -> Result<MarginAccountData, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.get_margin_accounts(query_params_str).await {
+    let response_string: String = match client.api_v3_margin_accounts_get(query_params_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };
 
-    match serde_json::from_str::<MarginAccount>(&response_string) {
-        Ok(res) => Ok(res),
+    let response = match serde_json::from_str::<MarginAccount>(&response_string) {
+        Ok(res) => res,
         Err(e) => {
             let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e);
             log::error!("{}", msg);
-            Err(msg)
+            return Err(msg);
+        }
+    };
+
+    match response.code.as_str() {
+        "200000" => Ok(response.data),
+        _ => {
+            let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
+            log::error!("{}", msg);
+            return Err(msg);
         }
     }
 }
