@@ -191,7 +191,7 @@ impl KuCoinClient {
         }
     }
 
-    async fn api_v3_hf_margin_stop_order(&self, body_str: String) -> Result<String, String> {
+    async fn api_v3_hf_margin_stop_order_post(&self, body_str: String) -> Result<String, String> {
         let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -550,13 +550,13 @@ pub async fn api_v3_hf_margin_stop_order_cancel_delete(query_params_str: String)
         }
     }
 }
-pub async fn api_v3_hf_margin_stop_order(body_str: String) -> Result<MakeStopOrderRes, String> {
+pub async fn api_v3_hf_margin_stop_order_post(body_str: String) -> Result<MakeStopOrderRes, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
     };
 
-    let response_string: String = match client.api_v3_hf_margin_stop_order(body_str).await {
+    let response_string: String = match client.api_v3_hf_margin_stop_order_post(body_str).await {
         Ok(response_string) => response_string,
         Err(e) => return Err(e),
     };

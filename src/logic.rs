@@ -8,8 +8,8 @@ use crate::api::db::{
 };
 use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, MarginAccountData, OrderData, PositionData, Symbol};
 use crate::api::requests::{
-    api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
-    api_v3_margin_accounts_get, api_v3_margin_repay_post, build_query_string, serialize_body,
+    api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
+    api_v3_hf_margin_stop_order_post, api_v3_margin_accounts_get, api_v3_margin_repay_post, build_query_string, serialize_body,
 };
 use micromap::Map;
 use rust_decimal::Decimal;
@@ -821,13 +821,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     Ok(body_str) => body_str,
                     Err(e) => return Err(e),
                 };
-                let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order2);
+                let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
 
                 let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
                     Ok(body_str) => body_str,
                     Err(e) => return Err(e),
                 };
-                let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order2);
+                let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
 
                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
@@ -1062,13 +1062,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     Ok(body_str) => body_str,
                     Err(e) => return Err(e),
                 };
-                let tp_fut = api_v3_hf_margin_stop_order(msg_tp_order2);
+                let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
 
                 let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
                     Ok(body_str) => body_str,
                     Err(e) => return Err(e),
                 };
-                let sl_fut = api_v3_hf_margin_stop_order(msg_sl_order2);
+                let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
                 let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
                 match (&tp_res, &sl_res) {
