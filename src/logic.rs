@@ -412,8 +412,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     let client_oid = match &order.client_oid {
         Some(client_oid) => client_oid,
         None => {
-            let _ = handle_db_error(pool, exchange, format!("client_oid in order is none: {:.?}", order)).await;
-            return Err("".into());
+            let msg = format!("client_oid in order is none: {:.?}", order);
+            log::error!("{}", msg);
+
+            match handle_db_error(pool, exchange, msg).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            }
         }
     };
 
@@ -425,8 +430,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
         Ok(Some(symbol_info)) => symbol_info,
         Ok(None) => {
-            let _ = handle_db_error(pool, exchange, format!("Symbol info not found for {}", order.symbol)).await;
-            return Err("".into());
+            let msg: String = format!("Symbol info not found for {}", order.symbol);
+            log::error!("{}", msg);
+
+            match handle_db_error(pool, exchange, msg).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            }
         }
         Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(error_msg) => return Err(error_msg),
@@ -814,7 +824,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             },
                         }
 
-                        let _ = handle_db_error(pool, exchange, format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err)).await;
+                        let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
+                        log::error!("{}", msg);
+
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
                     }
                     (Ok(tp_resp), Err(sl_err)) => {
                         match tp_resp.data {
@@ -842,10 +858,22 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             },
                         }
 
-                        let _ = handle_db_error(pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err)).await;
+                        let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
+                        log::error!("{}", msg);
+
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
                     }
                     (Err(tp_err), Err(sl_err)) => {
-                        let _ = handle_db_error(pool, exchange, format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err)).await;
+                        let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
+                        log::error!("{}", msg);
+
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
                         match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => match handle_db_error(pool, exchange, e).await {
@@ -991,7 +1019,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             },
                         }
 
-                        let _ = handle_db_error(pool, exchange, format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err)).await;
+                        let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
+                        log::error!("{}", msg);
+
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
                     }
                     (Ok(tp_resp), Err(sl_err)) => match tp_resp.data {
                         Some(ref response_data) => {
@@ -1007,7 +1041,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                                             Err(error_msg) => return Err(error_msg),
                                         },
                                     }
-                                    let _ = handle_db_error(pool, exchange, format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err)).await;
+                                    let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
+                                    log::error!("{}", msg);
+
+                                    match handle_db_error(pool, exchange, msg).await {
+                                        Ok(_) => {}
+                                        Err(_) => {}
+                                    }
                                 }
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
                                     Ok(error_msg) => return Err(error_msg),
@@ -1018,7 +1058,13 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         None => {}
                     },
                     (Err(tp_err), Err(sl_err)) => {
-                        let _ = handle_db_error(pool, exchange, format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err)).await;
+                        let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
+                        log::error!("{}", msg);
+
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
                         match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
                             Ok(_) => {}
                             Err(e) => match handle_db_error(pool, exchange, e).await {
@@ -1125,8 +1171,13 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                         },
                     },
                     None => {
-                        let _ = handle_db_error(pool, exchange, format!("Failed get asset:{} from:{:.?}", asset, position.asset_list)).await;
-                        continue;
+                        let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
+                        log::error!("{}", msg);
+
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(_) => continue,
+                            Err(_) => continue,
+                        }
                     }
                 }
             }
@@ -1171,7 +1222,13 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
         None => return Ok(()),
     }
 
-    let _ = handle_db_error(pool, exchange, format!("Got error on stop order : {:?}", order)).await;
+    let msg: String = format!("Got error on stop order : {:?}", order);
+    log::error!("{}", msg);
+
+    match handle_db_error(pool, exchange, msg).await {
+        Ok(_) => {}
+        Err(_) => {}
+    }
 
     const MAX_RETRIES: u32 = 1000;
     let mut attempt = 0;
@@ -1208,14 +1265,23 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                         "sell" => match size_clone {
                             Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, size, "market", true, false).await,
                             None => {
-                                let _ = handle_db_error(pool, exchange, format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,))
-                                    .await;
-                                continue;
+                                let msg: String = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,);
+                                log::error!("{}", msg);
+
+                                match handle_db_error(pool, exchange, msg).await {
+                                    Ok(_) => continue,
+                                    Err(_) => continue,
+                                }
                             }
                         },
                         _ => {
-                            let _ = handle_db_error(pool, exchange, format!("Fail match side_clone:{}", side_ref)).await;
-                            continue;
+                            let msg: String = format!("Fail match side_clone:{}", side_ref);
+                            log::error!("{}", msg);
+
+                            match handle_db_error(pool, exchange, msg).await {
+                                Ok(_) => continue,
+                                Err(_) => continue,
+                            }
                         }
                     },
                     Err(e) => match handle_db_error(pool, exchange, e).await {
@@ -1231,30 +1297,35 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                         "buy" => match funds_clone {
                             Some(funds) => make_hf_funds_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, funds, "market", true, false).await,
                             None => {
-                                let _ = handle_db_error(
-                                    pool,
-                                    exchange,
-                                    format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone),
-                                )
-                                .await;
-                                continue;
+                                let msg: String = format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone);
+                                log::error!("{}", msg);
+
+                                match handle_db_error(pool, exchange, msg).await {
+                                    Ok(_) => continue,
+                                    Err(_) => continue,
+                                }
                             }
                         },
                         "sell" => match size_clone {
                             Some(size) => make_hf_size_margin_order(pool, exchange, &new_exit_client_oid, side_ref, symbol_ref, size, "market", true, false).await,
                             None => {
-                                let _ = handle_db_error(
-                                    pool,
-                                    exchange,
-                                    format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone),
-                                )
-                                .await;
-                                continue;
+                                let msg: String = format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone);
+                                log::error!("{}", msg);
+
+                                match handle_db_error(pool, exchange, msg).await {
+                                    Ok(_) => continue,
+                                    Err(_) => continue,
+                                }
                             }
                         },
                         _ => {
-                            let _ = handle_db_error(pool, exchange, format!("Fail match side_clone:{}", side_ref)).await;
-                            continue;
+                            let msg: String = format!("Fail match side_clone:{}", side_ref);
+                            log::error!("{}", msg);
+
+                            match handle_db_error(pool, exchange, msg).await {
+                                Ok(_) => continue,
+                                Err(_) => continue,
+                            }
                         }
                     },
                     Err(e) => match handle_db_error(pool, exchange, e).await {
@@ -1264,8 +1335,13 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                 }
             }
             _ => {
-                let _ = handle_db_error(pool, exchange, format!("Fail match stop_clone:{}", stop_ref)).await;
-                continue;
+                let msg: String = format!("Fail match stop_clone:{}", stop_ref);
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
             }
         };
 
@@ -1449,8 +1525,13 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         let tradeable_symbol: String = match get_random_symbol(pool, exchange).await {
             Ok(Some(tradeable_symbol)) => tradeable_symbol,
             Ok(None) => {
-                let _ = handle_db_error(pool, exchange, format!("Failed get_random_symbol:")).await;
-                continue;
+                let msg: String = format!("Failed get_random_symbol:");
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
             }
             Err(e) => match handle_db_error(pool, exchange, e).await {
                 Ok(_) => continue,
@@ -1461,8 +1542,13 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable_symbol).await {
             Ok(Some(symbol_info)) => symbol_info,
             Ok(None) => {
-                let _ = handle_db_error(pool, exchange, format!("Symbol info not found for {}", tradeable_symbol)).await;
-                continue;
+                let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
             }
             Err(e) => match handle_db_error(pool, exchange, e).await {
                 Ok(_) => continue,
@@ -1540,8 +1626,14 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         Err(error_msg) => return Err(error_msg),
                     },
                 }
-                let _ = handle_db_error(pool, exchange, format!("❌ Order failed (attempt {}/{}): {} {}", attempt, MAX_RETRIES, tradeable_symbol, e)).await;
-                continue;
+
+                let msg: String = format!("❌ Order failed (attempt {}/{}): {} {}", attempt, MAX_RETRIES, tradeable_symbol, e);
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
             }
         }
     }

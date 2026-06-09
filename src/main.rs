@@ -101,12 +101,23 @@ async fn main() -> Result<(), String> {
             Ok(event_ws_url) => match connect_async(event_ws_url).await {
                 Ok((stream, _)) => stream.split(),
                 Err(e) => {
-                    let _ = handle_db_error(&pool, exchange, format!("WebSocket connection failed:{}", e)).await;
+                    let msg: String = format!("WebSocket connection failed:{}", e);
+                    log::error!("{}", msg);
 
-                    drop(tx_in);
-                    drop(spawn_process_kcn_msg_point);
-                    sleep(RECONNECT_DELAY).await;
-                    continue;
+                    match handle_db_error(&pool, exchange, msg).await {
+                        Ok(_) => {
+                            drop(tx_in);
+                            drop(spawn_process_kcn_msg_point);
+                            sleep(RECONNECT_DELAY).await;
+                            continue;
+                        }
+                        Err(_) => {
+                            drop(tx_in);
+                            drop(spawn_process_kcn_msg_point);
+                            sleep(RECONNECT_DELAY).await;
+                            continue;
+                        }
+                    }
                 }
             },
             Err(e) => match handle_db_error(&pool, exchange, e).await {
@@ -132,8 +143,13 @@ async fn main() -> Result<(), String> {
         {
             Ok(_) => log::info!("Subscribe:/spotMarket/tradeOrdersV2"),
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e)).await;
-                continue;
+                let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
+                log::error!("{}", msg);
+
+                match handle_db_error(&pool, exchange, msg).await {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
             }
         }
 
@@ -143,8 +159,13 @@ async fn main() -> Result<(), String> {
         {
             Ok(_) => log::info!("Subscribe:/spotMarket/advancedOrders"),
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e)).await;
-                continue;
+                let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
+                log::error!("{}", msg);
+
+                match handle_db_error(&pool, exchange, msg).await {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
             }
         }
 
@@ -152,8 +173,13 @@ async fn main() -> Result<(), String> {
         {
             Ok(_) => log::info!("Subscribe:/account/balance"),
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/account/balance:{}", e)).await;
-                continue;
+                let msg: String = format!("Failed to subscribe subject:/account/balance:{}", e);
+                log::error!("{}", msg);
+
+                match handle_db_error(&pool, exchange, msg).await {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
             }
         }
 
@@ -161,8 +187,13 @@ async fn main() -> Result<(), String> {
         {
             Ok(_) => log::info!("Subscribe:/margin/position"),
             Err(e) => {
-                let _ = handle_db_error(&pool, exchange, format!("Failed to subscribe subject:/margin/position:{}", e)).await;
-                continue;
+                let msg: String = format!("Failed to subscribe subject:/margin/position:{}", e);
+                log::error!("{}", msg);
+
+                match handle_db_error(&pool, exchange, msg).await {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
             }
         }
 
@@ -208,19 +239,45 @@ async fn main() -> Result<(), String> {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
                         }
                         Some(Ok(Message::Close(_close))) => {
-                            let _ = handle_db_error(&pool, exchange, format!("Connection closed by server:")).await;
-                            break;
+
+
+                              let msg: String = format!("Connection closed by server:");
+                        log::error!("{}", msg);
+
+                        match handle_db_error(&pool, exchange, msg).await {
+                            Ok(_) => break,
+                            Err(_) => break,
                         }
-                        Some(Err(e)) => {
-                            let _ = handle_db_error(&pool, exchange, format!("WebSocket read error:{}",e)).await;
-                            break;
+
+
+                        }
+                        Some(Err(e)) =>  {
+
+
+                                                       let msg: String = format!("WebSocket read error:{}",e);
+                        log::error!("{}", msg);
+
+                        match handle_db_error(&pool, exchange, msg).await {
+                            Ok(_) => break,
+                            Err(_) => break,
+                        }
+
+
                         }
                         Some(Ok(_)) => {}
                         None => {
-                            let msg: String = "WebSocket stream ended".to_string();
-                            log::info!("{}", msg);
-                            // sent error to pg
-                            break;
+
+
+                              let msg: String = format!("WebSocket stream ended");
+                        log::error!("{}", msg);
+
+                        match handle_db_error(&pool, exchange, msg).await {
+                            Ok(_) => break,
+                            Err(_) => break,
+                        }
+
+
+
                         }
                     }
                 }
