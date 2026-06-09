@@ -15,6 +15,7 @@ use micromap::Map;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::json;
+use std::num::ParseIntError;
 use std::str::FromStr;
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
@@ -43,19 +44,27 @@ pub fn get_random_side() -> &'static str {
     if fastrand::bool() { "buy" } else { "sell" }
 }
 
-pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> String {
+pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String, ParseIntError> {
     let precision = increment.scale() as usize;
 
     if precision == 0 {
         // Целый increment - округляем вниз до ближайшего кратного
-        let increment_int: i64 = increment.to_string().parse().unwrap_or(1);
-        let size_int: i64 = size.floor().to_string().parse().unwrap_or(0);
-        let rounded_down = (size_int / increment_int) * increment_int;
-        return rounded_down.to_string();
+        let increment_int: i64 = match increment.to_string().parse() {
+            Ok(increment_int) => increment_int,
+            Err(e) => return Err(e),
+        };
+
+        let size_int: i64 = match size.to_string().parse() {
+            Ok(size_int) => size_int,
+            Err(e) => return Err(e),
+        };
+
+        let rounded_down: i64 = (size_int / increment_int) * increment_int;
+        return Ok(rounded_down.to_string());
     }
 
     // Дробный increment (0.01, 0.001, и т.д.)
-    let s = size.to_string();
+    let s: String = size.to_string();
 
     if let Some(dot_pos) = s.find('.') {
         let integer_part = &s[..dot_pos];
@@ -65,9 +74,9 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> String {
 
         let trimmed = truncated.trim_end_matches('0');
 
-        if trimmed.is_empty() { integer_part.to_string() } else { format!("{}.{}", integer_part, trimmed) }
+        if trimmed.is_empty() { Ok(integer_part.to_string()) } else { Ok(format!("{}.{}", integer_part, trimmed)) }
     } else {
-        if precision == 0 { s } else { format!("{}.{}", s, "0".repeat(precision)) }
+        if precision == 0 { Ok(s) } else { Ok(format!("{}.{}", s, "0".repeat(precision))) }
     }
 }
 
@@ -259,19 +268,18 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         let min_funds_by_size: Decimal = token_price * base_min_size;
 
                         if token_funds <= min_funds.max(min_funds_by_size) {
-                            match make_hf_funds_margin_order(
-                                pool,
-                                exchange,
-                                &client_oid,
-                                "buy",
-                                &trade_symbol,
-                                format_assert_decimal(min_funds.max(min_funds_by_size), quote_increment),
-                                "market",
-                                false,
-                                false,
-                            )
-                            .await
-                            {
+                            let funds: String = match format_assert_decimal(min_funds.max(min_funds_by_size), quote_increment) {
+                                Ok(funds) => funds,
+                                Err(e) => {
+                                    let msg: String = format!("Fail parse:{} {} error:{}", min_funds.max(min_funds_by_size), quote_increment, e);
+                                    log::error!("{}", msg);
+                                    match handle_db_error(pool, exchange, msg).await {
+                                        Ok(error_msg) => return Err(error_msg),
+                                        Err(error_msg) => return Err(error_msg),
+                                    };
+                                }
+                            };
+                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
                                 Ok(_) => {}
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
                                     Ok(_) => continue,
@@ -279,7 +287,18 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                                 },
                             }
                         } else {
-                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, format_assert_decimal(token_funds, quote_increment), "market", false, false).await {
+                            let funds: String = match format_assert_decimal(token_funds, quote_increment) {
+                                Ok(funds) => funds,
+                                Err(e) => {
+                                    let msg: String = format!("Fail parse:{} {} error:{}", token_funds, quote_increment, e);
+                                    log::error!("{}", msg);
+                                    match handle_db_error(pool, exchange, msg).await {
+                                        Ok(error_msg) => return Err(error_msg),
+                                        Err(error_msg) => return Err(error_msg),
+                                    };
+                                }
+                            };
+                            match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
                                 Ok(_) => {}
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
                                     Ok(_) => continue,
@@ -379,7 +398,18 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                             },
                         }
                     } else {
-                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, format_assert_decimal(token_available, base_increment), "market", false, false).await {
+                        let size: String = match format_assert_decimal(token_available, base_increment) {
+                            Ok(size) => size,
+                            Err(e) => {
+                                let msg: String = format!("Fail parse:{} {} error:{}", token_available, base_increment, e);
+                                log::error!("{}", msg);
+                                match handle_db_error(pool, exchange, msg).await {
+                                    Ok(error_msg) => return Err(error_msg),
+                                    Err(error_msg) => return Err(error_msg),
+                                };
+                            }
+                        };
+                        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, size, "market", false, false).await {
                             Ok(_) => {}
                             Err(e) => match handle_db_error(pool, exchange, e).await {
                                 Ok(_) => continue,
@@ -710,13 +740,24 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 let exit_sl_client_oid: String = Uuid::new_v4().to_string();
 
                 // tp order
+                let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
+                    Ok(stop_price_tp) => stop_price_tp,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", trigger_tp_price, price_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
+                    }
+                };
                 let msg_tp_order: serde_json::Value = serde_json::json!({
                     "clientOid": exit_tp_client_oid,
                     "side": "sell",
                     "symbol": order.symbol,
                     "type": "market",
                     "stop": "entry",
-                    "stopPrice": format_assert_decimal(trigger_tp_price, price_increment),
+                    "stopPrice": stop_price_tp,
                     "isIsolated": false,
                     "autoBorrow": true,
                     "autoRepay": false,
@@ -724,13 +765,24 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                     "timeInForce": "GTC",
                 });
                 // sl order
+                let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
+                    Ok(stop_price_sl) => stop_price_sl,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", trigger_sl_price, price_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
+                    }
+                };
                 let msg_sl_order: serde_json::Value = serde_json::json!({
                     "clientOid": exit_sl_client_oid,
                     "side": "sell",
                     "symbol": order.symbol,
                     "type": "market",
                     "stop": "loss",
-                    "stopPrice": format_assert_decimal(trigger_sl_price, price_increment),
+                    "stopPrice": stop_price_sl,
                     "isIsolated": false,
                     "autoBorrow": true,
                     "autoRepay": false,
@@ -908,31 +960,75 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                 let exit_tp_client_oid: String = Uuid::new_v4().to_string();
                 let exit_sl_client_oid: String = Uuid::new_v4().to_string();
 
+                let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
+                    Ok(stop_price_tp) => stop_price_tp,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", trigger_tp_price, price_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
+                    }
+                };
+                let funds_tp_str: String = match format_assert_decimal(funds_tp, quote_increment) {
+                    Ok(funds_tp_str) => funds_tp_str,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
+                    }
+                };
                 let msg_tp_order: serde_json::Value = serde_json::json!({
                     "clientOid": exit_tp_client_oid,
                     "side": "buy",
                     "symbol": order.symbol,
                     "type": "market",
                     "stop": "loss",
-                    "stopPrice": format_assert_decimal(trigger_tp_price, price_increment), // price - 7%
+                    "stopPrice": stop_price_tp, // price - 7%
                     "isIsolated": false,
                     "autoBorrow": true,
                     "autoRepay": false,
                     "timeInForce": "GTC",
-                    "funds": format_assert_decimal(funds_tp, quote_increment),
+                    "funds":funds_tp_str,
                 });
+                let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
+                    Ok(stop_price_sl) => stop_price_sl,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", trigger_sl_price, price_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
+                    }
+                };
+                let funds_sl_str: String = match format_assert_decimal(funds_sl, quote_increment) {
+                    Ok(funds_sl_str) => funds_sl_str,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", funds_sl, quote_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
+                    }
+                };
                 let msg_sl_order: serde_json::Value = serde_json::json!({
                    "clientOid": exit_sl_client_oid,
                     "side": "buy",
                     "symbol": order.symbol,
                     "type": "market",
                     "stop": "entry",
-                    "stopPrice": format_assert_decimal(trigger_sl_price, price_increment), // price + 5%
+                    "stopPrice": stop_price_sl, // price + 5%
                     "isIsolated": false,
                     "autoBorrow": true,
                     "autoRepay": false,
                     "timeInForce": "GTC",
-                    "funds": format_assert_decimal(funds_sl, quote_increment),
+                    "funds": funds_sl_str,
                 });
 
                 log::info!("Stop profit order:{}", msg_tp_order);
@@ -1595,8 +1691,19 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         Err(_) => continue,
                     },
                 };
-                let token_size = balance_funds / token_price;
-                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable_symbol, format_assert_decimal(token_size, base_increment), "market", true, false).await
+                let token_size: Decimal = balance_funds / token_price;
+                let size: String = match format_assert_decimal(token_size, base_increment) {
+                    Ok(size) => size,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", token_size, base_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
+                    }
+                };
+                make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable_symbol, size, "market", true, false).await
             }
             "buy" => {
                 let quote_increment = match symbol_info.quote_increment_decimal() {
@@ -1606,7 +1713,18 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                         Err(_) => continue,
                     },
                 };
-                make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable_symbol, format_assert_decimal(balance_funds, quote_increment), "market", true, false).await
+                let funds: String = match format_assert_decimal(balance_funds, quote_increment) {
+                    Ok(funds) => funds,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", balance_funds, quote_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
+                    }
+                };
+                make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable_symbol, funds, "market", true, false).await
             }
             _ => {
                 continue;
