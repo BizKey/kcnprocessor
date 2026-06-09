@@ -114,19 +114,29 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             for account in accounts.data.accounts.iter() {
                 let token_liability: Decimal = match account.liability_decimal() {
                     Ok(token_liability) => token_liability,
-                    Err(e) => {
-                        let _ = handle_db_error(pool, exchange, e).await;
-                        passed = false;
-                        continue;
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => {
+                            passed = false;
+                            continue;
+                        }
+                        Err(_) => {
+                            passed = false;
+                            continue;
+                        }
+                    },
                 };
                 let token_available: Decimal = match account.available_decimal() {
                     Ok(token_liability) => token_liability,
-                    Err(e) => {
-                        let _ = handle_db_error(pool, exchange, e).await;
-                        passed = false;
-                        continue;
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => {
+                            passed = false;
+                            continue;
+                        }
+                        Err(_) => {
+                            passed = false;
+                            continue;
+                        }
+                    },
                 };
 
                 if token_liability > Decimal::ZERO {
@@ -1055,10 +1065,10 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                         Ok(_) => {
                                             log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
                                         }
-                                        Err(e) => {
-                                            let _ = handle_db_error(pool, exchange, e).await;
-                                            continue;
-                                        }
+                                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                                            Ok(_) => continue,
+                                            Err(_) => continue,
+                                        },
                                     }
                                 } else if available > Decimal::ZERO {
                                     let body = json!({
@@ -1077,10 +1087,10 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                                         Ok(_) => {
                                             log::info!("Partially repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
                                         }
-                                        Err(e) => {
-                                            let _ = handle_db_error(pool, exchange, e).await;
-                                            continue;
-                                        }
+                                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                                            Ok(_) => continue,
+                                            Err(_) => continue,
+                                        },
                                     }
                                 }
                             }
@@ -1111,19 +1121,19 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
     for (symbol, amount) in &position.debt_list {
         match upsert_position_debt(pool, exchange, symbol, amount).await {
             Ok(_) => {}
-            Err(e) => {
-                let _ = handle_db_error(pool, exchange, e).await;
-                continue;
-            }
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(_) => continue,
+                Err(_) => continue,
+            },
         }
     }
     for (symbol, symbol_info) in &position.asset_list {
         match upsert_position_asset(pool, exchange, symbol, &symbol_info.total, &symbol_info.available, &symbol_info.hold).await {
             Ok(_) => {}
-            Err(e) => {
-                let _ = handle_db_error(pool, exchange, e).await;
-                continue;
-            }
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(_) => continue,
+                Err(_) => continue,
+            },
         }
     }
 
@@ -1462,18 +1472,18 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
 
                 let token_price_obj = match get_ticker_price(build_query_string(query_params)).await {
                     Ok(token_price_obj) => token_price_obj,
-                    Err(e) => {
-                        let _ = handle_db_error(pool, exchange, e).await;
-                        continue;
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => continue,
+                        Err(_) => continue,
+                    },
                 };
 
                 let token_price: Decimal = match token_price_obj.data.price_decimal() {
                     Ok(token_price) => token_price,
-                    Err(e) => {
-                        let _ = handle_db_error(pool, exchange, e).await;
-                        continue;
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => continue,
+                        Err(_) => continue,
+                    },
                 };
                 let token_size = balance_funds / token_price;
                 make_hf_size_margin_order(pool, exchange, &entry_client_oid, "sell", &tradeable_symbol, format_assert_decimal(token_size, base_increment), "market", true, false).await
@@ -1481,10 +1491,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
             "buy" => {
                 let quote_increment = match symbol_info.quote_increment_decimal() {
                     Ok(quote_increment) => quote_increment,
-                    Err(e) => {
-                        let _ = handle_db_error(pool, exchange, e).await;
-                        continue;
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => continue,
+                        Err(_) => continue,
+                    },
                 };
                 make_hf_funds_margin_order(pool, exchange, &entry_client_oid, "buy", &tradeable_symbol, format_assert_decimal(balance_funds, quote_increment), "market", true, false).await
             }
@@ -1547,18 +1557,10 @@ pub async fn make_hf_funds_margin_order(
         .await
     {
         Ok(_) => {}
-        Err(e) => {
-            let _ = handle_db_error(
-                pool,
-                exchange,
-                format!(
-                    "Failed insert_db_msgsend: exchange:{} client_oid:{} side:{} symbol:{} funds:{} type:{} auto_borrow:{} auto_repay:{} {}",
-                    exchange, client_oid, side, symbol, funds, type_, auto_borrow, auto_repay, e
-                ),
-            )
-            .await;
-            return Err("".into());
-        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
     };
     let msg: serde_json::Value = serde_json::json!({
         "clientOid": client_oid,
