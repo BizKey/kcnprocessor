@@ -15,7 +15,6 @@ use micromap::Map;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::json;
-use std::num::ParseIntError;
 use std::str::FromStr;
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
@@ -783,13 +782,19 @@ pub async fn get_bot_by_entry_client_oid_p_p(
 
         let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
             Ok(body_str) => body_str,
-            Err(e) => return Err(e),
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            },
         };
         let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
 
         let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
             Ok(body_str) => body_str,
-            Err(e) => return Err(e),
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            },
         };
         let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
 
@@ -1024,13 +1029,19 @@ pub async fn get_bot_by_entry_client_oid_p_p(
 
         let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
             Ok(body_str) => body_str,
-            Err(e) => return Err(e),
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            },
         };
         let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
 
         let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
             Ok(body_str) => body_str,
-            Err(e) => return Err(e),
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            },
         };
         let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
         let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
@@ -1290,7 +1301,10 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 
                                     let body_str: String = match serialize_body(Some(body)) {
                                         Ok(body_str) => body_str,
-                                        Err(e) => return Err(e),
+                                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                                            Ok(error_msg) => return Err(error_msg),
+                                            Err(error_msg) => return Err(error_msg),
+                                        },
                                     };
 
                                     match api_v3_margin_repay_post(body_str).await {
@@ -1312,7 +1326,10 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 
                                     let body_str: String = match serialize_body(Some(body)) {
                                         Ok(body_str) => body_str,
-                                        Err(e) => return Err(e),
+                                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                                            Ok(error_msg) => return Err(error_msg),
+                                            Err(error_msg) => return Err(error_msg),
+                                        },
                                     };
 
                                     match api_v3_margin_repay_post(body_str).await {
@@ -1881,7 +1898,10 @@ pub async fn make_hf_funds_margin_order(
 
     let body_str: String = match serialize_body(Some(msg)) {
         Ok(body_str) => body_str,
-        Err(e) => return Err(e),
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
     };
     match api_v3_hf_margin_order_post(body_str).await {
         Ok(data) => match data {
@@ -1918,7 +1938,8 @@ pub async fn make_hf_size_margin_order(
             Err(error_msg) => return Err(error_msg),
         },
     };
-    let msg: serde_json::Value = serde_json::json!({
+
+    let body_str: String = match serialize_body(Some(json!({
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
@@ -1927,12 +1948,12 @@ pub async fn make_hf_size_margin_order(
         "autoRepay": auto_repay,
         "timeInForce": args_time_in_force,
         "size": size
-    });
-    log::info!("{}", msg);
-
-    let body_str: String = match serialize_body(Some(msg)) {
+    }))) {
         Ok(body_str) => body_str,
-        Err(e) => return Err(e),
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
     };
     match api_v3_hf_margin_order_post(body_str).await {
         Ok(data) => match data {
