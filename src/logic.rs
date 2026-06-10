@@ -1217,9 +1217,8 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                 let msg: String = format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone);
                                 log::error!("{}", msg);
 
-                                match handle_db_error(pool, exchange, msg).await {
-                                    _ => continue,
-                                }
+                                handle_db_error(pool, exchange, msg).await;
+                                continue;
                             }
                         },
                         "sell" => match size_clone {
@@ -1228,23 +1227,22 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
                                 let msg: String = format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone);
                                 log::error!("{}", msg);
 
-                                match handle_db_error(pool, exchange, msg).await {
-                                    _ => continue,
-                                }
+                                handle_db_error(pool, exchange, msg).await;
+                                continue;
                             }
                         },
                         _ => {
                             let msg: String = format!("Fail match side_clone:{}", side_ref);
                             log::error!("{}", msg);
 
-                            match handle_db_error(pool, exchange, msg).await {
-                                _ => continue,
-                            }
+                            handle_db_error(pool, exchange, msg).await;
+                            continue;
                         }
                     },
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        _ => continue,
-                    },
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                        continue;
+                    }
                 }
             }
             _ => {
@@ -1437,9 +1435,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
 
                 let token_price_obj = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
                     Ok(token_price_obj) => token_price_obj,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        _ => continue,
-                    },
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                        continue;
+                    }
                 };
 
                 let token_price_obj2 = match token_price_obj {
@@ -1449,9 +1448,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
 
                 let token_price: Decimal = match token_price_obj2.price_decimal() {
                     Ok(token_price) => token_price,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        _ => continue,
-                    },
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                        continue;
+                    }
                 };
                 let token_size: Decimal = balance_funds / token_price;
                 let size: String = match format_assert_decimal(token_size, base_increment) {
@@ -1467,9 +1467,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
             "buy" => {
                 let quote_increment = match symbol_info.quote_increment_decimal() {
                     Ok(quote_increment) => quote_increment,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        _ => continue,
-                    },
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                        continue;
+                    }
                 };
                 let funds: String = match format_assert_decimal(balance_funds, quote_increment) {
                     Ok(funds) => funds,

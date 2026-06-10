@@ -97,14 +97,11 @@ async fn main() -> Result<(), String> {
                     let msg: String = format!("WebSocket connection failed:{}", e);
                     log::error!("{}", msg);
 
-                    match handle_db_error(&pool, exchange, msg).await {
-                        _ => {
-                            drop(tx_in);
-                            drop(spawn_process_kcn_msg_point);
-                            sleep(RECONNECT_DELAY).await;
-                            continue;
-                        }
-                    }
+                    handle_db_error(&pool, exchange, msg).await;
+                    drop(tx_in);
+                    drop(spawn_process_kcn_msg_point);
+                    sleep(RECONNECT_DELAY).await;
+                    continue;
                 }
             },
             Err(e) => {
@@ -126,9 +123,8 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
                 log::error!("{}", msg);
 
-                match handle_db_error(&pool, exchange, msg).await {
-                    _ => continue,
-                }
+                handle_db_error(&pool, exchange, msg).await;
+                continue;
             }
         }
 
@@ -153,9 +149,8 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/account/balance:{}", e);
                 log::error!("{}", msg);
 
-                match handle_db_error(&pool, exchange, msg).await {
-                    _ => continue,
-                }
+                handle_db_error(&pool, exchange, msg).await;
+                continue;
             }
         }
 
