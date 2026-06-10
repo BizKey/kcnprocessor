@@ -154,6 +154,30 @@ pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         },
     }
 }
+pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, account: &MarginAccountDataAccount) -> Result<(), String> {
+    log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
+
+    let body_str: String = match serialize_body(Some(json!({
+        "currency": &account.currency,
+        "size": &account.available,
+        "isIsolated": false,
+        "isHf": true
+    }))) {
+        Ok(body_str) => body_str,
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    match api_v3_margin_repay_post(body_str).await {
+        Ok(_) => Ok(()),
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    }
+}
 
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, String> {
     sleep(AUTO_CLEAN_DELAY).await;
@@ -190,28 +214,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             if token_available >= token_liability {
                 full_repay_account(pool, exchange, account).await?
             } else if token_available > Decimal::ZERO {
-                log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
-
-                let body_str: String = match serialize_body(Some(json!({
-                    "currency": &account.currency,
-                    "size": &account.available,
-                    "isIsolated": false,
-                    "isHf": true
-                }))) {
-                    Ok(body_str) => body_str,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                };
-
-                match api_v3_margin_repay_post(body_str).await {
-                    Ok(_) => continue,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                }
+                partitional_repay_account(pool, exchange, account).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                 // buy stock by market liability
                 let trade_symbol: String = format!("{}-USDT", account.currency);
