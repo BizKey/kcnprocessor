@@ -676,7 +676,6 @@ pub async fn get_bot_by_entry_client_oid_p_p(
     order: &OrderData,
 ) -> Result<(), String> {
     // create new stop tp and sl orders
-
     let filled_size: Decimal = match order.filled_size_decimal() {
         Ok(filled_size) => filled_size,
         Err(e) => match handle_db_error(pool, exchange, e).await {
