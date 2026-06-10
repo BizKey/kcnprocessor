@@ -424,8 +424,9 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(error_msg) => return Err(error_msg),
                     },
                 };
+
                 match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, size, "market", false, false).await {
-                    Ok(_) => {}
+                    Ok(_) => continue,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
