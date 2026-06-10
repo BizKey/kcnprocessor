@@ -127,8 +127,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
     let accounts: MarginAccountData = match get_all_accounts_data().await {
         Ok(accounts) => accounts,
         Err(e) => match handle_db_error(pool, exchange, e).await {
-            Ok(_) => return Ok(false),
-            Err(_) => return Ok(false),
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
         },
     };
 
@@ -137,28 +137,16 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         let token_liability: Decimal = match account.liability_decimal() {
             Ok(token_liability) => token_liability,
             Err(e) => match handle_db_error(pool, exchange, e).await {
-                Ok(_) => {
-                    passed = false;
-                    continue;
-                }
-                Err(_) => {
-                    passed = false;
-                    continue;
-                }
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
             },
         };
 
         let token_available: Decimal = match account.available_decimal() {
             Ok(token_available) => token_available,
             Err(e) => match handle_db_error(pool, exchange, e).await {
-                Ok(_) => {
-                    passed = false;
-                    continue;
-                }
-                Err(_) => {
-                    passed = false;
-                    continue;
-                }
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
             },
         };
 
