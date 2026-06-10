@@ -528,7 +528,7 @@ pub async fn api_v3_accounts_universal_transfer_post(body_str: String) -> Result
         Err(e) => return Err(e),
     };
 
-    let response = match serde_json::from_str::<ApiV3AccountsUniversalTransferRes>(&response_string) {
+    let response: ApiV3AccountsUniversalTransferRes = match serde_json::from_str::<ApiV3AccountsUniversalTransferRes>(&response_string) {
         Ok(res) => res,
         Err(e) => {
             let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3AccountsUniversalTransferRes), e);
