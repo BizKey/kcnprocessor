@@ -163,6 +163,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         };
 
         if token_liability > Decimal::ZERO {
+            // have liability
             passed = false;
             if token_available >= token_liability {
                 log::info!("Can repay {} {} liability with available {}", account.liability, &account.currency, account.available);
@@ -310,6 +311,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 }
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
+            // don't have liability
             passed = false;
             // sell stocks by market available/ works
             let client_oid: String = Uuid::new_v4().to_string();
