@@ -205,16 +205,16 @@ async fn main() -> Result<(), String> {
             let pool_clone = pool.clone();
             let exchange_clone = exchange;
 
-            tokio::spawn(async move {
+            let handle: tokio::task::JoinHandle<Result<(), String>> = tokio::spawn(async move {
                 sleep(INIT_ORDER_DELAY).await;
                 log::info!("Initializing start orders...");
                 match create_init_orders(&pool_clone, exchange_clone).await {
-                    Ok(_) => {}
+                    Ok(_) => Ok(()),
                     Err(e) => match handle_db_error(&pool_clone, exchange_clone, e).await {
-                        Ok(_) => {}
-                        Err(_) => {}
+                        Ok(_) => Ok(()),
+                        Err(_) => Ok(()),
                     },
-                };
+                }
             });
         }
 
