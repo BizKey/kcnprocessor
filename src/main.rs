@@ -64,7 +64,6 @@ async fn main() -> Result<(), String> {
 
     // cancel all stop orders
     let mut query_params: Map<&str, &str, 8> = Map::new();
-
     query_params.insert("tradeType", "MARGIN_TRADE");
 
     match api_v3_hf_margin_stop_order_cancel_delete(build_query_string(query_params)).await {
@@ -80,7 +79,7 @@ async fn main() -> Result<(), String> {
         sleep(CLEAR_DELAY).await;
         match auto_clean_account(&pool, exchange).await {
             Ok(true) => break,
-            Ok(false) => {}
+            Ok(false) => continue,
             Err(e) => match handle_db_error(&pool, exchange, e).await {
                 Ok(error_msg) => return Err(error_msg),
                 Err(error_msg) => return Err(error_msg),

@@ -148,7 +148,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             },
         };
         let token_available: Decimal = match account.available_decimal() {
-            Ok(token_liability) => token_liability,
+            Ok(token_available) => token_available,
             Err(e) => match handle_db_error(pool, exchange, e).await {
                 Ok(_) => {
                     passed = false;
@@ -266,6 +266,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(_) => continue,
                     },
                 };
+
                 // parse min_funds to int
                 let min_funds: Decimal = match symbol_info.min_funds_decimal() {
                     Ok(min_funds) => min_funds,
@@ -274,6 +275,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         Err(_) => continue,
                     },
                 };
+
                 let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
                     Ok(base_min_size) => base_min_size,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
