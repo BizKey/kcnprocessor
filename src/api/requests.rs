@@ -1,6 +1,6 @@
 use crate::api::models::{
-    ApiV1MarketOrderbookLevel1Res, ApiV3AccountsUniversalTransferRes, ApiV3BulletPrivate, ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelByClientOidResData,
-    ApiV3HfMarginStopOrderCancelRes, ApiV3MarginRepayRes, MakeOrderRes, MakeStopOrderRes, MarginAccount, MarginAccountData,
+    ApiV1MarketOrderbookLevel1Res, ApiV3AccountsUniversalTransferRes, ApiV3AccountsUniversalTransferResData, ApiV3BulletPrivate, ApiV3HfMarginStopOrderCancelByClientOidRes,
+    ApiV3HfMarginStopOrderCancelByClientOidResData, ApiV3HfMarginStopOrderCancelRes, ApiV3MarginRepayRes, MakeOrderRes, MakeStopOrderRes, MarginAccount, MarginAccountData,
 };
 use crate::api::tools::get_env;
 use base64::Engine;
@@ -499,7 +499,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_strin
         }
     }
 }
-pub async fn api_v3_accounts_universal_transfer_post(body_str: String) -> Result<ApiV3AccountsUniversalTransferRes, String> {
+pub async fn api_v3_accounts_universal_transfer_post(body_str: String) -> Result<Option<ApiV3AccountsUniversalTransferResData>, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
@@ -510,12 +510,21 @@ pub async fn api_v3_accounts_universal_transfer_post(body_str: String) -> Result
         Err(e) => return Err(e),
     };
 
-    match serde_json::from_str::<ApiV3AccountsUniversalTransferRes>(&response_string) {
-        Ok(res) => Ok(res),
+    let response = match serde_json::from_str::<ApiV3AccountsUniversalTransferRes>(&response_string) {
+        Ok(res) => res,
         Err(e) => {
             let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3AccountsUniversalTransferRes), e);
             log::error!("{}", msg);
-            Err(msg)
+            return Err(msg);
+        }
+    };
+
+    match response.code.as_str() {
+        "200000" => Ok(response.data),
+        _ => {
+            let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
+            log::error!("{}", msg);
+            return Err(msg);
         }
     }
 }
