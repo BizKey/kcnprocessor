@@ -436,7 +436,7 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
         }
     };
 
-    let ws = match response.code.as_str() {
+    let ws: Option<ApiV3BulletPrivateData> = match response.code.as_str() {
         "200000" => response.data,
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
