@@ -181,9 +181,9 @@ async fn main() -> Result<(), String> {
                 log::info!("Initializing start orders...");
                 match create_init_orders(&pool_clone, exchange_clone).await {
                     Ok(_) => {}
-                    Err(e) => match handle_db_error(&pool_clone, exchange_clone, e).await {
-                        _ => {}
-                    },
+                    Err(e) => {
+                        handle_db_error(&pool_clone, exchange_clone, e).await;
+                    }
                 }
             });
         }

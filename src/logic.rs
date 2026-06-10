@@ -890,10 +890,7 @@ pub async fn get_bot_by_entry_client_oid_p_p(
 
                 let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
                 log::error!("{}", msg);
-
-                match handle_db_error(pool, exchange, msg).await {
-                    _ => {}
-                }
+                handle_db_error(pool, exchange, msg).await;
             }
             (Ok(tp_resp), Err(sl_err)) => match tp_resp {
                 Some(response_data) => {
@@ -931,15 +928,15 @@ pub async fn get_bot_by_entry_client_oid_p_p(
                 }
                 match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
                     Ok(_) => {}
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        _ => {}
-                    },
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                    }
                 }
                 match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
                     Ok(_) => {}
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        _ => {}
-                    },
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                    }
                 }
             }
         }
@@ -1391,9 +1388,10 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     _ => continue,
                 }
             }
-            Err(e) => match handle_db_error(pool, exchange, e).await {
-                _ => continue,
-            },
+            Err(e) => {
+                handle_db_error(pool, exchange, e).await;
+                continue;
+            }
         };
 
         let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable_symbol).await {
@@ -1406,27 +1404,30 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     _ => continue,
                 }
             }
-            Err(e) => match handle_db_error(pool, exchange, e).await {
-                _ => continue,
-            },
+            Err(e) => {
+                handle_db_error(pool, exchange, e).await;
+                continue;
+            }
         };
 
         let entry_client_oid: String = Uuid::new_v4().to_string();
 
         match update_bot_entry_client_oid_by_id(pool, exchange, Some(&tradeable_symbol), Some(&entry_client_oid), trade_bot_id).await {
             Ok(_) => {}
-            Err(e) => match handle_db_error(pool, exchange, e).await {
-                _ => continue,
-            },
+            Err(e) => {
+                handle_db_error(pool, exchange, e).await;
+                continue;
+            }
         }
 
         let order_result = match get_random_side() {
             "sell" => {
                 let base_increment: Decimal = match symbol_info.base_increment_decimal() {
                     Ok(base_increment) => base_increment,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        _ => continue,
-                    },
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                        continue;
+                    }
                 };
 
                 let mut query_params: Map<&str, &str, 8> = Map::new();
