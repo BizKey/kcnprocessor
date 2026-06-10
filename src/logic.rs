@@ -147,6 +147,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 }
             },
         };
+
         let token_available: Decimal = match account.available_decimal() {
             Ok(token_available) => token_available,
             Err(e) => match handle_db_error(pool, exchange, e).await {
@@ -287,45 +288,26 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 // calc price token on amount base_min_size token
                 let min_funds_by_size: Decimal = token_price * base_min_size;
 
-                if token_funds <= min_funds.max(min_funds_by_size) {
-                    let funds: String = match format_assert_decimal(min_funds.max(min_funds_by_size), quote_increment) {
-                        Ok(funds) => funds,
-                        Err(e) => {
-                            let msg: String = format!("Fail parse:{} {} error:{}", min_funds.max(min_funds_by_size), quote_increment, e);
-                            log::error!("{}", msg);
-                            match handle_db_error(pool, exchange, msg).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            };
-                        }
-                    };
-                    match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
-                        Ok(_) => {}
-                        Err(e) => match handle_db_error(pool, exchange, e).await {
-                            Ok(_) => continue,
-                            Err(_) => continue,
-                        },
-                    }
-                } else {
-                    let funds: String = match format_assert_decimal(token_funds, quote_increment) {
-                        Ok(funds) => funds,
-                        Err(e) => {
-                            let msg: String = format!("Fail parse:{} {} error:{}", token_funds, quote_increment, e);
-                            log::error!("{}", msg);
-                            match handle_db_error(pool, exchange, msg).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            };
-                        }
-                    };
-                    match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
-                        Ok(_) => {}
-                        Err(e) => match handle_db_error(pool, exchange, e).await {
-                            Ok(_) => continue,
-                            Err(_) => continue,
-                        },
+                let fundss: Decimal = if token_funds <= min_funds.max(min_funds_by_size) { min_funds.max(min_funds_by_size) } else { token_funds };
+
+                let funds: String = match format_assert_decimal(fundss, quote_increment) {
+                    Ok(funds) => funds,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", fundss, quote_increment, e);
+                        log::error!("{}", msg);
+                        match handle_db_error(pool, exchange, msg).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        };
                     }
                 };
+                match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => continue,
+                        Err(_) => continue,
+                    },
+                }
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
