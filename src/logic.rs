@@ -421,7 +421,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             }
         }
     }
-    if passed { Ok(true) } else { Ok(false) }
+    Ok(passed)
 }
 
 pub async fn get_bot_by_exit_tp_client_oid_p(
