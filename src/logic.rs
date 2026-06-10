@@ -44,19 +44,27 @@ pub fn get_random_side() -> &'static str {
     if fastrand::bool() { "buy" } else { "sell" }
 }
 
-pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String, ParseIntError> {
+pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String, String> {
     let precision = increment.scale() as usize;
 
     if precision == 0 {
         // Целый increment - округляем вниз до ближайшего кратного
         let increment_int: i64 = match increment.to_string().parse() {
             Ok(increment_int) => increment_int,
-            Err(e) => return Err(e),
+            Err(e) => {
+                let msg = format!("Fail parse increment:{} error:{}", increment, e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
         let size_int: i64 = match size.to_string().parse() {
             Ok(size_int) => size_int,
-            Err(e) => return Err(e),
+            Err(e) => {
+                let msg = format!("Fail parse size:{} error:{}", size, e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
         };
 
         let rounded_down: i64 = (size_int / increment_int) * increment_int;
@@ -233,7 +241,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 let token_price_obj2: ApiV1MarketOrderbookLevel1ResData = match token_price_obj {
                     Some(token_price_obj2) => token_price_obj2,
                     None => {
-                        let msg = format!("Fail get token_price:{:?}", token_price_obj);
+                        let msg: String = format!("Fail get token_price:{:?}", token_price_obj);
                         log::error!("{}", msg);
                         match handle_db_error(pool, exchange, msg).await {
                             Ok(error_msg) => return Err(error_msg),
@@ -296,8 +304,9 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         };
                     }
                 };
+
                 match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
-                    Ok(_) => {}
+                    Ok(_) => continue,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
@@ -316,7 +325,6 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 Ok(None) => {
                     let msg: String = format!("Symbol info not found for {}", trade_symbol);
                     log::error!("{}", msg);
-
                     match handle_db_error(pool, exchange, msg).await {
                         Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
@@ -339,7 +347,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             let mut query_params: Map<&str, &str, 8> = Map::new();
             query_params.insert("symbol", &trade_symbol);
 
-            let token_price_obj = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
+            let token_price_obj: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
                 Ok(token_price_obj) => token_price_obj,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
                     Ok(error_msg) => return Err(error_msg),
@@ -347,10 +355,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 },
             };
 
-            let token_price_obj2 = match token_price_obj {
+            let token_price_obj2: ApiV1MarketOrderbookLevel1ResData = match token_price_obj {
                 Some(token_price_obj2) => token_price_obj2,
                 None => {
-                    let msg = format!("Fail get token_price:{:?}", token_price_obj);
+                    let msg: String = format!("Fail get token_price:{:?}", token_price_obj);
                     log::error!("{}", msg);
                     match handle_db_error(pool, exchange, msg).await {
                         Ok(error_msg) => return Err(error_msg),
@@ -395,11 +403,14 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     "toAccountType": "TRADE"
                 }))) {
                     Ok(body_str) => body_str,
-                    Err(e) => return Err(e),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
                 };
 
                 match api_v3_accounts_universal_transfer_post(body_str).await {
-                    Ok(_) => {}
+                    Ok(_) => continue,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(error_msg) => return Err(error_msg),
                         Err(error_msg) => return Err(error_msg),
@@ -408,14 +419,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             } else {
                 let size: String = match format_assert_decimal(token_available, base_increment) {
                     Ok(size) => size,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", token_available, base_increment, e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
                 };
                 match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, size, "market", false, false).await {
                     Ok(_) => {}
