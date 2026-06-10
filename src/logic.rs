@@ -221,28 +221,28 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         }
                     }
                     Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
                     },
                 };
                 // liability debt in tokens
                 // get price token
 
                 let mut query_params: Map<&str, &str, 8> = Map::new();
-
                 query_params.insert("symbol", &trade_symbol);
 
-                let token_price_obj = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
+                let token_price_obj: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
                     Ok(token_price_obj) => token_price_obj,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
-                    },
+                    Err(e) => return Err(e),
                 };
 
                 let token_price_obj2: ApiV1MarketOrderbookLevel1ResData = match token_price_obj {
                     Some(token_price_obj2) => token_price_obj2,
-                    None => return Err("".to_string()),
+                    None => {
+                        let msg = format!("Fail get token_price:{:?}", token_price_obj);
+                        log::error!("{}", msg);
+                        return Err(msg);
+                    }
                 };
 
                 let token_price: Decimal = match token_price_obj2.price_decimal() {
@@ -261,8 +261,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
                     Ok(quote_increment) => quote_increment,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
                     },
                 };
 
@@ -270,16 +270,16 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 let min_funds: Decimal = match symbol_info.min_funds_decimal() {
                     Ok(min_funds) => min_funds,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
                     },
                 };
 
                 let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
                     Ok(base_min_size) => base_min_size,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
                     },
                 };
 
@@ -302,8 +302,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
                     Ok(_) => {}
                     Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
                     },
                 }
             }
@@ -321,21 +321,21 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     log::error!("{}", msg);
 
                     match handle_db_error(pool, exchange, msg).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
                     }
                 }
                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
                 },
             };
 
             let base_increment: Decimal = match symbol_info.base_increment_decimal() {
                 Ok(base_increment) => base_increment,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
                 },
             };
             // get price token
@@ -346,21 +346,28 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             let token_price_obj = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
                 Ok(token_price_obj) => token_price_obj,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
                 },
             };
 
             let token_price_obj2 = match token_price_obj {
                 Some(token_price_obj2) => token_price_obj2,
-                None => return Err("".to_string()),
+                None => {
+                    let msg = format!("Fail get token_price:{:?}", token_price_obj);
+                    log::error!("{}", msg);
+                    match handle_db_error(pool, exchange, msg).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    }
+                }
             };
 
             let token_price: Decimal = match token_price_obj2.price_decimal() {
                 Ok(token_price) => token_price,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
                 },
             };
 
@@ -369,29 +376,28 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
                 Ok(base_min_size) => base_min_size,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
                 },
             };
 
             let quote_min_size: Decimal = match symbol_info.quote_min_size_decimal() {
                 Ok(quote_min_size) => quote_min_size,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
                 },
             };
 
             if token_available <= base_min_size || (token_price * token_available) <= quote_min_size {
-                let body: serde_json::Value = json!({
+                let body_str: String = match serialize_body(Some(json!({
                     "currency": &account.currency,
                     "clientOid": Uuid::new_v4().to_string(),
                     "amount": &account.available,
                     "type": "INTERNAL",
                     "fromAccountType": "MARGIN",
                     "toAccountType": "TRADE"
-                });
-                let body_str: String = match serialize_body(Some(body)) {
+                }))) {
                     Ok(body_str) => body_str,
                     Err(e) => return Err(e),
                 };
@@ -399,8 +405,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 match api_v3_accounts_universal_transfer_post(body_str).await {
                     Ok(_) => {}
                     Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
                     },
                 }
             } else {
@@ -418,8 +424,8 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, size, "market", false, false).await {
                     Ok(_) => {}
                     Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(_) => continue,
-                        Err(_) => continue,
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
                     },
                 }
             }

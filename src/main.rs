@@ -80,10 +80,7 @@ async fn main() -> Result<(), String> {
         match auto_clean_account(&pool, exchange).await {
             Ok(true) => break,
             Ok(false) => continue,
-            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                Ok(error_msg) => return Err(error_msg),
-                Err(error_msg) => return Err(error_msg),
-            },
+            Err(e) => return Err(e),
         };
     }
 
