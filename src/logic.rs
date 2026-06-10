@@ -1196,7 +1196,7 @@ pub async fn get_bot_by_entry_client_oid_p(
     }
 }
 
-pub async fn trade_event_process(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: OrderData) -> Result<(), String> {
+pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: OrderData) -> Result<(), String> {
     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
         Ok(Some(symbol_info)) => symbol_info,
         Ok(None) => {
@@ -1270,7 +1270,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     };
 
     if (order.type_ == "match" || order.type_ == "canceled") && (order.remain_size == Some("0".to_string()) || order.remain_funds == Some("0".to_string())) {
-        match trade_event_process(pool, exchange, &client_oid, order).await {
+        match trade_order_event(pool, exchange, &client_oid, order).await {
             Ok(_) => Ok(()),
             Err(_) => Err("".to_string()),
         };
