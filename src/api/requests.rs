@@ -1,7 +1,7 @@
 use crate::api::models::{
     ApiV1MarketOrderbookLevel1Res, ApiV1MarketOrderbookLevel1ResData, ApiV3AccountsUniversalTransferRes, ApiV3AccountsUniversalTransferResData, ApiV3BulletPrivate,
     ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelByClientOidResData, ApiV3HfMarginStopOrderCancelRes, ApiV3HfMarginStopOrderCancelResData, ApiV3MarginRepayRes,
-    MakeOrderRes, MakeStopOrderRes, MakeStopOrderResData, MarginAccount, MarginAccountData,
+    MakeOrderRes, MakeOrderResData, MakeStopOrderRes, MakeStopOrderResData, MarginAccount, MarginAccountData,
 };
 use crate::api::tools::get_env;
 use base64::Engine;
@@ -618,7 +618,7 @@ pub async fn api_v3_hf_margin_stop_order_post(body_str: String) -> Result<Option
         }
     }
 }
-pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<MakeOrderRes, String> {
+pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<Option<MakeOrderResData>, String> {
     let client: &KuCoinClient = match get_client() {
         Ok(client) => client,
         Err(e) => return Err(e),
@@ -629,12 +629,21 @@ pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<MakeOrderRe
         Err(e) => return Err(e),
     };
 
-    match serde_json::from_str::<MakeOrderRes>(&response_string) {
-        Ok(res) => Ok(res),
+    let response: MakeOrderRes = match serde_json::from_str::<MakeOrderRes>(&response_string) {
+        Ok(res) => res,
         Err(e) => {
             let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MakeOrderRes), e);
             log::error!("{}", msg);
-            Err(msg)
+            return Err(msg);
+        }
+    };
+
+    match response.code.as_str() {
+        "200000" => Ok(response.data),
+        _ => {
+            let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
+            log::error!("{}", msg);
+            return Err(msg);
         }
     }
 }

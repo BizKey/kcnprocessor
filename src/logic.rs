@@ -6,7 +6,7 @@ use crate::api::db::{
     update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id,
     update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
-use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, MarginAccountData, OrderData, PositionData, Symbol};
+use crate::api::models::{AdvancedOrders, BalanceData, Bot, KuCoinMessage, MakeOrderRes, MakeOrderResData, MarginAccountData, OrderData, PositionData, Symbol};
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
     api_v3_hf_margin_stop_order_post, api_v3_margin_accounts_get, api_v3_margin_repay_post, build_query_string, serialize_body,
@@ -1805,7 +1805,7 @@ pub async fn make_hf_funds_margin_order(
     type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
-) -> Result<MakeOrderRes, String> {
+) -> Result<MakeOrderResData, String> {
     // only for buy orders
     let args_time_in_force: &str = "GTC";
 
@@ -1835,7 +1835,10 @@ pub async fn make_hf_funds_margin_order(
         Err(e) => return Err(e),
     };
     match api_v3_hf_margin_order_post(body_str).await {
-        Ok(data) => Ok(data),
+        Ok(data) => match data {
+            Some(data) => Ok(data),
+            None => Err("".to_string()),
+        },
         Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(error_msg) => Err(error_msg),
             Err(error_msg) => Err(error_msg),
@@ -1853,7 +1856,7 @@ pub async fn make_hf_size_margin_order(
     type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
-) -> Result<MakeOrderRes, String> {
+) -> Result<MakeOrderResData, String> {
     // only for sell orders
     let args_time_in_force: &str = "GTC";
 
@@ -1883,7 +1886,10 @@ pub async fn make_hf_size_margin_order(
         Err(e) => return Err(e),
     };
     match api_v3_hf_margin_order_post(body_str).await {
-        Ok(data) => Ok(data),
+        Ok(data) => match data {
+            Some(data) => Ok(data),
+            None => Err("".to_string()),
+        },
         Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(error_msg) => Err(error_msg),
             Err(error_msg) => Err(error_msg),
