@@ -1196,7 +1196,19 @@ pub async fn get_bot_by_entry_client_oid_p(
     }
 }
 
-pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: OrderData) -> Result<(), String> {
+pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, order: OrderData) -> Result<(), String> {
+    let client_oid: String = match order.client_oid.clone() {
+        Some(client_oid) => client_oid,
+        None => {
+            let msg: String = format!("client_oid in order is none: {:.?}", order);
+            log::error!("{}", msg);
+
+            match handle_db_error(pool, exchange, msg).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            }
+        }
+    };
     let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
         Ok(Some(symbol_info)) => symbol_info,
         Ok(None) => {
@@ -1256,21 +1268,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         },
     }
 
-    let client_oid: String = match order.client_oid.clone() {
-        Some(client_oid) => client_oid,
-        None => {
-            let msg: String = format!("client_oid in order is none: {:.?}", order);
-            log::error!("{}", msg);
-
-            match handle_db_error(pool, exchange, msg).await {
-                Ok(error_msg) => return Err(error_msg),
-                Err(error_msg) => return Err(error_msg),
-            }
-        }
-    };
-
     if (order.type_ == "match" || order.type_ == "canceled") && (order.remain_size == Some("0".to_string()) || order.remain_funds == Some("0".to_string())) {
-        match trade_order_event(pool, exchange, &client_oid, order).await {
+        match trade_order_event(pool, exchange, order).await {
             Ok(_) => Ok(()),
             Err(_) => Err("".to_string()),
         };
