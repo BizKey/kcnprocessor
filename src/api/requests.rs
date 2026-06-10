@@ -484,7 +484,7 @@ pub async fn api_v3_margin_accounts_get(query_params_str: String) -> Result<Marg
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
@@ -513,7 +513,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_strin
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
@@ -542,7 +542,7 @@ pub async fn api_v3_accounts_universal_transfer_post(body_str: String) -> Result
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
@@ -571,7 +571,7 @@ pub async fn api_v1_market_orderbook_level1_get(query_params_str: String) -> Res
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
@@ -600,7 +600,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_delete(query_params_str: String)
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
@@ -629,7 +629,7 @@ pub async fn api_v3_hf_margin_stop_order_post(body_str: String) -> Result<Option
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
@@ -658,7 +658,7 @@ pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<Option<Make
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
@@ -687,7 +687,7 @@ pub async fn api_v3_margin_repay_post(body_str: String) -> Result<Option<ApiV3Ma
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
