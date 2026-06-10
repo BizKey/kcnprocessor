@@ -213,7 +213,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                     Ok(Some(info)) => info,
                     Ok(None) => {
-                        let msg = format!("Symbol info not found for {}", trade_symbol);
+                        let msg: String = format!("Symbol info not found for {}", trade_symbol);
                         log::error!("{}", msg);
 
                         match handle_db_error(pool, exchange, msg).await {
@@ -334,7 +334,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
                 Ok(Some(symbol_info)) => symbol_info,
                 Ok(None) => {
-                    let msg = format!("Symbol info not found for {}", trade_symbol);
+                    let msg: String = format!("Symbol info not found for {}", trade_symbol);
                     log::error!("{}", msg);
 
                     match handle_db_error(pool, exchange, msg).await {
@@ -447,9 +447,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
 pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     match insert_db_orderevent(pool, exchange, &order).await {
-        Ok(_) => {
-            log::info!("{:.?}", order);
-        }
+        Ok(_) => log::info!("{:.?}", order),
         Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(error_msg) => return Err(error_msg),
             Err(error_msg) => return Err(error_msg),
@@ -459,7 +457,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     let client_oid = match &order.client_oid {
         Some(client_oid) => client_oid,
         None => {
-            let msg = format!("client_oid in order is none: {:.?}", order);
+            let msg: String = format!("client_oid in order is none: {:.?}", order);
             log::error!("{}", msg);
 
             match handle_db_error(pool, exchange, msg).await {
@@ -506,6 +504,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
             Err(error_msg) => return Err(error_msg),
         },
     };
+
     // if clientOid in bots entry_id (2 phase)
     match get_bot_by_exit_tp_client_oid(pool, exchange, client_oid).await {
         Ok(Some(bot)) => {
