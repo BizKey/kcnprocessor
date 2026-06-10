@@ -130,7 +130,7 @@ pub async fn insert_db_balance(pool: &sqlx::PgPool, exchange: &str, balance: Bal
     }
 }
 
-pub async fn insert_db_orderevent(pool: &sqlx::PgPool, exchange: &str, order: &OrderData) -> Result<(), String> {
+pub async fn insert_db_orderevent(pool: &sqlx::PgPool, exchange: &str, order: OrderData) -> Result<(), String> {
     match sqlx::query(
             r#"
             INSERT INTO orderevent (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts)

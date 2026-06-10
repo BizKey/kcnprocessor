@@ -112,7 +112,7 @@ impl PositionData {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OrderData {
     pub status: String, // new open match done
     #[serde(rename = "type")]
