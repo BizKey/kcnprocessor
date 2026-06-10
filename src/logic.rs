@@ -454,9 +454,10 @@ pub async fn get_bot_by_exit_tp_client_oid_p(
             return Ok(());
         }
         Ok(None) => Ok(()),
-        Err(e) => match handle_db_error(pool, exchange, e).await {
-            _ => Ok(()),
-        },
+        Err(e) => {
+            handle_db_error(pool, exchange, e).await;
+            Ok(())
+        }
     }
 }
 
@@ -537,7 +538,7 @@ pub async fn get_bot_by_exit_sl_client_oid_p(
                 },
             }
 
-            return Ok(());
+            Ok(())
         }
         Ok(None) => Ok(()),
         Err(e) => match handle_db_error(pool, exchange, e).await {
