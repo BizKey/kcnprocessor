@@ -843,8 +843,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                 match (&tp_res, &sl_res) {
                     (Ok(tp_resp), Ok(sl_resp)) => {
-                        match tp_resp.data {
-                            Some(ref response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                        match tp_resp {
+                            Some(response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
                                     Ok(error_msg) => return Err(error_msg),
@@ -854,8 +854,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             None => {}
                         }
 
-                        match sl_resp.data {
-                            Some(ref response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                        match sl_resp {
+                            Some(response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
                                     Ok(error_msg) => return Err(error_msg),
@@ -868,8 +868,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         log::info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
                     }
                     (Err(tp_err), Ok(sl_resp)) => {
-                        match sl_resp.data {
-                            Some(ref response_data) => {
+                        match sl_resp {
+                            Some(response_data) => {
                                 let mut query_params: Map<&str, &str, 8> = Map::new();
 
                                 query_params.insert("clientOid", &response_data.client_oid);
@@ -902,8 +902,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         }
                     }
                     (Ok(tp_resp), Err(sl_err)) => {
-                        match tp_resp.data {
-                            Some(ref response_data) => {
+                        match tp_resp {
+                            Some(response_data) => {
                                 let mut query_params: Map<&str, &str, 8> = Map::new();
 
                                 query_params.insert("clientOid", &response_data.client_oid);
@@ -1083,8 +1083,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
                 match (&tp_res, &sl_res) {
                     (Ok(tp_resp), Ok(sl_resp)) => {
-                        match tp_resp.data {
-                            Some(ref response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                        match tp_resp {
+                            Some(response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
                                     Ok(error_msg) => return Err(error_msg),
@@ -1094,8 +1094,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             None => {}
                         }
 
-                        match sl_resp.data {
-                            Some(ref response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                        match sl_resp {
+                            Some(response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
                                 Ok(_) => {}
                                 Err(e) => match handle_db_error(pool, exchange, e).await {
                                     Ok(error_msg) => return Err(error_msg),
@@ -1108,8 +1108,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                         log::info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
                     }
                     (Err(tp_err), Ok(sl_resp)) => {
-                        match sl_resp.data {
-                            Some(ref response_data) => {
+                        match sl_resp {
+                            Some(response_data) => {
                                 let mut query_params: Map<&str, &str, 8> = Map::new();
 
                                 query_params.insert("clientOid", &response_data.client_oid);
@@ -1140,8 +1140,8 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
                             Err(_) => {}
                         }
                     }
-                    (Ok(tp_resp), Err(sl_err)) => match tp_resp.data {
-                        Some(ref response_data) => {
+                    (Ok(tp_resp), Err(sl_err)) => match tp_resp {
+                        Some(response_data) => {
                             let mut query_params: Map<&str, &str, 8> = Map::new();
 
                             query_params.insert("clientOid", &response_data.client_oid);
