@@ -166,21 +166,20 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             // have liability
             passed = false;
             if token_available >= token_liability {
-                log::info!("Can repay {} {} liability with available {}", account.liability, &account.currency, account.available);
-                let body = json!({
+                log::info!("Can repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
+
+                let body_str: String = match serialize_body(Some(json!({
                     "currency": &account.currency,
                     "size": &account.liability,
                     "isIsolated": false,
                     "isHf": true
-                });
-
-                let body_str: String = match serialize_body(Some(body)) {
+                }))) {
                     Ok(body_str) => body_str,
                     Err(e) => return Err(e),
                 };
 
                 match api_v3_margin_repay_post(body_str).await {
-                    Ok(_) => {}
+                    Ok(_) => continue,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(_) => continue,
                         Err(_) => continue,
