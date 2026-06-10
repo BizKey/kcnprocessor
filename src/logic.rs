@@ -100,7 +100,7 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
     for trade_bot in trade_bots.iter() {
         sleep(BOT_INIT_DELAY).await;
-        let token_funds = match trade_bot.balance_decimal() {
+        let token_funds: Decimal = match trade_bot.balance_decimal() {
             Ok(token_funds) => token_funds,
             Err(e) => match handle_db_error(pool, exchange, e).await {
                 Ok(error_msg) => return Err(error_msg),
