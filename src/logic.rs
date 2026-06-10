@@ -667,6 +667,514 @@ pub async fn get_bot_by_exit_sl_client_oid_p(
     }
 }
 
+pub async fn get_bot_by_entry_client_oid_p_p(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    client_oid: &str,
+    price_increment: Decimal,
+    quote_increment: Decimal,
+    order: &OrderData,
+) -> Result<(), String> {
+    // create new stop tp and sl orders
+
+    let filled_size: Decimal = match order.filled_size_decimal() {
+        Ok(filled_size) => filled_size,
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    let new_balance: Decimal = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+        Ok(Some(new_balance)) => new_balance,
+        Ok(None) => {
+            let msg: String = format!("No records found in events: {}", client_oid);
+            log::error!("{}", msg);
+            match handle_db_error(pool, exchange, msg).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            }
+        }
+
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    match update_bot_balance_by_entry_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
+        Ok(_) => {}
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    }
+
+    if order.side == "buy" {
+        let match_price: Decimal = new_balance / filled_size;
+        let trigger_tp_price: Decimal = match_price * tp_buy_percent(); // price + 7%
+        let trigger_sl_price: Decimal = match_price * sl_buy_percent(); // price - 5%
+
+        let exit_tp_client_oid: String = Uuid::new_v4().to_string();
+        let exit_sl_client_oid: String = Uuid::new_v4().to_string();
+
+        // tp order
+        let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
+            Ok(stop_price_tp) => stop_price_tp,
+            Err(e) => {
+                let msg: String = format!("Fail parse:{} {} error:{}", trigger_tp_price, price_increment, e);
+                log::error!("{}", msg);
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
+                };
+            }
+        };
+        let msg_tp_order: serde_json::Value = serde_json::json!({
+            "clientOid": exit_tp_client_oid,
+            "side": "sell",
+            "symbol": order.symbol,
+            "type": "market",
+            "stop": "entry",
+            "stopPrice": stop_price_tp,
+            "isIsolated": false,
+            "autoBorrow": true,
+            "autoRepay": false,
+            "size": &order.filled_size,
+            "timeInForce": "GTC",
+        });
+        // sl order
+        let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
+            Ok(stop_price_sl) => stop_price_sl,
+            Err(e) => {
+                let msg: String = format!("Fail parse:{} {} error:{}", trigger_sl_price, price_increment, e);
+                log::error!("{}", msg);
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
+                };
+            }
+        };
+        let msg_sl_order: serde_json::Value = serde_json::json!({
+            "clientOid": exit_sl_client_oid,
+            "side": "sell",
+            "symbol": order.symbol,
+            "type": "market",
+            "stop": "loss",
+            "stopPrice": stop_price_sl,
+            "isIsolated": false,
+            "autoBorrow": true,
+            "autoRepay": false,
+            "size": order.filled_size,
+            "timeInForce": "GTC",
+        });
+
+        log::info!("Stop profit order:{}", msg_tp_order);
+        log::info!("Stop loss order:{}", msg_sl_order);
+
+        // add exit_tp_client_oid by entry_id
+        match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
+            Ok(_) => {}
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            },
+        }
+        // add exit_sl_client_oid by entry_id
+        match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
+            Ok(_) => {}
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            },
+        }
+
+        let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
+            Ok(body_str) => body_str,
+            Err(e) => return Err(e),
+        };
+        let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
+
+        let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
+            Ok(body_str) => body_str,
+            Err(e) => return Err(e),
+        };
+        let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
+
+        let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
+
+        match (&tp_res, &sl_res) {
+            (Ok(tp_resp), Ok(sl_resp)) => {
+                match tp_resp {
+                    Some(response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                        Ok(_) => {}
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        },
+                    },
+                    None => {}
+                }
+
+                match sl_resp {
+                    Some(response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                        Ok(_) => {}
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        },
+                    },
+                    None => {}
+                }
+
+                log::info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
+            }
+            (Err(tp_err), Ok(sl_resp)) => {
+                match sl_resp {
+                    Some(response_data) => {
+                        let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                        query_params.insert("clientOid", &response_data.client_oid);
+
+                        match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
+                            Ok(_) => {}
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
+                                Err(error_msg) => return Err(error_msg),
+                            },
+                        };
+                    }
+                    None => {}
+                }
+
+                match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
+                }
+
+                let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+            }
+            (Ok(tp_resp), Err(sl_err)) => {
+                match tp_resp {
+                    Some(response_data) => {
+                        let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                        query_params.insert("clientOid", &response_data.client_oid);
+
+                        match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
+                            Ok(_) => {}
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
+                                Err(error_msg) => return Err(error_msg),
+                            },
+                        }
+                    }
+                    None => {}
+                }
+
+                match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
+                }
+
+                let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+            }
+            (Err(tp_err), Err(sl_err)) => {
+                let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+                match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
+                }
+                match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
+                }
+                match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
+                }
+            }
+        }
+    } else if order.side == "sell" {
+        let match_price: Decimal = new_balance / filled_size;
+        let trigger_tp_price: Decimal = match_price * tp_sell_percent(); // price - 7%
+        let trigger_sl_price: Decimal = match_price * sl_sell_percent(); // price + 5%
+
+        let funds_tp: Decimal = trigger_tp_price * filled_size;
+        let funds_sl: Decimal = trigger_sl_price * filled_size;
+
+        let exit_tp_client_oid: String = Uuid::new_v4().to_string();
+        let exit_sl_client_oid: String = Uuid::new_v4().to_string();
+
+        let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
+            Ok(stop_price_tp) => stop_price_tp,
+            Err(e) => {
+                let msg: String = format!("Fail parse:{} {} error:{}", trigger_tp_price, price_increment, e);
+                log::error!("{}", msg);
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
+                };
+            }
+        };
+        let funds_tp_str: String = match format_assert_decimal(funds_tp, quote_increment) {
+            Ok(funds_tp_str) => funds_tp_str,
+            Err(e) => {
+                let msg: String = format!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e);
+                log::error!("{}", msg);
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
+                };
+            }
+        };
+        let msg_tp_order: serde_json::Value = serde_json::json!({
+            "clientOid": exit_tp_client_oid,
+            "side": "buy",
+            "symbol": order.symbol,
+            "type": "market",
+            "stop": "loss",
+            "stopPrice": stop_price_tp, // price - 7%
+            "isIsolated": false,
+            "autoBorrow": true,
+            "autoRepay": false,
+            "timeInForce": "GTC",
+            "funds":funds_tp_str,
+        });
+        let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
+            Ok(stop_price_sl) => stop_price_sl,
+            Err(e) => {
+                let msg: String = format!("Fail parse:{} {} error:{}", trigger_sl_price, price_increment, e);
+                log::error!("{}", msg);
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
+                };
+            }
+        };
+        let funds_sl_str: String = match format_assert_decimal(funds_sl, quote_increment) {
+            Ok(funds_sl_str) => funds_sl_str,
+            Err(e) => {
+                let msg: String = format!("Fail parse:{} {} error:{}", funds_sl, quote_increment, e);
+                log::error!("{}", msg);
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(error_msg) => return Err(error_msg),
+                    Err(error_msg) => return Err(error_msg),
+                };
+            }
+        };
+        let msg_sl_order: serde_json::Value = serde_json::json!({
+           "clientOid": exit_sl_client_oid,
+            "side": "buy",
+            "symbol": order.symbol,
+            "type": "market",
+            "stop": "entry",
+            "stopPrice": stop_price_sl, // price + 5%
+            "isIsolated": false,
+            "autoBorrow": true,
+            "autoRepay": false,
+            "timeInForce": "GTC",
+            "funds": funds_sl_str,
+        });
+
+        log::info!("Stop profit order:{}", msg_tp_order);
+        log::info!("Stop loss order:{}", msg_sl_order);
+
+        // add exit_tp_client_oid by entry_id
+        match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
+            Ok(_) => {}
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            },
+        }
+        // add exit_sl_client_oid by entry_id
+        match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
+            Ok(_) => {}
+            Err(e) => match handle_db_error(pool, exchange, e).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            },
+        }
+
+        let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
+            Ok(body_str) => body_str,
+            Err(e) => return Err(e),
+        };
+        let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
+
+        let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
+            Ok(body_str) => body_str,
+            Err(e) => return Err(e),
+        };
+        let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
+        let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
+
+        match (&tp_res, &sl_res) {
+            (Ok(tp_resp), Ok(sl_resp)) => {
+                match tp_resp {
+                    Some(response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                        Ok(_) => {}
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        },
+                    },
+                    None => {}
+                }
+
+                match sl_resp {
+                    Some(response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
+                        Ok(_) => {}
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        },
+                    },
+                    None => {}
+                }
+
+                log::info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
+            }
+            (Err(tp_err), Ok(sl_resp)) => {
+                match sl_resp {
+                    Some(response_data) => {
+                        let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                        query_params.insert("clientOid", &response_data.client_oid);
+                        match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
+                            Ok(_) => {}
+                            Err(e) => match handle_db_error(pool, exchange, e).await {
+                                Ok(error_msg) => return Err(error_msg),
+                                Err(error_msg) => return Err(error_msg),
+                            },
+                        }
+                    }
+                    None => {}
+                }
+
+                match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
+                }
+
+                let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+            }
+            (Ok(tp_resp), Err(sl_err)) => match tp_resp {
+                Some(response_data) => {
+                    let mut query_params: Map<&str, &str, 8> = Map::new();
+
+                    query_params.insert("clientOid", &response_data.client_oid);
+                    match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
+                        Ok(_) => {
+                            match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
+                                Ok(_) => {}
+                                Err(e) => match handle_db_error(pool, exchange, e).await {
+                                    Ok(error_msg) => return Err(error_msg),
+                                    Err(error_msg) => return Err(error_msg),
+                                },
+                            }
+                            let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
+                            log::error!("{}", msg);
+
+                            match handle_db_error(pool, exchange, msg).await {
+                                Ok(_) => {}
+                                Err(_) => {}
+                            }
+                        }
+                        Err(e) => match handle_db_error(pool, exchange, e).await {
+                            Ok(error_msg) => return Err(error_msg),
+                            Err(error_msg) => return Err(error_msg),
+                        },
+                    }
+                }
+                None => {}
+            },
+            (Err(tp_err), Err(sl_err)) => {
+                let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
+                log::error!("{}", msg);
+
+                match handle_db_error(pool, exchange, msg).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+                match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
+                }
+                match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => {}
+                        Err(_) => {}
+                    },
+                }
+                match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
+                    Ok(_) => {}
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(_) => {}
+                        Err(_) => {}
+                    },
+                }
+            }
+        }
+    }
+
+    // delete entry_id from db
+    match set_null_entry_client_oid_by_entry_client_oid(pool, exchange, client_oid).await {
+        Ok(_) => Ok(()),
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(_) => Ok(()),
+            Err(_) => Ok(()),
+        },
+    }
+}
+
 pub async fn get_bot_by_entry_client_oid_p(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
@@ -677,506 +1185,10 @@ pub async fn get_bot_by_entry_client_oid_p(
 ) -> Result<(), String> {
     // if clientOid in bots entry_id (1 phase)
     match get_bot_by_entry_client_oid(pool, exchange, client_oid).await {
-        Ok(Some(bot)) => {
-            // create new stop tp and sl orders
-
-            let filled_size: Decimal = match order.filled_size_decimal() {
-                Ok(filled_size) => filled_size,
-                Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(error_msg) => return Err(error_msg),
-                    Err(error_msg) => return Err(error_msg),
-                },
-            };
-
-            let new_balance: Decimal = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                Ok(Some(new_balance)) => new_balance,
-                Ok(None) => {
-                    let msg: String = format!("No records found in events: {}", client_oid);
-                    log::error!("{}", msg);
-                    match handle_db_error(pool, exchange, msg).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    }
-                }
-
-                Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(error_msg) => return Err(error_msg),
-                    Err(error_msg) => return Err(error_msg),
-                },
-            };
-
-            match update_bot_balance_by_entry_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
-                Ok(_) => {}
-                Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(error_msg) => return Err(error_msg),
-                    Err(error_msg) => return Err(error_msg),
-                },
-            }
-
-            if order.side == "buy" {
-                let match_price: Decimal = new_balance / filled_size;
-                let trigger_tp_price: Decimal = match_price * tp_buy_percent(); // price + 7%
-                let trigger_sl_price: Decimal = match_price * sl_buy_percent(); // price - 5%
-
-                let exit_tp_client_oid: String = Uuid::new_v4().to_string();
-                let exit_sl_client_oid: String = Uuid::new_v4().to_string();
-
-                // tp order
-                let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
-                    Ok(stop_price_tp) => stop_price_tp,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", trigger_tp_price, price_increment, e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
-                };
-                let msg_tp_order: serde_json::Value = serde_json::json!({
-                    "clientOid": exit_tp_client_oid,
-                    "side": "sell",
-                    "symbol": order.symbol,
-                    "type": "market",
-                    "stop": "entry",
-                    "stopPrice": stop_price_tp,
-                    "isIsolated": false,
-                    "autoBorrow": true,
-                    "autoRepay": false,
-                    "size": &order.filled_size,
-                    "timeInForce": "GTC",
-                });
-                // sl order
-                let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
-                    Ok(stop_price_sl) => stop_price_sl,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", trigger_sl_price, price_increment, e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
-                };
-                let msg_sl_order: serde_json::Value = serde_json::json!({
-                    "clientOid": exit_sl_client_oid,
-                    "side": "sell",
-                    "symbol": order.symbol,
-                    "type": "market",
-                    "stop": "loss",
-                    "stopPrice": stop_price_sl,
-                    "isIsolated": false,
-                    "autoBorrow": true,
-                    "autoRepay": false,
-                    "size": order.filled_size,
-                    "timeInForce": "GTC",
-                });
-
-                log::info!("Stop profit order:{}", msg_tp_order);
-                log::info!("Stop loss order:{}", msg_sl_order);
-
-                // add exit_tp_client_oid by entry_id
-                match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
-                    Ok(_) => {}
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                }
-                // add exit_sl_client_oid by entry_id
-                match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
-                    Ok(_) => {}
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                }
-
-                let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
-                    Ok(body_str) => body_str,
-                    Err(e) => return Err(e),
-                };
-                let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
-
-                let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
-                    Ok(body_str) => body_str,
-                    Err(e) => return Err(e),
-                };
-                let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
-
-                let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
-
-                match (&tp_res, &sl_res) {
-                    (Ok(tp_resp), Ok(sl_resp)) => {
-                        match tp_resp {
-                            Some(response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
-                                Ok(_) => {}
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    Ok(error_msg) => return Err(error_msg),
-                                    Err(error_msg) => return Err(error_msg),
-                                },
-                            },
-                            None => {}
-                        }
-
-                        match sl_resp {
-                            Some(response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
-                                Ok(_) => {}
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    Ok(error_msg) => return Err(error_msg),
-                                    Err(error_msg) => return Err(error_msg),
-                                },
-                            },
-                            None => {}
-                        }
-
-                        log::info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
-                    }
-                    (Err(tp_err), Ok(sl_resp)) => {
-                        match sl_resp {
-                            Some(response_data) => {
-                                let mut query_params: Map<&str, &str, 8> = Map::new();
-
-                                query_params.insert("clientOid", &response_data.client_oid);
-
-                                match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
-                                    Ok(_) => {}
-                                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                                        Ok(error_msg) => return Err(error_msg),
-                                        Err(error_msg) => return Err(error_msg),
-                                    },
-                                };
-                            }
-                            None => {}
-                        }
-
-                        match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            },
-                        }
-
-                        let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
-                        log::error!("{}", msg);
-
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(_) => {}
-                            Err(_) => {}
-                        }
-                    }
-                    (Ok(tp_resp), Err(sl_err)) => {
-                        match tp_resp {
-                            Some(response_data) => {
-                                let mut query_params: Map<&str, &str, 8> = Map::new();
-
-                                query_params.insert("clientOid", &response_data.client_oid);
-
-                                match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
-                                    Ok(_) => {}
-                                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                                        Ok(error_msg) => return Err(error_msg),
-                                        Err(error_msg) => return Err(error_msg),
-                                    },
-                                }
-                            }
-                            None => {}
-                        }
-
-                        match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            },
-                        }
-
-                        let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
-                        log::error!("{}", msg);
-
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(_) => {}
-                            Err(_) => {}
-                        }
-                    }
-                    (Err(tp_err), Err(sl_err)) => {
-                        let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
-                        log::error!("{}", msg);
-
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(_) => {}
-                            Err(_) => {}
-                        }
-                        match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            },
-                        }
-                        match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            },
-                        }
-                        match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            },
-                        }
-                    }
-                }
-            } else if order.side == "sell" {
-                let match_price: Decimal = new_balance / filled_size;
-                let trigger_tp_price: Decimal = match_price * tp_sell_percent(); // price - 7%
-                let trigger_sl_price: Decimal = match_price * sl_sell_percent(); // price + 5%
-
-                let funds_tp: Decimal = trigger_tp_price * filled_size;
-                let funds_sl: Decimal = trigger_sl_price * filled_size;
-
-                let exit_tp_client_oid: String = Uuid::new_v4().to_string();
-                let exit_sl_client_oid: String = Uuid::new_v4().to_string();
-
-                let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
-                    Ok(stop_price_tp) => stop_price_tp,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", trigger_tp_price, price_increment, e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
-                };
-                let funds_tp_str: String = match format_assert_decimal(funds_tp, quote_increment) {
-                    Ok(funds_tp_str) => funds_tp_str,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
-                };
-                let msg_tp_order: serde_json::Value = serde_json::json!({
-                    "clientOid": exit_tp_client_oid,
-                    "side": "buy",
-                    "symbol": order.symbol,
-                    "type": "market",
-                    "stop": "loss",
-                    "stopPrice": stop_price_tp, // price - 7%
-                    "isIsolated": false,
-                    "autoBorrow": true,
-                    "autoRepay": false,
-                    "timeInForce": "GTC",
-                    "funds":funds_tp_str,
-                });
-                let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
-                    Ok(stop_price_sl) => stop_price_sl,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", trigger_sl_price, price_increment, e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
-                };
-                let funds_sl_str: String = match format_assert_decimal(funds_sl, quote_increment) {
-                    Ok(funds_sl_str) => funds_sl_str,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", funds_sl, quote_increment, e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
-                };
-                let msg_sl_order: serde_json::Value = serde_json::json!({
-                   "clientOid": exit_sl_client_oid,
-                    "side": "buy",
-                    "symbol": order.symbol,
-                    "type": "market",
-                    "stop": "entry",
-                    "stopPrice": stop_price_sl, // price + 5%
-                    "isIsolated": false,
-                    "autoBorrow": true,
-                    "autoRepay": false,
-                    "timeInForce": "GTC",
-                    "funds": funds_sl_str,
-                });
-
-                log::info!("Stop profit order:{}", msg_tp_order);
-                log::info!("Stop loss order:{}", msg_sl_order);
-
-                // add exit_tp_client_oid by entry_id
-                match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_tp_client_oid).await {
-                    Ok(_) => {}
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                }
-                // add exit_sl_client_oid by entry_id
-                match update_exit_sl_client_oid_bot_by_entry_client_oid(pool, exchange, client_oid, &exit_sl_client_oid).await {
-                    Ok(_) => {}
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                }
-
-                let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
-                    Ok(body_str) => body_str,
-                    Err(e) => return Err(e),
-                };
-                let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
-
-                let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
-                    Ok(body_str) => body_str,
-                    Err(e) => return Err(e),
-                };
-                let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
-                let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
-
-                match (&tp_res, &sl_res) {
-                    (Ok(tp_resp), Ok(sl_resp)) => {
-                        match tp_resp {
-                            Some(response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
-                                Ok(_) => {}
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    Ok(error_msg) => return Err(error_msg),
-                                    Err(error_msg) => return Err(error_msg),
-                                },
-                            },
-                            None => {}
-                        }
-
-                        match sl_resp {
-                            Some(response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool, exchange, &response_data.order_id, &response_data.client_oid).await {
-                                Ok(_) => {}
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    Ok(error_msg) => return Err(error_msg),
-                                    Err(error_msg) => return Err(error_msg),
-                                },
-                            },
-                            None => {}
-                        }
-
-                        log::info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
-                    }
-                    (Err(tp_err), Ok(sl_resp)) => {
-                        match sl_resp {
-                            Some(response_data) => {
-                                let mut query_params: Map<&str, &str, 8> = Map::new();
-
-                                query_params.insert("clientOid", &response_data.client_oid);
-                                match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
-                                    Ok(_) => {}
-                                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                                        Ok(error_msg) => return Err(error_msg),
-                                        Err(error_msg) => return Err(error_msg),
-                                    },
-                                }
-                            }
-                            None => {}
-                        }
-
-                        match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            },
-                        }
-
-                        let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
-                        log::error!("{}", msg);
-
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(_) => {}
-                            Err(_) => {}
-                        }
-                    }
-                    (Ok(tp_resp), Err(sl_err)) => match tp_resp {
-                        Some(response_data) => {
-                            let mut query_params: Map<&str, &str, 8> = Map::new();
-
-                            query_params.insert("clientOid", &response_data.client_oid);
-                            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
-                                Ok(_) => {
-                                    match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
-                                        Ok(_) => {}
-                                        Err(e) => match handle_db_error(pool, exchange, e).await {
-                                            Ok(error_msg) => return Err(error_msg),
-                                            Err(error_msg) => return Err(error_msg),
-                                        },
-                                    }
-                                    let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
-                                    log::error!("{}", msg);
-
-                                    match handle_db_error(pool, exchange, msg).await {
-                                        Ok(_) => {}
-                                        Err(_) => {}
-                                    }
-                                }
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    Ok(error_msg) => return Err(error_msg),
-                                    Err(error_msg) => return Err(error_msg),
-                                },
-                            }
-                        }
-                        None => {}
-                    },
-                    (Err(tp_err), Err(sl_err)) => {
-                        let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
-                        log::error!("{}", msg);
-
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(_) => {}
-                            Err(_) => {}
-                        }
-                        match delete_symbol_bot_by_exit_sl_client_oid(pool, exchange, &exit_sl_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(error_msg) => return Err(error_msg),
-                                Err(error_msg) => return Err(error_msg),
-                            },
-                        }
-                        match delete_exit_sl_id_bot_by_client_oid(pool, exchange, &exit_sl_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(_) => {}
-                                Err(_) => {}
-                            },
-                        }
-                        match delete_exit_tp_id_bot_by_client_oid(pool, exchange, &exit_tp_client_oid).await {
-                            Ok(_) => {}
-                            Err(e) => match handle_db_error(pool, exchange, e).await {
-                                Ok(_) => {}
-                                Err(_) => {}
-                            },
-                        }
-                    }
-                }
-            }
-
-            // delete entry_id from db
-            match set_null_entry_client_oid_by_entry_client_oid(pool, exchange, client_oid).await {
-                Ok(_) => Ok(()),
-                Err(e) => match handle_db_error(pool, exchange, e).await {
-                    Ok(_) => Ok(()),
-                    Err(_) => Ok(()),
-                },
-            }
-        }
+        Ok(Some(bot)) => match get_bot_by_entry_client_oid_p_p(pool, exchange, client_oid, price_increment, quote_increment, order).await {
+            Ok(_) => Ok(()),
+            Err(_) => Ok(()),
+        },
         Ok(None) => Ok(()),
         Err(e) => match handle_db_error(pool, exchange, e).await {
             Ok(_) => Ok(()),
