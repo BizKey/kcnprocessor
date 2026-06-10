@@ -1272,10 +1272,10 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
         match trade_order_event(pool, exchange, order).await {
             Ok(_) => Ok(()),
             Err(_) => Err("".to_string()),
-        };
+        }
+    } else {
+        Ok(())
     }
-
-    Ok(())
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
