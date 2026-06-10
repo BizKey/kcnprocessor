@@ -163,7 +163,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     "isHf": true
                 }))) {
                     Ok(body_str) => body_str,
-                    Err(e) => return Err(e),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
                 };
 
                 match api_v3_margin_repay_post(body_str).await {
@@ -183,7 +186,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     "isHf": true
                 }))) {
                     Ok(body_str) => body_str,
-                    Err(e) => return Err(e),
+                    Err(e) => match handle_db_error(pool, exchange, e).await {
+                        Ok(error_msg) => return Err(error_msg),
+                        Err(error_msg) => return Err(error_msg),
+                    },
                 };
 
                 match api_v3_margin_repay_post(body_str).await {
