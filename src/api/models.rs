@@ -18,7 +18,7 @@ pub struct ApiV3BulletPrivateData {
 pub struct ApiV3BulletPrivate {
     pub code: String,
     pub msg: Option<String>,
-    pub data: ApiV3BulletPrivateData,
+    pub data: Option<ApiV3BulletPrivateData>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

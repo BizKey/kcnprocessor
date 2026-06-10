@@ -1,5 +1,5 @@
 use crate::api::models::{
-    ApiV1MarketOrderbookLevel1Res, ApiV1MarketOrderbookLevel1ResData, ApiV3AccountsUniversalTransferRes, ApiV3AccountsUniversalTransferResData, ApiV3BulletPrivate,
+    ApiV1MarketOrderbookLevel1Res, ApiV1MarketOrderbookLevel1ResData, ApiV3AccountsUniversalTransferRes, ApiV3AccountsUniversalTransferResData, ApiV3BulletPrivate, ApiV3BulletPrivateData,
     ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelByClientOidResData, ApiV3HfMarginStopOrderCancelRes, ApiV3HfMarginStopOrderCancelResData, ApiV3MarginRepayRes,
     ApiV3MarginRepayResData, MakeOrderRes, MakeOrderResData, MakeStopOrderRes, MakeStopOrderResData, MarginAccount, MarginAccountData,
 };
@@ -427,7 +427,7 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
         Err(e) => return Err(e),
     };
 
-    let ws: ApiV3BulletPrivate = match serde_json::from_str::<ApiV3BulletPrivate>(&response_string) {
+    let response: ApiV3BulletPrivate = match serde_json::from_str::<ApiV3BulletPrivate>(&response_string) {
         Ok(res) => res,
         Err(e) => {
             let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3BulletPrivate), e);
@@ -435,10 +435,25 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
             return Err(msg);
         }
     };
-    match ws.data.instance_servers.first() {
-        Some(data) => Ok(format!("{}?token={}", data.endpoint, ws.data.token)),
+
+    let ws = match response.code.as_str() {
+        "200000" => response.data,
+        _ => {
+            let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    };
+
+    let server: ApiV3BulletPrivateData = match ws {
+        Some(server) => server,
+        None => return Err("".to_string()),
+    };
+
+    match server.instance_servers.first() {
+        Some(data) => Ok(format!("{}?token={}", data.endpoint, server.token)),
         None => {
-            let msg: String = format!("No instance servers in bullet response{:?}", ws);
+            let msg: String = format!("No instance servers in bullet response{:?}", server);
             log::error!("{}", msg);
             Err(msg)
         }
