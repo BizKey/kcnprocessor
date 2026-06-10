@@ -306,12 +306,12 @@ pub enum KuCoinMessage {
 pub struct Symbol {
     pub exchange: String,
     pub symbol: String,
-    pub base_increment: String,
-    pub min_funds: Option<String>,
-    pub price_increment: String,
-    pub quote_increment: String,
-    pub base_min_size: String,
-    pub quote_min_size: String,
+    base_increment: String,
+    min_funds: Option<String>,
+    price_increment: String,
+    quote_increment: String,
+    base_min_size: String,
+    quote_min_size: String,
 }
 
 impl Symbol {
