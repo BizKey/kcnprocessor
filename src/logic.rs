@@ -1196,6 +1196,57 @@ pub async fn get_bot_by_entry_client_oid_p(
     }
 }
 
+pub async fn trade_event_process(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: OrderData) -> Result<(), String> {
+    let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
+        Ok(Some(symbol_info)) => symbol_info,
+        Ok(None) => {
+            let msg: String = format!("Symbol info not found for {}", order.symbol);
+            log::error!("{}", msg);
+
+            match handle_db_error(pool, exchange, msg).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            }
+        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    let price_increment: Decimal = match symbol_info.price_increment_decimal() {
+        Ok(price_increment) => price_increment,
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
+        Ok(quote_increment) => quote_increment,
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    match get_bot_by_exit_tp_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, &order).await {
+        Ok(_) => {}
+        Err(_) => {}
+    };
+
+    match get_bot_by_exit_sl_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, &order).await {
+        Ok(_) => {}
+        Err(_) => {}
+    };
+
+    match get_bot_by_entry_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, &order).await {
+        Ok(_) => {}
+        Err(_) => {}
+    };
+    Ok(())
+}
+
 pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     match insert_db_orderevent(pool, exchange, &order).await {
         Ok(_) => log::info!("{:.?}", order),
@@ -1219,52 +1270,9 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     };
 
     if (order.type_ == "match" || order.type_ == "canceled") && (order.remain_size == Some("0".to_string()) || order.remain_funds == Some("0".to_string())) {
-        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
-            Ok(Some(symbol_info)) => symbol_info,
-            Ok(None) => {
-                let msg: String = format!("Symbol info not found for {}", order.symbol);
-                log::error!("{}", msg);
-
-                match handle_db_error(pool, exchange, msg).await {
-                    Ok(error_msg) => return Err(error_msg),
-                    Err(error_msg) => return Err(error_msg),
-                }
-            }
-            Err(e) => match handle_db_error(pool, exchange, e).await {
-                Ok(error_msg) => return Err(error_msg),
-                Err(error_msg) => return Err(error_msg),
-            },
-        };
-
-        let price_increment: Decimal = match symbol_info.price_increment_decimal() {
-            Ok(price_increment) => price_increment,
-            Err(e) => match handle_db_error(pool, exchange, e).await {
-                Ok(error_msg) => return Err(error_msg),
-                Err(error_msg) => return Err(error_msg),
-            },
-        };
-
-        let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
-            Ok(quote_increment) => quote_increment,
-            Err(e) => match handle_db_error(pool, exchange, e).await {
-                Ok(error_msg) => return Err(error_msg),
-                Err(error_msg) => return Err(error_msg),
-            },
-        };
-
-        match get_bot_by_exit_tp_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, &order).await {
-            Ok(_) => {}
-            Err(_) => {}
-        };
-
-        match get_bot_by_exit_sl_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, &order).await {
-            Ok(_) => {}
-            Err(_) => {}
-        };
-
-        match get_bot_by_entry_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, &order).await {
-            Ok(_) => {}
-            Err(_) => {}
+        match trade_event_process(pool, exchange, &client_oid, order).await {
+            Ok(_) => Ok(()),
+            Err(_) => Err("".to_string()),
         };
     }
 
