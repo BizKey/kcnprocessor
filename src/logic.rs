@@ -179,6 +179,113 @@ pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchan
     }
 }
 
+pub async fn full_buy_for_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, account: &MarginAccountDataAccount, token_liability: Decimal) -> Result<(), String> {
+    // buy stock by market liability
+    let trade_symbol: String = format!("{}-USDT", account.currency);
+    let client_oid: String = Uuid::new_v4().to_string();
+    let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
+        Ok(Some(info)) => info,
+        Ok(None) => {
+            let msg: String = format!("Symbol info not found for {}", trade_symbol);
+            log::error!("{}", msg);
+
+            match handle_db_error(pool, exchange, msg).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            }
+        }
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+    // liability debt in tokens
+    // get price token
+
+    let mut query_params: Map<&str, &str, 8> = Map::new();
+    query_params.insert("symbol", &trade_symbol);
+
+    let token_price_obj: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
+        Ok(token_price_obj) => token_price_obj,
+        Err(e) => return Err(e),
+    };
+
+    let token_price_obj2: ApiV1MarketOrderbookLevel1ResData = match token_price_obj {
+        Some(token_price_obj2) => token_price_obj2,
+        None => {
+            let msg: String = format!("Fail get token_price:{:?}", token_price_obj);
+            log::error!("{}", msg);
+            match handle_db_error(pool, exchange, msg).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            };
+        }
+    };
+
+    let token_price: Decimal = match token_price_obj2.price_decimal() {
+        Ok(token_price) => token_price,
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
+
+    // calc price token on amount liability token
+    let token_funds: Decimal = token_price * token_liability;
+
+    let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
+        Ok(quote_increment) => quote_increment,
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    // parse min_funds to int
+    let min_funds: Decimal = match symbol_info.min_funds_decimal() {
+        Ok(min_funds) => min_funds,
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
+        Ok(base_min_size) => base_min_size,
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    };
+
+    // calc price token on amount base_min_size token
+    let min_funds_by_size: Decimal = token_price * base_min_size;
+
+    let fundss: Decimal = if token_funds <= min_funds.max(min_funds_by_size) { min_funds.max(min_funds_by_size) } else { token_funds };
+
+    let funds: String = match format_assert_decimal(fundss, quote_increment) {
+        Ok(funds) => funds,
+        Err(e) => {
+            let msg: String = format!("Fail parse:{} {} error:{}", fundss, quote_increment, e);
+            log::error!("{}", msg);
+            match handle_db_error(pool, exchange, msg).await {
+                Ok(error_msg) => return Err(error_msg),
+                Err(error_msg) => return Err(error_msg),
+            };
+        }
+    };
+
+    match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
+        Ok(_) => Ok(()),
+        Err(e) => match handle_db_error(pool, exchange, e).await {
+            Ok(error_msg) => return Err(error_msg),
+            Err(error_msg) => return Err(error_msg),
+        },
+    }
+}
+
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, String> {
     sleep(AUTO_CLEAN_DELAY).await;
 
@@ -216,110 +323,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             } else if token_available > Decimal::ZERO {
                 partitional_repay_account(pool, exchange, account).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
-                // buy stock by market liability
-                let trade_symbol: String = format!("{}-USDT", account.currency);
-                let client_oid: String = Uuid::new_v4().to_string();
-                let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
-                    Ok(Some(info)) => info,
-                    Ok(None) => {
-                        let msg: String = format!("Symbol info not found for {}", trade_symbol);
-                        log::error!("{}", msg);
-
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        }
-                    }
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                };
-                // liability debt in tokens
-                // get price token
-
-                let mut query_params: Map<&str, &str, 8> = Map::new();
-                query_params.insert("symbol", &trade_symbol);
-
-                let token_price_obj: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
-                    Ok(token_price_obj) => token_price_obj,
-                    Err(e) => return Err(e),
-                };
-
-                let token_price_obj2: ApiV1MarketOrderbookLevel1ResData = match token_price_obj {
-                    Some(token_price_obj2) => token_price_obj2,
-                    None => {
-                        let msg: String = format!("Fail get token_price:{:?}", token_price_obj);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
-                };
-
-                let token_price: Decimal = match token_price_obj2.price_decimal() {
-                    Ok(token_price) => token_price,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                };
-
-                log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
-
-                // calc price token on amount liability token
-                let token_funds: Decimal = token_price * token_liability;
-
-                let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
-                    Ok(quote_increment) => quote_increment,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                };
-
-                // parse min_funds to int
-                let min_funds: Decimal = match symbol_info.min_funds_decimal() {
-                    Ok(min_funds) => min_funds,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                };
-
-                let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
-                    Ok(base_min_size) => base_min_size,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                };
-
-                // calc price token on amount base_min_size token
-                let min_funds_by_size: Decimal = token_price * base_min_size;
-
-                let fundss: Decimal = if token_funds <= min_funds.max(min_funds_by_size) { min_funds.max(min_funds_by_size) } else { token_funds };
-
-                let funds: String = match format_assert_decimal(fundss, quote_increment) {
-                    Ok(funds) => funds,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", fundss, quote_increment, e);
-                        log::error!("{}", msg);
-                        match handle_db_error(pool, exchange, msg).await {
-                            Ok(error_msg) => return Err(error_msg),
-                            Err(error_msg) => return Err(error_msg),
-                        };
-                    }
-                };
-
-                match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
-                    Ok(_) => continue,
-                    Err(e) => match handle_db_error(pool, exchange, e).await {
-                        Ok(error_msg) => return Err(error_msg),
-                        Err(error_msg) => return Err(error_msg),
-                    },
-                }
+                full_buy_for_repay_account(pool, exchange, account, token_liability).await?
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             // don't have liability
