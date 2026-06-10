@@ -820,13 +820,13 @@ pub async fn upsert_position_asset(pool: &sqlx::PgPool, exchange: &str, asset_sy
         }
     }
 }
-pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, error_msg: String) -> Result<String, String> {
+pub async fn handle_db_error(pool: &sqlx::PgPool, exchange: &str, error_msg: String) -> String {
     match insert_db_error(pool, exchange, &error_msg).await {
-        Ok(_) => Ok(error_msg),
+        Ok(_) => error_msg,
         Err(db_err) => {
             let msg: String = format!("Failed to insert error to DB: {} | Original: {}", db_err, error_msg);
             log::error!("{}", msg);
-            Err(msg)
+            msg
         }
     }
 }

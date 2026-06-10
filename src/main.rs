@@ -57,10 +57,7 @@ async fn main() -> Result<(), String> {
     // clear orders ids for bots
     match wipe_bots_info(&pool, exchange, &init_balance_per_bot).await {
         Ok(_) => log::info!("wipe_bots_info"),
-        Err(e) => match handle_db_error(&pool, exchange, e).await {
-            Ok(error_msg) => return Err(error_msg),
-            Err(error_msg) => return Err(error_msg),
-        },
+        Err(e) => return Err(handle_db_error(&pool, exchange, e).await),
     }
 
     // cancel all stop orders
@@ -69,10 +66,7 @@ async fn main() -> Result<(), String> {
 
     match api_v3_hf_margin_stop_order_cancel_delete(build_query_string(query_params)).await {
         Ok(_) => log::info!("batch cancel stop orders"),
-        Err(e) => match handle_db_error(&pool, exchange, e).await {
-            Ok(error_msg) => return Err(error_msg),
-            Err(error_msg) => return Err(error_msg),
-        },
+        Err(e) => return Err(handle_db_error(&pool, exchange, e).await),
     };
 
     // repay all liability assets and sell
@@ -104,13 +98,7 @@ async fn main() -> Result<(), String> {
                     log::error!("{}", msg);
 
                     match handle_db_error(&pool, exchange, msg).await {
-                        Ok(_) => {
-                            drop(tx_in);
-                            drop(spawn_process_kcn_msg_point);
-                            sleep(RECONNECT_DELAY).await;
-                            continue;
-                        }
-                        Err(_) => {
+                        _ => {
                             drop(tx_in);
                             drop(spawn_process_kcn_msg_point);
                             sleep(RECONNECT_DELAY).await;
@@ -120,13 +108,7 @@ async fn main() -> Result<(), String> {
                 }
             },
             Err(e) => match handle_db_error(&pool, exchange, e).await {
-                Ok(_) => {
-                    drop(tx_in);
-                    drop(spawn_process_kcn_msg_point);
-                    sleep(RECONNECT_DELAY).await;
-                    continue;
-                }
-                Err(_) => {
+                _ => {
                     drop(tx_in);
                     drop(spawn_process_kcn_msg_point);
                     sleep(RECONNECT_DELAY).await;
@@ -146,8 +128,7 @@ async fn main() -> Result<(), String> {
                 log::error!("{}", msg);
 
                 match handle_db_error(&pool, exchange, msg).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    _ => continue,
                 }
             }
         }
@@ -162,8 +143,7 @@ async fn main() -> Result<(), String> {
                 log::error!("{}", msg);
 
                 match handle_db_error(&pool, exchange, msg).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    _ => continue,
                 }
             }
         }
@@ -176,8 +156,7 @@ async fn main() -> Result<(), String> {
                 log::error!("{}", msg);
 
                 match handle_db_error(&pool, exchange, msg).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    _ => continue,
                 }
             }
         }
@@ -190,8 +169,7 @@ async fn main() -> Result<(), String> {
                 log::error!("{}", msg);
 
                 match handle_db_error(&pool, exchange, msg).await {
-                    Ok(_) => continue,
-                    Err(_) => continue,
+                    _ => continue,
                 }
             }
         }
@@ -212,8 +190,7 @@ async fn main() -> Result<(), String> {
                 match create_init_orders(&pool_clone, exchange_clone).await {
                     Ok(_) => {}
                     Err(e) => match handle_db_error(&pool_clone, exchange_clone, e).await {
-                        Ok(_) => {}
-                        Err(_) => {}
+                        _ => {}
                     },
                 }
             });
@@ -248,8 +225,7 @@ async fn main() -> Result<(), String> {
                         log::error!("{}", msg);
 
                         match handle_db_error(&pool, exchange, msg).await {
-                            Ok(_) => break,
-                            Err(_) => break,
+                            _ => break,
                         }
 
 
@@ -261,8 +237,8 @@ async fn main() -> Result<(), String> {
                         log::error!("{}", msg);
 
                         match handle_db_error(&pool, exchange, msg).await {
-                            Ok(_) => break,
-                            Err(_) => break,
+                            _ => break,
+
                         }
 
 
@@ -275,8 +251,7 @@ async fn main() -> Result<(), String> {
                         log::error!("{}", msg);
 
                         match handle_db_error(&pool, exchange, msg).await {
-                            Ok(_) => break,
-                            Err(_) => break,
+                            _ => break,
                         }
 
 
