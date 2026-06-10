@@ -1268,6 +1268,7 @@ name = "kcnprocessor"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "bytes",
  "dotenvy",
  "env_logger",
  "fastrand",

@@ -9,6 +9,7 @@ use crate::api::db::{handle_db_error, wipe_bots_info};
 use crate::api::requests::{api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_delete, build_query_string};
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
+use bytes::Bytes;
 use dotenvy::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use log;
@@ -221,6 +222,10 @@ async fn main() -> Result<(), String> {
         loop {
             tokio::select! {
                 // Events
+                _ = event_ping_interval.tick() => {
+                    let _ = event_ws_write.send(Message::Ping(Bytes::new())).await;
+                }
+
                 event = event_ws_read.next() => {
                     match event {
                         Some(Ok(Message::Text(text))) => {
@@ -278,9 +283,6 @@ async fn main() -> Result<(), String> {
 
                         }
                     }
-                }
-                _ = event_ping_interval.tick() => {
-                    let _ = event_ws_write.send(Message::Ping(vec![].into())).await;
                 }
             }
         }
