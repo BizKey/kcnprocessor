@@ -1500,9 +1500,8 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                 let msg: String = format!("❌ Order failed (attempt {}/{}): {} {}", attempt, MAX_RETRIES, tradeable_symbol, e);
                 log::error!("{}", msg);
 
-                match handle_db_error(pool, exchange, msg).await {
-                    _ => continue,
-                }
+                handle_db_error(pool, exchange, msg).await;
+                continue;
             }
         }
     }
@@ -1518,9 +1517,9 @@ pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: 
             None => {
                 let msg: String = format!("Channel closed, exiting message processor");
                 log::error!("{}", msg);
-                match handle_db_error(pool, exchange, msg).await {
-                    _ => break,
-                }
+                handle_db_error(pool, exchange, msg).await;
+
+                break;
             }
         }
     }

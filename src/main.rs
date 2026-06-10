@@ -107,14 +107,13 @@ async fn main() -> Result<(), String> {
                     }
                 }
             },
-            Err(e) => match handle_db_error(&pool, exchange, e).await {
-                _ => {
-                    drop(tx_in);
-                    drop(spawn_process_kcn_msg_point);
-                    sleep(RECONNECT_DELAY).await;
-                    continue;
-                }
-            },
+            Err(e) => {
+                handle_db_error(&pool, exchange, e).await;
+                drop(tx_in);
+                drop(spawn_process_kcn_msg_point);
+                sleep(RECONNECT_DELAY).await;
+                continue;
+            }
         };
 
         // subscribtion
@@ -142,9 +141,8 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
                 log::error!("{}", msg);
 
-                match handle_db_error(&pool, exchange, msg).await {
-                    _ => continue,
-                }
+                handle_db_error(&pool, exchange, msg).await;
+                continue;
             }
         }
 
@@ -168,9 +166,8 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/margin/position:{}", e);
                 log::error!("{}", msg);
 
-                match handle_db_error(&pool, exchange, msg).await {
-                    _ => continue,
-                }
+                handle_db_error(&pool, exchange, msg).await;
+                continue;
             }
         }
 
@@ -224,9 +221,8 @@ async fn main() -> Result<(), String> {
                               let msg: String = format!("Connection closed by server:");
                         log::error!("{}", msg);
 
-                        match handle_db_error(&pool, exchange, msg).await {
-                            _ => break,
-                        }
+                     handle_db_error(&pool, exchange, msg).await ;
+                     break
 
 
                         }
@@ -236,10 +232,8 @@ async fn main() -> Result<(), String> {
                                                        let msg: String = format!("WebSocket read error:{}",e);
                         log::error!("{}", msg);
 
-                        match handle_db_error(&pool, exchange, msg).await {
-                            _ => break,
-
-                        }
+                        handle_db_error(&pool, exchange, msg).await ;
+                        break
 
 
                         }
@@ -250,9 +244,8 @@ async fn main() -> Result<(), String> {
                               let msg: String = format!("WebSocket stream ended");
                         log::error!("{}", msg);
 
-                        match handle_db_error(&pool, exchange, msg).await {
-                            _ => break,
-                        }
+                        handle_db_error(&pool, exchange, msg).await ;
+                        break
 
 
 
