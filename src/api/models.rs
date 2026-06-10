@@ -280,7 +280,7 @@ impl ApiV1MarketOrderbookLevel1ResData {
 pub struct ApiV1MarketOrderbookLevel1Res {
     pub code: String,
     pub msg: Option<String>,
-    pub data: ApiV1MarketOrderbookLevel1ResData,
+    pub data: Option<ApiV1MarketOrderbookLevel1ResData>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

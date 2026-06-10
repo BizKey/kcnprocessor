@@ -241,7 +241,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     },
                 };
 
-                let token_price: Decimal = match token_price_obj.data.price_decimal() {
+                let token_price_obj2 = match token_price_obj {
+                    Some(token_price_obj2) => token_price_obj2,
+                    None => return Err("".to_string()),
+                };
+
+                let token_price: Decimal = match token_price_obj2.price_decimal() {
                     Ok(token_price) => token_price,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(_) => continue,
@@ -363,7 +368,12 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 },
             };
 
-            let token_price: Decimal = match token_price_obj.data.price_decimal() {
+            let token_price_obj2 = match token_price_obj {
+                Some(token_price_obj2) => token_price_obj2,
+                None => return Err("".to_string()),
+            };
+
+            let token_price: Decimal = match token_price_obj2.price_decimal() {
                 Ok(token_price) => token_price,
                 Err(e) => match handle_db_error(pool, exchange, e).await {
                     Ok(_) => continue,
@@ -1691,7 +1701,12 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
                     },
                 };
 
-                let token_price: Decimal = match token_price_obj.data.price_decimal() {
+                let token_price_obj2 = match token_price_obj {
+                    Some(token_price_obj2) => token_price_obj2,
+                    None => return Err("".to_string()),
+                };
+
+                let token_price: Decimal = match token_price_obj2.price_decimal() {
                     Ok(token_price) => token_price,
                     Err(e) => match handle_db_error(pool, exchange, e).await {
                         Ok(_) => continue,
