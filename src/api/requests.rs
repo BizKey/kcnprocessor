@@ -55,6 +55,7 @@ impl KuCoinClient {
     }
 
     async fn api_v1_bullet_private_post(&self) -> Result<String, String> {
+        // https://www.kucoin.com/docs-new/websocket-api/base-info/get-private-token-spot-margin
         let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
             Ok(response) => response,
             Err(e) => return Err(e),
@@ -82,6 +83,7 @@ impl KuCoinClient {
     }
 
     async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&self, query_string_str: String) -> Result<String, String> {
+        // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
         let response: Response =
             match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string_str, String::new(), true, self.get_system_timestamp_ms()).await {
                 Ok(response) => response,
