@@ -416,30 +416,30 @@ pub async fn get_bot_by_exit_tp_client_oid_p(
                             let new_balance: Decimal = old_balance + old_balance - return_balance;
                             match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
                                 Ok(_) => {}
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    _ => {}
-                                },
+                                Err(e) => {
+                                    handle_db_error(pool, exchange, e).await;
+                                }
                             }
                             // create new random order
                             match make_random_trade(pool, exchange, new_balance, bot.id).await {
                                 Ok(()) => {}
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    _ => {}
-                                },
+                                Err(e) => {
+                                    handle_db_error(pool, exchange, e).await;
+                                }
                             }
                         } else if order.side == "sell" {
                             match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
                                 Ok(_) => {}
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    _ => {}
-                                },
+                                Err(e) => {
+                                    handle_db_error(pool, exchange, e).await;
+                                }
                             }
                             // create new random order
                             match make_random_trade(pool, exchange, return_balance, bot.id).await {
                                 Ok(()) => {}
-                                Err(e) => match handle_db_error(pool, exchange, e).await {
-                                    _ => {}
-                                },
+                                Err(e) => {
+                                    handle_db_error(pool, exchange, e).await;
+                                }
                             }
                         }
                     }
@@ -447,9 +447,9 @@ pub async fn get_bot_by_exit_tp_client_oid_p(
                 Ok(None) => {
                     log::error!("No records found or error occurred");
                 }
-                Err(e) => match handle_db_error(pool, exchange, e).await {
-                    _ => {}
-                },
+                Err(e) => {
+                    handle_db_error(pool, exchange, e).await;
+                }
             }
             return Ok(());
         }
