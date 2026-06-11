@@ -12,7 +12,6 @@ use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg
 use bytes::Bytes;
 use dotenvy::dotenv;
 use futures_util::{SinkExt, StreamExt};
-use log;
 use micromap::Map;
 
 use sqlx::postgres::PgPoolOptions;
