@@ -105,7 +105,6 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             Ok(_) => {}
             Err(e) => {
                 handle_db_error(pool, exchange, e).await;
-
                 continue;
             }
         }
@@ -1512,9 +1511,9 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
 pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, mut rx_in: tokio::sync::mpsc::Receiver<String>) {
     loop {
         match rx_in.recv().await {
-            Some(msg) => match process_kcn_msg(pool, exchange, &msg).await {
-                _ => {}
-            },
+            Some(msg) => {
+                process_kcn_msg(pool, exchange, &msg).await;
+            }
             None => {
                 let msg: String = format!("Channel closed, exiting message processor");
                 log::error!("{}", msg);
