@@ -241,8 +241,8 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        drop(tx_in);
-        let _ = spawn_process_kcn_msg_point.await;
+        tx_in.closed().await;
+        spawn_process_kcn_msg_point.await.unwrap_or_default();
 
         drop(event_ws_write);
         drop(event_ws_read);
