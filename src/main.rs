@@ -218,39 +218,23 @@ async fn main() -> Result<(), String> {
                             let _ = event_ws_write.send(Message::Pong(data)).await;
                         }
                         Some(Ok(Message::Close(_close))) => {
-
-
-                              let msg: String = format!("Connection closed by server:");
-                        log::error!("{}", msg);
-
-                     handle_db_error(&pool, exchange, msg).await ;
-                     break
-
-
+                            let msg: String = format!("Connection closed by server:");
+                            log::error!("{}", msg);
+                            handle_db_error(&pool, exchange, msg).await;
+                            break
                         }
                         Some(Err(e)) =>  {
-
-
-                                                       let msg: String = format!("WebSocket read error:{}",e);
-                        log::error!("{}", msg);
-
-                        handle_db_error(&pool, exchange, msg).await ;
-                        break
-
-
+                            let msg: String = format!("WebSocket read error:{}",e);
+                            log::error!("{}", msg);
+                            handle_db_error(&pool, exchange, msg).await;
+                            break
                         }
                         Some(Ok(_)) => {}
                         None => {
-
-
-                              let msg: String = format!("WebSocket stream ended");
-                        log::error!("{}", msg);
-
-                        handle_db_error(&pool, exchange, msg).await ;
-                        break
-
-
-
+                            let msg: String = format!("WebSocket stream ended");
+                            log::error!("{}", msg);
+                            handle_db_error(&pool, exchange, msg).await;
+                            break
                         }
                     }
                 }
@@ -258,7 +242,6 @@ async fn main() -> Result<(), String> {
         }
 
         drop(tx_in);
-
         let _ = spawn_process_kcn_msg_point.await;
 
         drop(event_ws_write);
