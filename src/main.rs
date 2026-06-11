@@ -121,8 +121,10 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
                 log::error!("{}", msg);
-
                 handle_db_error(&pool, exchange, msg).await;
+                drop(tx_in);
+                drop(spawn_process_kcn_msg_point);
+                sleep(RECONNECT_DELAY).await;
                 continue;
             }
         }
@@ -135,8 +137,10 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
                 log::error!("{}", msg);
-
                 handle_db_error(&pool, exchange, msg).await;
+                drop(tx_in);
+                drop(spawn_process_kcn_msg_point);
+                sleep(RECONNECT_DELAY).await;
                 continue;
             }
         }
@@ -147,8 +151,10 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/account/balance:{}", e);
                 log::error!("{}", msg);
-
                 handle_db_error(&pool, exchange, msg).await;
+                drop(tx_in);
+                drop(spawn_process_kcn_msg_point);
+                sleep(RECONNECT_DELAY).await;
                 continue;
             }
         }
@@ -159,8 +165,10 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/margin/position:{}", e);
                 log::error!("{}", msg);
-
                 handle_db_error(&pool, exchange, msg).await;
+                drop(tx_in);
+                drop(spawn_process_kcn_msg_point);
+                sleep(RECONNECT_DELAY).await;
                 continue;
             }
         }
