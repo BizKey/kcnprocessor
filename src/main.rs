@@ -224,7 +224,7 @@ async fn main() -> Result<(), String> {
                             break
                         }
                         Some(Err(e)) =>  {
-                            let msg: String = format!("WebSocket read error:{}",e);
+                            let msg: String = format!("WebSocket read error:{}", e);
                             log::error!("{}", msg);
                             handle_db_error(&pool, exchange, msg).await;
                             break
