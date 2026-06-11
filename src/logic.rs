@@ -1518,8 +1518,7 @@ pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: 
     loop {
         match rx_in.recv().await {
             Some(msg) => match process_kcn_msg(pool, exchange, &msg).await {
-                Ok(_) => {}
-                Err(_) => {}
+                _ => {}
             },
             None => {
                 let msg: String = format!("Channel closed, exiting message processor");
