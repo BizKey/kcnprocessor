@@ -1008,18 +1008,15 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
     };
 
     match get_bot_by_exit_tp_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, order.clone()).await {
-        Ok(_) => {}
-        Err(_) => {}
+        _ => {}
     };
 
     match get_bot_by_exit_sl_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, order.clone()).await {
-        Ok(_) => {}
-        Err(_) => {}
+        _ => {}
     };
 
     match get_bot_by_entry_client_oid_p(pool, exchange, &client_oid, price_increment, quote_increment, order.clone()).await {
-        Ok(_) => {}
-        Err(_) => {}
+        _ => {}
     };
     Ok(())
 }
