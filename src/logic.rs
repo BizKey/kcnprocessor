@@ -53,7 +53,7 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
         let increment_int: i64 = match increment.to_string().parse() {
             Ok(increment_int) => increment_int,
             Err(e) => {
-                let msg = format!("Fail parse increment:{} error:{}", increment, e);
+                let msg: String = format!("Fail parse increment:{} error:{}", increment, e);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -62,7 +62,7 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
         let size_int: i64 = match size.to_string().parse() {
             Ok(size_int) => size_int,
             Err(e) => {
-                let msg = format!("Fail parse size:{} error:{}", size, e);
+                let msg: String = format!("Fail parse size:{} error:{}", size, e);
                 log::error!("{}", msg);
                 return Err(msg);
             }
