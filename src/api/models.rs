@@ -442,10 +442,74 @@ pub struct ApiV3HfMarginStopOrderCancelResData {
     pub cancelled_order_ids: Vec<String>,
 }
 #[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrdersResDataItem {
+    pub id: String,
+    pub symbol: String,
+    #[serde(rename = "userId")]
+    pub user_id: String,
+    pub status: String,
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub side: String,
+    pub price: String,
+    pub size: String,
+    pub funds: String,
+    pub stp: String,
+    #[serde(rename = "timeInForce")]
+    pub time_in_force: String,
+    #[serde(rename = "cancelAfter")]
+    pub cancel_after: String,
+    #[serde(rename = "postOnly")]
+    pub post_only: String,
+    pub hidden: String,
+    pub iceberg: String,
+    #[serde(rename = "visibleSize")]
+    pub visible_size: String,
+    pub channel: String,
+    #[serde(rename = "clientOid")]
+    pub client_oid: String,
+    pub tags: String,
+    #[serde(rename = "orderTime")]
+    pub order_time: String,
+    #[serde(rename = "tradeType")]
+    pub trade_type: String,
+    #[serde(rename = "feeCurrency")]
+    pub fee_currency: String,
+    #[serde(rename = "takerFeeRate")]
+    pub taker_fee_rate: String,
+    #[serde(rename = "makerFeeRate")]
+    pub maker_fee_rate: String,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    pub stop: String,
+    #[serde(rename = "stopTriggerTime")]
+    pub stop_trigger_time: String,
+    #[serde(rename = "stopPrice")]
+    pub stop_price: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrdersResData {
+    #[serde(rename = "currentPage")]
+    pub current_page: i64,
+    #[serde(rename = "pageSize")]
+    pub page_size: i64,
+    #[serde(rename = "totalNum")]
+    pub total_num: i64,
+    #[serde(rename = "totalPage")]
+    pub total_page: i64,
+    pub items: Vec<ApiV3HfMarginStopOrdersResDataItem>,
+}
+#[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrderCancelRes {
     pub code: String,
     pub msg: Option<String>,
     pub data: Option<ApiV3HfMarginStopOrderCancelResData>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrdersRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3HfMarginStopOrdersResData>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ApiV3AccountsUniversalTransferRes {

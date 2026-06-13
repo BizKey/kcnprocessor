@@ -6,7 +6,7 @@ mod api {
 }
 mod logic;
 use crate::api::db::{handle_db_error, wipe_bots_info};
-use crate::api::requests::{api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_delete, build_query_string};
+use crate::api::requests::{api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_delete, api_v3_hf_margin_stop_orders_get, build_query_string};
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use bytes::Bytes;
@@ -59,14 +59,30 @@ async fn main() -> Result<(), String> {
         Err(e) => return Err(handle_db_error(&pool, exchange, e).await),
     }
 
-    // cancel all stop orders
-    let mut query_params: Map<&str, &str, 8> = Map::new();
-    query_params.insert("tradeType", "MARGIN_TRADE");
-
-    match api_v3_hf_margin_stop_order_cancel_delete(build_query_string(query_params)).await {
-        Ok(_) => log::info!("batch cancel stop orders"),
+    let open_stop_orders = match api_v3_hf_margin_stop_orders_get(String::new()).await {
+        Ok(orders) => orders,
         Err(e) => return Err(handle_db_error(&pool, exchange, e).await),
     };
+
+    let open_stop_orders_data = match open_stop_orders {
+        Some(open_stop_orders) => open_stop_orders,
+        None => {
+            let msg: String = format!("Fail get list open stop orders:None");
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    };
+
+    if open_stop_orders_data.items.len() != 0 {
+        // cancel all stop orders
+        let mut query_params: Map<&str, &str, 8> = Map::new();
+        query_params.insert("tradeType", "MARGIN_TRADE");
+
+        match api_v3_hf_margin_stop_order_cancel_delete(build_query_string(query_params)).await {
+            Ok(_) => log::info!("batch cancel stop orders"),
+            Err(e) => return Err(handle_db_error(&pool, exchange, e).await),
+        };
+    }
 
     // repay all liability assets and sell
     loop {
