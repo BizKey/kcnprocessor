@@ -1,5 +1,7 @@
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
     pub endpoint: String,
@@ -15,7 +17,8 @@ pub struct ApiV3BulletPrivateData {
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivate {
     pub code: String,
-    pub data: ApiV3BulletPrivateData,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3BulletPrivateData>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -55,16 +58,24 @@ pub struct BalanceData {
     #[serde(rename = "relationContext")]
     pub relation_context: Option<BalanceRelationContext>,
 }
-#[derive(sqlx::FromRow, Debug)]
-pub struct TradeAbleSymbol {
-    pub symbol: String,
-}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AssetInfo {
     pub total: String,
     pub available: String,
     pub hold: String,
+}
+impl AssetInfo {
+    pub fn available_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.available) {
+            Ok(available) => Ok(available),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.available, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PositionData {
@@ -83,7 +94,25 @@ pub struct PositionData {
     pub timestamp: i64,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+impl PositionData {
+    pub fn debt_pairs(&self) -> Result<Vec<(String, Decimal)>, String> {
+        let mut result = Vec::new();
+        for (asset, debt_str) in &self.debt_list {
+            let decimal = match Decimal::from_str(debt_str) {
+                Ok(decimal) => decimal,
+                Err(e) => {
+                    let msg: String = format!("Fail parse decimal:{} {}", debt_str, e);
+                    log::error!("{}", msg);
+                    return Err(msg);
+                }
+            };
+            result.push((asset.clone(), decimal));
+        }
+        Ok(result)
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OrderData {
     pub status: String, // new open match done
     #[serde(rename = "type")]
@@ -125,6 +154,28 @@ pub struct OrderData {
     pub order_time: i64,
     pub ts: i64,
 }
+impl OrderData {
+    pub fn filled_size_decimal(&self) -> Result<Decimal, String> {
+        let filled_size_str = match &self.filled_size {
+            Some(filled_size_str) => filled_size_str,
+            None => {
+                let msg: String = format!("filled_size is None:{:?}", &self);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
+        };
+
+        match Decimal::from_str(filled_size_str) {
+            Ok(filled_size) => Ok(filled_size),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", filled_size_str, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct MessageData {
     pub topic: String,
@@ -142,12 +193,94 @@ pub struct ErrorData {
     pub data: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ActualPriceData {
+pub struct ApiV1MarketOrderbookLevel1ResData {
+    pub time: f64,
+    pub sequence: String,
     pub price: String,
+    pub size: String,
+    #[serde(rename = "bestBid")]
+    pub best_bid: String,
+    #[serde(rename = "bestBidSize")]
+    pub best_bid_size: String,
+    #[serde(rename = "bestAsk")]
+    pub best_ask: String,
+    #[serde(rename = "bestAskSize")]
+    pub best_ask_size: String,
 }
+
+impl ApiV1MarketOrderbookLevel1ResData {
+    pub fn price_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.price) {
+            Ok(price) => Ok(price),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.price, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn size_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.size) {
+            Ok(size) => Ok(size),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.size, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn best_bid_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.best_bid) {
+            Ok(best_bid) => Ok(best_bid),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.best_bid, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn best_bid_size_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.best_bid_size) {
+            Ok(best_bid_size) => Ok(best_bid_size),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.best_bid_size, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn best_ask_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.best_ask) {
+            Ok(best_ask) => Ok(best_ask),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.best_ask, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn best_ask_size_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.best_ask_size) {
+            Ok(best_ask_size) => Ok(best_ask_size),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.best_ask_size, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ActualPrice {
-    pub data: ActualPriceData,
+pub struct ApiV1MarketOrderbookLevel1Res {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV1MarketOrderbookLevel1ResData>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -173,12 +306,88 @@ pub enum KuCoinMessage {
 pub struct Symbol {
     pub exchange: String,
     pub symbol: String,
-    pub base_increment: String,
-    pub min_funds: Option<String>,
-    pub price_increment: String,
-    pub quote_increment: String,
-    pub base_min_size: String,
-    pub quote_min_size: String,
+    base_increment: String,
+    min_funds: Option<String>,
+    price_increment: String,
+    quote_increment: String,
+    base_min_size: String,
+    quote_min_size: String,
+}
+
+impl Symbol {
+    pub fn base_increment_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.base_increment) {
+            Ok(base_increment) => Ok(base_increment),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.base_increment, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn quote_increment_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.quote_increment) {
+            Ok(quote_increment) => Ok(quote_increment),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.quote_increment, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn price_increment_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.price_increment) {
+            Ok(price_increment) => Ok(price_increment),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.price_increment, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn base_min_size_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.base_min_size) {
+            Ok(base_min_size) => Ok(base_min_size),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.base_min_size, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn quote_min_size_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.quote_min_size) {
+            Ok(quote_min_size) => Ok(quote_min_size),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.quote_min_size, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn min_funds_decimal(&self) -> Result<Decimal, String> {
+        let min_funds = match &self.min_funds {
+            Some(min_funds_str) => min_funds_str,
+            None => {
+                let msg: String = format!("min_funds is None for symbol {:?}", &self);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
+        };
+        match Decimal::from_str(min_funds) {
+            Ok(min_funds) => Ok(min_funds),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", min_funds, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -208,30 +417,118 @@ pub struct MakeStopOrderRes {
     pub msg: Option<String>,
     pub data: Option<MakeStopOrderResData>,
 }
+#[derive(Debug, Deserialize)]
+pub struct ApiV3MarginRepayResData {
+    pub timestamp: i32,
+    #[serde(rename = "orderNo")]
+    pub order_no: String,
+    #[serde(rename = "actualSize")]
+    pub actual_size: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3MarginRepayRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3MarginRepayResData>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3AccountsUniversalTransferResData {
+    #[serde(rename = "orderId")]
+    pub order_id: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelResData {
+    #[serde(rename = "cancelledOrderIds")]
+    pub cancelled_order_ids: Vec<String>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3HfMarginStopOrderCancelResData>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3AccountsUniversalTransferRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3AccountsUniversalTransferResData>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelByClientOidResData {
+    #[serde(rename = "cancelledOrderIds")]
+    pub cancelled_order_ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelByClientOidRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3HfMarginStopOrderCancelByClientOidResData>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountDataAccount {
     pub currency: String,
     pub available: String,
-    pub liability: String, // borrow
+    pub liability: String,
 }
+
+impl MarginAccountDataAccount {
+    pub fn available_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.available) {
+            Ok(available) => Ok(available),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.available, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+
+    pub fn liability_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.liability) {
+            Ok(liability) => Ok(liability),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.liability, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct MarginAccountData {
     pub accounts: Vec<MarginAccountDataAccount>,
 }
 #[derive(Debug, Deserialize)]
 pub struct MarginAccount {
+    pub code: String,
+    pub msg: Option<String>,
     pub data: MarginAccountData,
 }
 #[derive(sqlx::FromRow, Debug)]
 pub struct Bot {
     pub id: i32,
-    pub balance: String,
+    balance: String,
     pub entry_client_oid: Option<String>,
     pub exit_tp_order_id: Option<String>,
     pub exit_tp_client_oid: Option<String>,
     pub exit_sl_order_id: Option<String>,
     pub exit_sl_client_oid: Option<String>,
+}
+
+impl Bot {
+    pub fn balance_decimal(&self) -> Result<Decimal, String> {
+        match Decimal::from_str(&self.balance) {
+            Ok(balance) => Ok(balance),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal:{} {}", self.balance, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
