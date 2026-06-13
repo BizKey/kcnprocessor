@@ -37,13 +37,13 @@ fn sl_sell_percent() -> Decimal {
     Decimal::from_str("1.05").unwrap() // +5%
 }
 
+fn get_random_side() -> &'static str {
+    if fastrand::bool() { "buy" } else { "sell" }
+}
+
 const RETRY_DELAY_BASE: u64 = 500;
 const BOT_INIT_DELAY: Duration = Duration::from_secs(5);
 const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(1);
-
-pub fn get_random_side() -> &'static str {
-    if fastrand::bool() { "buy" } else { "sell" }
-}
 
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String, String> {
     let precision = increment.scale() as usize;
