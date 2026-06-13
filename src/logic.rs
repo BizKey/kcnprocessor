@@ -1147,7 +1147,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
     log::error!("{}", msg);
 
     handle_db_error(pool, exchange, msg).await;
-    {}
 
     const MAX_RETRIES: u32 = 1000;
     let mut attempt = 0;
