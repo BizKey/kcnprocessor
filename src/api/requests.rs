@@ -597,6 +597,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_delete(query_params_str: String)
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
+        "400100" => Ok(response.data), // Add check exists stop orders
         _ => {
             let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
             log::error!("{}", msg);
