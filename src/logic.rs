@@ -1054,57 +1054,58 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
             }
             Some(asset_info) => asset_info,
         };
-        match asset_info.available_decimal() {
-            Ok(available) => {
-                if token_liability > Decimal::ZERO {
-                    if available >= token_liability {
-                        let body_str: String = match serialize_body(Some(json!({
-                            "currency": asset,
-                            "size": token_liability,
-                            "isIsolated": false,
-                            "isHf": true
-                        }))) {
-                            Ok(body_str) => body_str,
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        };
 
-                        match api_v3_margin_repay_post(body_str).await {
-                            Ok(_) => {
-                                log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
-                            }
-                            Err(e) => {
-                                handle_db_error(pool, exchange, e).await;
-                                continue;
-                            }
-                        }
-                    } else if available > Decimal::ZERO {
-                        let body = json!({
-                            "currency": asset,
-                            "size": &asset_info.available,
-                            "isIsolated": false,
-                            "isHf": true
-                        });
-
-                        let body_str: String = match serialize_body(Some(body)) {
-                            Ok(body_str) => body_str,
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        };
-
-                        match api_v3_margin_repay_post(body_str).await {
-                            Ok(_) => {
-                                log::info!("Partially repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
-                            }
-                            Err(e) => {
-                                handle_db_error(pool, exchange, e).await;
-                                continue;
-                            }
-                        }
-                    }
-                }
-            }
+        let available = match asset_info.available_decimal() {
             Err(e) => {
                 handle_db_error(pool, exchange, e).await;
                 continue;
+            }
+            Ok(available) => available,
+        };
+
+        if token_liability > Decimal::ZERO {
+            if available >= token_liability {
+                let body_str: String = match serialize_body(Some(json!({
+                    "currency": asset,
+                    "size": token_liability,
+                    "isIsolated": false,
+                    "isHf": true
+                }))) {
+                    Ok(body_str) => body_str,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                };
+
+                match api_v3_margin_repay_post(body_str).await {
+                    Ok(_) => {
+                        log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
+                    }
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                        continue;
+                    }
+                }
+            } else if available > Decimal::ZERO {
+                let body = json!({
+                    "currency": asset,
+                    "size": &asset_info.available,
+                    "isIsolated": false,
+                    "isHf": true
+                });
+
+                let body_str: String = match serialize_body(Some(body)) {
+                    Ok(body_str) => body_str,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                };
+
+                match api_v3_margin_repay_post(body_str).await {
+                    Ok(_) => {
+                        log::info!("Partially repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
+                    }
+                    Err(e) => {
+                        handle_db_error(pool, exchange, e).await;
+                        continue;
+                    }
+                }
             }
         }
     }
