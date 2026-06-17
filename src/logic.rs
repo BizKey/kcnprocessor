@@ -1268,7 +1268,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
 }
 
 pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, msg: &str) -> Result<(), String> {
-    let event = match serde_json::from_str::<KuCoinMessage>(msg) {
+    let event: KuCoinMessage = match serde_json::from_str::<KuCoinMessage>(msg) {
         Err(e) => {
             let msg: String = format!("Failed to parse message:{} {}", msg, e);
             log::error!("{}", msg);
@@ -1276,6 +1276,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
         }
         Ok(event) => event,
     };
+
     match event {
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => match insert_db_event(pool, exchange, &data).await {
