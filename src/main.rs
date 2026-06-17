@@ -36,7 +36,7 @@ async fn main() -> Result<(), String> {
 
     let exchange = "kucoin";
 
-    let pool = match PgPoolOptions::new()
+    let pool: sqlx::Pool<sqlx::Postgres> = match PgPoolOptions::new()
         .max_connections(40)
         .min_connections(5)
         .acquire_timeout(Duration::from_secs(10))
