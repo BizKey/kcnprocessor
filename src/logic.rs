@@ -1078,9 +1078,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
             };
 
             match api_v3_margin_repay_post(body_str).await {
-                Ok(_) => {
-                    log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
-                }
+                Ok(_) => log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available),
                 Err(e) => {
                     handle_db_error(pool, exchange, e).await;
                     continue;
