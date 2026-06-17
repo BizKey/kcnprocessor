@@ -1055,7 +1055,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
             Some(asset_info) => asset_info,
         };
 
-        let available = match asset_info.available_decimal() {
+        let token_available: Decimal = match asset_info.available_decimal() {
             Err(e) => {
                 handle_db_error(pool, exchange, e).await;
                 continue;
@@ -1064,7 +1064,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
         };
 
         if token_liability > Decimal::ZERO {
-            if available >= token_liability {
+            if token_available >= token_liability {
                 let body_str: String = match serialize_body(Some(json!({
                     "currency": asset,
                     "size": token_liability,
@@ -1084,7 +1084,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                         continue;
                     }
                 }
-            } else if available > Decimal::ZERO {
+            } else if token_available > Decimal::ZERO {
                 let body = json!({
                     "currency": asset,
                     "size": &asset_info.available,
