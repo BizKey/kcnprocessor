@@ -1063,48 +1063,27 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
             Ok(available) => available,
         };
 
-        if token_liability > Decimal::ZERO {
-            if token_available >= token_liability {
-                let body_str: String = match serialize_body(Some(json!({
-                    "currency": asset,
-                    "size": token_liability,
-                    "isIsolated": false,
-                    "isHf": true
-                }))) {
-                    Ok(body_str) => body_str,
-                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                };
+        if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
+            // have liability and available
+            let body = Some(json!({
+                "currency": asset,
+                "size": token_liability,
+                "isIsolated": false,
+                "isHf": true
+            }));
 
-                match api_v3_margin_repay_post(body_str).await {
-                    Ok(_) => {
-                        log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
-                    }
-                    Err(e) => {
-                        handle_db_error(pool, exchange, e).await;
-                        continue;
-                    }
+            let body_str: String = match serialize_body(body) {
+                Ok(body_str) => body_str,
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            };
+
+            match api_v3_margin_repay_post(body_str).await {
+                Ok(_) => {
+                    log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
                 }
-            } else if token_available > Decimal::ZERO {
-                let body = json!({
-                    "currency": asset,
-                    "size": &asset_info.available,
-                    "isIsolated": false,
-                    "isHf": true
-                });
-
-                let body_str: String = match serialize_body(Some(body)) {
-                    Ok(body_str) => body_str,
-                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                };
-
-                match api_v3_margin_repay_post(body_str).await {
-                    Ok(_) => {
-                        log::info!("Partially repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
-                    }
-                    Err(e) => {
-                        handle_db_error(pool, exchange, e).await;
-                        continue;
-                    }
+                Err(e) => {
+                    handle_db_error(pool, exchange, e).await;
+                    continue;
                 }
             }
         }
