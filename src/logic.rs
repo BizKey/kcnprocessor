@@ -1065,14 +1065,14 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
             // have liability and available
-            let body = Some(json!({
+            let body: serde_json::Value = json!({
                 "currency": asset,
                 "size": token_liability,
                 "isIsolated": false,
                 "isHf": true
-            }));
+            });
 
-            let body_str: String = match serialize_body(body) {
+            let body_str: String = match serialize_body(Some(body)) {
                 Ok(body_str) => body_str,
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             };
