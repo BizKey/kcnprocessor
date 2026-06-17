@@ -7,7 +7,7 @@ use crate::api::db::{
     update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
-    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, BalanceData, Bot, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount, OrderData, PositionData, Symbol,
+    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, BalanceData, Bot, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount, MessageData, OrderData, PositionData, Symbol,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
@@ -1277,7 +1277,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
         Ok(event) => event,
     };
 
-    let data = match event {
+    let data: MessageData = match event {
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => match insert_db_event(pool, exchange, &data).await {
                 Ok(_) => return Ok(()),
@@ -1314,10 +1314,10 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
         }
     };
 
-    if data.topic == "/account/balance" {
-        match BalanceData::deserialize(&data.data) {
+    match data.topic.as_str() {
+        "/account/balance" => match BalanceData::deserialize(&data.data) {
             Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
-                Ok(_) => Ok(()),
+                Ok(_) => return Ok(()),
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             },
             Err(e) => {
@@ -1325,11 +1325,10 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 log::error!("{}", msg);
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
-        }
-    } else if data.topic == "/spotMarket/tradeOrdersV2" {
-        match OrderData::deserialize(&data.data) {
+        },
+        "/spotMarket/tradeOrdersV2" => match OrderData::deserialize(&data.data) {
             Ok(order) => match handle_trade_order_event(order, pool, exchange).await {
-                Ok(_) => Ok(()),
+                Ok(_) => return Ok(()),
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             },
             Err(e) => {
@@ -1337,9 +1336,8 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 log::error!("{}", msg);
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
-        }
-    } else if data.topic == "/spotMarket/advancedOrders" {
-        match AdvancedOrders::deserialize(&data.data) {
+        },
+        "/spotMarket/advancedOrders" => match AdvancedOrders::deserialize(&data.data) {
             Ok(order) => match handle_advanced_orders(order, pool, exchange).await {
                 Ok(_) => Ok(()),
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
@@ -1349,9 +1347,8 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 log::error!("{}", msg);
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
-        }
-    } else if data.topic == "/margin/position" {
-        match PositionData::deserialize(&data.data) {
+        },
+        "/margin/position" => match PositionData::deserialize(&data.data) {
             Ok(position) => match handle_position_event(position, pool, exchange).await {
                 Ok(_) => Ok(()),
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
@@ -1361,11 +1358,12 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 log::error!("{}", msg);
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
+        },
+        _ => {
+            let msg: String = format!("Unknown topic: {}", data.topic);
+            log::error!("{}", msg);
+            return Err(handle_db_error(pool, exchange, msg).await);
         }
-    } else {
-        let msg: String = format!("Unknown topic: {}", data.topic);
-        log::error!("{}", msg);
-        return Err(handle_db_error(pool, exchange, msg).await);
     }
 }
 
