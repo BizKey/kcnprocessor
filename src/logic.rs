@@ -1048,7 +1048,6 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
             None => {
                 let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
                 log::error!("{}", msg);
-
                 handle_db_error(pool, exchange, msg).await;
                 continue;
             }
