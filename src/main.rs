@@ -103,22 +103,24 @@ async fn main() -> Result<(), String> {
         let spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, EXCHANGE, rx_in).await });
 
         // Position/Orders/Balance/AdvancedOrders WS
-        let (mut event_ws_write, mut event_ws_read) = match api_v1_bullet_private_post().await {
-            Ok(event_ws_url) => match connect_async(event_ws_url).await {
-                Ok((stream, _)) => stream.split(),
-                Err(e) => {
-                    let msg: String = format!("WebSocket connection failed:{}", e);
-                    log::error!("{}", msg);
-
-                    handle_db_error(&pool, EXCHANGE, msg).await;
-                    drop(tx_in);
-                    drop(spawn_process_kcn_msg_point);
-                    sleep(RECONNECT_DELAY).await;
-                    continue;
-                }
-            },
+        let event_ws_url: String = match api_v1_bullet_private_post().await {
+            Ok(event_ws_url) => event_ws_url,
             Err(e) => {
                 handle_db_error(&pool, EXCHANGE, e).await;
+                drop(tx_in);
+                drop(spawn_process_kcn_msg_point);
+                sleep(RECONNECT_DELAY).await;
+                continue;
+            }
+        };
+
+        let (mut event_ws_write, mut event_ws_read) = match connect_async(event_ws_url).await {
+            Ok((stream, _)) => stream.split(),
+            Err(e) => {
+                let msg: String = format!("WebSocket connection failed:{}", e);
+                log::error!("{}", msg);
+
+                handle_db_error(&pool, EXCHANGE, msg).await;
                 drop(tx_in);
                 drop(spawn_process_kcn_msg_point);
                 sleep(RECONNECT_DELAY).await;
