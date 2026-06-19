@@ -5,7 +5,7 @@ use crate::api::models::{
 };
 use crate::api::tools::get_env;
 use base64::Engine;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use micromap::Map;
 use reqwest::{Client, Method, Response};
 use sha2::Sha256;
