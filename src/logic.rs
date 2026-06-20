@@ -7,7 +7,7 @@ use crate::api::db::{
     update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
-    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, BalanceData, Bot, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount, OrderData, PositionData, Symbol,
+    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, BalanceData, Bot, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount, MessageData, OrderData, PositionData, Symbol,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
@@ -37,13 +37,13 @@ fn sl_sell_percent() -> Decimal {
     Decimal::from_str("1.05").unwrap() // +5%
 }
 
+fn get_random_side() -> &'static str {
+    if fastrand::bool() { "buy" } else { "sell" }
+}
+
 const RETRY_DELAY_BASE: u64 = 500;
 const BOT_INIT_DELAY: Duration = Duration::from_secs(5);
 const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(1);
-
-pub fn get_random_side() -> &'static str {
-    if fastrand::bool() { "buy" } else { "sell" }
-}
 
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String, String> {
     let precision = increment.scale() as usize;
@@ -53,7 +53,7 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
         let increment_int: i64 = match increment.to_string().parse() {
             Ok(increment_int) => increment_int,
             Err(e) => {
-                let msg = format!("Fail parse increment:{} error:{}", increment, e);
+                let msg: String = format!("Fail parse increment:{} error:{}", increment, e);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -62,7 +62,7 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
         let size_int: i64 = match size.to_string().parse() {
             Ok(size_int) => size_int,
             Err(e) => {
-                let msg = format!("Fail parse size:{} error:{}", size, e);
+                let msg: String = format!("Fail parse size:{} error:{}", size, e);
                 log::error!("{}", msg);
                 return Err(msg);
             }
@@ -1038,75 +1038,52 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     // repay borrow
-    match position.debt_pairs() {
-        Ok(debt_pair) => {
-            for (asset, token_liability) in debt_pair {
-                match position.asset_list.get(&asset) {
-                    Some(asset_info) => match asset_info.available_decimal() {
-                        Ok(available) => {
-                            if token_liability > Decimal::ZERO {
-                                if available >= token_liability {
-                                    let body_str: String = match serialize_body(Some(json!({
-                                        "currency": asset,
-                                        "size": token_liability,
-                                        "isIsolated": false,
-                                        "isHf": true
-                                    }))) {
-                                        Ok(body_str) => body_str,
-                                        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                                    };
+    let debt_pair: Vec<(String, Decimal)> = match position.debt_pairs() {
+        Err(e) => return Err(e),
+        Ok(debt_pair) => debt_pair,
+    };
 
-                                    match api_v3_margin_repay_post(body_str).await {
-                                        Ok(_) => {
-                                            log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
-                                        }
-                                        Err(e) => {
-                                            handle_db_error(pool, exchange, e).await;
-                                            continue;
-                                        }
-                                    }
-                                } else if available > Decimal::ZERO {
-                                    let body = json!({
-                                        "currency": asset,
-                                        "size": &asset_info.available,
-                                        "isIsolated": false,
-                                        "isHf": true
-                                    });
+    for (asset, token_liability) in debt_pair {
+        let asset_info = match position.asset_list.get(&asset) {
+            None => {
+                let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
+                log::error!("{}", msg);
+                handle_db_error(pool, exchange, msg).await;
+                continue;
+            }
+            Some(asset_info) => asset_info,
+        };
 
-                                    let body_str: String = match serialize_body(Some(body)) {
-                                        Ok(body_str) => body_str,
-                                        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                                    };
+        let token_available: Decimal = match asset_info.available_decimal() {
+            Err(e) => {
+                handle_db_error(pool, exchange, e).await;
+                continue;
+            }
+            Ok(available) => available,
+        };
 
-                                    match api_v3_margin_repay_post(body_str).await {
-                                        Ok(_) => {
-                                            log::info!("Partially repay {} {} liability with available {}", token_liability, asset, &asset_info.available);
-                                        }
-                                        Err(e) => {
-                                            handle_db_error(pool, exchange, e).await;
-                                            continue;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            handle_db_error(pool, exchange, e).await;
+        if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
+            // have liability and available
+            let body: serde_json::Value = json!({
+                "currency": asset,
+                "size": token_liability,
+                "isIsolated": false,
+                "isHf": true
+            });
 
-                            continue;
-                        }
-                    },
-                    None => {
-                        let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
-                        log::error!("{}", msg);
+            let body_str: String = match serialize_body(Some(body)) {
+                Ok(body_str) => body_str,
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            };
 
-                        handle_db_error(pool, exchange, msg).await;
-                        continue;
-                    }
+            match api_v3_margin_repay_post(body_str).await {
+                Ok(_) => log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available),
+                Err(e) => {
+                    handle_db_error(pool, exchange, e).await;
+                    continue;
                 }
             }
         }
-        Err(e) => return Err(e),
     }
 
     match upsert_position_ratio(pool, exchange, position.debt_ratio, position.total_asset, &position.margin_coefficient_total_asset, &position.total_debt).await {
@@ -1268,99 +1245,99 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
 }
 
 pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, msg: &str) -> Result<(), String> {
-    match serde_json::from_str::<KuCoinMessage>(msg) {
-        Ok(event) => match event {
-            KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
-                Ok(data) => match insert_db_event(pool, exchange, &data).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                },
-                Err(e) => {
-                    let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(WelcomeData), e);
-                    log::error!("{}", msg);
-                    return Err(handle_db_error(pool, exchange, msg).await);
-                }
-            },
-            KuCoinMessage::Message(data) => {
-                if data.topic == "/account/balance" {
-                    match BalanceData::deserialize(&data.data) {
-                        Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
-                            Ok(_) => Ok(()),
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        },
-                        Err(e) => {
-                            let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(BalanceData), e);
-                            log::error!("{}", msg);
-                            return Err(handle_db_error(pool, exchange, msg).await);
-                        }
-                    }
-                } else if data.topic == "/spotMarket/tradeOrdersV2" {
-                    match OrderData::deserialize(&data.data) {
-                        Ok(order) => match handle_trade_order_event(order, pool, exchange).await {
-                            Ok(_) => Ok(()),
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        },
-                        Err(e) => {
-                            let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(OrderData), e);
-                            log::error!("{}", msg);
-                            return Err(handle_db_error(pool, exchange, msg).await);
-                        }
-                    }
-                } else if data.topic == "/spotMarket/advancedOrders" {
-                    match AdvancedOrders::deserialize(&data.data) {
-                        Ok(order) => match handle_advanced_orders(order, pool, exchange).await {
-                            Ok(_) => Ok(()),
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        },
-                        Err(e) => {
-                            let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(AdvancedOrders), e);
-                            log::error!("{}", msg);
-                            return Err(handle_db_error(pool, exchange, msg).await);
-                        }
-                    }
-                } else if data.topic == "/margin/position" {
-                    match PositionData::deserialize(&data.data) {
-                        Ok(position) => match handle_position_event(position, pool, exchange).await {
-                            Ok(_) => Ok(()),
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        },
-                        Err(e) => {
-                            let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(PositionData), e);
-                            log::error!("{}", msg);
-                            return Err(handle_db_error(pool, exchange, msg).await);
-                        }
-                    }
-                } else {
-                    let msg: String = format!("Unknown topic: {}", data.topic);
-                    log::error!("{}", msg);
-                    return Err(handle_db_error(pool, exchange, msg).await);
-                }
-            }
-            KuCoinMessage::Ack(data) => match serde_json::to_value(&data) {
-                Ok(data) => match insert_db_event(pool, exchange, &data).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                },
-                Err(e) => {
-                    let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(AckData), e);
-                    log::error!("{}", msg);
-                    return Err(handle_db_error(pool, exchange, msg).await);
-                }
-            },
-            KuCoinMessage::Error(data) => {
-                let msg: String = format!("Got error in WS {:?}", data);
-                log::error!("{}", msg);
-                return Err(handle_db_error(pool, exchange, msg).await);
-            }
+    let event: KuCoinMessage = match serde_json::from_str::<KuCoinMessage>(msg) {
+        Err(e) => {
+            let msg: String = format!("Failed to parse message:{} {}", msg, e);
+            log::error!("{}", msg);
+            return Err(handle_db_error(pool, exchange, msg).await);
+        }
+        Ok(event) => event,
+    };
 
-            KuCoinMessage::Unknown => {
-                let msg: String = format!("Unknown WS message type");
+    let data: MessageData = match event {
+        KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
+            Ok(data) => match insert_db_event(pool, exchange, &data).await {
+                Ok(_) => return Ok(()),
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            },
+            Err(e) => {
+                let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(WelcomeData), e);
                 log::error!("{}", msg);
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
         },
-        Err(e) => {
-            let msg: String = format!("Failed to parse message:{} {}", msg, e);
+        KuCoinMessage::Message(data) => data,
+        KuCoinMessage::Ack(data) => match serde_json::to_value(&data) {
+            Ok(data) => match insert_db_event(pool, exchange, &data).await {
+                Ok(_) => return Ok(()),
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            },
+            Err(e) => {
+                let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(AckData), e);
+                log::error!("{}", msg);
+                return Err(handle_db_error(pool, exchange, msg).await);
+            }
+        },
+        KuCoinMessage::Error(data) => {
+            let msg: String = format!("Got error in WS {:?}", data);
+            log::error!("{}", msg);
+            return Err(handle_db_error(pool, exchange, msg).await);
+        }
+
+        KuCoinMessage::Unknown => {
+            let msg: String = format!("Unknown WS message type");
+            log::error!("{}", msg);
+            return Err(handle_db_error(pool, exchange, msg).await);
+        }
+    };
+
+    match data.topic.as_str() {
+        "/account/balance" => match BalanceData::deserialize(&data.data) {
+            Err(e) => {
+                let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(BalanceData), e);
+                log::error!("{}", msg);
+                return Err(handle_db_error(pool, exchange, msg).await);
+            }
+            Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
+                Ok(_) => return Ok(()),
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            },
+        },
+        "/spotMarket/tradeOrdersV2" => match OrderData::deserialize(&data.data) {
+            Err(e) => {
+                let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(OrderData), e);
+                log::error!("{}", msg);
+                return Err(handle_db_error(pool, exchange, msg).await);
+            }
+            Ok(order) => match handle_trade_order_event(order, pool, exchange).await {
+                Ok(_) => return Ok(()),
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            },
+        },
+        "/spotMarket/advancedOrders" => match AdvancedOrders::deserialize(&data.data) {
+            Err(e) => {
+                let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(AdvancedOrders), e);
+                log::error!("{}", msg);
+                return Err(handle_db_error(pool, exchange, msg).await);
+            }
+            Ok(order) => match handle_advanced_orders(order, pool, exchange).await {
+                Ok(_) => Ok(()),
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            },
+        },
+        "/margin/position" => match PositionData::deserialize(&data.data) {
+            Err(e) => {
+                let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(PositionData), e);
+                log::error!("{}", msg);
+                return Err(handle_db_error(pool, exchange, msg).await);
+            }
+            Ok(position) => match handle_position_event(position, pool, exchange).await {
+                Ok(_) => Ok(()),
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            },
+        },
+        _ => {
+            let msg: String = format!("Unknown topic: {}", data.topic);
             log::error!("{}", msg);
             return Err(handle_db_error(pool, exchange, msg).await);
         }
@@ -1517,7 +1494,6 @@ pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: 
                 let msg: String = format!("Channel closed, exiting message processor");
                 log::error!("{}", msg);
                 handle_db_error(pool, exchange, msg).await;
-
                 break;
             }
         }
