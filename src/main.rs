@@ -92,23 +92,19 @@ async fn main() -> Result<(), String> {
             Err(e) => return Err(e),
         };
     }
+    let (tx_in, rx_in) = mpsc::channel::<String>(10000);
+
+    let pool_process = pool.clone();
+
+    let spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, EXCHANGE, rx_in).await });
 
     loop {
-        // websocket to pg
-        let (tx_in, rx_in) = mpsc::channel::<String>(10000);
-
-        let pool_process = pool.clone();
-
-        // Work with income events
-        let spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, EXCHANGE, rx_in).await });
-
         // Position/Orders/Balance/AdvancedOrders WS
         let event_ws_url: String = match api_v1_bullet_private_post().await {
             Ok(event_ws_url) => event_ws_url,
             Err(e) => {
                 handle_db_error(&pool, EXCHANGE, e).await;
-                drop(tx_in);
-                drop(spawn_process_kcn_msg_point);
+
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -121,8 +117,7 @@ async fn main() -> Result<(), String> {
                 log::error!("{}", msg);
 
                 handle_db_error(&pool, EXCHANGE, msg).await;
-                drop(tx_in);
-                drop(spawn_process_kcn_msg_point);
+
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -138,8 +133,7 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
                 log::error!("{}", msg);
                 handle_db_error(&pool, EXCHANGE, msg).await;
-                drop(tx_in);
-                drop(spawn_process_kcn_msg_point);
+
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -154,8 +148,7 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
                 log::error!("{}", msg);
                 handle_db_error(&pool, EXCHANGE, msg).await;
-                drop(tx_in);
-                drop(spawn_process_kcn_msg_point);
+
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -168,8 +161,7 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/account/balance:{}", e);
                 log::error!("{}", msg);
                 handle_db_error(&pool, EXCHANGE, msg).await;
-                drop(tx_in);
-                drop(spawn_process_kcn_msg_point);
+
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -182,8 +174,7 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/margin/position:{}", e);
                 log::error!("{}", msg);
                 handle_db_error(&pool, EXCHANGE, msg).await;
-                drop(tx_in);
-                drop(spawn_process_kcn_msg_point);
+
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -255,9 +246,6 @@ async fn main() -> Result<(), String> {
                 }
             }
         }
-
-        tx_in.closed().await;
-        spawn_process_kcn_msg_point.await.unwrap_or_default();
 
         drop(event_ws_write);
         drop(event_ws_read);
