@@ -200,7 +200,12 @@ async fn main() -> Result<(), String> {
                 _ = event_ping_interval.tick() => {
                    match event_ws_write.send(Message::Ping(Bytes::new())).await {
                         Ok(_) => {},
-                        Err(e) =>{}
+                        Err(e) =>  {
+                            let msg: String = format!("Fail send Ping to WebSocket:{}", e);
+                            log::error!("{}", msg);
+                            handle_db_error(&pool, EXCHANGE, msg).await;
+                            break
+                        }
                     };
                 }
 
@@ -212,6 +217,7 @@ async fn main() -> Result<(), String> {
                                 Err(e) => {
                                     let msg: String = format!("Failed to send to handler, reconnecting...{}", e);
                                     log::error!("{}", msg);
+                                    handle_db_error(&pool, EXCHANGE, msg).await;
                                     break;
                                 }
                             }
@@ -219,7 +225,12 @@ async fn main() -> Result<(), String> {
                         Some(Ok(Message::Ping(data))) => {
                            match event_ws_write.send(Message::Pong(data)).await {
                                 Ok(_) => {},
-                                Err(e) => {}
+                                Err(e) => {
+                                    let msg: String = format!("Fail send Pong to WebSocket:{}", e);
+                                    log::error!("{}", msg);
+                                    handle_db_error(&pool, EXCHANGE, msg).await;
+                                    break
+                                }
                            };
                         }
                         Some(Ok(Message::Close(_close))) => {
