@@ -248,8 +248,6 @@ pub async fn sell_or_transfer_token_account(
     trade_symbol: &str,
     token_price_data: ApiV1MarketOrderbookLevel1ResData,
 ) -> Result<(), String> {
-    // get price token
-
     let best_bid_token_price: Decimal = match token_price_data.best_bid_decimal() {
         Ok(best_bid_token_price) => best_bid_token_price,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
