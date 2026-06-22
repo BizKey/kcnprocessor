@@ -7,8 +7,8 @@ use crate::api::db::{
     update_exit_tp_client_oid_bot_by_exit_tp_order_id, update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
-    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot, Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount,
-    MessageData, OrderData, PositionData, Symbol,
+    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot, Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MessageData, OrderData, PositionData,
+    Symbol,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
@@ -1288,7 +1288,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
             Ok(balance) => match insert_db_balance(pool, exchange, balance).await {
-                Ok(_) => return Ok(()),
+                Ok(_) => Ok(()),
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             },
         },
@@ -1299,7 +1299,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
             Ok(order) => match handle_trade_order_event(order, pool, exchange).await {
-                Ok(_) => return Ok(()),
+                Ok(_) => Ok(()),
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             },
         },

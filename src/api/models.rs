@@ -403,7 +403,7 @@ impl Currencies {
 
         let precision_str: String = format!("1e-{}", self.precision);
         match Decimal::from_str(&precision_str) {
-            Ok(precision) => return Ok(precision),
+            Ok(precision) => Ok(precision),
             Err(e) => {
                 let msg: String = format!("Fail parse decimal: {} {}", self.precision, e);
                 log::error!("{}", msg);

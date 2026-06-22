@@ -96,7 +96,7 @@ async fn main() -> Result<(), String> {
 
     let pool_process = pool.clone();
 
-    let spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, EXCHANGE, rx_in).await });
+    let _spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, EXCHANGE, rx_in).await });
 
     loop {
         // Position/Orders/Balance/AdvancedOrders WS
