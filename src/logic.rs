@@ -195,96 +195,6 @@ pub async fn get_token_price(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
     }
 }
 
-pub async fn buy_for_repay_account(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    token_liability: Decimal,
-    base_min_size: Decimal,
-    min_funds: Decimal,
-    quote_increment: Decimal,
-    trade_symbol: &str,
-    token_price_data: ApiV1MarketOrderbookLevel1ResData,
-) -> Result<(), String> {
-    let best_ask_token_price: Decimal = match token_price_data.best_ask_decimal() {
-        Ok(best_ask_token_price) => best_ask_token_price,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    log::info!("Successfully get token:{} ask price:{}", trade_symbol, best_ask_token_price);
-
-    let token_funds: Decimal = best_ask_token_price * token_liability;
-
-    let min_funds_by_size: Decimal = best_ask_token_price * base_min_size;
-
-    let final_funds: Decimal = token_funds.max(min_funds_by_size).max(min_funds);
-
-    let funds: String = match format_assert_decimal(final_funds, quote_increment) {
-        Ok(funds) => funds,
-        Err(e) => {
-            let msg: String = format!("Fail parse:{} {} error:{}", final_funds, quote_increment, e);
-            log::error!("{}", msg);
-            return Err(handle_db_error(pool, exchange, msg).await);
-        }
-    };
-
-    let client_oid: String = Uuid::new_v4().to_string();
-
-    match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
-        Ok(_) => Ok(()),
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    }
-}
-
-pub async fn sell_or_transfer_token_account(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    account: &MarginAccountDataAccount,
-    token_available: Decimal,
-    base_increment: Decimal,
-    base_min_size: Decimal,
-    quote_min_size: Decimal,
-    trade_symbol: &str,
-    token_price_data: ApiV1MarketOrderbookLevel1ResData,
-) -> Result<(), String> {
-    let best_bid_token_price: Decimal = match token_price_data.best_bid_decimal() {
-        Ok(best_bid_token_price) => best_bid_token_price,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    log::info!("Successfully get token:{} price:{}", &trade_symbol, best_bid_token_price);
-
-    if token_available <= base_min_size || (best_bid_token_price * token_available) <= quote_min_size {
-        let body_str: String = match serialize_body(Some(json!({
-            "currency": &account.currency,
-            "clientOid": Uuid::new_v4().to_string(),
-            "amount": &account.available,
-            "type": "INTERNAL",
-            "fromAccountType": "MARGIN",
-            "toAccountType": "TRADE"
-        }))) {
-            Ok(body_str) => body_str,
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-        };
-
-        match api_v3_accounts_universal_transfer_post(body_str).await {
-            Ok(_) => Ok(()),
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-        }
-    } else {
-        let size: String = match format_assert_decimal(token_available, base_increment) {
-            Ok(size) => size,
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-        };
-
-        let client_oid: String = Uuid::new_v4().to_string();
-
-        match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, size, "market", false, false).await {
-            Ok(_) => Ok(()),
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-        }
-    }
-}
-
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, String> {
     sleep(AUTO_CLEAN_DELAY).await;
 
@@ -373,10 +283,39 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
 
-                buy_for_repay_account(pool, exchange, token_liability, base_min_size, min_funds, quote_increment, &trade_symbol, token_price_data).await?
+                let best_ask_token_price: Decimal = match token_price_data.best_ask_decimal() {
+                    Ok(best_ask_token_price) => best_ask_token_price,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                };
+
+                log::info!("Successfully get token:{} ask price:{}", trade_symbol, best_ask_token_price);
+
+                let token_funds: Decimal = best_ask_token_price * token_liability;
+
+                let min_funds_by_size: Decimal = best_ask_token_price * base_min_size;
+
+                let final_funds: Decimal = token_funds.max(min_funds_by_size).max(min_funds);
+
+                let funds: String = match format_assert_decimal(final_funds, quote_increment) {
+                    Ok(funds) => funds,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", final_funds, quote_increment, e);
+                        log::error!("{}", msg);
+                        return Err(handle_db_error(pool, exchange, msg).await);
+                    }
+                };
+
+                let client_oid: String = Uuid::new_v4().to_string();
+
+                match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
+                    Ok(_) => continue,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
+
+            let client_oid: String = Uuid::new_v4().to_string();
             let trade_symbol: String = format!("{}-USDT", account.currency);
 
             let token_price_data: ApiV1MarketOrderbookLevel1ResData = match get_token_price(pool, exchange, &trade_symbol).await {
@@ -384,7 +323,41 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             };
 
-            sell_or_transfer_token_account(pool, exchange, account, token_available, base_increment, base_min_size, quote_min_size, &trade_symbol, token_price_data).await?
+            let best_bid_token_price: Decimal = match token_price_data.best_bid_decimal() {
+                Ok(best_bid_token_price) => best_bid_token_price,
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            };
+
+            log::info!("Successfully get token:{} price:{}", &trade_symbol, best_bid_token_price);
+
+            if token_available <= base_min_size || (best_bid_token_price * token_available) <= quote_min_size {
+                let body_str: String = match serialize_body(Some(json!({
+                    "currency": &account.currency,
+                    "clientOid": client_oid,
+                    "amount": &account.available,
+                    "type": "INTERNAL",
+                    "fromAccountType": "MARGIN",
+                    "toAccountType": "TRADE"
+                }))) {
+                    Ok(body_str) => body_str,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                };
+
+                match api_v3_accounts_universal_transfer_post(body_str).await {
+                    Ok(_) => continue,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
+            } else {
+                let size: String = match format_assert_decimal(token_available, base_increment) {
+                    Ok(size) => size,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                };
+
+                match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, size, "market", false, false).await {
+                    Ok(_) => continue,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
+            }
         }
     }
     Ok(passed)
