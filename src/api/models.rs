@@ -390,6 +390,10 @@ impl Symbol {
     }
 }
 
+#[derive(Debug, Deserialize, sqlx::FromRow)]
+pub struct Currencies {
+    pub precision: i16,
+}
 #[derive(Debug, Deserialize)]
 pub struct MakeOrderResData {
     #[serde(rename = "orderId")]

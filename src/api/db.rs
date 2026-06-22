@@ -1,4 +1,4 @@
-use crate::api::models::{BalanceData, BalanceRelationContext, Bot, OrderData, Symbol};
+use crate::api::models::{BalanceData, BalanceRelationContext, Bot, Currencies, OrderData, Symbol};
 use rust_decimal::Decimal;
 use sqlx::Row;
 use std::str::FromStr;
@@ -193,6 +193,28 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
         Ok(_) => Ok(()),
         Err(e) => {
             let msg: String = format!("Fail update bot exit_sl_client_oid:NULL and exit_sl_order_id:NULL by exit_sl_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, exchange, e);
+            log::error!("{}", msg);
+            Err(msg)
+        }
+    }
+}
+pub async fn fetch_currency_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str) -> Result<Option<Currencies>, String> {
+    match sqlx::query_as::<_, Currencies>(
+        r#"
+        SELECT precision
+        FROM currency
+        WHERE exchange = $1 AND
+            currency = $2;
+        "#,
+    )
+    .bind(exchange)
+    .bind(currency)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(res) => Ok(res),
+        Err(e) => {
+            let msg: String = format!("Fail get currency by currency:{} exchange:{} error:{}", currency, exchange, e);
             log::error!("{}", msg);
             Err(msg)
         }
