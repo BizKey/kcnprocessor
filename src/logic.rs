@@ -43,7 +43,7 @@ fn get_random_side() -> &'static str {
 
 const RETRY_DELAY_BASE: u64 = 500;
 const BOT_INIT_DELAY: Duration = Duration::from_secs(5);
-const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(1);
+const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(5);
 
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String, String> {
     let precision = increment.scale() as usize;

@@ -86,7 +86,6 @@ async fn main() -> Result<(), String> {
 
     // repay all liability assets and sell
     loop {
-        sleep(CLEAR_DELAY).await;
         match auto_clean_account(&pool, EXCHANGE).await {
             Ok(true) => break,
             Ok(false) => continue,
