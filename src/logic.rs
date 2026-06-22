@@ -177,6 +177,27 @@ pub async fn get_token_price(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
     }
 }
 
+pub async fn transfer_amount(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, amount: &str) -> Result<(), String> {
+    let client_oid: String = Uuid::new_v4().to_string();
+
+    let body_str: String = match serialize_body(Some(json!({
+        "currency": currency,
+        "clientOid": client_oid,
+        "amount": amount,
+        "type": "INTERNAL",
+        "fromAccountType": "MARGIN",
+        "toAccountType": "TRADE"
+    }))) {
+        Ok(body_str) => body_str,
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
+    match api_v3_accounts_universal_transfer_post(body_str).await {
+        Ok(_) => Ok(()),
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    }
+}
+
 pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<bool, String> {
     sleep(AUTO_CLEAN_DELAY).await;
 
@@ -331,22 +352,18 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             let token_funds: Decimal = best_bid_token_price * token_available;
 
             if token_available <= base_min_size || token_funds <= quote_min_size {
-                let body_str: String = match serialize_body(Some(json!({
-                    "currency": &account.currency,
-                    "clientOid": client_oid,
-                    "amount": &account.available,
-                    "type": "INTERNAL",
-                    "fromAccountType": "MARGIN",
-                    "toAccountType": "TRADE"
-                }))) {
-                    Ok(body_str) => body_str,
-                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                let amount: String = match format_assert_decimal(token_available, precision_decimal) {
+                    Ok(size) => size,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", token_available, precision_decimal, e);
+                        log::error!("{}", msg);
+                        return Err(handle_db_error(pool, exchange, msg).await);
+                    }
                 };
-
-                match api_v3_accounts_universal_transfer_post(body_str).await {
+                match transfer_amount(pool, exchange, &account.currency, &amount).await {
                     Ok(_) => continue,
                     Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                }
+                };
             } else {
                 let size: String = match format_assert_decimal(token_available, base_increment) {
                     Ok(size) => size,
