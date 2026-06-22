@@ -176,22 +176,18 @@ pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchan
     }
 }
 
-pub async fn full_buy_for_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, account: &MarginAccountDataAccount, token_liability: Decimal) -> Result<(), String> {
+pub async fn buy_for_repay_account(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    currency: &str,
+    token_liability: Decimal,
+    base_min_size: Decimal,
+    min_funds: Decimal,
+    quote_increment: Decimal,
+) -> Result<(), String> {
     // buy stock by market liability
-    let trade_symbol: String = format!("{}-USDT", account.currency);
+    let trade_symbol: String = format!("{}-USDT", currency);
     let client_oid: String = Uuid::new_v4().to_string();
-    let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
-        Ok(Some(info)) => info,
-        Ok(None) => {
-            let msg: String = format!("Symbol info not found for {}", trade_symbol);
-            log::error!("{}", msg);
-
-            return Err(handle_db_error(pool, exchange, msg).await);
-        }
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-    // liability debt in tokens
-    // get price token
 
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", &trade_symbol);
@@ -220,22 +216,6 @@ pub async fn full_buy_for_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, excha
     // calc price token on amount liability token
     let token_funds: Decimal = token_price * token_liability;
 
-    let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
-        Ok(quote_increment) => quote_increment,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    // parse min_funds to int
-    let min_funds: Decimal = match symbol_info.min_funds_decimal() {
-        Ok(min_funds) => min_funds,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
-        Ok(base_min_size) => base_min_size,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
     // calc price token on amount base_min_size token
     let min_funds_by_size: Decimal = token_price * base_min_size;
 
@@ -256,26 +236,20 @@ pub async fn full_buy_for_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, excha
     }
 }
 
-pub async fn sell_or_transfer_token_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, account: &MarginAccountDataAccount, token_available: Decimal) -> Result<(), String> {
+pub async fn sell_or_transfer_token_account(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    exchange: &str,
+    account: &MarginAccountDataAccount,
+    token_available: Decimal,
+    base_increment: Decimal,
+    base_min_size: Decimal,
+    quote_min_size: Decimal,
+) -> Result<(), String> {
     // don't have liability
     // sell stocks by market available/ works
     let client_oid: String = Uuid::new_v4().to_string();
     let trade_symbol: String = format!("{}-USDT", account.currency);
 
-    let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &trade_symbol).await {
-        Ok(Some(symbol_info)) => symbol_info,
-        Ok(None) => {
-            let msg: String = format!("Symbol info not found for {}", trade_symbol);
-            log::error!("{}", msg);
-            return Err(handle_db_error(pool, exchange, msg).await);
-        }
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    let base_increment: Decimal = match symbol_info.base_increment_decimal() {
-        Ok(base_increment) => base_increment,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
     // get price token
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", &trade_symbol);
@@ -300,16 +274,6 @@ pub async fn sell_or_transfer_token_account(pool: &sqlx::Pool<sqlx::Postgres>, e
     };
 
     log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
-
-    let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
-        Ok(base_min_size) => base_min_size,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    let quote_min_size: Decimal = match symbol_info.quote_min_size_decimal() {
-        Ok(quote_min_size) => quote_min_size,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
 
     if token_available <= base_min_size || (token_price * token_available) <= quote_min_size {
         let body_str: String = match serialize_body(Some(json!({
@@ -351,16 +315,6 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
     let mut passed: bool = true;
     for account in accounts.accounts.iter() {
-        let token_liability: Decimal = match account.liability_decimal() {
-            Ok(token_liability) => token_liability,
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-        };
-
-        let token_available: Decimal = match account.available_decimal() {
-            Ok(token_available) => token_available,
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-        };
-
         let currency_info: Currencies = match fetch_currency_info_by_symbol(pool, exchange, &account.currency).await {
             Ok(Some(info)) => info,
             Ok(None) => {
@@ -376,6 +330,53 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             Err(e) => return Err(handle_db_error(pool, exchange, e).await),
         };
 
+        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &account.currency).await {
+            Ok(Some(info)) => info,
+            Ok(None) => {
+                let msg: String = format!("Symbol info not found for {}", &account.currency);
+                log::error!("{}", msg);
+
+                return Err(handle_db_error(pool, exchange, msg).await);
+            }
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
+            Ok(quote_increment) => quote_increment,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        // parse min_funds to int
+        let min_funds: Decimal = match symbol_info.min_funds_decimal() {
+            Ok(min_funds) => min_funds,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
+            Ok(base_min_size) => base_min_size,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        let base_increment: Decimal = match symbol_info.base_increment_decimal() {
+            Ok(base_increment) => base_increment,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        let quote_min_size: Decimal = match symbol_info.quote_min_size_decimal() {
+            Ok(quote_min_size) => quote_min_size,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        let token_liability: Decimal = match account.liability_decimal() {
+            Ok(token_liability) => token_liability,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        let token_available: Decimal = match account.available_decimal() {
+            Ok(token_available) => token_available,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
         if token_liability > Decimal::ZERO {
             passed = false;
             if token_available >= token_liability {
@@ -385,11 +386,11 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
                 partitional_repay_account(pool, exchange, &account.currency, token_available, precision_decimal).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
-                full_buy_for_repay_account(pool, exchange, account, token_liability).await?
+                buy_for_repay_account(pool, exchange, &account.currency, token_liability, base_min_size, min_funds, quote_increment).await?
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
-            sell_or_transfer_token_account(pool, exchange, account, token_available).await?
+            sell_or_transfer_token_account(pool, exchange, account, token_available, base_increment, base_min_size, quote_min_size).await?
         }
     }
     Ok(passed)
