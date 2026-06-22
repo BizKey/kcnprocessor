@@ -6,6 +6,7 @@ mod api {
 }
 mod logic;
 use crate::api::db::{handle_db_error, wipe_bots_info};
+use crate::api::models::ApiV3HfMarginStopOrdersResData;
 use crate::api::requests::{api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_delete, api_v3_hf_margin_stop_orders_get, build_query_string};
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
@@ -35,7 +36,7 @@ async fn main() -> Result<(), String> {
 
     let init_balance_per_bot: String = get_env("INIT_BALANCE_PER_BOT")?;
 
-    let pool = match PgPoolOptions::new()
+    let pool: sqlx::Pool<sqlx::Postgres> = match PgPoolOptions::new()
         .max_connections(40)
         .min_connections(5)
         .acquire_timeout(Duration::from_secs(10))
@@ -58,12 +59,12 @@ async fn main() -> Result<(), String> {
         Err(e) => return Err(handle_db_error(&pool, EXCHANGE, e).await),
     }
 
-    let open_stop_orders = match api_v3_hf_margin_stop_orders_get(String::new()).await {
+    let open_stop_orders: Option<ApiV3HfMarginStopOrdersResData> = match api_v3_hf_margin_stop_orders_get(String::new()).await {
         Ok(orders) => orders,
         Err(e) => return Err(handle_db_error(&pool, EXCHANGE, e).await),
     };
 
-    let open_stop_orders_data = match open_stop_orders {
+    let open_stop_orders_data: ApiV3HfMarginStopOrdersResData = match open_stop_orders {
         Some(open_stop_orders) => open_stop_orders,
         None => {
             let msg: String = format!("Fail get list open stop orders:None");
