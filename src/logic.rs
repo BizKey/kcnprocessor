@@ -203,7 +203,6 @@ pub async fn buy_for_repay_account(
     min_funds: Decimal,
     quote_increment: Decimal,
     trade_symbol: &str,
-    client_oid: &str,
     token_price_data: ApiV1MarketOrderbookLevel1ResData,
 ) -> Result<(), String> {
     let best_ask_token_price: Decimal = match token_price_data.best_ask_decimal() {
@@ -229,6 +228,8 @@ pub async fn buy_for_repay_account(
             return Err(handle_db_error(pool, exchange, msg).await);
         }
     };
+
+    let client_oid: String = Uuid::new_v4().to_string();
 
     match make_hf_funds_margin_order(pool, exchange, &client_oid, "buy", &trade_symbol, funds, "market", false, false).await {
         Ok(_) => Ok(()),
@@ -373,9 +374,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
 
-                let client_oid: String = Uuid::new_v4().to_string();
-
-                buy_for_repay_account(pool, exchange, token_liability, base_min_size, min_funds, quote_increment, &trade_symbol, &client_oid, token_price_data).await?
+                buy_for_repay_account(pool, exchange, token_liability, base_min_size, min_funds, quote_increment, &trade_symbol, token_price_data).await?
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
