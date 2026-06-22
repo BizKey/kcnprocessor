@@ -191,7 +191,7 @@ pub async fn buy_for_repay_account(
     query_params.insert("symbol", trade_symbol);
 
     let token_price_option: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
-        Ok(token_price_obj) => token_price_obj,
+        Ok(token_price_option) => token_price_option,
         Err(e) => return Err(e),
     };
 
@@ -205,7 +205,7 @@ pub async fn buy_for_repay_account(
     };
 
     let best_ask_token_price: Decimal = match token_price_data.best_ask_decimal() {
-        Ok(token_price) => token_price,
+        Ok(best_ask_token_price) => best_ask_token_price,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
@@ -242,38 +242,35 @@ pub async fn sell_or_transfer_token_account(
     base_increment: Decimal,
     base_min_size: Decimal,
     quote_min_size: Decimal,
+    client_oid: &str,
+    trade_symbol: &str,
 ) -> Result<(), String> {
-    // don't have liability
-    // sell stocks by market available/ works
-    let client_oid: String = Uuid::new_v4().to_string();
-    let trade_symbol: String = format!("{}-USDT", account.currency);
-
     // get price token
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", &trade_symbol);
 
-    let token_price_obj: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
-        Ok(token_price_obj) => token_price_obj,
+    let token_price_option: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
+        Ok(token_price_option) => token_price_option,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    let token_price_obj2: ApiV1MarketOrderbookLevel1ResData = match token_price_obj {
-        Some(token_price_obj2) => token_price_obj2,
+    let token_price_data: ApiV1MarketOrderbookLevel1ResData = match token_price_option {
+        Some(token_price_data) => token_price_data,
         None => {
-            let msg: String = format!("Fail get token_price:{:?}", token_price_obj);
+            let msg: String = format!("Fail get token_price:{:?}", token_price_option);
             log::error!("{}", msg);
             return Err(handle_db_error(pool, exchange, msg).await);
         }
     };
 
-    let token_price: Decimal = match token_price_obj2.price_decimal() {
-        Ok(token_price) => token_price,
+    let best_bid_token_price: Decimal = match token_price_data.best_bid_decimal() {
+        Ok(best_bid_token_price) => best_bid_token_price,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
+    log::info!("Successfully get token:{} price:{}", &trade_symbol, best_bid_token_price);
 
-    if token_available <= base_min_size || (token_price * token_available) <= quote_min_size {
+    if token_available <= base_min_size || (best_bid_token_price * token_available) <= quote_min_size {
         let body_str: String = match serialize_body(Some(json!({
             "currency": &account.currency,
             "clientOid": Uuid::new_v4().to_string(),
@@ -391,7 +388,9 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
-            sell_or_transfer_token_account(pool, exchange, account, token_available, base_increment, base_min_size, quote_min_size).await?
+            let client_oid: String = Uuid::new_v4().to_string();
+            let trade_symbol: String = format!("{}-USDT", account.currency);
+            sell_or_transfer_token_account(pool, exchange, account, token_available, base_increment, base_min_size, quote_min_size, &client_oid, &trade_symbol).await?
         }
     }
     Ok(passed)
