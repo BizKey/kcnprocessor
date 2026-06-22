@@ -217,7 +217,7 @@ pub async fn buy_for_repay_account(
     // calc price token on amount base_min_size token
     let min_funds_by_size: Decimal = best_ask_token_price * base_min_size;
 
-    let final_funds = token_funds.max(min_funds_by_size);
+    let final_funds: Decimal = token_funds.max(min_funds_by_size).max(min_funds);
 
     let funds: String = match format_assert_decimal(final_funds, quote_increment) {
         Ok(funds) => funds,
