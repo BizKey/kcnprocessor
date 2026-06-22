@@ -17,7 +17,7 @@ use micromap::Map;
 
 use sqlx::postgres::PgPoolOptions;
 use tokio::sync::mpsc;
-use tokio::time::{Duration, interval, sleep};
+use tokio::time::{Duration, Interval, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
@@ -182,7 +182,7 @@ async fn main() -> Result<(), String> {
 
         log::info!("Subscribed and listening for messages...");
 
-        let event_ping_interval = interval(PING_INTERVAL);
+        let event_ping_interval: Interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
 
         if !init_order_execute {
