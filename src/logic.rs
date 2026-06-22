@@ -125,16 +125,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
     }
 }
 
-pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, token_liability: Decimal, precision_decimal: Decimal) -> Result<(), String> {
-    let size: String = match format_assert_decimal(token_liability, precision_decimal) {
-        Ok(size) => size,
-        Err(e) => {
-            let msg: String = format!("Fail parse:{} {} error:{}", token_liability, precision_decimal, e);
-            log::error!("{}", msg);
-            return Err(handle_db_error(pool, exchange, msg).await);
-        }
-    };
-
+pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, token_liability: Decimal, size: &str) -> Result<(), String> {
     let body_str: String = match serialize_body(Some(json!({
         "currency": currency,
         "size": size,
@@ -150,16 +141,7 @@ pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     }
 }
-pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, token_available: Decimal, precision_decimal: Decimal) -> Result<(), String> {
-    let size: String = match format_assert_decimal(token_available, precision_decimal) {
-        Ok(size) => size,
-        Err(e) => {
-            let msg: String = format!("Fail parse:{} {} error:{}", token_available, precision_decimal, e);
-            log::error!("{}", msg);
-            return Err(handle_db_error(pool, exchange, msg).await);
-        }
-    };
-
+pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, token_available: Decimal, size: &str) -> Result<(), String> {
     let body_str: String = match serialize_body(Some(json!({
         "currency": currency,
         "size": size,
@@ -271,10 +253,26 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             passed = false;
             if token_available >= token_liability {
                 log::info!("Can repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
-                full_repay_account(pool, exchange, &account.currency, token_liability, precision_decimal).await?
+                let size: String = match format_assert_decimal(token_liability, precision_decimal) {
+                    Ok(size) => size,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", token_liability, precision_decimal, e);
+                        log::error!("{}", msg);
+                        return Err(handle_db_error(pool, exchange, msg).await);
+                    }
+                };
+                full_repay_account(pool, exchange, &account.currency, token_liability, &size).await?
             } else if token_available > Decimal::ZERO {
                 log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
-                partitional_repay_account(pool, exchange, &account.currency, token_available, precision_decimal).await?
+                let size: String = match format_assert_decimal(token_available, precision_decimal) {
+                    Ok(size) => size,
+                    Err(e) => {
+                        let msg: String = format!("Fail parse:{} {} error:{}", token_available, precision_decimal, e);
+                        log::error!("{}", msg);
+                        return Err(handle_db_error(pool, exchange, msg).await);
+                    }
+                };
+                partitional_repay_account(pool, exchange, &account.currency, token_available, &size).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                 let trade_symbol: String = format!("{}-USDT", &account.currency);
 
@@ -330,7 +328,9 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
             log::info!("Successfully get token:{} price:{}", &trade_symbol, best_bid_token_price);
 
-            if token_available <= base_min_size || (best_bid_token_price * token_available) <= quote_min_size {
+            let token_funds: Decimal = best_bid_token_price * token_available;
+
+            if token_available <= base_min_size || token_funds <= quote_min_size {
                 let body_str: String = match serialize_body(Some(json!({
                     "currency": &account.currency,
                     "clientOid": client_oid,
