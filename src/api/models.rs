@@ -392,8 +392,27 @@ impl Symbol {
 
 #[derive(Debug, Deserialize, sqlx::FromRow)]
 pub struct Currencies {
-    pub precision: i16,
+    precision: i16,
 }
+
+impl Currencies {
+    pub fn precision_decimal(&self) -> Result<Decimal, String> {
+        if self.precision < 0 {
+            return Err(format!("Precision cannot be negative: {}", self.precision));
+        }
+
+        let precision_str: String = format!("1e-{}", self.precision);
+        match Decimal::from_str(&precision_str) {
+            Ok(precision) => return Ok(precision),
+            Err(e) => {
+                let msg: String = format!("Fail parse decimal: {} {}", self.precision, e);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct MakeOrderResData {
     #[serde(rename = "orderId")]

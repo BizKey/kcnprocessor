@@ -1,13 +1,14 @@
 use crate::api::db::{
-    delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid, fetch_symbol_info_by_symbol, get_all_bots_for_trade,
-    get_bot_by_entry_client_oid, get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol, get_total_match_value_by_client_oid, handle_db_error, insert_db_balance,
-    insert_db_event, insert_db_msgsend, insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid,
-    update_bot_balance_by_entry_client_oid, update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid, update_exit_sl_client_oid_bot_by_exit_sl_order_id,
-    update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid, update_exit_tp_client_oid_bot_by_exit_tp_order_id,
-    update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
+    delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid, delete_symbol_bot_by_exit_sl_client_oid, fetch_currency_info_by_symbol, fetch_symbol_info_by_symbol,
+    get_all_bots_for_trade, get_bot_by_entry_client_oid, get_bot_by_exit_sl_client_oid, get_bot_by_exit_tp_client_oid, get_random_symbol, get_total_match_value_by_client_oid, handle_db_error,
+    insert_db_balance, insert_db_event, insert_db_msgsend, insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
+    update_balance_bot_by_exit_tp_client_oid, update_bot_balance_by_entry_client_oid, update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
+    update_exit_sl_client_oid_bot_by_exit_sl_order_id, update_exit_sl_order_id_bot_by_exit_sl_client_oid, update_exit_tp_client_oid_bot_by_entry_client_oid,
+    update_exit_tp_client_oid_bot_by_exit_tp_order_id, update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
-    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, BalanceData, Bot, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount, MessageData, OrderData, PositionData, Symbol,
+    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, BalanceData, Bot, Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount, MessageData, OrderData,
+    PositionData, Symbol,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
@@ -126,6 +127,17 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
 
 pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, account: &MarginAccountDataAccount) -> Result<(), String> {
     log::info!("Can repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
+
+    let currency_info: Currencies = match fetch_currency_info_by_symbol(pool, exchange, &account.currency).await {
+        Ok(Some(info)) => info,
+        Ok(None) => {
+            let msg: String = format!("Currency info not found for {}", account.currency);
+            log::error!("{}", msg);
+
+            return Err(handle_db_error(pool, exchange, msg).await);
+        }
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
 
     let body_str: String = match serialize_body(Some(json!({
         "currency": &account.currency,
