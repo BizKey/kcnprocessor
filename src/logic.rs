@@ -139,6 +139,11 @@ pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
+    let precision_decimal: Decimal = match currency_info.precision_decimal() {
+        Ok(precision_decimal) => precision_decimal,
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
     let body_str: String = match serialize_body(Some(json!({
         "currency": &account.currency,
         "size": &account.liability,
