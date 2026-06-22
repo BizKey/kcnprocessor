@@ -354,11 +354,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             if token_available <= base_min_size || token_funds <= quote_min_size {
                 let amount: String = match format_assert_decimal(token_available, precision_decimal) {
                     Ok(size) => size,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", token_available, precision_decimal, e);
-                        log::error!("{}", msg);
-                        return Err(handle_db_error(pool, exchange, msg).await);
-                    }
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
                 match transfer_amount(pool, exchange, &account.currency, &amount).await {
                     Ok(_) => continue,
