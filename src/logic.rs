@@ -165,10 +165,34 @@ pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     }
 }
-pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, account: &MarginAccountDataAccount) -> Result<(), String> {
+pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, token_available: Decimal) -> Result<(), String> {
+    let currency_info: Currencies = match fetch_currency_info_by_symbol(pool, exchange, currency).await {
+        Ok(Some(info)) => info,
+        Ok(None) => {
+            let msg: String = format!("Currency info not found for {}", currency);
+            log::error!("{}", msg);
+            return Err(handle_db_error(pool, exchange, msg).await);
+        }
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
+    let precision_decimal: Decimal = match currency_info.precision_decimal() {
+        Ok(precision_decimal) => precision_decimal,
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
+    let size: String = match format_assert_decimal(token_available, precision_decimal) {
+        Ok(size) => size,
+        Err(e) => {
+            let msg: String = format!("Fail parse:{} {} error:{}", token_available, precision_decimal, e);
+            log::error!("{}", msg);
+            return Err(handle_db_error(pool, exchange, msg).await);
+        }
+    };
+
     let body_str: String = match serialize_body(Some(json!({
-        "currency": &account.currency,
-        "size": &account.available,
+        "currency": currency,
+        "size": size,
         "isIsolated": false,
         "isHf": true
     }))) {
@@ -374,7 +398,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 full_repay_account(pool, exchange, &account.currency, token_liability).await?
             } else if token_available > Decimal::ZERO {
                 log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
-                partitional_repay_account(pool, exchange, account).await?
+                partitional_repay_account(pool, exchange, &account.currency, token_available).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                 full_buy_for_repay_account(pool, exchange, account, token_liability).await?
             }
