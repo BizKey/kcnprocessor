@@ -98,7 +98,7 @@ impl PositionData {
     pub fn debt_pairs(&self) -> Result<Vec<(String, Decimal)>, String> {
         let mut result = Vec::new();
         for (asset, debt_str) in &self.debt_list {
-            let decimal = match Decimal::from_str(debt_str) {
+            let decimal: Decimal = match Decimal::from_str(debt_str) {
                 Ok(decimal) => decimal,
                 Err(e) => {
                     let msg: String = format!("Fail parse decimal:{} {}", debt_str, e);
