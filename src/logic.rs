@@ -179,18 +179,16 @@ pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchan
 pub async fn buy_for_repay_account(
     pool: &sqlx::Pool<sqlx::Postgres>,
     exchange: &str,
-    currency: &str,
     token_liability: Decimal,
     base_min_size: Decimal,
     min_funds: Decimal,
     quote_increment: Decimal,
+    trade_symbol: &str,
+    client_oid: &str,
 ) -> Result<(), String> {
     // buy stock by market liability
-    let trade_symbol: String = format!("{}-USDT", currency);
-    let client_oid: String = Uuid::new_v4().to_string();
-
     let mut query_params: Map<&str, &str, 8> = Map::new();
-    query_params.insert("symbol", &trade_symbol);
+    query_params.insert("symbol", trade_symbol);
 
     let token_price_obj: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
         Ok(token_price_obj) => token_price_obj,
@@ -211,7 +209,7 @@ pub async fn buy_for_repay_account(
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    log::info!("Successfully get token:{} price:{}", &trade_symbol, token_price);
+    log::info!("Successfully get token:{} price:{}", trade_symbol, token_price);
 
     // calc price token on amount liability token
     let token_funds: Decimal = token_price * token_liability;
@@ -386,7 +384,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
                 partitional_repay_account(pool, exchange, &account.currency, token_available, precision_decimal).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
-                buy_for_repay_account(pool, exchange, &account.currency, token_liability, base_min_size, min_funds, quote_increment).await?
+                let trade_symbol: String = format!("{}-USDT", &account.currency);
+                let client_oid: String = Uuid::new_v4().to_string();
+
+                buy_for_repay_account(pool, exchange, token_liability, base_min_size, min_funds, quote_increment, &trade_symbol, &client_oid).await?
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
