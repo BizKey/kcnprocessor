@@ -259,22 +259,14 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                 log::info!("Can repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
                 let size: String = match format_assert_decimal(token_liability, precision_decimal) {
                     Ok(size) => size,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", token_liability, precision_decimal, e);
-                        log::error!("{}", msg);
-                        return Err(handle_db_error(pool, exchange, msg).await);
-                    }
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
                 repay_account(pool, exchange, &account.currency, &size).await?
             } else if token_available > Decimal::ZERO {
                 log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
                 let size: String = match format_assert_decimal(token_available, precision_decimal) {
                     Ok(size) => size,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", token_available, precision_decimal, e);
-                        log::error!("{}", msg);
-                        return Err(handle_db_error(pool, exchange, msg).await);
-                    }
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
                 repay_account(pool, exchange, &account.currency, &size).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
@@ -300,11 +292,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
                 let funds: String = match format_assert_decimal(final_funds, quote_increment) {
                     Ok(funds) => funds,
-                    Err(e) => {
-                        let msg: String = format!("Fail parse:{} {} error:{}", final_funds, quote_increment, e);
-                        log::error!("{}", msg);
-                        return Err(handle_db_error(pool, exchange, msg).await);
-                    }
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
 
                 let client_oid: String = Uuid::new_v4().to_string();
