@@ -190,32 +190,32 @@ pub async fn buy_for_repay_account(
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", trade_symbol);
 
-    let token_price_obj: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
+    let token_price_option: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
         Ok(token_price_obj) => token_price_obj,
         Err(e) => return Err(e),
     };
 
-    let token_price_obj2: ApiV1MarketOrderbookLevel1ResData = match token_price_obj {
-        Some(token_price_obj2) => token_price_obj2,
+    let token_price_data: ApiV1MarketOrderbookLevel1ResData = match token_price_option {
+        Some(token_price_data) => token_price_data,
         None => {
-            let msg: String = format!("Fail get token_price:{:?}", token_price_obj);
+            let msg: String = format!("Fail get token_price:{:?}", token_price_option);
             log::error!("{}", msg);
             return Err(handle_db_error(pool, exchange, msg).await);
         }
     };
 
-    let token_price: Decimal = match token_price_obj2.price_decimal() {
+    let best_ask_token_price: Decimal = match token_price_data.best_ask_decimal() {
         Ok(token_price) => token_price,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    log::info!("Successfully get token:{} price:{}", trade_symbol, token_price);
+    log::info!("Successfully get token:{} ask price:{}", trade_symbol, best_ask_token_price);
 
     // calc price token on amount liability token
-    let token_funds: Decimal = token_price * token_liability;
+    let token_funds: Decimal = best_ask_token_price * token_liability;
 
     // calc price token on amount base_min_size token
-    let min_funds_by_size: Decimal = token_price * base_min_size;
+    let min_funds_by_size: Decimal = best_ask_token_price * base_min_size;
 
     let fundss: Decimal = if token_funds <= min_funds.max(min_funds_by_size) { min_funds.max(min_funds_by_size) } else { token_funds };
 
