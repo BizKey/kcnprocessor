@@ -125,23 +125,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
     }
 }
 
-pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, token_liability: Decimal, size: &str) -> Result<(), String> {
-    let body_str: String = match serialize_body(Some(json!({
-        "currency": currency,
-        "size": size,
-        "isIsolated": false,
-        "isHf": true
-    }))) {
-        Ok(body_str) => body_str,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    match api_v3_margin_repay_post(body_str).await {
-        Ok(_) => Ok(()),
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    }
-}
-pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, token_available: Decimal, size: &str) -> Result<(), String> {
+pub async fn repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, size: &str) -> Result<(), String> {
     let body_str: String = match serialize_body(Some(json!({
         "currency": currency,
         "size": size,
@@ -239,7 +223,6 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             Err(e) => return Err(handle_db_error(pool, exchange, e).await),
         };
 
-        // parse min_funds to int
         let min_funds: Decimal = match symbol_info.min_funds_decimal() {
             Ok(min_funds) => min_funds,
             Err(e) => return Err(handle_db_error(pool, exchange, e).await),
@@ -282,7 +265,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         return Err(handle_db_error(pool, exchange, msg).await);
                     }
                 };
-                full_repay_account(pool, exchange, &account.currency, token_liability, &size).await?
+                repay_account(pool, exchange, &account.currency, &size).await?
             } else if token_available > Decimal::ZERO {
                 log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
                 let size: String = match format_assert_decimal(token_available, precision_decimal) {
@@ -293,7 +276,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                         return Err(handle_db_error(pool, exchange, msg).await);
                     }
                 };
-                partitional_repay_account(pool, exchange, &account.currency, token_available, &size).await?
+                repay_account(pool, exchange, &account.currency, &size).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                 let trade_symbol: String = format!("{}-USDT", &account.currency);
 
