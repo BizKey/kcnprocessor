@@ -106,7 +106,6 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             Ok(_) => {}
             Err(e) => {
                 handle_db_error(pool, exchange, e).await;
-                continue;
             }
         }
     }
