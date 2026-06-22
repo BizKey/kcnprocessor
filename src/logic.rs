@@ -125,15 +125,12 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
     }
 }
 
-pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, account: &MarginAccountDataAccount) -> Result<(), String> {
-    log::info!("Can repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
-
-    let currency_info: Currencies = match fetch_currency_info_by_symbol(pool, exchange, &account.currency).await {
+pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, token_liability: Decimal) -> Result<(), String> {
+    let currency_info: Currencies = match fetch_currency_info_by_symbol(pool, exchange, currency).await {
         Ok(Some(info)) => info,
         Ok(None) => {
-            let msg: String = format!("Currency info not found for {}", account.currency);
+            let msg: String = format!("Currency info not found for {}", currency);
             log::error!("{}", msg);
-
             return Err(handle_db_error(pool, exchange, msg).await);
         }
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
@@ -144,9 +141,18 @@ pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
+    let size: String = match format_assert_decimal(token_liability, precision_decimal) {
+        Ok(size) => size,
+        Err(e) => {
+            let msg: String = format!("Fail parse:{} {} error:{}", token_liability, precision_decimal, e);
+            log::error!("{}", msg);
+            return Err(handle_db_error(pool, exchange, msg).await);
+        }
+    };
+
     let body_str: String = match serialize_body(Some(json!({
-        "currency": &account.currency,
-        "size": &account.liability,
+        "currency": currency,
+        "size": size,
         "isIsolated": false,
         "isHf": true
     }))) {
@@ -160,8 +166,6 @@ pub async fn full_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
     }
 }
 pub async fn partitional_repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, account: &MarginAccountDataAccount) -> Result<(), String> {
-    log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
-
     let body_str: String = match serialize_body(Some(json!({
         "currency": &account.currency,
         "size": &account.available,
@@ -366,8 +370,10 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         if token_liability > Decimal::ZERO {
             passed = false;
             if token_available >= token_liability {
-                full_repay_account(pool, exchange, account).await?
+                log::info!("Can repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
+                full_repay_account(pool, exchange, &account.currency, token_liability).await?
             } else if token_available > Decimal::ZERO {
+                log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
                 partitional_repay_account(pool, exchange, account).await?
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                 full_buy_for_repay_account(pool, exchange, account, token_liability).await?
