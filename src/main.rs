@@ -104,7 +104,6 @@ async fn main() -> Result<(), String> {
             Ok(event_ws_url) => event_ws_url,
             Err(e) => {
                 handle_db_error(&pool, EXCHANGE, e).await;
-
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -115,9 +114,7 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("WebSocket connection failed:{}", e);
                 log::error!("{}", msg);
-
                 handle_db_error(&pool, EXCHANGE, msg).await;
-
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -133,7 +130,6 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
                 log::error!("{}", msg);
                 handle_db_error(&pool, EXCHANGE, msg).await;
-
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -148,7 +144,6 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
                 log::error!("{}", msg);
                 handle_db_error(&pool, EXCHANGE, msg).await;
-
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -161,7 +156,6 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/account/balance:{}", e);
                 log::error!("{}", msg);
                 handle_db_error(&pool, EXCHANGE, msg).await;
-
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -174,7 +168,6 @@ async fn main() -> Result<(), String> {
                 let msg: String = format!("Failed to subscribe subject:/margin/position:{}", e);
                 log::error!("{}", msg);
                 handle_db_error(&pool, EXCHANGE, msg).await;
-
                 sleep(RECONNECT_DELAY).await;
                 continue;
             }
@@ -205,7 +198,10 @@ async fn main() -> Result<(), String> {
             tokio::select! {
                 // Events
                 _ = event_ping_interval.tick() => {
-                    let _ = event_ws_write.send(Message::Ping(Bytes::new())).await;
+                   match event_ws_write.send(Message::Ping(Bytes::new())).await {
+                        Ok(_) => {},
+                        Err(e) =>{}
+                    };
                 }
 
                 event = event_ws_read.next() => {
@@ -221,7 +217,10 @@ async fn main() -> Result<(), String> {
                             }
                         }
                         Some(Ok(Message::Ping(data))) => {
-                            let _ = event_ws_write.send(Message::Pong(data)).await;
+                           match event_ws_write.send(Message::Pong(data)).await {
+                                Ok(_) => {},
+                                Err(e) => {}
+                           };
                         }
                         Some(Ok(Message::Close(_close))) => {
                             let msg: String = format!("Connection closed by server:");
