@@ -21,7 +21,6 @@ use tokio::time::{Duration, Interval, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
-const CLEAR_DELAY: Duration = Duration::from_secs(10);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
 const EXCHANGE: &str = "kucoin";

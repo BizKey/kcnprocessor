@@ -1052,20 +1052,8 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
             // have liability and available
-            let body: serde_json::Value = json!({
-                "currency": asset,
-                "size": token_liability,
-                "isIsolated": false,
-                "isHf": true
-            });
-
-            let body_str: String = match serialize_body(Some(body)) {
-                Ok(body_str) => body_str,
-                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-            };
-
-            match api_v3_margin_repay_post(body_str).await {
-                Ok(_) => log::info!("Repay {} {} liability with available {}", token_liability, asset, &asset_info.available),
+            match repay_account(pool, exchange, &asset, token_liability).await {
+                Ok(_) => continue,
                 Err(e) => {
                     handle_db_error(pool, exchange, e).await;
                     continue;
