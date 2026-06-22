@@ -7,8 +7,8 @@ use crate::api::db::{
     update_exit_tp_client_oid_bot_by_exit_tp_order_id, update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
-    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, BalanceData, Bot, Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount, MessageData, OrderData,
-    PositionData, Symbol,
+    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot, Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MarginAccountDataAccount,
+    MessageData, OrderData, PositionData, Symbol,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
@@ -125,7 +125,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
     }
 }
 
-pub async fn repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, size: &str) -> Result<(), String> {
+pub async fn repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>, String> {
     let body_str: String = match serialize_body(Some(json!({
         "currency": currency,
         "size": size,
@@ -137,7 +137,7 @@ pub async fn repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, cu
     };
 
     match api_v3_margin_repay_post(body_str).await {
-        Ok(_) => Ok(()),
+        Ok(res) => Ok(res),
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     }
 }
@@ -261,14 +261,20 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     Ok(size) => size,
                     Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
-                repay_account(pool, exchange, &account.currency, &size).await?
+                match repay_account(pool, exchange, &account.currency, &size).await {
+                    Ok(_) => continue,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
             } else if token_available > Decimal::ZERO {
                 log::info!("Can partially repay {} liability:{} with available:{}", account.currency, account.liability, account.available);
                 let size: String = match format_assert_decimal(token_available, precision_decimal) {
                     Ok(size) => size,
                     Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
-                repay_account(pool, exchange, &account.currency, &size).await?
+                match repay_account(pool, exchange, &account.currency, &size).await {
+                    Ok(_) => continue,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                 let trade_symbol: String = format!("{}-USDT", &account.currency);
 
