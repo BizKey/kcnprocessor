@@ -187,7 +187,7 @@ async fn main() -> Result<(), String> {
 
         if !init_order_execute {
             init_order_execute = true;
-            let pool_clone = pool.clone();
+            let pool_clone: sqlx::Pool<sqlx::Postgres> = pool.clone();
 
             tokio::spawn(async move {
                 sleep(INIT_ORDER_DELAY).await;
