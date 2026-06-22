@@ -246,24 +246,9 @@ pub async fn sell_or_transfer_token_account(
     quote_min_size: Decimal,
     client_oid: &str,
     trade_symbol: &str,
+    token_price_data: ApiV1MarketOrderbookLevel1ResData,
 ) -> Result<(), String> {
     // get price token
-    let mut query_params: Map<&str, &str, 8> = Map::new();
-    query_params.insert("symbol", &trade_symbol);
-
-    let token_price_option: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
-        Ok(token_price_option) => token_price_option,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    let token_price_data: ApiV1MarketOrderbookLevel1ResData = match token_price_option {
-        Some(token_price_data) => token_price_data,
-        None => {
-            let msg: String = format!("Fail get token_price:{:?}", token_price_option);
-            log::error!("{}", msg);
-            return Err(handle_db_error(pool, exchange, msg).await);
-        }
-    };
 
     let best_bid_token_price: Decimal = match token_price_data.best_bid_decimal() {
         Ok(best_bid_token_price) => best_bid_token_price,
@@ -397,9 +382,15 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
             let trade_symbol: String = format!("{}-USDT", account.currency);
+
+            let token_price_data: ApiV1MarketOrderbookLevel1ResData = match get_token_price(pool, exchange, &trade_symbol).await {
+                Ok(token_price_data) => token_price_data,
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            };
+
             let client_oid: String = Uuid::new_v4().to_string();
 
-            sell_or_transfer_token_account(pool, exchange, account, token_available, base_increment, base_min_size, quote_min_size, &client_oid, &trade_symbol).await?
+            sell_or_transfer_token_account(pool, exchange, account, token_available, base_increment, base_min_size, quote_min_size, &client_oid, &trade_symbol, token_price_data).await?
         }
     }
     Ok(passed)
