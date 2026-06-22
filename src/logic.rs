@@ -310,7 +310,6 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
 
-            let client_oid: String = Uuid::new_v4().to_string();
             let trade_symbol: String = format!("{}-USDT", account.currency);
 
             let token_price_data: ApiV1MarketOrderbookLevel1ResData = match get_token_price(pool, exchange, &trade_symbol).await {
@@ -341,6 +340,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
                     Ok(size) => size,
                     Err(e) => return Err(handle_db_error(pool, exchange, e).await),
                 };
+                let client_oid: String = Uuid::new_v4().to_string();
 
                 match make_hf_size_margin_order(pool, exchange, &client_oid, "sell", &trade_symbol, size, "market", false, false).await {
                     Ok(_) => continue,
