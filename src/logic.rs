@@ -212,10 +212,8 @@ pub async fn buy_for_repay_account(
 
     log::info!("Successfully get token:{} ask price:{}", trade_symbol, best_ask_token_price);
 
-    // calc price token on amount liability token
     let token_funds: Decimal = best_ask_token_price * token_liability;
 
-    // calc price token on amount base_min_size token
     let min_funds_by_size: Decimal = best_ask_token_price * base_min_size;
 
     let final_funds: Decimal = token_funds.max(min_funds_by_size).max(min_funds);
