@@ -217,12 +217,12 @@ pub async fn buy_for_repay_account(
     // calc price token on amount base_min_size token
     let min_funds_by_size: Decimal = best_ask_token_price * base_min_size;
 
-    let fundss: Decimal = if token_funds <= min_funds.max(min_funds_by_size) { min_funds.max(min_funds_by_size) } else { token_funds };
+    let final_funds = token_funds.max(min_funds_by_size);
 
-    let funds: String = match format_assert_decimal(fundss, quote_increment) {
+    let funds: String = match format_assert_decimal(final_funds, quote_increment) {
         Ok(funds) => funds,
         Err(e) => {
-            let msg: String = format!("Fail parse:{} {} error:{}", fundss, quote_increment, e);
+            let msg: String = format!("Fail parse:{} {} error:{}", final_funds, quote_increment, e);
             log::error!("{}", msg);
             return Err(handle_db_error(pool, exchange, msg).await);
         }
@@ -388,8 +388,9 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
-            let client_oid: String = Uuid::new_v4().to_string();
             let trade_symbol: String = format!("{}-USDT", account.currency);
+            let client_oid: String = Uuid::new_v4().to_string();
+
             sell_or_transfer_token_account(pool, exchange, account, token_available, base_increment, base_min_size, quote_min_size, &client_oid, &trade_symbol).await?
         }
     }
