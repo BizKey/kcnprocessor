@@ -1025,7 +1025,6 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
-    // repay borrow
     let debt_pair: Vec<(String, Decimal)> = match position.debt_pairs() {
         Err(e) => return Err(e),
         Ok(debt_pair) => debt_pair,
@@ -1065,10 +1064,14 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                 Ok(precision_decimal) => precision_decimal,
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             };
-            let size: String = match format_assert_decimal(token_liability, precision_decimal) {
+
+            let min_available_liability: Decimal = token_liability.min(token_available);
+
+            let size: String = match format_assert_decimal(min_available_liability, precision_decimal) {
                 Ok(size) => size,
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             };
+
             match repay_account(pool, exchange, &asset, &size).await {
                 Ok(_) => continue,
                 Err(e) => {
