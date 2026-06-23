@@ -1065,9 +1065,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             };
 
-            let min_available_liability: Decimal = token_liability.min(token_available);
-
-            let size: String = match format_assert_decimal(min_available_liability, precision_decimal) {
+            let size: String = match format_assert_decimal(token_liability.min(token_available), precision_decimal) {
                 Ok(size) => size,
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             };
