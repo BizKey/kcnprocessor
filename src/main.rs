@@ -93,7 +93,7 @@ async fn main() -> Result<(), String> {
     }
     let (tx_in, rx_in) = mpsc::channel::<String>(10000);
 
-    let pool_process = pool.clone();
+    let pool_process: sqlx::Pool<sqlx::Postgres> = pool.clone();
 
     let _spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, EXCHANGE, rx_in).await });
 

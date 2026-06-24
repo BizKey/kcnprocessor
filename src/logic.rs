@@ -1120,7 +1120,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
     handle_db_error(pool, exchange, msg).await;
 
     const MAX_RETRIES: u32 = 1000;
-    let mut attempt = 0;
+    let mut attempt: u32 = 0;
 
     loop {
         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
