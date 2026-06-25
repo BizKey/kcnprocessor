@@ -209,48 +209,48 @@ async fn main() -> Result<(), String> {
                 }
 
                 event = event_ws_read.next() => {
-                    match event {
-                        Some(Ok(Message::Text(text))) => {
-                            match tx_in.send(text.to_string()).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    let msg: String = format!("Failed to send to handler, reconnecting...{}", e);
-                                    log::error!("{}", msg);
-                                    handle_db_error(&pool, EXCHANGE, msg).await;
-                                    break;
-                                }
-                            }
-                        }
-                        Some(Ok(Message::Ping(data))) => {
-                           match event_ws_write.send(Message::Pong(data)).await {
-                                Ok(_) => {},
-                                Err(e) => {
-                                    let msg: String = format!("Fail send Pong to WebSocket:{}", e);
-                                    log::error!("{}", msg);
-                                    handle_db_error(&pool, EXCHANGE, msg).await;
-                                    break
-                                }
-                           };
-                        }
-                        Some(Ok(Message::Close(_close))) => {
-                            let msg: String = format!("Connection closed by server:");
-                            log::error!("{}", msg);
-                            handle_db_error(&pool, EXCHANGE, msg).await;
-                            break
-                        }
+                    let msg_event =  match event {
+                        Some(Ok(msg_event)) =>  msg_event,
                         Some(Err(e)) =>  {
                             let msg: String = format!("WebSocket read error:{}", e);
                             log::error!("{}", msg);
                             handle_db_error(&pool, EXCHANGE, msg).await;
                             break
                         }
-                        Some(Ok(_)) => {}
                         None => {
                             let msg: String = format!("WebSocket stream ended");
                             log::error!("{}", msg);
                             handle_db_error(&pool, EXCHANGE, msg).await;
                             break
                         }
+                    };
+
+                    match msg_event {
+                        Message::Text(text) => match tx_in.send(text.to_string()).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let msg: String = format!("Failed to send to handler, reconnecting...{}", e);
+                                log::error!("{}", msg);
+                                handle_db_error(&pool, EXCHANGE, msg).await;
+                                break;
+                            }
+                        }
+                        Message::Ping(data) => match event_ws_write.send(Message::Pong(data)).await {
+                            Ok(_) => {},
+                            Err(e) => {
+                                let msg: String = format!("Fail send Pong to WebSocket:{}", e);
+                                log::error!("{}", msg);
+                                handle_db_error(&pool, EXCHANGE, msg).await;
+                                break
+                            }
+                        }
+                        Message::Close(_close) => {
+                            let msg: String = format!("Connection closed by server:");
+                            log::error!("{}", msg);
+                            handle_db_error(&pool, EXCHANGE, msg).await;
+                            break
+                        }
+                        _ => {}
                     }
                 }
             }
