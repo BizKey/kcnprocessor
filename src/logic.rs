@@ -7,8 +7,8 @@ use crate::api::db::{
     update_exit_tp_client_oid_bot_by_exit_tp_order_id, update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt, upsert_position_ratio,
 };
 use crate::api::models::{
-    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot, Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MessageData, OrderData, PositionData,
-    Symbol,
+    AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, AssetInfo, BalanceData, Bot, Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MessageData, OrderData,
+    PositionData, Symbol,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post, api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
@@ -1031,7 +1031,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
     };
 
     for (asset, token_liability) in debt_pair {
-        let asset_info = match position.asset_list.get(&asset) {
+        let asset_info: &AssetInfo = match position.asset_list.get(&asset) {
             None => {
                 let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
                 log::error!("{}", msg);
