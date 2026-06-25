@@ -368,94 +368,98 @@ pub async fn get_bot_by_exit_tp_client_oid_p(
     order: OrderData,
 ) -> Result<(), String> {
     // if clientOid in bots entry_id (2 phase)
-    match get_bot_by_exit_tp_client_oid(pool, exchange, client_oid).await {
-        Ok(Some(bot)) => {
-            // client_oid == exit_tp_client_oid
-            // delete exit_tp_client_oid stop order
-            match delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await {
+    let bot_option: Option<Bot> = match get_bot_by_exit_tp_client_oid(pool, exchange, client_oid).await {
+        Ok(bot_option) => bot_option,
+        Err(e) => {
+            handle_db_error(pool, exchange, e).await;
+            return Ok(());
+        }
+    };
+
+    let bot: Bot = match bot_option {
+        Some(bot) => bot,
+        None => return Ok(()),
+    };
+
+    // client_oid == exit_tp_client_oid
+    // delete exit_tp_client_oid stop order
+    match delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await {
+        Ok(_) => {}
+        Err(e) => {
+            handle_db_error(pool, exchange, e).await;
+        }
+    }
+    match &bot.exit_sl_client_oid {
+        Some(exit_sl_client_oid) => {
+            // clear exit_sl_client_oid in bots by id !!
+            match delete_exit_sl_id_bot_by_client_oid(pool, exchange, exit_sl_client_oid).await {
                 Ok(_) => {}
                 Err(e) => {
                     handle_db_error(pool, exchange, e).await;
                 }
             }
-            match &bot.exit_sl_client_oid {
-                Some(exit_sl_client_oid) => {
-                    // clear exit_sl_client_oid in bots by id !!
-                    match delete_exit_sl_id_bot_by_client_oid(pool, exchange, exit_sl_client_oid).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            handle_db_error(pool, exchange, e).await;
-                        }
-                    }
-                    let mut query_params: Map<&str, &str, 8> = Map::new();
+            let mut query_params: Map<&str, &str, 8> = Map::new();
 
-                    query_params.insert("clientOid", exit_sl_client_oid);
+            query_params.insert("clientOid", exit_sl_client_oid);
 
-                    match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
-                        Ok(_) => {
-                            log::info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
-                        }
-                        Err(e) => {
-                            handle_db_error(pool, exchange, e).await;
-                        }
-                    }
-                }
-                None => {}
-            }
-            match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                Ok(Some(return_balance)) => {
-                    {
-                        if order.side == "buy" {
-                            let old_balance: Decimal = match bot.balance_decimal() {
-                                Ok(old_balance) => old_balance,
-                                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                            };
-                            let new_balance: Decimal = old_balance + old_balance - return_balance;
-                            match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    handle_db_error(pool, exchange, e).await;
-                                }
-                            }
-                            // create new random order
-                            match make_random_trade(pool, exchange, new_balance, bot.id).await {
-                                Ok(()) => {}
-                                Err(e) => {
-                                    handle_db_error(pool, exchange, e).await;
-                                }
-                            }
-                        } else if order.side == "sell" {
-                            match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    handle_db_error(pool, exchange, e).await;
-                                }
-                            }
-                            // create new random order
-                            match make_random_trade(pool, exchange, return_balance, bot.id).await {
-                                Ok(()) => {}
-                                Err(e) => {
-                                    handle_db_error(pool, exchange, e).await;
-                                }
-                            }
-                        }
-                    }
-                }
-                Ok(None) => {
-                    log::error!("No records found or error occurred");
+            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
+                Ok(_) => {
+                    log::info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
                 }
                 Err(e) => {
                     handle_db_error(pool, exchange, e).await;
                 }
             }
-            Ok(())
         }
-        Ok(None) => Ok(()),
+        None => {}
+    }
+    match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+        Ok(Some(return_balance)) => {
+            {
+                if order.side == "buy" {
+                    let old_balance: Decimal = match bot.balance_decimal() {
+                        Ok(old_balance) => old_balance,
+                        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                    };
+                    let new_balance: Decimal = old_balance + old_balance - return_balance;
+                    match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_db_error(pool, exchange, e).await;
+                        }
+                    }
+                    // create new random order
+                    match make_random_trade(pool, exchange, new_balance, bot.id).await {
+                        Ok(()) => {}
+                        Err(e) => {
+                            handle_db_error(pool, exchange, e).await;
+                        }
+                    }
+                } else if order.side == "sell" {
+                    match update_balance_bot_by_exit_tp_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_db_error(pool, exchange, e).await;
+                        }
+                    }
+                    // create new random order
+                    match make_random_trade(pool, exchange, return_balance, bot.id).await {
+                        Ok(()) => {}
+                        Err(e) => {
+                            handle_db_error(pool, exchange, e).await;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(None) => {
+            log::error!("No records found or error occurred");
+        }
         Err(e) => {
             handle_db_error(pool, exchange, e).await;
-            Ok(())
         }
     }
+    Ok(())
 }
 
 pub async fn get_bot_by_exit_sl_client_oid_p(
@@ -960,17 +964,22 @@ pub async fn get_bot_by_entry_client_oid_p(
     order: OrderData,
 ) -> Result<(), String> {
     // if clientOid in bots entry_id (1 phase)
-    match get_bot_by_entry_client_oid(pool, exchange, client_oid).await {
-        Ok(Some(bot)) => match get_bot_by_entry_client_oid_p_p(pool, exchange, client_oid, price_increment, quote_increment, order).await {
-            Ok(_) => Ok(()),
-            Err(_) => Ok(()),
-        },
-        Ok(None) => Ok(()),
+    let bot_option: Option<Bot> = match get_bot_by_entry_client_oid(pool, exchange, client_oid).await {
+        Ok(bot_option) => bot_option,
         Err(e) => {
             handle_db_error(pool, exchange, e).await;
-
-            Ok(())
+            return Ok(());
         }
+    };
+
+    let bot: Bot = match bot_option {
+        Some(bot) => bot,
+        None => return Ok(()),
+    };
+
+    match get_bot_by_entry_client_oid_p_p(pool, exchange, client_oid, price_increment, quote_increment, order).await {
+        Ok(_) => Ok(()),
+        Err(_) => Ok(()),
     }
 }
 
