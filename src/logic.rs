@@ -192,14 +192,18 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
 
     let mut passed: bool = true;
     for account in accounts.accounts.iter() {
-        let currency_info: Currencies = match fetch_currency_info_by_symbol(pool, exchange, &account.currency).await {
-            Ok(Some(info)) => info,
-            Ok(None) => {
+        let currency_info_option: Option<Currencies> = match fetch_currency_info_by_symbol(pool, exchange, &account.currency).await {
+            Ok(currency_info_option) => currency_info_option,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        let currency_info: Currencies = match currency_info_option {
+            Some(currency_info) => currency_info,
+            None => {
                 let msg: String = format!("Currency info not found for {}", account.currency);
                 log::error!("{}", msg);
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
         };
 
         let precision_decimal: Decimal = match currency_info.precision_decimal() {
@@ -207,15 +211,19 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
             Err(e) => return Err(handle_db_error(pool, exchange, e).await),
         };
 
-        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &account.currency).await {
-            Ok(Some(info)) => info,
-            Ok(None) => {
+        let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, exchange, &account.currency).await {
+            Ok(symbol_info_option) => symbol_info_option,
+            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+        };
+
+        let symbol_info: Symbol = match symbol_info_option {
+            Some(info) => info,
+            None => {
                 let msg: String = format!("Symbol info not found for {}", &account.currency);
                 log::error!("{}", msg);
 
                 return Err(handle_db_error(pool, exchange, msg).await);
             }
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
         };
 
         let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
@@ -551,15 +559,18 @@ pub async fn get_bot_by_entry_client_oid_p_p(
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    let new_balance: Decimal = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-        Ok(Some(new_balance)) => new_balance,
-        Ok(None) => {
+    let new_balance_option: Option<Decimal> = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+        Ok(new_balance_option) => new_balance_option,
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
+    let new_balance: Decimal = match new_balance_option {
+        Some(new_balance) => new_balance,
+        None => {
             let msg: String = format!("No records found in events: {}", client_oid);
             log::error!("{}", msg);
             return Err(handle_db_error(pool, exchange, msg).await);
         }
-
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
     match update_bot_balance_by_entry_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
@@ -973,15 +984,20 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
             return Err(handle_db_error(pool, exchange, msg).await);
         }
     };
-    let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
-        Ok(Some(symbol_info)) => symbol_info,
-        Ok(None) => {
+
+    let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
+        Ok(symbol_info_option) => symbol_info_option,
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
+    let symbol_info: Symbol = match symbol_info_option {
+        Some(symbol_info) => symbol_info,
+        None => {
             let msg: String = format!("Symbol info not found for {}", order.symbol);
             log::error!("{}", msg);
 
             return Err(handle_db_error(pool, exchange, msg).await);
         }
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
     let price_increment: Decimal = match symbol_info.price_increment_decimal() {
@@ -1353,32 +1369,40 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
-        let tradeable_symbol: String = match get_random_symbol(pool, exchange).await {
-            Ok(Some(tradeable_symbol)) => tradeable_symbol,
-            Ok(None) => {
-                let msg: String = format!("Failed get_random_symbol:");
-                log::error!("{}", msg);
-
-                handle_db_error(pool, exchange, msg).await;
-                continue;
-            }
+        let tradeable_symbol_option: Option<String> = match get_random_symbol(pool, exchange).await {
+            Ok(tradeable_symbol_option) => tradeable_symbol_option,
             Err(e) => {
                 handle_db_error(pool, exchange, e).await;
                 continue;
             }
         };
 
-        let symbol_info: Symbol = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable_symbol).await {
-            Ok(Some(symbol_info)) => symbol_info,
-            Ok(None) => {
-                let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
+        let tradeable_symbol: String = match tradeable_symbol_option {
+            Some(tradeable_symbol) => tradeable_symbol,
+            None => {
+                let msg: String = format!("Failed get_random_symbol:");
                 log::error!("{}", msg);
 
                 handle_db_error(pool, exchange, msg).await;
                 continue;
             }
+        };
+
+        let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, exchange, &tradeable_symbol).await {
+            Ok(symbol_info_option) => symbol_info_option,
             Err(e) => {
                 handle_db_error(pool, exchange, e).await;
+                continue;
+            }
+        };
+
+        let symbol_info: Symbol = match symbol_info_option {
+            Some(symbol_info) => symbol_info,
+            None => {
+                let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
+                log::error!("{}", msg);
+
+                handle_db_error(pool, exchange, msg).await;
                 continue;
             }
         };
