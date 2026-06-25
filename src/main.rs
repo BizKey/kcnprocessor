@@ -250,7 +250,12 @@ async fn main() -> Result<(), String> {
                             handle_db_error(&pool, EXCHANGE, msg).await;
                             break
                         }
-                        _ => {}
+                        _ => {
+                            let msg: String = format!("Unexpected msg:{}", msg_event);
+                            log::error!("{}", msg);
+                            handle_db_error(&pool, EXCHANGE, msg).await;
+                            break
+                        }
                     }
                 }
             }
