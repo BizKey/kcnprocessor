@@ -509,40 +509,45 @@ pub async fn get_bot_by_exit_sl_client_oid_p(
                 None => {}
             }
 
-            match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-                Ok(Some(return_balance)) => {
-                    if order.side == "buy" {
-                        let old_balance = match bot.balance_decimal() {
-                            Ok(old_balance) => old_balance,
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        };
-                        let new_balance = old_balance + old_balance - return_balance;
-                        match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
-                            Ok(_) => {}
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        }
-                        // create new random order
-                        match make_random_trade(pool, exchange, new_balance, bot.id).await {
-                            Ok(()) => {}
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        }
-                    } else if order.side == "sell" {
-                        match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
-                            Ok(_) => {}
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        }
-
-                        // create new random order
-                        match make_random_trade(pool, exchange, return_balance, bot.id).await {
-                            Ok(()) => {}
-                            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-                        }
-                    }
-                }
-                Ok(None) => {
-                    log::error!("No records found or error occurred");
-                }
+            let return_balance_option: Option<Decimal> = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+                Ok(return_balance_option) => return_balance_option,
                 Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            };
+
+            let return_balance: Decimal = match return_balance_option {
+                Some(return_balance) => return_balance,
+                None => {
+                    log::error!("No records found or error occurred");
+                    return Ok(());
+                }
+            };
+
+            if order.side == "buy" {
+                let old_balance = match bot.balance_decimal() {
+                    Ok(old_balance) => old_balance,
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                };
+                let new_balance = old_balance + old_balance - return_balance;
+                match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", new_balance)).await {
+                    Ok(_) => {}
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
+                // create new random order
+                match make_random_trade(pool, exchange, new_balance, bot.id).await {
+                    Ok(()) => {}
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
+            } else if order.side == "sell" {
+                match update_balance_bot_by_exit_sl_client_oid(pool, exchange, client_oid, &format!("{:.4}", return_balance)).await {
+                    Ok(_) => {}
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
+
+                // create new random order
+                match make_random_trade(pool, exchange, return_balance, bot.id).await {
+                    Ok(()) => {}
+                    Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+                }
             }
         }
         Err(e) => {
