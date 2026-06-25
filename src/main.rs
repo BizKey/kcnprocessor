@@ -261,9 +261,6 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        drop(event_ws_write);
-        drop(event_ws_read);
-
         log::error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
         sleep(RECONNECT_DELAY).await;
     }
