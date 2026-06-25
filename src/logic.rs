@@ -1050,14 +1050,18 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
         };
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
-            let currency_info: Currencies = match fetch_currency_info_by_symbol(pool, exchange, &asset).await {
-                Ok(Some(info)) => info,
-                Ok(None) => {
+            let currency_info_option: Option<Currencies> = match fetch_currency_info_by_symbol(pool, exchange, &asset).await {
+                Ok(info) => info,
+                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            };
+
+            let currency_info: Currencies = match currency_info_option {
+                Some(info) => info,
+                None => {
                     let msg: String = format!("Currency info not found for {}", asset);
                     log::error!("{}", msg);
                     return Err(handle_db_error(pool, exchange, msg).await);
                 }
-                Err(e) => return Err(handle_db_error(pool, exchange, e).await),
             };
 
             let precision_decimal: Decimal = match currency_info.precision_decimal() {
