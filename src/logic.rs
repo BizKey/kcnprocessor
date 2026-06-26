@@ -776,6 +776,19 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         }
     };
 
+    let bot_option: Option<Bot> = match get_bot_by_client_oid(pool, exchange, &client_oid).await {
+        Err(e) => {
+            handle_db_error(pool, exchange, e).await;
+            return Ok(());
+        }
+        Ok(bot_option) => bot_option,
+    };
+
+    let bot: Bot = match bot_option {
+        Some(bot) => bot,
+        None => return Ok(()),
+    };
+
     let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
         Ok(symbol_info_option) => symbol_info_option,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
@@ -799,19 +812,6 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
     let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
         Ok(quote_increment) => quote_increment,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    let bot_option: Option<Bot> = match get_bot_by_client_oid(pool, exchange, &client_oid).await {
-        Err(e) => {
-            handle_db_error(pool, exchange, e).await;
-            return Ok(());
-        }
-        Ok(bot_option) => bot_option,
-    };
-
-    let bot: Bot = match bot_option {
-        Some(bot) => bot,
-        None => return Ok(()),
     };
 
     match client_oid.as_str() {
