@@ -983,7 +983,7 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
 
 pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
     match insert_db_orderevent(pool, exchange, order.clone()).await {
-        Ok(_) => log::info!("{:.?}", order),
+        Ok(_) => log::info!("{}", order),
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     }
 
