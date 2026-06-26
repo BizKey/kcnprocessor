@@ -1085,7 +1085,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 }
 
 pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
-    log::info!("{:}", order);
+    log::info!("{}", order);
     match order.error {
         Some(_) => {}
         None => return Ok(()),
