@@ -672,3 +672,12 @@ pub struct AdvancedOrders {
     pub type_: String,
     pub error: Option<String>,
 }
+impl fmt::Display for AdvancedOrders {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OrderData {{ created_at: {}, funds: {:?}, size: {:?}, order_id: {}, order_type: {}, side: {:?}, stop: {:?}, stop_price: {:?}, symbol: {}, trade_type: {:?}, ts: {:?}, type_: {:?}, error: {:?}}}",
+            self.created_at, self.funds, self.size, self.order_id, self.order_type, self.side, self.stop, self.stop_price, self.symbol, self.trade_type, self.ts, self.type_, self.error
+        )
+    }
+}

@@ -1085,13 +1085,13 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
 }
 
 pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str) -> Result<(), String> {
-    log::info!("{:.?}", order);
+    log::info!("{:}", order);
     match order.error {
         Some(_) => {}
         None => return Ok(()),
     }
 
-    let msg: String = format!("Got error on stop order : {:?}", order);
+    let msg: String = format!("Got error on stop order : {}", order);
     log::error!("{}", msg);
 
     handle_db_error(pool, exchange, msg).await;
