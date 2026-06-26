@@ -966,15 +966,15 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
     match client_oid.as_str() {
         s if Some(s.to_string()) == bot.entry_client_oid => match get_bot_by_entry_client_oid_p_p(pool, exchange, client_oid, order).await {
             Ok(_) => Ok(()),
-            Err(_) => Ok(()),
+            Err(e) => Err(e),
         },
         s if Some(s.to_string()) == bot.exit_tp_client_oid => match get_bot_by_exit_tp_client_oid_p_p(pool, exchange, bot, client_oid, order).await {
             Ok(_) => Ok(()),
-            Err(_) => Ok(()),
+            Err(e) => Err(e),
         },
         s if Some(s.to_string()) == bot.exit_sl_client_oid => match get_bot_by_exit_sl_client_oid_p_p(pool, exchange, bot, client_oid, order).await {
             Ok(_) => Ok(()),
-            Err(_) => Ok(()),
+            Err(e) => Err(e),
         },
         _ => {
             let msg: String = format!("don't find client_oid in:{}", order);
