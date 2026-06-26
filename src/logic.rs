@@ -359,7 +359,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
     Ok(passed)
 }
 
-pub async fn get_bot_by_exit_sl_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: OrderData) -> Result<(), String> {
+pub async fn get_bot_by_exit_sl_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
     match delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await {
         Ok(_) => {
             match &bot.exit_tp_client_oid {
@@ -431,7 +431,7 @@ pub async fn get_bot_by_exit_sl_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>
     }
 }
 
-pub async fn get_bot_by_exit_tp_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: OrderData) -> Result<(), String> {
+pub async fn get_bot_by_exit_tp_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
     match delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await {
         Ok(_) => {}
         Err(e) => {
@@ -515,7 +515,7 @@ pub async fn get_bot_by_exit_tp_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>
     Ok(())
 }
 
-pub async fn get_bot_by_entry_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: OrderData) -> Result<(), String> {
+pub async fn get_bot_by_entry_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: &OrderData) -> Result<(), String> {
     let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
         Ok(symbol_info_option) => symbol_info_option,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
@@ -939,7 +939,7 @@ pub async fn get_bot_by_entry_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, 
     }
 }
 
-pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, order: OrderData) -> Result<(), String> {
+pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, order: &OrderData) -> Result<(), String> {
     let client_oid: &String = match &order.client_oid {
         Some(client_oid) => client_oid,
         None => {
@@ -964,16 +964,16 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
     };
 
     match client_oid.as_str() {
-        s if Some(s.to_string()) == bot.entry_client_oid => match get_bot_by_entry_client_oid_p_p(pool, exchange, client_oid, order.clone()).await {
+        s if Some(s.to_string()) == bot.entry_client_oid => match get_bot_by_entry_client_oid_p_p(pool, exchange, client_oid, order).await {
             Ok(_) => Ok(()),
             Err(_) => Ok(()),
         },
-        s if Some(s.to_string()) == bot.exit_tp_client_oid => match get_bot_by_exit_tp_client_oid_p_p(pool, exchange, bot, client_oid, order.clone()).await {
+        s if Some(s.to_string()) == bot.exit_tp_client_oid => match get_bot_by_exit_tp_client_oid_p_p(pool, exchange, bot, client_oid, order).await {
             Ok(_) => Ok(()),
             Err(_) => Ok(()),
         },
 
-        s if Some(s.to_string()) == bot.exit_sl_client_oid => match get_bot_by_exit_sl_client_oid_p_p(pool, exchange, bot, client_oid, order.clone()).await {
+        s if Some(s.to_string()) == bot.exit_sl_client_oid => match get_bot_by_exit_sl_client_oid_p_p(pool, exchange, bot, client_oid, order).await {
             Ok(_) => Ok(()),
             Err(_) => Ok(()),
         },
@@ -993,7 +993,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     }
 
     if (order.type_ == "match" || order.type_ == "canceled") && (order.remain_size == Some("0".to_string()) || order.remain_funds == Some("0".to_string())) {
-        match trade_order_event(pool, exchange, order).await {
+        match trade_order_event(pool, exchange, &order).await {
             Ok(_) => Ok(()),
             Err(_) => Err("".to_string()),
         }
