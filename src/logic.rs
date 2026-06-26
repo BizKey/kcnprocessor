@@ -359,15 +359,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
     Ok(passed)
 }
 
-pub async fn get_bot_by_exit_sl_client_oid_p_p(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    bot: Bot,
-    client_oid: &str,
-    price_increment: Decimal,
-    quote_increment: Decimal,
-    order: OrderData,
-) -> Result<(), String> {
+pub async fn get_bot_by_exit_sl_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: OrderData) -> Result<(), String> {
     match delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await {
         Ok(_) => {
             match &bot.exit_tp_client_oid {
@@ -439,15 +431,7 @@ pub async fn get_bot_by_exit_sl_client_oid_p_p(
     }
 }
 
-pub async fn get_bot_by_exit_tp_client_oid_p_p(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    bot: Bot,
-    client_oid: &str,
-    price_increment: Decimal,
-    quote_increment: Decimal,
-    order: OrderData,
-) -> Result<(), String> {
+pub async fn get_bot_by_exit_tp_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: OrderData) -> Result<(), String> {
     match delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await {
         Ok(_) => {}
         Err(e) => {
@@ -531,14 +515,32 @@ pub async fn get_bot_by_exit_tp_client_oid_p_p(
     Ok(())
 }
 
-pub async fn get_bot_by_entry_client_oid_p_p(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    exchange: &str,
-    client_oid: &str,
-    price_increment: Decimal,
-    quote_increment: Decimal,
-    order: OrderData,
-) -> Result<(), String> {
+pub async fn get_bot_by_entry_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: OrderData) -> Result<(), String> {
+    let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
+        Ok(symbol_info_option) => symbol_info_option,
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
+    let symbol_info: Symbol = match symbol_info_option {
+        Some(symbol_info) => symbol_info,
+        None => {
+            let msg: String = format!("Symbol info not found for {}", order.symbol);
+            log::error!("{}", msg);
+
+            return Err(handle_db_error(pool, exchange, msg).await);
+        }
+    };
+
+    let price_increment: Decimal = match symbol_info.price_increment_decimal() {
+        Ok(price_increment) => price_increment,
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
+    let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
+        Ok(quote_increment) => quote_increment,
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+    };
+
     // create new stop tp and sl orders
     let filled_size: Decimal = match order.filled_size_decimal() {
         Ok(filled_size) => filled_size,
@@ -961,42 +963,17 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         None => return Ok(()),
     };
 
-    let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
-        Ok(symbol_info_option) => symbol_info_option,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    let symbol_info: Symbol = match symbol_info_option {
-        Some(symbol_info) => symbol_info,
-        None => {
-            let msg: String = format!("Symbol info not found for {}", order.symbol);
-            log::error!("{}", msg);
-
-            return Err(handle_db_error(pool, exchange, msg).await);
-        }
-    };
-
-    let price_increment: Decimal = match symbol_info.price_increment_decimal() {
-        Ok(price_increment) => price_increment,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
-    let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
-        Ok(quote_increment) => quote_increment,
-        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
-    };
-
     match client_oid.as_str() {
-        s if Some(s.to_string()) == bot.entry_client_oid => match get_bot_by_entry_client_oid_p_p(pool, exchange, client_oid, price_increment, quote_increment, order.clone()).await {
+        s if Some(s.to_string()) == bot.entry_client_oid => match get_bot_by_entry_client_oid_p_p(pool, exchange, client_oid, order.clone()).await {
             Ok(_) => Ok(()),
             Err(_) => Ok(()),
         },
-        s if Some(s.to_string()) == bot.exit_tp_client_oid => match get_bot_by_exit_tp_client_oid_p_p(pool, exchange, bot, client_oid, price_increment, quote_increment, order.clone()).await {
+        s if Some(s.to_string()) == bot.exit_tp_client_oid => match get_bot_by_exit_tp_client_oid_p_p(pool, exchange, bot, client_oid, order.clone()).await {
             Ok(_) => Ok(()),
             Err(_) => Ok(()),
         },
 
-        s if Some(s.to_string()) == bot.exit_sl_client_oid => match get_bot_by_exit_sl_client_oid_p_p(pool, exchange, bot, client_oid, price_increment, quote_increment, order.clone()).await {
+        s if Some(s.to_string()) == bot.exit_sl_client_oid => match get_bot_by_exit_sl_client_oid_p_p(pool, exchange, bot, client_oid, order.clone()).await {
             Ok(_) => Ok(()),
             Err(_) => Ok(()),
         },
