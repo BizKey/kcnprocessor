@@ -178,11 +178,8 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
     match sqlx::query(
         r#"
         UPDATE bots
-        SET exit_sl_client_oid = NULL,
-            exit_sl_order_id = NULL,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE exit_sl_client_oid = $1 AND
-            exchange = $2;
+        SET exit_sl_client_oid = NULL, exit_sl_order_id = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE exit_sl_client_oid = $1 AND exchange = $2;
         "#,
     )
     .bind(exit_sl_client_oid)
@@ -203,8 +200,7 @@ pub async fn fetch_currency_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, ex
         r#"
         SELECT precision
         FROM currency
-        WHERE exchange = $1 AND
-            currency = $2;
+        WHERE exchange = $1 AND currency = $2;
         "#,
     )
     .bind(exchange)
@@ -225,8 +221,7 @@ pub async fn fetch_symbol_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, exch
         r#"
         SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size
         FROM symbol
-        WHERE exchange = $1 AND
-            symbol = $2;
+        WHERE exchange = $1 AND symbol = $2;
         "#,
     )
     .bind(exchange)
@@ -246,10 +241,8 @@ pub async fn delete_symbol_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchan
     match sqlx::query(
         r#"
         UPDATE bots
-        SET symbol = NULL,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE exit_sl_client_oid = $1 AND
-            exchange = $2;
+        SET symbol = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE exit_sl_client_oid = $1 AND exchange = $2;
         "#,
     )
     .bind(exit_sl_client_oid)
@@ -269,9 +262,7 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
     match sqlx::query(
         r#"
         UPDATE bots
-        SET exit_tp_client_oid = NULL,
-            exit_tp_order_id = NULL,
-            updated_at = CURRENT_TIMESTAMP
+        SET exit_tp_client_oid = NULL, exit_tp_order_id = NULL, updated_at = CURRENT_TIMESTAMP
         WHERE exit_tp_client_oid = $1 AND exchange = $2;
         "#,
     )
@@ -293,10 +284,7 @@ pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: 
         r#"
         SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value
         FROM orderevent
-        WHERE client_oid = $1 AND
-            exchange = $2 AND
-            match_size IS NOT NULL AND
-            match_price IS NOT NULL;
+        WHERE client_oid = $1 AND exchange = $2 AND match_size IS NOT NULL AND match_price IS NOT NULL;
         "#,
     )
     .bind(client_oid)
@@ -324,10 +312,8 @@ pub async fn set_null_entry_client_oid_by_entry_client_oid(pool: &sqlx::PgPool, 
     match sqlx::query(
         r#"
         UPDATE bots
-        SET entry_client_oid = NULL,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE entry_client_oid = $1 AND
-            exchange = $2;
+        SET entry_client_oid = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE entry_client_oid = $1 AND exchange = $2;
         "#,
     )
     .bind(entry_client_oid)
@@ -348,10 +334,8 @@ pub async fn update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool: &sqlx::PgPo
     match sqlx::query(
         r#"
         UPDATE bots
-        SET exit_sl_client_oid = $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE exit_sl_order_id = $2 AND
-            exchange = $3;
+        SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE exit_sl_order_id = $2 AND exchange = $3;
         "#,
     )
     .bind(exit_sl_client_oid)
@@ -372,10 +356,8 @@ pub async fn update_exit_tp_client_oid_bot_by_exit_tp_order_id(pool: &sqlx::PgPo
     match sqlx::query(
         r#"
         UPDATE bots
-        SET exit_tp_client_oid = $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE exit_tp_order_id = $2 AND
-            exchange = $3;
+        SET exit_tp_client_oid = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE exit_tp_order_id = $2 AND exchange = $3;
         "#,
     )
     .bind(exit_tp_client_oid)
@@ -396,10 +378,8 @@ pub async fn update_exit_tp_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPo
     match sqlx::query(
         r#"
         UPDATE bots
-        SET exit_tp_client_oid = $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE entry_client_oid = $2 AND
-            exchange = $3;
+        SET exit_tp_client_oid = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE entry_client_oid = $2 AND exchange = $3;
         "#,
     )
     .bind(exit_tp_client_oid)
@@ -420,10 +400,8 @@ pub async fn update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool: &sqlx::PgPo
     match sqlx::query(
         r#"
         UPDATE bots
-        SET exit_tp_order_id = $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE exit_tp_client_oid = $2 AND
-            exchange = $3;
+        SET exit_tp_order_id = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE exit_tp_client_oid = $2 AND exchange = $3;
         "#,
     )
     .bind(exit_tp_order_id)
@@ -444,10 +422,8 @@ pub async fn update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool: &sqlx::PgPo
     match sqlx::query(
         r#"
         UPDATE bots
-        SET exit_sl_order_id = $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE exit_sl_client_oid = $2 AND
-            exchange = $3;
+        SET exit_sl_order_id = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE exit_sl_client_oid = $2 AND exchange = $3;
         "#,
     )
     .bind(exit_sl_order_id)
@@ -468,10 +444,8 @@ pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPo
     match sqlx::query(
         r#"
         UPDATE bots
-        SET exit_sl_client_oid = $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE entry_client_oid = $2 AND
-            exchange = $3;
+        SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE entry_client_oid = $2 AND exchange = $3;
         "#,
     )
     .bind(exit_sl_client_oid)
@@ -492,11 +466,8 @@ pub async fn update_balance_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, excha
     match sqlx::query(
         r#"
         UPDATE bots
-        SET balance = $1,
-            symbol = NULL,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE exit_tp_client_oid = $2 AND
-            exchange = $3;
+        SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE exit_tp_client_oid = $2 AND exchange = $3;
         "#,
     )
     .bind(balance)
@@ -517,10 +488,8 @@ pub async fn update_bot_balance_by_entry_client_oid(pool: &sqlx::PgPool, exchang
     match sqlx::query(
         r#"
         UPDATE bots
-        SET balance = $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE entry_client_oid = $2 AND
-            exchange = $3;
+        SET balance = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE entry_client_oid = $2 AND exchange = $3;
         "#,
     )
     .bind(balance)
@@ -541,11 +510,8 @@ pub async fn update_balance_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, excha
     match sqlx::query(
         r#"
         UPDATE bots
-        SET balance = $1,
-            symbol = NULL,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE exit_sl_client_oid = $2 AND
-            exchange = $3;
+        SET balance = $1, symbol = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE exit_sl_client_oid = $2 AND exchange = $3;
         "#,
     )
     .bind(balance)
@@ -597,10 +563,8 @@ pub async fn update_bot_entry_client_oid_by_id(pool: &sqlx::PgPool, exchange: &s
     match sqlx::query(
         r#"
         UPDATE bots
-        SET entry_client_oid = $1,
-            symbol = $2
-        WHERE exchange = $3 AND
-            id = $4;
+        SET entry_client_oid = $1, symbol = $2
+        WHERE exchange = $3 AND id = $4;
         "#,
     )
     .bind(entry_client_oid)
@@ -807,9 +771,7 @@ pub async fn upsert_position_debt(pool: &sqlx::PgPool, exchange: &str, debt_symb
         (exchange, debt_symbol, debt_value, updated_at)
         VALUES ($1, $2, $3, NOW())
         ON CONFLICT (exchange, debt_symbol) 
-        DO UPDATE SET
-            debt_value = EXCLUDED.debt_value,
-            updated_at = NOW();
+        DO UPDATE SET debt_value = EXCLUDED.debt_value, updated_at = NOW();
         "#,
     )
     .bind(exchange)

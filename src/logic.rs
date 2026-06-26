@@ -523,7 +523,6 @@ pub async fn get_bot_by_entry_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, 
         None => {
             let msg: String = format!("Symbol info not found for {}", order.symbol);
             log::error!("{}", msg);
-
             return Err(handle_db_error(pool, exchange, msg).await);
         }
     };
@@ -538,7 +537,6 @@ pub async fn get_bot_by_entry_client_oid_p_p(pool: &sqlx::Pool<sqlx::Postgres>, 
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    // create new stop tp and sl orders
     let filled_size: Decimal = match order.filled_size_decimal() {
         Ok(filled_size) => filled_size,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
