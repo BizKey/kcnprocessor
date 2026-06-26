@@ -272,8 +272,7 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
         SET exit_tp_client_oid = NULL,
             exit_tp_order_id = NULL,
             updated_at = CURRENT_TIMESTAMP
-        WHERE exit_tp_client_oid = $1 AND
-            exchange = $2;
+        WHERE exit_tp_client_oid = $1 AND exchange = $2;
         "#,
     )
     .bind(exit_tp_client_oid)
@@ -620,13 +619,34 @@ pub async fn update_bot_entry_client_oid_by_id(pool: &sqlx::PgPool, exchange: &s
     }
 }
 
+pub async fn get_bot_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<Bot>, String> {
+    match sqlx::query_as::<_, Bot>(
+        r#"
+        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+        FROM bots
+        WHERE exchange = $1 AND (entry_client_oid = $2 OR exit_tp_client_oid = $2 OR exit_sl_client_oid = $2)
+        LIMIT 1;
+        "#,
+    )
+    .bind(exchange)
+    .bind(client_oid)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(bot) => Ok(bot),
+        Err(e) => {
+            let msg: String = format!("Fail get bot by exit_sl_client_oid:{} exchange:{} error:{} ", client_oid, exchange, e);
+            log::error!("{}", msg);
+            Err(msg)
+        }
+    }
+}
 pub async fn get_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exchange: &str, exit_sl_client_oid: &str) -> Result<Option<Bot>, String> {
     match sqlx::query_as::<_, Bot>(
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
-        WHERE exchange = $1 AND
-            exit_sl_client_oid = $2
+        WHERE exchange = $1 AND exit_sl_client_oid = $2
         LIMIT 1;
         "#,
     )
@@ -648,8 +668,7 @@ pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exchange: &str, 
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
-        WHERE exchange = $1 AND
-            exit_tp_client_oid = $2
+        WHERE exchange = $1 AND exit_tp_client_oid = $2
         LIMIT 1;
         "#,
     )
@@ -671,8 +690,7 @@ pub async fn get_bot_by_entry_client_oid(pool: &sqlx::PgPool, exchange: &str, en
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
-        WHERE exchange = $1 AND
-            entry_client_oid = $2
+        WHERE exchange = $1 AND entry_client_oid = $2
         LIMIT 1;
         "#,
     )
