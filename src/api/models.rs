@@ -1,6 +1,7 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 use std::str::FromStr;
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
@@ -173,6 +174,37 @@ impl OrderData {
                 Err(msg)
             }
         }
+    }
+}
+impl fmt::Display for OrderData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OrderData {{ status: {}, type: {}, symbol: {}, side: {}, order_type: {}, fee_type: {:?}, liquidity: {:?}, price: {:?}, order_id: {}, client_oid: {:?}, trade_id: {:?}, origin_size: {:?}, origin_funds: {:?}, size: {:?}, filled_size: {:?}, match_size: {:?}, match_price: {:?}, canceled_size: {:?}, old_size: {:?}, remain_size: {:?}, remain_funds: {:?}, order_time: {}, ts: {} }}",
+            self.status,
+            self.type_,
+            self.symbol,
+            self.side,
+            self.order_type,
+            self.fee_type,
+            self.liquidity,
+            self.price,
+            self.order_id,
+            self.client_oid,
+            self.trade_id,
+            self.origin_size,
+            self.origin_funds,
+            self.size,
+            self.filled_size,
+            self.match_size,
+            self.match_price,
+            self.canceled_size,
+            self.old_size,
+            self.remain_size,
+            self.remain_funds,
+            self.order_time,
+            self.ts
+        )
     }
 }
 
