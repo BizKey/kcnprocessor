@@ -972,12 +972,10 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
             Ok(_) => Ok(()),
             Err(_) => Ok(()),
         },
-
         s if Some(s.to_string()) == bot.exit_sl_client_oid => match get_bot_by_exit_sl_client_oid_p_p(pool, exchange, bot, client_oid, order).await {
             Ok(_) => Ok(()),
             Err(_) => Ok(()),
         },
-
         _ => {
             let msg: String = format!("don't find client_oid in:{}", order);
             log::error!("{}", msg);
