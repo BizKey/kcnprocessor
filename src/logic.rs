@@ -942,22 +942,22 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         None => {
             let msg: String = format!("client_oid in order is none: {}", order);
             log::error!("{}", msg);
-
             return Err(handle_db_error(pool, exchange, msg).await);
         }
     };
 
     let bot_option: Option<Bot> = match get_bot_by_client_oid(pool, exchange, &client_oid).await {
-        Err(e) => {
-            handle_db_error(pool, exchange, e).await;
-            return Ok(());
-        }
+        Err(e) => return Err(handle_db_error(pool, exchange, e).await),
         Ok(bot_option) => bot_option,
     };
 
     let bot: Bot = match bot_option {
         Some(bot) => bot,
-        None => return Ok(()),
+        None => {
+            let msg: String = format!("Bot is None by:{}", client_oid);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
     };
 
     match client_oid.as_str() {
