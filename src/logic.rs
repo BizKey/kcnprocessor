@@ -359,7 +359,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
     Ok(passed)
 }
 
-pub async fn get_bot_by_exit_sl_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
+pub async fn process_bot_by_exit_sl_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
     match delete_exit_sl_id_bot_by_client_oid(pool, exchange, client_oid).await {
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
         Ok(_) => {}
@@ -428,7 +428,7 @@ pub async fn get_bot_by_exit_sl_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, ex
     Ok(())
 }
 
-pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
+pub async fn process_bot_by_exit_tp_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
     match delete_exit_tp_id_bot_by_client_oid(pool, exchange, client_oid).await {
         Ok(_) => {}
         Err(e) => {
@@ -512,7 +512,7 @@ pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, ex
     Ok(())
 }
 
-pub async fn get_bot_by_entry_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: &OrderData) -> Result<(), String> {
+pub async fn process_bot_by_entry_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, client_oid: &str, order: &OrderData) -> Result<(), String> {
     let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, exchange, &order.symbol).await {
         Ok(symbol_info_option) => symbol_info_option,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
@@ -959,15 +959,15 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
     };
 
     match client_oid.as_str() {
-        s if Some(s.to_string()) == bot.entry_client_oid => match get_bot_by_entry_client_oid(pool, exchange, client_oid, order).await {
+        s if Some(s.to_string()) == bot.entry_client_oid => match process_bot_by_entry_client_oid(pool, exchange, client_oid, order).await {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         },
-        s if Some(s.to_string()) == bot.exit_tp_client_oid => match get_bot_by_exit_tp_client_oid(pool, exchange, bot, client_oid, order).await {
+        s if Some(s.to_string()) == bot.exit_tp_client_oid => match process_bot_by_exit_tp_client_oid(pool, exchange, bot, client_oid, order).await {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         },
-        s if Some(s.to_string()) == bot.exit_sl_client_oid => match get_bot_by_exit_sl_client_oid(pool, exchange, bot, client_oid, order).await {
+        s if Some(s.to_string()) == bot.exit_sl_client_oid => match process_bot_by_exit_sl_client_oid(pool, exchange, bot, client_oid, order).await {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         },
