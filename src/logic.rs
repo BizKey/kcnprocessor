@@ -100,7 +100,10 @@ pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &st
         sleep(BOT_INIT_DELAY).await;
         let token_funds: Decimal = match trade_bot.balance_decimal() {
             Ok(token_funds) => token_funds,
-            Err(e) => return Err(handle_db_error(pool, exchange, e).await),
+            Err(e) => {
+                handle_db_error(pool, exchange, e).await;
+                continue;
+            }
         };
         match make_random_trade(pool, exchange, token_funds, trade_bot.id).await {
             Ok(_) => {}
@@ -1098,7 +1101,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
     let mut attempt: u32 = 0;
 
     loop {
-        tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
+        sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         if attempt >= MAX_RETRIES {
             break Ok(());
         }
@@ -1315,13 +1318,13 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
 
 pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, balance_funds: Decimal, trade_bot_id: i32) -> Result<(), String> {
     const MAX_RETRIES: u32 = 10;
-    let mut attempt = 0;
+    let mut attempt: u32 = 0;
 
     loop {
         if attempt >= MAX_RETRIES {
             return Ok(());
         }
-        tokio::time::sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
+        sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
         let tradeable_symbol_option: Option<String> = match get_random_symbol(pool, exchange).await {
