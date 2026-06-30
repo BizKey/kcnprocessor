@@ -91,11 +91,25 @@ async fn main() -> Result<(), String> {
             Err(e) => return Err(e),
         };
     }
+
     let (tx_in, rx_in) = mpsc::channel::<String>(10000);
 
     let pool_process: sqlx::Pool<sqlx::Postgres> = pool.clone();
-
     let _spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, EXCHANGE, rx_in).await });
+
+    if !init_order_execute {
+        let pool_init_orders: sqlx::Pool<sqlx::Postgres> = pool.clone();
+        tokio::spawn(async move {
+            sleep(INIT_ORDER_DELAY).await;
+            log::info!("Initializing start orders...");
+            match create_init_orders(&pool_init_orders, EXCHANGE).await {
+                Ok(_) => {}
+                Err(e) => {
+                    handle_db_error(&pool_init_orders, EXCHANGE, e).await;
+                }
+            }
+        });
+    }
 
     loop {
         // Position/Orders/Balance/AdvancedOrders WS
@@ -176,22 +190,6 @@ async fn main() -> Result<(), String> {
 
         let event_ping_interval: Interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
-
-        if !init_order_execute {
-            init_order_execute = true;
-            let pool_clone: sqlx::Pool<sqlx::Postgres> = pool.clone();
-
-            tokio::spawn(async move {
-                sleep(INIT_ORDER_DELAY).await;
-                log::info!("Initializing start orders...");
-                match create_init_orders(&pool_clone, EXCHANGE).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        handle_db_error(&pool_clone, EXCHANGE, e).await;
-                    }
-                }
-            });
-        }
 
         loop {
             tokio::select! {
