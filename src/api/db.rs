@@ -279,8 +279,8 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exchange: 
         }
     }
 }
-pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<Decimal>, String> {
-    match sqlx::query(
+pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: &str, client_oid: &str) -> Result<Option<String>, String> {
+    let row: sqlx::postgres::PgRow = match sqlx::query(
         r#"
         SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value
         FROM orderevent
@@ -292,17 +292,18 @@ pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, exchange: 
     .fetch_one(pool)
     .await
     {
-        Ok(row) => match row.try_get::<Option<String>, _>("total_match_value") {
-            Ok(Some(value_str)) => Ok(Some(Decimal::from_str(&value_str).unwrap())),
-            Ok(None) => Ok(None),
-            Err(e) => {
-                let msg: String = format!("Fail get total_match_value by client_oid:{} exchange:{} from:{:?} error:{}", client_oid, exchange, row, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        },
+        Ok(row) => row,
         Err(e) => {
             let msg: String = format!("Fail get total match value by client_oid:{} exchange:{} error:{}", client_oid, exchange, e);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    };
+
+    match row.try_get::<Option<String>, _>("total_match_value") {
+        Ok(total_match_value_option) => Ok(total_match_value_option),
+        Err(e) => {
+            let msg: String = format!("Fail get total_match_value by client_oid:{} exchange:{} from:{:?} error:{}", client_oid, exchange, row, e);
             log::error!("{}", msg);
             Err(msg)
         }
@@ -720,12 +721,11 @@ pub async fn get_random_symbol(pool: &sqlx::PgPool, exchange: &str) -> Result<Op
     .fetch_optional(pool)
     .await
     {
-        Ok(Some(symbol)) => Ok(Some(symbol)),
-        Ok(None) => Ok(None),
+        Ok(symbol_option) => Ok(symbol_option),
         Err(e) => {
             let msg: String = format!("Fail get random symbol by exchange:{} error:{}", exchange, e);
             log::error!("{}", msg);
-            Err(msg)
+            return Err(msg);
         }
     }
 }
