@@ -944,7 +944,7 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         }
     };
 
-    let bot_option: Option<Bot> = match get_bot_by_client_oid(pool, exchange, &client_oid).await {
+    let bot_option: Option<Bot> = match get_bot_by_client_oid(pool, exchange, client_oid).await {
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
         Ok(bot_option) => bot_option,
     };
@@ -1254,7 +1254,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
         }
 
         KuCoinMessage::Unknown => {
-            let msg: String = format!("Unknown WS message type");
+            let msg: String = String::from("Unknown WS message type");
             log::error!("{}", msg);
             return Err(handle_db_error(pool, exchange, msg).await);
         }
@@ -1335,7 +1335,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         let tradeable_symbol: String = match tradeable_symbol_option {
             Some(tradeable_symbol) => tradeable_symbol,
             None => {
-                let msg: String = format!("Failed get_random_symbol:");
+                let msg: String = String::from("Failed get_random_symbol:");
                 log::error!("{}", msg);
 
                 handle_db_error(pool, exchange, msg).await;
@@ -1474,7 +1474,7 @@ pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, exchange: 
                 };
             }
             None => {
-                let msg: String = format!("Channel closed, exiting message processor");
+                let msg: String = String::from("Channel closed, exiting message processor");
                 log::error!("{}", msg);
                 handle_db_error(pool, exchange, msg).await;
                 break;

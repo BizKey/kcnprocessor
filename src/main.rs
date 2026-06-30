@@ -66,13 +66,13 @@ async fn main() -> Result<(), String> {
     let open_stop_orders_data: ApiV3HfMarginStopOrdersResData = match open_stop_orders {
         Some(open_stop_orders) => open_stop_orders,
         None => {
-            let msg: String = format!("Fail get list open stop orders:None");
+            let msg: String = String::from("Fail get list open stop orders:None");
             log::error!("{}", msg);
             return Err(msg);
         }
     };
 
-    if open_stop_orders_data.items.len() != 0 {
+    if !open_stop_orders_data.items.is_empty() {
         // cancel all stop orders
         let mut query_params: Map<&str, &str, 8> = Map::new();
         query_params.insert("tradeType", "MARGIN_TRADE");
@@ -218,7 +218,7 @@ async fn main() -> Result<(), String> {
                             break
                         }
                         None => {
-                            let msg: String = format!("WebSocket stream ended");
+                            let msg: String = String::from("WebSocket stream ended");
                             log::error!("{}", msg);
                             handle_db_error(&pool, EXCHANGE, msg).await;
                             break
@@ -245,7 +245,7 @@ async fn main() -> Result<(), String> {
                             }
                         }
                         Message::Close(_close) => {
-                            let msg: String = format!("Connection closed by server:");
+                            let msg: String = String::from("Connection closed by server:");
                             log::error!("{}", msg);
                             handle_db_error(&pool, EXCHANGE, msg).await;
                             break
