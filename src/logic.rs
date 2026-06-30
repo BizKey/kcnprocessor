@@ -974,7 +974,7 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str
         _ => {
             let msg: String = format!("don't find client_oid in:{}", order);
             log::error!("{}", msg);
-            return Err(msg);
+            Err(msg)
         }
     }
 }
