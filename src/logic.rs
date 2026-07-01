@@ -388,16 +388,25 @@ pub async fn process_bot_by_exit_sl_client_oid(pool: &sqlx::Pool<sqlx::Postgres>
         None => {}
     }
 
-    let return_balance_option: Option<Decimal> = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+    let return_balance_option: Option<String> = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
         Ok(return_balance_option) => return_balance_option,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    let return_balance: Decimal = match return_balance_option {
-        Some(return_balance) => return_balance,
+    let return_balance_string: String = match return_balance_option {
+        Some(return_balance_string) => return_balance_string,
         None => {
             log::error!("No records found or error occurred");
             return Ok(());
+        }
+    };
+
+    let return_balance: Decimal = match Decimal::from_str(&return_balance_string) {
+        Ok(return_balance) => return_balance,
+        Err(e) => {
+            let msg: String = format!("Fail parse return balance:{}", e);
+            log::error!("{}", msg);
+            return Err(msg);
         }
     };
 
@@ -462,7 +471,7 @@ pub async fn process_bot_by_exit_tp_client_oid(pool: &sqlx::Pool<sqlx::Postgres>
         }
         None => {}
     }
-    let return_balance_option: Option<Decimal> = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+    let return_balance_option: Option<String> = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
         Ok(return_balance_option) => return_balance_option,
         Err(e) => {
             handle_db_error(pool, exchange, e).await;
@@ -470,11 +479,20 @@ pub async fn process_bot_by_exit_tp_client_oid(pool: &sqlx::Pool<sqlx::Postgres>
         }
     };
 
-    let return_balance: Decimal = match return_balance_option {
-        Some(return_balance) => return_balance,
+    let return_balance_string: String = match return_balance_option {
+        Some(return_balance_string) => return_balance_string,
         None => {
             log::error!("No records found or error occurred");
             return Ok(());
+        }
+    };
+
+    let return_balance: Decimal = match Decimal::from_str(&return_balance_string) {
+        Ok(return_balance) => return_balance,
+        Err(e) => {
+            let msg: String = format!("Fail parse return balance:{}", e);
+            log::error!("{}", msg);
+            return Err(msg);
         }
     };
 
@@ -545,17 +563,25 @@ pub async fn process_bot_by_entry_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, 
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    let new_balance_option: Option<Decimal> = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
-        Ok(new_balance_option) => new_balance_option,
+    let return_balance_option: Option<String> = match get_total_match_value_by_client_oid(pool, exchange, client_oid).await {
+        Ok(return_balance_option) => return_balance_option,
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    let new_balance: Decimal = match new_balance_option {
-        Some(new_balance) => new_balance,
+    let return_balance_string: String = match return_balance_option {
+        Some(return_balance_string) => return_balance_string,
         None => {
-            let msg: String = format!("No records found in events: {}", client_oid);
+            log::error!("No records found or error occurred");
+            return Ok(());
+        }
+    };
+
+    let new_balance: Decimal = match Decimal::from_str(&return_balance_string) {
+        Ok(new_balance) => new_balance,
+        Err(e) => {
+            let msg: String = format!("Fail parse return balance:{}", e);
             log::error!("{}", msg);
-            return Err(handle_db_error(pool, exchange, msg).await);
+            return Err(msg);
         }
     };
 
