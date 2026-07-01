@@ -29,7 +29,7 @@ const EXCHANGE: &str = "kucoin";
 async fn main() -> Result<(), String> {
     env_logger::init();
     dotenv().ok();
-    let mut init_order_execute: bool = true;
+    let init_order_execute: bool = true;
 
     let database_url: String = get_env("DATABASE_URL")?;
 
