@@ -1,7 +1,5 @@
 use crate::api::models::{BalanceData, BalanceRelationContext, Bot, Currencies, OrderData, Symbol};
-use rust_decimal::Decimal;
 use sqlx::Row;
-use std::str::FromStr;
 
 pub async fn insert_db_error(pool: &sqlx::PgPool, exchange: &str, msg: &str) -> Result<(), String> {
     match sqlx::query(
