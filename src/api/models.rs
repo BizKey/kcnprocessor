@@ -542,6 +542,13 @@ pub struct ApiV3HfMarginStopOrdersResDataItem {
     #[serde(rename = "stopPrice")]
     pub stop_price: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3HfMarginStopOrderCancelResData>,
+}
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersResData {
     #[serde(rename = "currentPage")]
@@ -553,12 +560,6 @@ pub struct ApiV3HfMarginStopOrdersResData {
     #[serde(rename = "totalPage")]
     pub total_page: i64,
     pub items: Vec<ApiV3HfMarginStopOrdersResDataItem>,
-}
-#[derive(Debug, Deserialize)]
-pub struct ApiV3HfMarginStopOrderCancelRes {
-    pub code: String,
-    pub msg: Option<String>,
-    pub data: Option<ApiV3HfMarginStopOrderCancelResData>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersRes {
