@@ -90,6 +90,7 @@ async fn main() -> Result<(), String> {
 
         for stop_order in open_stop_orders_data.items {
             log::info!("Stop order:{}", stop_order);
+            // stop_order.id
         }
     }
 

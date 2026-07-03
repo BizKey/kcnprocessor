@@ -1,7 +1,8 @@
 use crate::api::models::{
     ApiV1MarketOrderbookLevel1Res, ApiV1MarketOrderbookLevel1ResData, ApiV3AccountsUniversalTransferRes, ApiV3AccountsUniversalTransferResData, ApiV3BulletPrivate, ApiV3BulletPrivateData,
-    ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelByClientOidResData, ApiV3HfMarginStopOrderCancelRes, ApiV3HfMarginStopOrderCancelResData, ApiV3HfMarginStopOrdersRes,
-    ApiV3HfMarginStopOrdersResData, ApiV3MarginRepayRes, ApiV3MarginRepayResData, MakeOrderRes, MakeOrderResData, MakeStopOrderRes, MakeStopOrderResData, MarginAccount, MarginAccountData,
+    ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelByClientOidResData, ApiV3HfMarginStopOrderCancelByIdRes, ApiV3HfMarginStopOrderCancelByIdResData,
+    ApiV3HfMarginStopOrderCancelRes, ApiV3HfMarginStopOrderCancelResData, ApiV3HfMarginStopOrdersRes, ApiV3HfMarginStopOrdersResData, ApiV3MarginRepayRes, ApiV3MarginRepayResData, MakeOrderRes,
+    MakeOrderResData, MakeStopOrderRes, MakeStopOrderResData, MarginAccount, MarginAccountData,
 };
 use crate::api::tools::get_env;
 use base64::Engine;
@@ -90,6 +91,33 @@ impl KuCoinClient {
                 Ok(response) => response,
                 Err(e) => return Err(e),
             };
+
+        let status: reqwest::StatusCode = response.status();
+
+        let response_string: String = match response.text().await {
+            Ok(response_string) => response_string,
+            Err(e) => {
+                let msg: String = format!("Fail read text from response:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
+        };
+
+        match status.as_u16() {
+            200 => Ok(response_string),
+            status_code => {
+                let msg: String = format!("API returned error status {}: {}", status_code, response_string);
+                log::error!("{}", msg);
+                Err(msg)
+            }
+        }
+    }
+    async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(&self, query_string_str: String) -> Result<String, String> {
+        // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
+        let response: Response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-id", query_string_str, String::new(), true, self.get_system_timestamp_ms()).await {
+            Ok(response) => response,
+            Err(e) => return Err(e),
+        };
 
         let status: reqwest::StatusCode = response.status();
 
@@ -501,6 +529,35 @@ pub async fn api_v3_margin_accounts_get(query_params_str: String) -> Result<Marg
         Ok(res) => res,
         Err(e) => {
             let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    };
+
+    match response.code.as_str() {
+        "200000" => Ok(response.data),
+        _ => {
+            let msg: String = format!("KuCoin API error: code={}, msg={:?}, data={:?}", response.code, response.msg, response.data);
+            log::error!("{}", msg);
+            Err(msg)
+        }
+    }
+}
+pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str: String) -> Result<Option<ApiV3HfMarginStopOrderCancelByIdResData>, String> {
+    let client: &KuCoinClient = match get_client() {
+        Ok(client) => client,
+        Err(e) => return Err(e),
+    };
+
+    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str).await {
+        Ok(response_string) => response_string,
+        Err(e) => return Err(e),
+    };
+
+    let response: ApiV3HfMarginStopOrderCancelByIdRes = match serde_json::from_str::<ApiV3HfMarginStopOrderCancelByIdRes>(&response_string) {
+        Ok(res) => res,
+        Err(e) => {
+            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelByIdRes), e);
             log::error!("{}", msg);
             return Err(msg);
         }

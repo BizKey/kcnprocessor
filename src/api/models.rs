@@ -615,12 +615,23 @@ pub struct ApiV3HfMarginStopOrderCancelByClientOidResData {
     #[serde(rename = "cancelledOrderIds")]
     pub cancelled_order_ids: Vec<String>,
 }
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelByIdResData {
+    #[serde(rename = "cancelledOrderIds")]
+    pub cancelled_order_ids: Vec<String>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrderCancelByClientOidRes {
     pub code: String,
     pub msg: Option<String>,
     pub data: Option<ApiV3HfMarginStopOrderCancelByClientOidResData>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelByIdRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3HfMarginStopOrderCancelByIdResData>,
 }
 
 #[derive(Debug, Deserialize)]
