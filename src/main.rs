@@ -58,29 +58,39 @@ async fn main() -> Result<(), String> {
         Err(e) => return Err(handle_db_error(&pool, EXCHANGE, e).await),
     }
 
-    let open_stop_orders: Option<ApiV3HfMarginStopOrdersResData> = match api_v3_hf_margin_stop_orders_get(String::new()).await {
-        Ok(orders) => orders,
-        Err(e) => return Err(handle_db_error(&pool, EXCHANGE, e).await),
-    };
-
-    let open_stop_orders_data: ApiV3HfMarginStopOrdersResData = match open_stop_orders {
-        Some(open_stop_orders) => open_stop_orders,
-        None => {
-            let msg: String = String::from("Fail get list open stop orders:None");
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    };
-
-    if !open_stop_orders_data.items.is_empty() {
-        // cancel all stop orders
+    loop {
         let mut query_params: Map<&str, &str, 8> = Map::new();
-        query_params.insert("tradeType", "MARGIN_TRADE");
+        query_params.insert("pageSize", "1");
 
-        match api_v3_hf_margin_stop_order_cancel_delete(build_query_string(query_params)).await {
-            Ok(_) => log::info!("batch cancel stop orders"),
+        let open_stop_orders: Option<ApiV3HfMarginStopOrdersResData> = match api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await {
+            Ok(orders) => orders,
             Err(e) => return Err(handle_db_error(&pool, EXCHANGE, e).await),
         };
+
+        let open_stop_orders_data: ApiV3HfMarginStopOrdersResData = match open_stop_orders {
+            Some(open_stop_orders) => open_stop_orders,
+            None => {
+                let msg: String = String::from("Fail get list open stop orders:None");
+                log::error!("{}", msg);
+                return Err(msg);
+            }
+        };
+
+        log::info!(
+            "Stop orders: current_page:{} page_size:{} total_num:{} total_page:{}",
+            open_stop_orders_data.current_page,
+            open_stop_orders_data.page_size,
+            open_stop_orders_data.total_num,
+            open_stop_orders_data.total_page
+        );
+
+        if open_stop_orders_data.total_num == 0 {
+            break;
+        }
+
+        for stop_order in open_stop_orders_data.items {
+            log::info!("Stop order:{}", stop_order);
+        }
     }
 
     // repay all liability assets and sell

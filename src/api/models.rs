@@ -543,6 +543,43 @@ pub struct ApiV3HfMarginStopOrdersResDataItem {
     pub stop_price: String,
 }
 
+impl fmt::Display for ApiV3HfMarginStopOrdersResDataItem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "StopOrder {{ id: {}, symbol: {}, user_id: {}, status: {}, type: {}, side: {}, price: {}, size: {}, funds: {}, stp: {}, time_in_force: {}, cancel_after: {}, post_only: {}, hidden: {}, iceberg: {}, visible_size: {}, channel: {}, client_oid: {}, tags: {}, order_time: {}, trade_type: {}, fee_currency: {}, taker_fee_rate: {}, maker_fee_rate: {}, created_at: {}, stop: {}, stop_trigger_time: {}, stop_price: {} }}",
+            self.id,
+            self.symbol,
+            self.user_id,
+            self.status,
+            self.type_,
+            self.side,
+            self.price,
+            self.size,
+            self.funds,
+            self.stp,
+            self.time_in_force,
+            self.cancel_after,
+            self.post_only,
+            self.hidden,
+            self.iceberg,
+            self.visible_size,
+            self.channel,
+            self.client_oid,
+            self.tags,
+            self.order_time,
+            self.trade_type,
+            self.fee_currency,
+            self.taker_fee_rate,
+            self.maker_fee_rate,
+            self.created_at,
+            self.stop,
+            self.stop_trigger_time,
+            self.stop_price,
+        )
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrderCancelRes {
     pub code: String,
