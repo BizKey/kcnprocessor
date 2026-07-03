@@ -20,6 +20,7 @@ use tokio::sync::mpsc;
 use tokio::time::{Duration, Interval, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
+const DELETE_STOP_ORDER_DELAY: Duration = Duration::from_secs(1);
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
 const INIT_ORDER_DELAY: Duration = Duration::from_secs(5);
@@ -59,6 +60,7 @@ async fn main() -> Result<(), String> {
     }
 
     loop {
+        sleep(DELETE_STOP_ORDER_DELAY).await;
         let mut query_params: Map<&str, &str, 8> = Map::new();
         query_params.insert("pageSize", "1");
 
