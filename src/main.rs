@@ -74,7 +74,7 @@ async fn main() -> Result<(), String> {
             None => {
                 let msg: String = String::from("Fail get list open stop orders:None");
                 log::error!("{}", msg);
-                return Err(msg);
+                return Err(handle_db_error(&pool, EXCHANGE, msg).await);
             }
         };
 
@@ -106,6 +106,7 @@ async fn main() -> Result<(), String> {
                 None => {
                     let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
                     log::error!("{}", msg);
+                    handle_db_error(&pool, EXCHANGE, msg).await;
                     continue;
                 }
             };
