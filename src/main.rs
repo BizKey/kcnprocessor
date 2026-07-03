@@ -6,8 +6,8 @@ mod api {
 }
 mod logic;
 use crate::api::db::{handle_db_error, wipe_bots_info};
-use crate::api::models::ApiV3HfMarginStopOrdersResData;
-use crate::api::requests::{api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_delete, api_v3_hf_margin_stop_orders_get, build_query_string};
+use crate::api::models::{ApiV3HfMarginStopOrderCancelByIdResData, ApiV3HfMarginStopOrdersResData};
+use crate::api::requests::{api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get, build_query_string};
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use bytes::Bytes;
@@ -90,7 +90,27 @@ async fn main() -> Result<(), String> {
 
         for stop_order in open_stop_orders_data.items {
             log::info!("Stop order:{}", stop_order);
-            // stop_order.id
+            let mut query_params: Map<&str, &str, 8> = Map::new();
+
+            query_params.insert("orderId", &stop_order.id);
+
+            let canceled_stop_order_option: Option<ApiV3HfMarginStopOrderCancelByIdResData> = match api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(query_params)).await {
+                Ok(canceled_stop_order_option) => canceled_stop_order_option,
+                Err(e) => return Err(handle_db_error(&pool, EXCHANGE, e).await),
+            };
+
+            let canceled_stop_order: ApiV3HfMarginStopOrderCancelByIdResData = match canceled_stop_order_option {
+                Some(canceled_stop_order) => canceled_stop_order,
+                None => {
+                    let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
+                    log::error!("{}", msg);
+                    continue;
+                }
+            };
+
+            for st_order in canceled_stop_order.cancelled_order_ids {
+                log::info!("Success cancel stop order:{}", st_order)
+            }
         }
     }
 

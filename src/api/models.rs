@@ -491,11 +491,7 @@ pub struct ApiV3AccountsUniversalTransferResData {
     #[serde(rename = "orderId")]
     pub order_id: String,
 }
-#[derive(Debug, Deserialize)]
-pub struct ApiV3HfMarginStopOrderCancelResData {
-    #[serde(rename = "cancelledOrderIds")]
-    pub cancelled_order_ids: Vec<String>,
-}
+
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersResDataItem {
     pub id: String,
@@ -580,12 +576,6 @@ impl fmt::Display for ApiV3HfMarginStopOrdersResDataItem {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ApiV3HfMarginStopOrderCancelRes {
-    pub code: String,
-    pub msg: Option<String>,
-    pub data: Option<ApiV3HfMarginStopOrderCancelResData>,
-}
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersResData {
     #[serde(rename = "currentPage")]
