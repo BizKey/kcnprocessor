@@ -17,7 +17,7 @@ use crate::api::requests::{
 use micromap::Map;
 use rust_decimal::Decimal;
 use serde::Deserialize;
-use serde_json::json;
+use serde_json;
 use std::str::FromStr;
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
@@ -129,7 +129,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
 
 pub async fn repay_account(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>, String> {
     log::info!("Repay {} liability:{}", size, currency);
-    let body_str: String = match serialize_body(Some(json!({
+    let body_str: String = match serialize_body(Some(serde_json::json!({
         "currency": currency,
         "size": size,
         "isIsolated": false,
@@ -167,7 +167,7 @@ pub async fn get_token_price(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, 
 pub async fn transfer_amount(pool: &sqlx::Pool<sqlx::Postgres>, exchange: &str, currency: &str, amount: &str) -> Result<(), String> {
     let client_oid: String = Uuid::new_v4().to_string();
 
-    let body_str: String = match serialize_body(Some(json!({
+    let body_str: String = match serialize_body(Some(serde_json::json!({
         "currency": currency,
         "clientOid": client_oid,
         "amount": amount,
@@ -1579,7 +1579,7 @@ pub async fn make_hf_size_margin_order(
         Err(e) => return Err(handle_db_error(pool, exchange, e).await),
     };
 
-    let body_str: String = match serialize_body(Some(json!({
+    let body_str: String = match serialize_body(Some(serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
