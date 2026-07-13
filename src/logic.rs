@@ -821,7 +821,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, 
             }
         };
         let msg_sl_order: serde_json::Value = serde_json::json!({
-           "clientOid": exit_sl_client_oid,
+            "clientOid": exit_sl_client_oid,
             "side": "buy",
             "symbol": order.symbol,
             "type": "market",
