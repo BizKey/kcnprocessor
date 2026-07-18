@@ -43,8 +43,17 @@ impl KuCoinClient {
         }
     }
 
-    fn get_system_timestamp_ms(&self) -> u64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+    fn get_system_timestamp_ms(&self) -> Result<u64, String> {
+        let system_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(system_time) => system_time,
+            Err(e) => {
+                let msg: String = format!("Get error get UNIX_EPOCH:{}", e);
+                log::error!("{}", msg);
+                return Err(msg);
+            }
+        };
+
+        return Ok(system_time.as_millis() as u64);
     }
 
     fn generate_signature(&self, to_sign: &[u8]) -> Result<String, String> {
@@ -58,7 +67,12 @@ impl KuCoinClient {
 
     async fn api_v1_bullet_private_post(&self) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/websocket-api/base-info/get-private-token-spot-margin
-        let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, self.get_system_timestamp_ms()).await {
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::POST, "/api/v1/bullet-private", String::new(), String::new(), true, system_timestamp_ms).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -86,11 +100,15 @@ impl KuCoinClient {
 
     async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&self, query_string_str: String) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
-        let response: Response =
-            match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string_str, String::new(), true, self.get_system_timestamp_ms()).await {
-                Ok(response) => response,
-                Err(e) => return Err(e),
-            };
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-clientOid", query_string_str, String::new(), true, system_timestamp_ms).await {
+            Ok(response) => response,
+            Err(e) => return Err(e),
+        };
 
         let status: reqwest::StatusCode = response.status();
 
@@ -114,7 +132,12 @@ impl KuCoinClient {
     }
     async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(&self, query_string_str: String) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
-        let response: Response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-id", query_string_str, String::new(), true, self.get_system_timestamp_ms()).await {
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::DELETE, "/api/v3/hf/margin/stop-order/cancel-by-id", query_string_str, String::new(), true, system_timestamp_ms).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -142,7 +165,12 @@ impl KuCoinClient {
 
     async fn api_v3_margin_accounts_get(&self, query_params_str: String) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/account-info/account-funding/get-account-cross-margin
-        let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", query_params_str, String::new(), true, system_timestamp_ms).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -169,7 +197,12 @@ impl KuCoinClient {
     }
 
     async fn api_v3_hf_margin_stop_orders_get(&self, query_params_str: String) -> Result<String, String> {
-        let response: Response = match self.make_request(Method::GET, "/api/v3/hf/margin/stop-orders", query_params_str, String::new(), true, self.get_system_timestamp_ms()).await {
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::GET, "/api/v3/hf/margin/stop-orders", query_params_str, String::new(), true, system_timestamp_ms).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -196,7 +229,12 @@ impl KuCoinClient {
     }
 
     async fn api_v3_accounts_universal_transfer_post(&self, body_str: String) -> Result<String, String> {
-        let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, system_timestamp_ms).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -223,7 +261,12 @@ impl KuCoinClient {
     }
 
     async fn api_v3_hf_margin_stop_order_post(&self, body_str: String) -> Result<String, String> {
-        let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, system_timestamp_ms).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -250,7 +293,12 @@ impl KuCoinClient {
     }
 
     async fn api_v3_hf_margin_order_post(&self, body_str: String) -> Result<String, String> {
-        let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, system_timestamp_ms).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
@@ -277,7 +325,12 @@ impl KuCoinClient {
     }
 
     async fn api_v3_margin_repay_post(&self, body_str: String) -> Result<String, String> {
-        let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, self.get_system_timestamp_ms()).await {
+        let system_timestamp_ms: u64 = match self.get_system_timestamp_ms() {
+            Ok(system_timestamp_ms) => system_timestamp_ms,
+            Err(e) => return Err(e),
+        };
+
+        let response: Response = match self.make_request(Method::POST, "/api/v3/margin/repay", String::new(), body_str, true, system_timestamp_ms).await {
             Ok(response) => response,
             Err(e) => return Err(e),
         };
