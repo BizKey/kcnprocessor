@@ -22,20 +22,52 @@ use std::str::FromStr;
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
 
-fn tp_buy_percent() -> Decimal {
-    Decimal::from_str("1.07").unwrap() // +7%
+fn tp_buy_percent() -> Result<Decimal, String> {
+    match Decimal::from_str("1.07") {
+        // +7%
+        Ok(percent) => Ok(percent),
+        Err(e) => {
+            let msg: String = format!("{}", e);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    }
 }
 
-fn sl_buy_percent() -> Decimal {
-    Decimal::from_str("0.95").unwrap() // -5%
+fn sl_buy_percent() -> Result<Decimal, String> {
+    match Decimal::from_str("0.95") {
+        // -5%
+        Ok(percent) => Ok(percent),
+        Err(e) => {
+            let msg: String = format!("{}", e);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    }
 }
 
-fn tp_sell_percent() -> Decimal {
-    Decimal::from_str("0.93").unwrap() // -7%
+fn tp_sell_percent() -> Result<Decimal, String> {
+    match Decimal::from_str("0.93") {
+        // -7%
+        Ok(percent) => Ok(percent),
+        Err(e) => {
+            let msg: String = format!("{}", e);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    }
 }
 
-fn sl_sell_percent() -> Decimal {
-    Decimal::from_str("1.05").unwrap() // +5%
+fn sl_sell_percent() -> Result<Decimal, String> {
+    match Decimal::from_str("1.05") {
+        // +5%
+        Ok(percent) => Ok(percent),
+        Err(e) => {
+            let msg: String = format!("{}", e);
+            log::error!("{}", msg);
+            return Err(msg);
+        }
+    }
 }
 
 fn get_random_side() -> &'static str {
@@ -736,9 +768,25 @@ pub async fn process_bot_by_entry_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, 
     }
 
     if order.side == "buy" {
+        let tp_buy: Decimal = match tp_buy_percent() {
+            Ok(tp_buy) => tp_buy,
+            Err(e) => {
+                log::error!("{}", e);
+                return Err(e);
+            }
+        };
+
+        let sl_buy: Decimal = match sl_buy_percent() {
+            Ok(sl_buy) => sl_buy,
+            Err(e) => {
+                log::error!("{}", e);
+                return Err(e);
+            }
+        };
+
         let match_price: Decimal = new_balance / filled_size;
-        let trigger_tp_price: Decimal = match_price * tp_buy_percent(); // price + 7%
-        let trigger_sl_price: Decimal = match_price * sl_buy_percent(); // price - 5%
+        let trigger_tp_price: Decimal = match_price * tp_buy; // price + 7%
+        let trigger_sl_price: Decimal = match_price * sl_buy; // price - 5%
 
         let exit_tp_client_oid: String = Uuid::new_v4().to_string();
         let exit_sl_client_oid: String = Uuid::new_v4().to_string();
@@ -951,9 +999,25 @@ pub async fn process_bot_by_entry_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, 
             }
         }
     } else if order.side == "sell" {
+        let tp_sell: Decimal = match tp_sell_percent() {
+            Ok(tp_sell) => tp_sell,
+            Err(e) => {
+                log::error!("{}", e);
+                return Err(e);
+            }
+        };
+
+        let sl_sell: Decimal = match sl_sell_percent() {
+            Ok(sl_sell) => sl_sell,
+            Err(e) => {
+                log::error!("{}", e);
+                return Err(e);
+            }
+        };
+
         let match_price: Decimal = new_balance / filled_size;
-        let trigger_tp_price: Decimal = match_price * tp_sell_percent(); // price - 7%
-        let trigger_sl_price: Decimal = match_price * sl_sell_percent(); // price + 5%
+        let trigger_tp_price: Decimal = match_price * tp_sell; // price - 7%
+        let trigger_sl_price: Decimal = match_price * sl_sell; // price + 5%
 
         let funds_tp: Decimal = trigger_tp_price * filled_size;
         let funds_sl: Decimal = trigger_sl_price * filled_size;
