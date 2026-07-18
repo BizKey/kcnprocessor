@@ -1394,7 +1394,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
             handle_db_error(pool, e.clone()).await;
             return Err(e);
         }
-    }
+    };
 
     for (symbol, amount) in &position.debt_list {
         match upsert_position_debt(pool, symbol, amount).await {
