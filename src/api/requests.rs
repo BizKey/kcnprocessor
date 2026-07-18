@@ -819,15 +819,15 @@ mod tests {
             base_url: "https://api.kucoin.com".to_string(),
         };
 
-        let body = json!({
+        let body: serde_json::Value = json!({
             "clientOid": "test-123",
             "side": "buy",
             "symbol": "BTC-USDT",
             "type": "market"
         });
 
-        let body_str = serde_json::to_string(&body).unwrap();
-        let timestamp = 1234567890u64;
+        let body_str: String = serde_json::to_string(&body).unwrap();
+        let timestamp: u64 = 1234567890u64;
         let method = "POST";
         let endpoint = "/api/v3/hf/margin/order";
         let query_string = "";
