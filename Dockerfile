@@ -1,6 +1,7 @@
 FROM rust:1.97.1-alpine3.24 AS builder
 
-RUN apk add --no-cache musl-dev pkgconfig
+RUN apk add --no-cache musl-dev
+ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
 
 WORKDIR /app
 
