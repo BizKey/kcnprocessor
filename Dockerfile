@@ -1,6 +1,6 @@
 FROM rust:1.97.1-alpine3.24 AS builder
 
-RUN apk add --no-cache musl-dev openssl-dev pkgconfig openssl-libs-static
+RUN apk add --no-cache musl-dev pkgconfig
 
 WORKDIR /app
 
@@ -11,9 +11,9 @@ RUN cargo build --release
 COPY src ./src
 RUN touch src/main.rs && cargo build --release
 
-FROM alpine:3.22
+FROM alpine:3.24
 
-RUN apk add --no-cache libgcc openssl ca-certificates
+RUN apk add --no-cache libgcc ca-certificates
 
 WORKDIR /app
 
