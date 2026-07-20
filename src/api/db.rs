@@ -2,8 +2,8 @@ use crate::{
     api::models::{BalanceData, BalanceRelationContext, Bot, Currencies, OrderData, Symbol},
     config,
 };
+use sqlx::PgPool;
 use sqlx::Row;
-
 pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<(), String> {
     match sqlx::query(
         r#"
@@ -207,7 +207,7 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exit_sl_cl
         }
     }
 }
-pub async fn fetch_currency_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, currency: &str) -> Result<Option<Currencies>, String> {
+pub async fn fetch_currency_info_by_symbol(pool: &PgPool, currency: &str) -> Result<Option<Currencies>, String> {
     match sqlx::query_as::<_, Currencies>(
         r#"
         SELECT precision
@@ -228,7 +228,7 @@ pub async fn fetch_currency_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, cu
         }
     }
 }
-pub async fn fetch_symbol_info_by_symbol(pool: &sqlx::Pool<sqlx::Postgres>, symbol: &str) -> Result<Option<Symbol>, String> {
+pub async fn fetch_symbol_info_by_symbol(pool: &PgPool, symbol: &str) -> Result<Option<Symbol>, String> {
     match sqlx::query_as::<_, Symbol>(
         r#"
         SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size

@@ -18,6 +18,7 @@ use micromap::Map;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json;
+use sqlx::PgPool;
 use std::str::FromStr;
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
@@ -121,7 +122,7 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
     }
 }
 
-pub async fn create_init_orders(pool: &sqlx::Pool<sqlx::Postgres>) -> Result<(), String> {
+pub async fn create_init_orders(pool: &PgPool) -> Result<(), String> {
     let trade_bots: Vec<Bot> = match get_all_bots_for_trade(pool).await {
         Ok(trade_bots) => trade_bots,
         Err(e) => {
@@ -161,7 +162,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
     }
 }
 
-pub async fn repay_account(pool: &sqlx::Pool<sqlx::Postgres>, currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>, String> {
+pub async fn repay_account(pool: &PgPool, currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>, String> {
     log::info!("Repay {} liability:{}", size, currency);
     let body_str: String = match serialize_body(Some(serde_json::json!({
         "currency": currency,
@@ -185,7 +186,7 @@ pub async fn repay_account(pool: &sqlx::Pool<sqlx::Postgres>, currency: &str, si
     }
 }
 
-pub async fn get_token_price(pool: &sqlx::Pool<sqlx::Postgres>, trade_symbol: &str) -> Result<ApiV1MarketOrderbookLevel1ResData, String> {
+pub async fn get_token_price(pool: &PgPool, trade_symbol: &str) -> Result<ApiV1MarketOrderbookLevel1ResData, String> {
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", trade_symbol);
 
@@ -206,7 +207,7 @@ pub async fn get_token_price(pool: &sqlx::Pool<sqlx::Postgres>, trade_symbol: &s
     }
 }
 
-pub async fn transfer_amount(pool: &sqlx::Pool<sqlx::Postgres>, currency: &str, amount: &str) -> Result<(), String> {
+pub async fn transfer_amount(pool: &PgPool, currency: &str, amount: &str) -> Result<(), String> {
     let client_oid: String = Uuid::new_v4().to_string();
 
     let body_str: String = match serialize_body(Some(serde_json::json!({
@@ -233,7 +234,7 @@ pub async fn transfer_amount(pool: &sqlx::Pool<sqlx::Postgres>, currency: &str, 
     }
 }
 
-pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>) -> Result<bool, String> {
+pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
     sleep(AUTO_CLEAN_DELAY).await;
 
     let accounts: MarginAccountData = match get_all_accounts_data().await {
@@ -488,7 +489,7 @@ pub async fn auto_clean_account(pool: &sqlx::Pool<sqlx::Postgres>) -> Result<boo
     Ok(passed)
 }
 
-pub async fn process_bot_by_exit_sl_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
+pub async fn process_bot_by_exit_sl_client_oid(pool: &PgPool, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
     match delete_exit_sl_id_bot_by_client_oid(pool, client_oid).await {
         Err(e) => {
             handle_db_error(pool, e.clone()).await;
@@ -593,7 +594,7 @@ pub async fn process_bot_by_exit_sl_client_oid(pool: &sqlx::Pool<sqlx::Postgres>
     Ok(())
 }
 
-pub async fn process_bot_by_exit_tp_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
+pub async fn process_bot_by_exit_tp_client_oid(pool: &PgPool, bot: Bot, client_oid: &str, order: &OrderData) -> Result<(), String> {
     match delete_exit_tp_id_bot_by_client_oid(pool, client_oid).await {
         Ok(_) => {}
         Err(e) => {
@@ -690,7 +691,7 @@ pub async fn process_bot_by_exit_tp_client_oid(pool: &sqlx::Pool<sqlx::Postgres>
     Ok(())
 }
 
-pub async fn process_bot_by_entry_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, client_oid: &str, order: &OrderData) -> Result<(), String> {
+pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, order: &OrderData) -> Result<(), String> {
     let symbol_info_option: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, &order.symbol).await {
         Ok(symbol_info_option) => symbol_info_option,
         Err(e) => {
@@ -1249,7 +1250,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &sqlx::Pool<sqlx::Postgres>, 
     }
 }
 
-pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, order: &OrderData) -> Result<(), String> {
+pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), String> {
     let client_oid: &String = match &order.client_oid {
         Some(client_oid) => client_oid,
         None => {
@@ -1298,7 +1299,7 @@ pub async fn trade_order_event(pool: &sqlx::Pool<sqlx::Postgres>, order: &OrderD
     }
 }
 
-pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::Postgres>) -> Result<(), String> {
+pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result<(), String> {
     match insert_db_orderevent(pool, order.clone()).await {
         Ok(_) => log::info!("{}", order),
         Err(e) => {
@@ -1317,7 +1318,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &sqlx::Pool<sqlx::
     }
 }
 
-pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sqlx::Postgres>) -> Result<(), String> {
+pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<(), String> {
     let debt_pair: Vec<(String, Decimal)> = match position.debt_pairs() {
         Err(e) => return Err(e),
         Ok(debt_pair) => debt_pair,
@@ -1417,7 +1418,7 @@ pub async fn handle_position_event(position: PositionData, pool: &sqlx::Pool<sql
     Ok(())
 }
 
-pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sqlx::Postgres>) -> Result<(), String> {
+pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Result<(), String> {
     log::info!("{}", order);
     match order.error {
         Some(_) => {}
@@ -1547,7 +1548,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &sqlx::Pool<sql
     }
 }
 
-pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, msg: &str) -> Result<(), String> {
+pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
     let event: KuCoinMessage = match serde_json::from_str::<KuCoinMessage>(msg) {
         Err(e) => {
             let msg: String = format!("Failed to parse message:{} {}", msg, e);
@@ -1679,7 +1680,7 @@ pub async fn process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, msg: &str) -> Re
     }
 }
 
-pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, balance_funds: Decimal, trade_bot_id: i32) -> Result<(), String> {
+pub async fn make_random_trade(pool: &PgPool, balance_funds: Decimal, trade_bot_id: i32) -> Result<(), String> {
     const MAX_RETRIES: u32 = 10;
     let mut attempt: u32 = 0;
 
@@ -1832,7 +1833,7 @@ pub async fn make_random_trade(pool: &sqlx::Pool<sqlx::Postgres>, balance_funds:
     }
 }
 
-pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, mut rx_in: tokio::sync::mpsc::Receiver<String>) {
+pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::Receiver<String>) {
     loop {
         match rx_in.recv().await {
             Some(msg) => {
@@ -1856,7 +1857,7 @@ pub async fn spawn_process_kcn_msg(pool: &sqlx::Pool<sqlx::Postgres>, mut rx_in:
 }
 
 pub async fn make_hf_funds_margin_order(
-    pool: &sqlx::Pool<sqlx::Postgres>,
+    pool: &PgPool,
     client_oid: &str,
     side: &str,
     symbol: &str,
@@ -1907,7 +1908,7 @@ pub async fn make_hf_funds_margin_order(
 }
 
 pub async fn make_hf_size_margin_order(
-    pool: &sqlx::Pool<sqlx::Postgres>,
+    pool: &PgPool,
     client_oid: &str,
     side: &str,
     symbol: &str,

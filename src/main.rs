@@ -15,6 +15,7 @@ use bytes::Bytes;
 use dotenvy::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use micromap::Map;
+use sqlx::PgPool;
 
 use sqlx::postgres::PgPoolOptions;
 use tokio::sync::mpsc;
@@ -31,7 +32,7 @@ async fn main() -> Result<(), String> {
 
     let init_balance_per_bot: String = get_env("INIT_BALANCE_PER_BOT")?;
 
-    let pool: sqlx::Pool<sqlx::Postgres> = match PgPoolOptions::new()
+    let pool: PgPool = match PgPoolOptions::new()
         .max_connections(40)
         .min_connections(5)
         .acquire_timeout(Duration::from_secs(10))
@@ -133,11 +134,11 @@ async fn main() -> Result<(), String> {
 
     let (tx_in, rx_in) = mpsc::channel::<String>(10000);
 
-    let pool_process: sqlx::Pool<sqlx::Postgres> = pool.clone();
+    let pool_process: PgPool = pool.clone();
     let _spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, rx_in).await });
 
     if !init_order_execute {
-        let pool_init_orders: sqlx::Pool<sqlx::Postgres> = pool.clone();
+        let pool_init_orders: PgPool = pool.clone();
         tokio::spawn(async move {
             sleep(config::INIT_ORDER_DELAY).await;
             log::info!("Initializing start orders...");
