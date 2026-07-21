@@ -313,12 +313,10 @@ pub struct Symbol {
 
 impl Symbol {
     pub fn base_increment_decimal(&self) -> Result<Decimal, String> {
-         Ok(Decimal::from_str(&self.base_increment).map_err(|e|{
+        Ok(Decimal::from_str(&self.base_increment).map_err(|e| {
             log::error!("Fail parse decimal:{} {}", self.base_increment, e);
             format!("Fail parse decimal:{} {}", self.base_increment, e)
-
-         })?)
-          
+        })?)
     }
 
     pub fn quote_increment_decimal(&self) -> Result<Decimal, String> {

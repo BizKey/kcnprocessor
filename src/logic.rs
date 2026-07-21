@@ -132,7 +132,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
     query_params.insert("quoteCurrency", "USDT");
     query_params.insert("queryType", "MARGIN");
 
-    Ok(api_v3_margin_accounts_get(build_query_string(query_params)).await.map_err(|e| e)?)
+    Ok(api_v3_margin_accounts_get(build_query_string(query_params)).await?)
 }
 
 pub async fn repay_account(pool: &PgPool, currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>, String> {
