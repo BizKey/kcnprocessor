@@ -52,10 +52,10 @@ impl KuCoinClient {
     }
 
     fn generate_signature(&self, to_sign: &[u8]) -> Result<String, String> {
-        let mut mac = match HmacSha256::new_from_slice(self.api_secret.as_bytes()) {
-            Ok(mac) => mac,
-            Err(e) => return Err(format!("Fail get api secret:{}", e)),
-        };
+        let mut mac = HmacSha256::new_from_slice(self.api_secret.as_bytes()).map_err(|e| {
+            log::error!("Fail get api secret:{}", e);
+            format!("Fail get api secret:{}", e)
+        })?;
         mac.update(to_sign);
         Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
     }
@@ -591,14 +591,10 @@ pub async fn api_v3_margin_repay_post(body_str: String) -> Result<Option<ApiV3Ma
 
     let response_string: String = client.api_v3_margin_repay_post(body_str).await.map_err(|e| e)?;
 
-    let response: ApiV3MarginRepayRes = match serde_json::from_str::<ApiV3MarginRepayRes>(&response_string) {
-        Ok(res) => res,
-        Err(e) => {
-            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3MarginRepayRes), e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    };
+    let response: ApiV3MarginRepayRes = serde_json::from_str::<ApiV3MarginRepayRes>(&response_string).map_err(|e| {
+        log::error!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3MarginRepayRes), e);
+        format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3MarginRepayRes), e)
+    })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
