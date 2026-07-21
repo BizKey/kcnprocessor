@@ -163,10 +163,7 @@ pub async fn get_token_price(pool: &PgPool, trade_symbol: &str) -> Result<ApiV1M
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", trade_symbol);
 
-    let token_price_option: Option<ApiV1MarketOrderbookLevel1ResData> = match api_v1_market_orderbook_level1_get(build_query_string(query_params)).await {
-        Ok(token_price_option) => token_price_option,
-        Err(e) => return Err(e),
-    };
+    let token_price_option: Option<ApiV1MarketOrderbookLevel1ResData> = api_v1_market_orderbook_level1_get(build_query_string(query_params)).await?;
 
     match token_price_option {
         Some(token_price_data) => Ok(token_price_data),
@@ -261,7 +258,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 let msg: String = format!("Symbol info not found for {}", &account.currency);
                 log::error!("{}", msg);
                 handle_db_error(pool, msg.clone()).await;
-
                 return Err(msg);
             }
         };
@@ -513,14 +509,10 @@ pub async fn process_bot_by_exit_sl_client_oid(pool: &PgPool, bot: Bot, client_o
         }
     };
 
-    let return_balance: Decimal = match Decimal::from_str(&return_balance_string) {
-        Ok(return_balance) => return_balance,
-        Err(e) => {
-            let msg: String = format!("Fail parse return balance:{}", e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    };
+    let return_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
+        log::error!("Fail parse return balance:{}", e);
+        format!("Fail parse return balance:{}", e)
+    })?;
 
     if order.side == "buy" {
         let old_balance = match bot.balance_decimal() {
@@ -615,14 +607,10 @@ pub async fn process_bot_by_exit_tp_client_oid(pool: &PgPool, bot: Bot, client_o
         }
     };
 
-    let return_balance: Decimal = match Decimal::from_str(&return_balance_string) {
-        Ok(return_balance) => return_balance,
-        Err(e) => {
-            let msg: String = format!("Fail parse return balance:{}", e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    };
+    let return_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
+        log::error!("Fail parse return balance:{}", e);
+        format!("Fail parse return balance:{}", e)
+    })?;
 
     if order.side == "buy" {
         let old_balance: Decimal = match bot.balance_decimal() {
