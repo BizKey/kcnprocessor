@@ -1,7 +1,9 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 use std::str::FromStr;
+use tracing::error;
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
     pub endpoint: String,
@@ -67,14 +69,10 @@ pub struct AssetInfo {
 }
 impl AssetInfo {
     pub fn available_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.available) {
-            Ok(available) => Ok(available),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.available, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.available).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.available, e);
+            format!("Fail parse decimal:{} {}", self.available, e)
+        })?)
     }
 }
 #[derive(Debug, Deserialize, Serialize)]
@@ -98,14 +96,11 @@ impl PositionData {
     pub fn debt_pairs(&self) -> Result<Vec<(String, Decimal)>, String> {
         let mut result = Vec::new();
         for (asset, debt_str) in &self.debt_list {
-            let decimal = match Decimal::from_str(debt_str) {
-                Ok(decimal) => decimal,
-                Err(e) => {
-                    let msg: String = format!("Fail parse decimal:{} {}", debt_str, e);
-                    log::error!("{}", msg);
-                    return Err(msg);
-                }
-            };
+            let decimal: Decimal = Decimal::from_str(debt_str).map_err(|e| {
+                error!("Fail parse decimal:{} {}", debt_str, e);
+                format!("Fail parse decimal:{} {}", debt_str, e)
+            })?;
+
             result.push((asset.clone(), decimal));
         }
         Ok(result)
@@ -160,19 +155,46 @@ impl OrderData {
             Some(filled_size_str) => filled_size_str,
             None => {
                 let msg: String = format!("filled_size is None:{:?}", &self);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 return Err(msg);
             }
         };
 
-        match Decimal::from_str(filled_size_str) {
-            Ok(filled_size) => Ok(filled_size),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", filled_size_str, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(filled_size_str).map_err(|e| {
+            error!("Fail parse decimal:{} {}", filled_size_str, e);
+            format!("Fail parse decimal:{} {}", filled_size_str, e)
+        })?)
+    }
+}
+impl fmt::Display for OrderData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OrderData {{ status: {}, type: {}, symbol: {}, side: {}, order_type: {}, fee_type: {:?}, liquidity: {:?}, price: {:?}, order_id: {}, client_oid: {:?}, trade_id: {:?}, origin_size: {:?}, origin_funds: {:?}, size: {:?}, filled_size: {:?}, match_size: {:?}, match_price: {:?}, canceled_size: {:?}, old_size: {:?}, remain_size: {:?}, remain_funds: {:?}, order_time: {}, ts: {} }}",
+            self.status,
+            self.type_,
+            self.symbol,
+            self.side,
+            self.order_type,
+            self.fee_type,
+            self.liquidity,
+            self.price,
+            self.order_id,
+            self.client_oid,
+            self.trade_id,
+            self.origin_size,
+            self.origin_funds,
+            self.size,
+            self.filled_size,
+            self.match_size,
+            self.match_price,
+            self.canceled_size,
+            self.old_size,
+            self.remain_size,
+            self.remain_funds,
+            self.order_time,
+            self.ts
+        )
     }
 }
 
@@ -210,69 +232,45 @@ pub struct ApiV1MarketOrderbookLevel1ResData {
 
 impl ApiV1MarketOrderbookLevel1ResData {
     pub fn price_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.price) {
-            Ok(price) => Ok(price),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.price, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.price).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.price, e);
+            format!("Fail parse decimal:{} {}", self.price, e)
+        })?)
     }
 
     pub fn size_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.size) {
-            Ok(size) => Ok(size),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.size, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.size).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.size, e);
+            format!("Fail parse decimal:{} {}", self.size, e)
+        })?)
     }
 
     pub fn best_bid_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.best_bid) {
-            Ok(best_bid) => Ok(best_bid),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.best_bid, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.best_bid).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.best_bid, e);
+            format!("Fail parse decimal:{} {}", self.best_bid, e)
+        })?)
     }
 
     pub fn best_bid_size_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.best_bid_size) {
-            Ok(best_bid_size) => Ok(best_bid_size),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.best_bid_size, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.best_bid_size).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.best_bid_size, e);
+            format!("Fail parse decimal:{} {}", self.best_bid_size, e)
+        })?)
     }
 
     pub fn best_ask_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.best_ask) {
-            Ok(best_ask) => Ok(best_ask),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.best_ask, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.best_ask).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.best_ask, e);
+            format!("Fail parse decimal:{} {}", self.best_ask, e)
+        })?)
     }
 
     pub fn best_ask_size_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.best_ask_size) {
-            Ok(best_ask_size) => Ok(best_ask_size),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.best_ask_size, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.best_ask_size).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.best_ask_size, e);
+            format!("Fail parse decimal:{} {}", self.best_ask_size, e)
+        })?)
     }
 }
 
@@ -316,58 +314,38 @@ pub struct Symbol {
 
 impl Symbol {
     pub fn base_increment_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.base_increment) {
-            Ok(base_increment) => Ok(base_increment),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.base_increment, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.base_increment).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.base_increment, e);
+            format!("Fail parse decimal:{} {}", self.base_increment, e)
+        })?)
     }
 
     pub fn quote_increment_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.quote_increment) {
-            Ok(quote_increment) => Ok(quote_increment),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.quote_increment, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.quote_increment).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.quote_increment, e);
+            format!("Fail parse decimal:{} {}", self.quote_increment, e)
+        })?)
     }
 
     pub fn price_increment_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.price_increment) {
-            Ok(price_increment) => Ok(price_increment),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.price_increment, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.price_increment).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.price_increment, e);
+            format!("Fail parse decimal:{} {}", self.price_increment, e)
+        })?)
     }
 
     pub fn base_min_size_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.base_min_size) {
-            Ok(base_min_size) => Ok(base_min_size),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.base_min_size, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.base_min_size).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.base_min_size, e);
+            format!("Fail parse decimal:{} {}", self.base_min_size, e)
+        })?)
     }
 
     pub fn quote_min_size_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.quote_min_size) {
-            Ok(quote_min_size) => Ok(quote_min_size),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.quote_min_size, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.quote_min_size).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.quote_min_size, e);
+            format!("Fail parse decimal:{} {}", self.quote_min_size, e)
+        })?)
     }
 
     pub fn min_funds_decimal(&self) -> Result<Decimal, String> {
@@ -375,18 +353,33 @@ impl Symbol {
             Some(min_funds_str) => min_funds_str,
             None => {
                 let msg: String = format!("min_funds is None for symbol {:?}", &self);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 return Err(msg);
             }
         };
-        match Decimal::from_str(min_funds) {
-            Ok(min_funds) => Ok(min_funds),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", min_funds, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
+        Ok(Decimal::from_str(min_funds).map_err(|e| {
+            error!("Fail parse decimal:{} {}", min_funds, e);
+            format!("Fail parse decimal:{} {}", min_funds, e)
+        })?)
+    }
+}
+
+#[derive(Debug, Deserialize, sqlx::FromRow)]
+pub struct Currencies {
+    precision: i16,
+}
+
+impl Currencies {
+    pub fn precision_decimal(&self) -> Result<Decimal, String> {
+        if self.precision < 0 {
+            return Err(format!("Precision cannot be negative: {}", self.precision));
         }
+
+        let precision_str: String = format!("1e-{}", self.precision);
+        Ok(Decimal::from_str(&precision_str).map_err(|e| {
+            error!("Fail parse decimal: {} {}", self.precision, e);
+            format!("Fail parse decimal: {} {}", self.precision, e)
+        })?)
     }
 }
 
@@ -436,11 +429,7 @@ pub struct ApiV3AccountsUniversalTransferResData {
     #[serde(rename = "orderId")]
     pub order_id: String,
 }
-#[derive(Debug, Deserialize)]
-pub struct ApiV3HfMarginStopOrderCancelResData {
-    #[serde(rename = "cancelledOrderIds")]
-    pub cancelled_order_ids: Vec<String>,
-}
+
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersResDataItem {
     pub id: String,
@@ -487,23 +476,55 @@ pub struct ApiV3HfMarginStopOrdersResDataItem {
     #[serde(rename = "stopPrice")]
     pub stop_price: String,
 }
+
+impl fmt::Display for ApiV3HfMarginStopOrdersResDataItem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "StopOrder {{ id: {}, symbol: {}, user_id: {}, status: {}, type: {}, side: {}, price: {}, size: {}, funds: {}, stp: {}, time_in_force: {}, cancel_after: {}, post_only: {}, hidden: {}, iceberg: {}, visible_size: {}, channel: {}, client_oid: {}, tags: {}, order_time: {}, trade_type: {}, fee_currency: {}, taker_fee_rate: {}, maker_fee_rate: {}, created_at: {}, stop: {}, stop_trigger_time: {}, stop_price: {} }}",
+            self.id,
+            self.symbol,
+            self.user_id,
+            self.status,
+            self.type_,
+            self.side,
+            self.price,
+            self.size,
+            self.funds,
+            self.stp,
+            self.time_in_force,
+            self.cancel_after,
+            self.post_only,
+            self.hidden,
+            self.iceberg,
+            self.visible_size,
+            self.channel,
+            self.client_oid,
+            self.tags,
+            self.order_time,
+            self.trade_type,
+            self.fee_currency,
+            self.taker_fee_rate,
+            self.maker_fee_rate,
+            self.created_at,
+            self.stop,
+            self.stop_trigger_time,
+            self.stop_price,
+        )
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersResData {
     #[serde(rename = "currentPage")]
-    pub current_page: i64,
+    pub current_page: i32,
     #[serde(rename = "pageSize")]
-    pub page_size: i64,
+    pub page_size: i32,
     #[serde(rename = "totalNum")]
-    pub total_num: i64,
+    pub total_num: i32,
     #[serde(rename = "totalPage")]
-    pub total_page: i64,
+    pub total_page: i32,
     pub items: Vec<ApiV3HfMarginStopOrdersResDataItem>,
-}
-#[derive(Debug, Deserialize)]
-pub struct ApiV3HfMarginStopOrderCancelRes {
-    pub code: String,
-    pub msg: Option<String>,
-    pub data: Option<ApiV3HfMarginStopOrderCancelResData>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersRes {
@@ -522,12 +543,23 @@ pub struct ApiV3HfMarginStopOrderCancelByClientOidResData {
     #[serde(rename = "cancelledOrderIds")]
     pub cancelled_order_ids: Vec<String>,
 }
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelByIdResData {
+    #[serde(rename = "cancelledOrderIds")]
+    pub cancelled_order_ids: Vec<String>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrderCancelByClientOidRes {
     pub code: String,
     pub msg: Option<String>,
     pub data: Option<ApiV3HfMarginStopOrderCancelByClientOidResData>,
+}
+#[derive(Debug, Deserialize)]
+pub struct ApiV3HfMarginStopOrderCancelByIdRes {
+    pub code: String,
+    pub msg: Option<String>,
+    pub data: Option<ApiV3HfMarginStopOrderCancelByIdResData>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -539,25 +571,17 @@ pub struct MarginAccountDataAccount {
 
 impl MarginAccountDataAccount {
     pub fn available_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.available) {
-            Ok(available) => Ok(available),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.available, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.available).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.available, e);
+            format!("Fail parse decimal:{} {}", self.available, e)
+        })?)
     }
 
     pub fn liability_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.liability) {
-            Ok(liability) => Ok(liability),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.liability, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.liability).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.liability, e);
+            format!("Fail parse decimal:{} {}", self.liability, e)
+        })?)
     }
 }
 
@@ -584,14 +608,10 @@ pub struct Bot {
 
 impl Bot {
     pub fn balance_decimal(&self) -> Result<Decimal, String> {
-        match Decimal::from_str(&self.balance) {
-            Ok(balance) => Ok(balance),
-            Err(e) => {
-                let msg: String = format!("Fail parse decimal:{} {}", self.balance, e);
-                log::error!("{}", msg);
-                Err(msg)
-            }
-        }
+        Ok(Decimal::from_str(&self.balance).map_err(|e| {
+            error!("Fail parse decimal:{} {}", self.balance, e);
+            format!("Fail parse decimal:{} {}", self.balance, e)
+        })?)
     }
 }
 
@@ -616,4 +636,13 @@ pub struct AdvancedOrders {
     #[serde(rename = "type")]
     pub type_: String,
     pub error: Option<String>,
+}
+impl fmt::Display for AdvancedOrders {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OrderData {{ created_at: {}, funds: {:?}, size: {:?}, order_id: {}, order_type: {}, side: {:?}, stop: {:?}, stop_price: {:?}, symbol: {}, trade_type: {:?}, ts: {:?}, type_: {:?}, error: {:?}}}",
+            self.created_at, self.funds, self.size, self.order_id, self.order_type, self.side, self.stop, self.stop_price, self.symbol, self.trade_type, self.ts, self.type_, self.error
+        )
+    }
 }

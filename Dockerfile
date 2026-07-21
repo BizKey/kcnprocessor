@@ -1,6 +1,7 @@
-FROM rust:1.96.0-alpine3.22 AS builder
+FROM rust:1.97.1-alpine3.24 AS builder
 
-RUN apk add --no-cache musl-dev openssl-dev pkgconfig openssl-libs-static
+RUN apk add --no-cache musl-dev
+ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
 
 WORKDIR /app
 
@@ -11,9 +12,9 @@ RUN cargo build --release
 COPY src ./src
 RUN touch src/main.rs && cargo build --release
 
-FROM alpine:3.22
+FROM alpine:3.24
 
-RUN apk add --no-cache libgcc openssl ca-certificates
+RUN apk add --no-cache libgcc ca-certificates
 
 WORKDIR /app
 
@@ -23,7 +24,5 @@ RUN chmod +x /app/kcnprocessor
 
 RUN adduser -D -u 1000 myuser
 USER myuser
-
-ENV RUST_LOG=INFO
 
 CMD ["/app/kcnprocessor"]
