@@ -67,23 +67,15 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
     let precision = increment.scale() as usize;
 
     if precision == 0 {
-        let increment_int: i64 = match increment.to_string().parse() {
-            Ok(increment_int) => increment_int,
-            Err(e) => {
-                let msg: String = format!("Fail parse increment:{} error:{}", increment, e);
-                log::error!("{}", msg);
-                return Err(msg);
-            }
-        };
+        let increment_int: i64 = increment.to_string().parse().map_err(|e| {
+            log::error!("Fail parse increment:{} error:{}", increment, e);
+            format!("Fail parse increment:{} error:{}", increment, e)
+        })?;
 
-        let size_int: i64 = match size.to_string().parse() {
-            Ok(size_int) => size_int,
-            Err(e) => {
-                let msg: String = format!("Fail parse size:{} error:{}", size, e);
-                log::error!("{}", msg);
-                return Err(msg);
-            }
-        };
+        let size_int: i64 = size.to_string().parse().map_err(|e| {
+            log::error!("Fail parse size:{} error:{}", size, e);
+            format!("Fail parse size:{} error:{}", size, e)
+        })?;
 
         let rounded_down: i64 = (size_int / increment_int) * increment_int;
         return Ok(rounded_down.to_string());
