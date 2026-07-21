@@ -165,21 +165,14 @@ impl KuCoinClient {
             e
         })?;
 
-        let response: Response = match self.make_request(Method::GET, "/api/v3/margin/accounts", query_params_str, String::new(), true, system_timestamp_ms).await {
-            Ok(response) => response,
-            Err(e) => return Err(e),
-        };
+        let response: Response = self.make_request(Method::GET, "/api/v3/margin/accounts", query_params_str, String::new(), true, system_timestamp_ms).await.map_err(|e| e)?;
 
         let status: reqwest::StatusCode = response.status();
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
-            Err(e) => {
-                let msg: String = format!("Fail read text from response:{}", e);
-                log::error!("{}", msg);
-                return Err(msg);
-            }
-        };
+        let response_string: String = response.text().await.map_err(|e| {
+            log::error!("Fail read text from response:{}", e);
+            format!("Fail read text from response:{}", e)
+        })?;
 
         match status.as_u16() {
             200 => Ok(response_string),
@@ -197,21 +190,14 @@ impl KuCoinClient {
             e
         })?;
 
-        let response: Response = match self.make_request(Method::GET, "/api/v3/hf/margin/stop-orders", query_params_str, String::new(), true, system_timestamp_ms).await {
-            Ok(response) => response,
-            Err(e) => return Err(e),
-        };
+        let response: Response = self.make_request(Method::GET, "/api/v3/hf/margin/stop-orders", query_params_str, String::new(), true, system_timestamp_ms).await.map_err(|e| e)?;
 
         let status: reqwest::StatusCode = response.status();
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
-            Err(e) => {
-                let msg: String = format!("Fail read text from response:{}", e);
-                log::error!("{}", msg);
-                return Err(msg);
-            }
-        };
+        let response_string: String = response.text().await.map_err(|e| {
+            log::error!("Fail read text from response:{}", e);
+            format!("Fail read text from response:{}", e)
+        })?;
 
         match status.as_u16() {
             200 => Ok(response_string),
@@ -229,21 +215,14 @@ impl KuCoinClient {
             e
         })?;
 
-        let response: Response = match self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, system_timestamp_ms).await {
-            Ok(response) => response,
-            Err(e) => return Err(e),
-        };
+        let response: Response = self.make_request(Method::POST, "/api/v3/accounts/universal-transfer", String::new(), body_str, true, system_timestamp_ms).await.map_err(|e| e)?;
 
         let status: reqwest::StatusCode = response.status();
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
-            Err(e) => {
-                let msg: String = format!("Fail read text from response:{}", e);
-                log::error!("{}", msg);
-                return Err(msg);
-            }
-        };
+        let response_string: String = response.text().await.map_err(|e| {
+            log::error!("Fail read text from response:{}", e);
+            format!("Fail read text from response:{}", e)
+        })?;
 
         match status.as_u16() {
             200 => Ok(response_string),
@@ -261,21 +240,14 @@ impl KuCoinClient {
             e
         })?;
 
-        let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, system_timestamp_ms).await {
-            Ok(response) => response,
-            Err(e) => return Err(e),
-        };
+        let response: Response = self.make_request(Method::POST, "/api/v3/hf/margin/stop-order", String::new(), body_str, true, system_timestamp_ms).await.map_err(|e| e)?;
 
         let status: reqwest::StatusCode = response.status();
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
-            Err(e) => {
-                let msg: String = format!("Fail read text from response:{}", e);
-                log::error!("{}", msg);
-                return Err(msg);
-            }
-        };
+        let response_string: String = response.text().await.map_err(|e| {
+            log::error!("Fail read text from response:{}", e);
+            format!("Fail read text from response:{}", e)
+        })?;
 
         match status.as_u16() {
             200 => Ok(response_string),
@@ -293,21 +265,14 @@ impl KuCoinClient {
             e
         })?;
 
-        let response: Response = match self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, system_timestamp_ms).await {
-            Ok(response) => response,
-            Err(e) => return Err(e),
-        };
+        let response: Response = self.make_request(Method::POST, "/api/v3/hf/margin/order", String::new(), body_str, true, system_timestamp_ms).await.map_err(|e| e)?;
 
         let status: reqwest::StatusCode = response.status();
 
-        let response_string: String = match response.text().await {
-            Ok(response_string) => response_string,
-            Err(e) => {
-                let msg: String = format!("Fail read text from response:{}", e);
-                log::error!("{}", msg);
-                return Err(msg);
-            }
-        };
+        let response_string: String = response.text().await.map_err(|e| {
+            log::error!("Fail read text from response:{}", e);
+            format!("Fail read text from response:{}", e)
+        })?;
 
         match status.as_u16() {
             200 => Ok(response_string),
@@ -394,15 +359,9 @@ impl KuCoinClient {
                 str_to_sign.push_str(&body_str);
             }
 
-            let kc_api_sign: String = match self.generate_signature(str_to_sign.as_bytes()) {
-                Ok(kc_api_sign) => kc_api_sign,
-                Err(e) => return Err(e),
-            };
+            let kc_api_sign: String = self.generate_signature(str_to_sign.as_bytes()).map_err(|e| e)?;
 
-            let kc_api_passphrase: String = match self.generate_signature(self.api_passphrase.as_bytes()) {
-                Ok(kc_api_passphrase) => kc_api_passphrase,
-                Err(e) => return Err(e),
-            };
+            let kc_api_passphrase: String = self.generate_signature(self.api_passphrase.as_bytes()).map_err(|e| e)?;
 
             request_builder = request_builder
                 .header("KC-API-KEY", &self.api_key)
@@ -415,32 +374,24 @@ impl KuCoinClient {
                 request_builder = request_builder.header("Content-Type", "application/json").body(body_str);
             }
         }
-        match request_builder.send().await {
-            Ok(response) => Ok(response),
-            Err(e) => {
-                if e.is_timeout() {
-                    let msg: String = format!("Timeout {}: {}", url, e);
-                    log::error!("{}", msg);
-                    Err(msg)
-                } else if e.is_connect() {
-                    let msg: String = format!("Error connection {}: {}", url, e);
-                    log::error!("{}", msg);
-                    Err(msg)
-                } else if e.is_request() {
-                    let msg: String = format!("Error prepare request {}: {}", url, e);
-                    log::error!("{}", msg);
-                    Err(msg)
-                } else if e.is_body() {
-                    let msg: String = format!("Error in body {}: {}", url, e);
-                    log::error!("{}", msg);
-                    Err(msg)
-                } else {
-                    let msg: String = format!("Unexpected error {}: {}", url, e);
-                    log::error!("{}", msg);
-                    Err(msg)
-                }
+        Ok(request_builder.send().await.map_err(|e| {
+            if e.is_timeout() {
+                log::error!("Timeout {}: {}", url, e);
+                format!("Timeout {}: {}", url, e)
+            } else if e.is_connect() {
+                log::error!("Error connection {}: {}", url, e);
+                format!("Error connection {}: {}", url, e)
+            } else if e.is_request() {
+                log::error!("Error prepare request {}: {}", url, e);
+                format!("Error prepare request {}: {}", url, e)
+            } else if e.is_body() {
+                log::error!("Error in body {}: {}", url, e);
+                format!("Error in body {}: {}", url, e)
+            } else {
+                log::error!("Unexpected error {}: {}", url, e);
+                format!("Unexpected error {}: {}", url, e)
             }
-        }
+        })?)
     }
 }
 
@@ -451,15 +402,10 @@ pub fn serialize_body(body: Option<serde_json::Value>) -> Result<String, String>
         Some(clear_value) => clear_value,
         None => return Ok(String::new()),
     };
-
-    match serde_json::to_string(&clear_value) {
-        Ok(json_string) => Ok(json_string),
-        Err(e) => {
-            let msg: String = format!("Failed to deserialize body '{}' {}", clear_value, e);
-            log::error!("{}", msg);
-            Err(msg)
-        }
-    }
+    Ok(serde_json::to_string(&clear_value).map_err(|e| {
+        log::error!("Failed to deserialize body '{}' {}", clear_value, e);
+        format!("Failed to deserialize body '{}' {}", clear_value, e)
+    })?)
 }
 pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
     if query_params.is_empty() {
@@ -483,34 +429,20 @@ pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
     result
 }
 fn get_client() -> Result<&'static KuCoinClient, String> {
-    match KUCLIENT.get_or_init(|| KuCoinClient::new()).as_ref() {
-        Ok(client) => Ok(client),
-        Err(e) => {
-            let msg: String = format!("Fail get or init KuCoinClient:{}", e);
-            log::error!("{}", msg);
-            Err(msg)
-        }
-    }
+    Ok(KUCLIENT.get_or_init(|| KuCoinClient::new()).as_ref().map_err(|e| {
+        log::error!("Fail get or init KuCoinClient:{}", e);
+        format!("Fail get or init KuCoinClient:{}", e)
+    })?)
 }
 pub async fn api_v1_bullet_private_post() -> Result<String, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
-    let response_string: String = match client.api_v1_bullet_private_post().await {
-        Ok(response_string) => response_string,
-        Err(e) => return Err(e),
-    };
+    let response_string: String = client.api_v1_bullet_private_post().await.map_err(|e| e)?;
 
-    let response: ApiV3BulletPrivate = match serde_json::from_str::<ApiV3BulletPrivate>(&response_string) {
-        Ok(res) => res,
-        Err(e) => {
-            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3BulletPrivate), e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    };
+    let response: ApiV3BulletPrivate = serde_json::from_str::<ApiV3BulletPrivate>(&response_string).map_err(|e| {
+        log::error!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3BulletPrivate), e);
+        format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3BulletPrivate), e)
+    })?;
 
     let ws: Option<ApiV3BulletPrivateData> = match response.code.as_str() {
         "200000" => response.data,
@@ -536,24 +468,14 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
     }
 }
 pub async fn api_v3_margin_accounts_get(query_params_str: String) -> Result<MarginAccountData, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
-    let response_string: String = match client.api_v3_margin_accounts_get(query_params_str).await {
-        Ok(response_string) => response_string,
-        Err(e) => return Err(e),
-    };
+    let response_string: String = client.api_v3_margin_accounts_get(query_params_str).await.map_err(|e| e)?;
 
-    let response: MarginAccount = match serde_json::from_str::<MarginAccount>(&response_string) {
-        Ok(res) => res,
-        Err(e) => {
-            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    };
+    let response: MarginAccount = serde_json::from_str::<MarginAccount>(&response_string).map_err(|e| {
+        log::error!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e);
+        format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(MarginAccount), e)
+    })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
@@ -565,24 +487,14 @@ pub async fn api_v3_margin_accounts_get(query_params_str: String) -> Result<Marg
     }
 }
 pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str: String) -> Result<Option<ApiV3HfMarginStopOrderCancelByIdResData>, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
-    let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str).await {
-        Ok(response_string) => response_string,
-        Err(e) => return Err(e),
-    };
+    let response_string: String = client.api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str).await.map_err(|e| e)?;
 
-    let response: ApiV3HfMarginStopOrderCancelByIdRes = match serde_json::from_str::<ApiV3HfMarginStopOrderCancelByIdRes>(&response_string) {
-        Ok(res) => res,
-        Err(e) => {
-            let msg: String = format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelByIdRes), e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    };
+    let response: ApiV3HfMarginStopOrderCancelByIdRes = serde_json::from_str::<ApiV3HfMarginStopOrderCancelByIdRes>(&response_string).map_err(|e| {
+        log::error!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelByIdRes), e);
+        format!("Failed to deserialize response '{}' as {}: {}", response_string, stringify!(ApiV3HfMarginStopOrderCancelByIdRes), e)
+    })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
@@ -594,10 +506,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str: S
     }
 }
 pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_string_str: String) -> Result<Option<ApiV3HfMarginStopOrderCancelByClientOidResData>, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
     let response_string: String = match client.api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_string_str).await {
         Ok(response_string) => response_string,
@@ -623,10 +532,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_strin
     }
 }
 pub async fn api_v3_accounts_universal_transfer_post(body_str: String) -> Result<Option<ApiV3AccountsUniversalTransferResData>, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
     let response_string: String = match client.api_v3_accounts_universal_transfer_post(body_str).await {
         Ok(response_string) => response_string,
@@ -652,10 +558,7 @@ pub async fn api_v3_accounts_universal_transfer_post(body_str: String) -> Result
     }
 }
 pub async fn api_v1_market_orderbook_level1_get(query_params_str: String) -> Result<Option<ApiV1MarketOrderbookLevel1ResData>, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
     let response_string: String = match client.api_v1_market_orderbook_level1_get(query_params_str).await {
         Ok(response_string) => response_string,
@@ -682,10 +585,7 @@ pub async fn api_v1_market_orderbook_level1_get(query_params_str: String) -> Res
 }
 
 pub async fn api_v3_hf_margin_stop_orders_get(query_params_str: String) -> Result<Option<ApiV3HfMarginStopOrdersResData>, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
     let response_string: String = match client.api_v3_hf_margin_stop_orders_get(query_params_str).await {
         Ok(response_string) => response_string,
@@ -711,15 +611,9 @@ pub async fn api_v3_hf_margin_stop_orders_get(query_params_str: String) -> Resul
     }
 }
 pub async fn api_v3_hf_margin_stop_order_post(body_str: String) -> Result<Option<MakeStopOrderResData>, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
-    let response_string: String = match client.api_v3_hf_margin_stop_order_post(body_str).await {
-        Ok(response_string) => response_string,
-        Err(e) => return Err(e),
-    };
+    let response_string: String = client.api_v3_hf_margin_stop_order_post(body_str).await.map_err(|e| e)?;
 
     let response: MakeStopOrderRes = match serde_json::from_str::<MakeStopOrderRes>(&response_string) {
         Ok(res) => res,
@@ -740,10 +634,7 @@ pub async fn api_v3_hf_margin_stop_order_post(body_str: String) -> Result<Option
     }
 }
 pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<Option<MakeOrderResData>, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
     let response_string: String = match client.api_v3_hf_margin_order_post(body_str).await {
         Ok(response_string) => response_string,
@@ -769,10 +660,7 @@ pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<Option<Make
     }
 }
 pub async fn api_v3_margin_repay_post(body_str: String) -> Result<Option<ApiV3MarginRepayResData>, String> {
-    let client: &KuCoinClient = match get_client() {
-        Ok(client) => client,
-        Err(e) => return Err(e),
-    };
+    let client: &KuCoinClient = get_client().map_err(|e| e)?;
 
     let response_string: String = match client.api_v3_margin_repay_post(body_str).await {
         Ok(response_string) => response_string,
