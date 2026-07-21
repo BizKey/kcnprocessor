@@ -38,8 +38,8 @@ async fn main() -> Result<(), String> {
     let init_balance_per_bot: String = get_env("INIT_BALANCE_PER_BOT")?;
 
     let pool: PgPool = match PgPoolOptions::new()
-        .max_connections(40)
-        .min_connections(5)
+        .max_connections(10)
+        .min_connections(1)
         .acquire_timeout(Duration::from_secs(10))
         .idle_timeout(Duration::from_secs(600))
         .max_lifetime(Duration::from_secs(1800))
