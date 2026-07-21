@@ -25,6 +25,11 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_target(true)
+        .with_thread_ids(true)
+        .init();
     dotenv().ok();
     let init_order_execute: bool = true;
 
