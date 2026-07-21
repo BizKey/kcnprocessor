@@ -770,8 +770,8 @@ pub async fn upsert_position_asset(pool: &sqlx::PgPool, asset_symbol: &str, asse
     })?;
     Ok(())
 }
-pub async fn handle_db_error(pool: &sqlx::PgPool, error_msg: &str) -> () {
+pub async fn handle_db_error(pool: &sqlx::PgPool, error_msg: &str) {
     if let Err(db_err) = insert_db_error(pool, error_msg).await {
         log::error!("Failed to insert error to DB: {db_err} | Original: {error_msg}");
-    };
+    }
 }
