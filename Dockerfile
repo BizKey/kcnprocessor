@@ -25,6 +25,4 @@ RUN chmod +x /app/kcnprocessor
 RUN adduser -D -u 1000 myuser
 USER myuser
 
-ENV RUST_LOG=INFO
-
 CMD ["/app/kcnprocessor"]

@@ -23,13 +23,13 @@ use tokio::sync::mpsc;
 use tokio::time::{Duration, Interval, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
+fn init_tracing() {
+    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).with_target(true).with_thread_ids(true).init();
+}
+
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_target(true)
-        .with_thread_ids(true)
-        .init();
+    init_tracing();
     dotenv().ok();
     let init_order_execute: bool = true;
 
