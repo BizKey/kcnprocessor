@@ -21,12 +21,13 @@ use serde_json;
 use sqlx::PgPool;
 use std::str::FromStr;
 use tokio::time::{Duration, sleep};
+use tracing::{error, info};
 use uuid::Uuid;
 
 fn tp_buy_percent() -> Result<Decimal, String> {
     // +7%
     Ok(Decimal::from_str("1.07").map_err(|e| {
-        log::error!("{}", e);
+        error!("{}", e);
         format!("{}", e)
     })?)
 }
@@ -34,7 +35,7 @@ fn tp_buy_percent() -> Result<Decimal, String> {
 fn sl_buy_percent() -> Result<Decimal, String> {
     // -5%
     Ok(Decimal::from_str("0.95").map_err(|e| {
-        log::error!("{}", e);
+        error!("{}", e);
         format!("{}", e)
     })?)
 }
@@ -42,7 +43,7 @@ fn sl_buy_percent() -> Result<Decimal, String> {
 fn tp_sell_percent() -> Result<Decimal, String> {
     // -7%
     Ok(Decimal::from_str("0.93").map_err(|e| {
-        log::error!("{}", e);
+        error!("{}", e);
         format!("{}", e)
     })?)
 }
@@ -50,7 +51,7 @@ fn tp_sell_percent() -> Result<Decimal, String> {
 fn sl_sell_percent() -> Result<Decimal, String> {
     // +5%
     Ok(Decimal::from_str("1.05").map_err(|e| {
-        log::error!("{}", e);
+        error!("{}", e);
         format!("{}", e)
     })?)
 }
@@ -68,12 +69,12 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
 
     if precision == 0 {
         let increment_int: i64 = increment.to_string().parse().map_err(|e| {
-            log::error!("Fail parse increment:{} error:{}", increment, e);
+            error!("Fail parse increment:{} error:{}", increment, e);
             format!("Fail parse increment:{} error:{}", increment, e)
         })?;
 
         let size_int: i64 = size.to_string().parse().map_err(|e| {
-            log::error!("Fail parse size:{} error:{}", size, e);
+            error!("Fail parse size:{} error:{}", size, e);
             format!("Fail parse size:{} error:{}", size, e)
         })?;
 
@@ -123,7 +124,7 @@ pub async fn create_init_orders(pool: &PgPool) -> Result<(), String> {
             }
         }
     }
-    log::info!("All bots initialized!");
+    info!("All bots initialized!");
     Ok(())
 }
 
@@ -136,7 +137,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
 }
 
 pub async fn repay_account(pool: &PgPool, currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>, String> {
-    log::info!("Repay {} liability:{}", size, currency);
+    info!("Repay {} liability:{}", size, currency);
     let body_str: String = match serialize_body(Some(serde_json::json!({
         "currency": currency,
         "size": size,
@@ -169,7 +170,7 @@ pub async fn get_token_price(pool: &PgPool, trade_symbol: &str) -> Result<ApiV1M
         Some(token_price_data) => Ok(token_price_data),
         None => {
             let msg: String = format!("Fail get token_price:{:?}", token_price_option);
-            log::error!("{}", msg);
+            error!("{}", msg);
             handle_db_error(pool, &msg).await;
 
             return Err(msg);
@@ -229,9 +230,8 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
             Some(currency_info) => currency_info,
             None => {
                 let msg: String = format!("Currency info not found for {}", account.currency);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
-
                 return Err(msg);
             }
         };
@@ -256,7 +256,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
             Some(info) => info,
             None => {
                 let msg: String = format!("Symbol info not found for {}", &account.currency);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -369,7 +369,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                     }
                 };
 
-                log::info!("Successfully get token:{} ask price:{}", trade_symbol, best_ask_token_price);
+                info!("Successfully get token:{} ask price:{}", trade_symbol, best_ask_token_price);
 
                 let token_funds: Decimal = best_ask_token_price * token_liability;
 
@@ -416,7 +416,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 }
             };
 
-            log::info!("Successfully get token:{} price:{}", &trade_symbol, best_bid_token_price);
+            info!("Successfully get token:{} price:{}", &trade_symbol, best_bid_token_price);
 
             let token_funds: Decimal = best_bid_token_price * token_available;
 
@@ -482,7 +482,7 @@ pub async fn process_bot_by_exit_sl_client_oid(pool: &PgPool, bot: Bot, client_o
 
             match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
                 Ok(_) => {
-                    log::info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
+                    info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                 }
                 Err(e) => {
                     handle_db_error(pool, &e).await;
@@ -504,13 +504,13 @@ pub async fn process_bot_by_exit_sl_client_oid(pool: &PgPool, bot: Bot, client_o
     let return_balance_string: String = match return_balance_option {
         Some(return_balance_string) => return_balance_string,
         None => {
-            log::error!("No records found or error occurred");
+            error!("No records found or error occurred");
             return Ok(());
         }
     };
 
     let return_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
-        log::error!("Fail parse return balance:{}", e);
+        error!("Fail parse return balance:{}", e);
         format!("Fail parse return balance:{}", e)
     })?;
 
@@ -582,7 +582,7 @@ pub async fn process_bot_by_exit_tp_client_oid(pool: &PgPool, bot: Bot, client_o
 
             match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(query_params)).await {
                 Ok(_) => {
-                    log::info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
+                    info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
                 }
                 Err(e) => {
                     handle_db_error(pool, &e).await;
@@ -602,13 +602,13 @@ pub async fn process_bot_by_exit_tp_client_oid(pool: &PgPool, bot: Bot, client_o
     let return_balance_string: String = match return_balance_option {
         Some(return_balance_string) => return_balance_string,
         None => {
-            log::error!("No records found or error occurred");
+            error!("No records found or error occurred");
             return Ok(());
         }
     };
 
     let return_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
-        log::error!("Fail parse return balance:{}", e);
+        error!("Fail parse return balance:{}", e);
         format!("Fail parse return balance:{}", e)
     })?;
 
@@ -665,7 +665,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
         Some(symbol_info) => symbol_info,
         None => {
             let msg: String = format!("Symbol info not found for {}", order.symbol);
-            log::error!("{}", msg);
+            error!("{}", msg);
             handle_db_error(pool, &msg).await;
             return Err(msg);
         }
@@ -706,13 +706,13 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
     let return_balance_string: String = match return_balance_option {
         Some(return_balance_string) => return_balance_string,
         None => {
-            log::error!("No records found or error occurred");
+            error!("No records found or error occurred");
             return Ok(());
         }
     };
 
     let new_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
-        log::error!("Fail parse return balance:{}", e);
+        error!("Fail parse return balance:{}", e);
         format!("Fail parse return balance:{}", e)
     })?;
 
@@ -728,7 +728,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
         let tp_buy: Decimal = match tp_buy_percent() {
             Ok(tp_buy) => tp_buy,
             Err(e) => {
-                log::error!("{}", e);
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -736,7 +736,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
         let sl_buy: Decimal = match sl_buy_percent() {
             Ok(sl_buy) => sl_buy,
             Err(e) => {
-                log::error!("{}", e);
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -753,7 +753,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             Ok(stop_price_tp) => stop_price_tp,
             Err(e) => {
                 let msg: String = format!("Fail parse:{} {} error:{}", trigger_tp_price, price_increment, e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -776,7 +776,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             Ok(stop_price_sl) => stop_price_sl,
             Err(e) => {
                 let msg: String = format!("Fail parse:{} {} error:{}", trigger_sl_price, price_increment, e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -795,8 +795,8 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             "timeInForce": "GTC",
         });
 
-        log::info!("Stop profit order:{}", msg_tp_order);
-        log::info!("Stop loss order:{}", msg_sl_order);
+        info!("Stop profit order:{}", msg_tp_order);
+        info!("Stop loss order:{}", msg_sl_order);
 
         // add exit_tp_client_oid by entry_id
         match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, client_oid, &exit_tp_client_oid).await {
@@ -859,7 +859,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
                     None => {}
                 }
 
-                log::info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
+                info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
             }
             (Err(tp_err), Ok(sl_resp)) => {
                 match sl_resp {
@@ -888,7 +888,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
                 }
 
                 let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 {}
@@ -920,14 +920,14 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
                 }
 
                 let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 {}
             }
             (Err(tp_err), Err(sl_err)) => {
                 let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 {}
@@ -959,7 +959,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
         let tp_sell: Decimal = match tp_sell_percent() {
             Ok(tp_sell) => tp_sell,
             Err(e) => {
-                log::error!("{}", e);
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -967,7 +967,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
         let sl_sell: Decimal = match sl_sell_percent() {
             Ok(sl_sell) => sl_sell,
             Err(e) => {
-                log::error!("{}", e);
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -986,7 +986,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             Ok(stop_price_tp) => stop_price_tp,
             Err(e) => {
                 let msg: String = format!("Fail parse:{} {} error:{}", trigger_tp_price, price_increment, e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -995,7 +995,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             Ok(funds_tp_str) => funds_tp_str,
             Err(e) => {
                 let msg: String = format!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -1017,7 +1017,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             Ok(stop_price_sl) => stop_price_sl,
             Err(e) => {
                 let msg: String = format!("Fail parse:{} {} error:{}", trigger_sl_price, price_increment, e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -1026,7 +1026,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             Ok(funds_sl_str) => funds_sl_str,
             Err(e) => {
                 let msg: String = format!("Fail parse:{} {} error:{}", funds_sl, quote_increment, e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -1045,8 +1045,8 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             "funds": funds_sl_str,
         });
 
-        log::info!("Stop profit order:{}", msg_tp_order);
-        log::info!("Stop loss order:{}", msg_sl_order);
+        info!("Stop profit order:{}", msg_tp_order);
+        info!("Stop loss order:{}", msg_sl_order);
 
         // add exit_tp_client_oid by entry_id
         match update_exit_tp_client_oid_bot_by_entry_client_oid(pool, client_oid, &exit_tp_client_oid).await {
@@ -1108,7 +1108,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
                     None => {}
                 }
 
-                log::info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
+                info!("✅ Both stop orders created: TP={}, SL={}", exit_tp_client_oid, exit_sl_client_oid);
             }
             (Err(tp_err), Ok(sl_resp)) => {
                 match sl_resp {
@@ -1136,7 +1136,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
                 }
 
                 let msg: String = format!("Failed add TP order: {}. SL was cancelled for symmetry.", tp_err);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
             }
             (Ok(tp_resp), Err(sl_err)) => match tp_resp {
@@ -1154,7 +1154,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
                                 }
                             }
                             let msg: String = format!("Failed add SL order: {}. TP was cancelled for symmetry.", sl_err);
-                            log::error!("{}", msg);
+                            error!("{}", msg);
 
                             handle_db_error(pool, &msg).await;
                             {}
@@ -1169,7 +1169,7 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
             },
             (Err(tp_err), Err(sl_err)) => {
                 let msg: String = format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 {}
@@ -1212,7 +1212,7 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), S
         Some(client_oid) => client_oid,
         None => {
             let msg: String = format!("client_oid in order is none: {}", order);
-            log::error!("{}", msg);
+            error!("{}", msg);
             handle_db_error(pool, &msg).await;
             return Err(msg);
         }
@@ -1230,7 +1230,7 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), S
         Some(bot) => bot,
         None => {
             let msg: String = format!("Bot is None by:{}", client_oid);
-            log::error!("{}", msg);
+            error!("{}", msg);
             return Err(msg);
         }
     };
@@ -1250,7 +1250,7 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), S
         },
         _ => {
             let msg: String = format!("don't find client_oid in:{}", order);
-            log::error!("{}", msg);
+            error!("{}", msg);
             Err(msg)
         }
     }
@@ -1258,7 +1258,7 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), S
 
 pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result<(), String> {
     match insert_db_orderevent(pool, order.clone()).await {
-        Ok(_) => log::info!("{}", order),
+        Ok(_) => info!("{}", order),
         Err(e) => {
             handle_db_error(pool, &e).await;
             return Err(e);
@@ -1285,7 +1285,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
         let asset_info: &AssetInfo = match position.asset_list.get(&asset) {
             None => {
                 let msg: String = format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 continue;
             }
@@ -1313,7 +1313,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
                 Some(info) => info,
                 None => {
                     let msg: String = format!("Currency info not found for {}", asset);
-                    log::error!("{}", msg);
+                    error!("{}", msg);
                     handle_db_error(pool, &msg).await;
                     return Err(msg);
                 }
@@ -1376,14 +1376,14 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
 }
 
 pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Result<(), String> {
-    log::info!("{}", order);
+    info!("{}", order);
     match order.error {
         Some(_) => {}
         None => return Ok(()),
     }
 
     let msg: String = format!("Got error on stop order : {}", order);
-    log::error!("{}", msg);
+    error!("{}", msg);
 
     handle_db_error(pool, &msg).await;
 
@@ -1421,7 +1421,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                             Some(size) => make_hf_size_margin_order(pool, &new_exit_client_oid, side_ref, symbol_ref, size, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone,);
-                                log::error!("{}", msg);
+                                error!("{}", msg);
 
                                 handle_db_error(pool, &msg).await;
 
@@ -1430,7 +1430,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                         },
                         _ => {
                             let msg: String = format!("Fail match side_clone:{}", side_ref);
-                            log::error!("{}", msg);
+                            error!("{}", msg);
 
                             handle_db_error(pool, &msg).await;
                             continue;
@@ -1450,7 +1450,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                             Some(funds) => make_hf_funds_margin_order(pool, &new_exit_client_oid, side_ref, symbol_ref, funds, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone);
-                                log::error!("{}", msg);
+                                error!("{}", msg);
 
                                 handle_db_error(pool, &msg).await;
                                 continue;
@@ -1460,7 +1460,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                             Some(size) => make_hf_size_margin_order(pool, &new_exit_client_oid, side_ref, symbol_ref, size, "market", true, false).await,
                             None => {
                                 let msg: String = format!("Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}", order_id_ref, new_exit_client_oid, size_clone);
-                                log::error!("{}", msg);
+                                error!("{}", msg);
 
                                 handle_db_error(pool, &msg).await;
                                 continue;
@@ -1468,7 +1468,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                         },
                         _ => {
                             let msg: String = format!("Fail match side_clone:{}", side_ref);
-                            log::error!("{}", msg);
+                            error!("{}", msg);
 
                             handle_db_error(pool, &msg).await;
                             continue;
@@ -1482,7 +1482,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
             }
             _ => {
                 let msg: String = format!("Fail match stop_clone:{}", stop_ref);
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 continue;
@@ -1491,12 +1491,12 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
 
         match order_result {
             Ok(_) => {
-                log::info!("✅ Order re-placed: {} {} (attempt {}/{})", order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES);
+                info!("✅ Order re-placed: {} {} (attempt {}/{})", order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES);
                 break Ok(());
             }
             Err(e) => {
                 let msg: String = format!("❌ Order failed: {} {} (attempt {}/{}) {}", order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES, e);
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
@@ -1509,7 +1509,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
     let event: KuCoinMessage = match serde_json::from_str::<KuCoinMessage>(msg) {
         Err(e) => {
             let msg: String = format!("Failed to parse message:{} {}", msg, e);
-            log::error!("{}", msg);
+            error!("{}", msg);
 
             handle_db_error(pool, &msg).await;
             return Err(msg);
@@ -1528,7 +1528,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
             },
             Err(e) => {
                 let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(WelcomeData), e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -1544,14 +1544,14 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
             },
             Err(e) => {
                 let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data, stringify!(AckData), e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
         },
         KuCoinMessage::Error(data) => {
             let msg: String = format!("Got error in WS {:?}", data);
-            log::error!("{}", msg);
+            error!("{}", msg);
 
             handle_db_error(pool, &msg).await;
             return Err(msg);
@@ -1559,7 +1559,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
 
         KuCoinMessage::Unknown => {
             let msg: String = String::from("Unknown WS message type");
-            log::error!("{}", msg);
+            error!("{}", msg);
 
             handle_db_error(pool, &msg).await;
             return Err(msg);
@@ -1570,7 +1570,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
         "/account/balance" => match BalanceData::deserialize(&data.data) {
             Err(e) => {
                 let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(BalanceData), e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -1585,7 +1585,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
         "/spotMarket/tradeOrdersV2" => match OrderData::deserialize(&data.data) {
             Err(e) => {
                 let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(OrderData), e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -1600,7 +1600,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
         "/spotMarket/advancedOrders" => match AdvancedOrders::deserialize(&data.data) {
             Err(e) => {
                 let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(AdvancedOrders), e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
@@ -1615,7 +1615,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
         "/margin/position" => match PositionData::deserialize(&data.data) {
             Err(e) => {
                 let msg: String = format!("Failed to serialize request '{:?}' as {}: {}", &data.data, stringify!(PositionData), e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(&pool, &msg).await;
                 return Err(msg);
             }
@@ -1629,7 +1629,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
         },
         _ => {
             let msg: String = format!("Unknown topic: {}", data.topic);
-            log::error!("{}", msg);
+            error!("{}", msg);
 
             handle_db_error(pool, &msg).await;
             return Err(msg);
@@ -1660,7 +1660,7 @@ pub async fn make_random_trade(pool: &PgPool, balance_funds: Decimal, trade_bot_
             Some(tradeable_symbol) => tradeable_symbol,
             None => {
                 let msg: String = String::from("Failed get_random_symbol:");
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 continue;
@@ -1679,7 +1679,7 @@ pub async fn make_random_trade(pool: &PgPool, balance_funds: Decimal, trade_bot_
             Some(symbol_info) => symbol_info,
             None => {
                 let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 continue;
@@ -1735,7 +1735,7 @@ pub async fn make_random_trade(pool: &PgPool, balance_funds: Decimal, trade_bot_
                     Ok(size) => size,
                     Err(e) => {
                         let msg: String = format!("Fail parse:{} {} error:{}", token_size, base_increment, e);
-                        log::error!("{}", msg);
+                        error!("{}", msg);
                         handle_db_error(pool, &msg).await;
                         return Err(msg);
                     }
@@ -1743,7 +1743,7 @@ pub async fn make_random_trade(pool: &PgPool, balance_funds: Decimal, trade_bot_
                 make_hf_size_margin_order(pool, &entry_client_oid, "sell", &tradeable_symbol, size, "market", true, false).await
             }
             "buy" => {
-                let quote_increment = match symbol_info.quote_increment_decimal() {
+                let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
                     Ok(quote_increment) => quote_increment,
                     Err(e) => {
                         handle_db_error(pool, &e).await;
@@ -1754,7 +1754,7 @@ pub async fn make_random_trade(pool: &PgPool, balance_funds: Decimal, trade_bot_
                     Ok(funds) => funds,
                     Err(e) => {
                         let msg: String = format!("Fail parse:{} {} error:{}", balance_funds, quote_increment, e);
-                        log::error!("{}", msg);
+                        error!("{}", msg);
                         handle_db_error(pool, &msg).await;
                         return Err(msg);
                     }
@@ -1768,7 +1768,7 @@ pub async fn make_random_trade(pool: &PgPool, balance_funds: Decimal, trade_bot_
 
         match order_result {
             Ok(_) => {
-                log::info!("✅ Order placed: {} {} (attempt {}/{})", entry_client_oid, trade_bot_id, attempt, MAX_RETRIES);
+                info!("✅ Order placed: {} {} (attempt {}/{})", entry_client_oid, trade_bot_id, attempt, MAX_RETRIES);
                 return Ok(());
             }
             Err(e) => {
@@ -1781,7 +1781,7 @@ pub async fn make_random_trade(pool: &PgPool, balance_funds: Decimal, trade_bot_
                 }
 
                 let msg: String = format!("❌ Order failed (attempt {}/{}): {} {}", attempt, MAX_RETRIES, tradeable_symbol, e);
-                log::error!("{}", msg);
+                error!("{}", msg);
 
                 handle_db_error(pool, &msg).await;
                 continue;
@@ -1804,13 +1804,13 @@ pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::
             }
             None => {
                 let msg: String = String::from("Channel closed, exiting message processor");
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(pool, &msg).await;
                 break;
             }
         }
     }
-    log::info!("Message processor stopped");
+    info!("Message processor stopped");
 }
 
 pub async fn make_hf_funds_margin_order(
@@ -1843,7 +1843,7 @@ pub async fn make_hf_funds_margin_order(
         "timeInForce": args_time_in_force,
         "funds": funds
     });
-    log::info!("{}", msg);
+    info!("{}", msg);
 
     let body_str: String = match serialize_body(Some(msg)) {
         Ok(body_str) => body_str,

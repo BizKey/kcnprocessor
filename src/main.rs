@@ -16,6 +16,7 @@ use dotenvy::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use micromap::Map;
 use sqlx::PgPool;
+use tracing::{error, info};
 
 use sqlx::postgres::PgPoolOptions;
 use tokio::sync::mpsc;
@@ -24,7 +25,6 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    env_logger::init();
     dotenv().ok();
     let init_order_execute: bool = true;
 
@@ -44,14 +44,14 @@ async fn main() -> Result<(), String> {
         Ok(pool) => pool,
         Err(e) => {
             let msg: String = format!("Failed to create pg pool:{}", e);
-            log::error!("{}", msg);
+            error!("{}", msg);
             return Err(msg);
         }
     };
 
     // clear orders ids for bots
     match wipe_bots_info(&pool, &init_balance_per_bot).await {
-        Ok(_) => log::info!("wipe_bots_info"),
+        Ok(_) => info!("wipe_bots_info"),
         Err(e) => {
             handle_db_error(&pool, &e).await;
             return Err(e);
@@ -75,18 +75,15 @@ async fn main() -> Result<(), String> {
             Some(open_stop_orders) => open_stop_orders,
             None => {
                 let msg: String = String::from("Fail get list open stop orders:None");
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(&pool, &msg).await;
                 return Err(msg);
             }
         };
 
-        log::info!(
+        info!(
             "Stop orders: current_page:{} page_size:{} total_num:{} total_page:{}",
-            open_stop_orders_data.current_page,
-            open_stop_orders_data.page_size,
-            open_stop_orders_data.total_num,
-            open_stop_orders_data.total_page
+            open_stop_orders_data.current_page, open_stop_orders_data.page_size, open_stop_orders_data.total_num, open_stop_orders_data.total_page
         );
 
         if open_stop_orders_data.total_num == 0 {
@@ -94,7 +91,7 @@ async fn main() -> Result<(), String> {
         }
 
         for stop_order in open_stop_orders_data.items {
-            log::info!("Stop order:{}", stop_order);
+            info!("Stop order:{}", stop_order);
             let mut query_params: Map<&str, &str, 8> = Map::new();
 
             query_params.insert("orderId", &stop_order.id);
@@ -111,14 +108,14 @@ async fn main() -> Result<(), String> {
                 Some(canceled_stop_order) => canceled_stop_order,
                 None => {
                     let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
-                    log::error!("{}", msg);
+                    error!("{}", msg);
                     handle_db_error(&pool, &msg).await;
                     continue;
                 }
             };
 
             for st_order in canceled_stop_order.cancelled_order_ids {
-                log::info!("Success cancel stop order:{}", st_order)
+                info!("Success cancel stop order:{}", st_order)
             }
         }
     }
@@ -141,7 +138,7 @@ async fn main() -> Result<(), String> {
         let pool_init_orders: PgPool = pool.clone();
         tokio::spawn(async move {
             sleep(config::INIT_ORDER_DELAY).await;
-            log::info!("Initializing start orders...");
+            info!("Initializing start orders...");
             match create_init_orders(&pool_init_orders).await {
                 Ok(_) => {}
                 Err(e) => {
@@ -166,7 +163,7 @@ async fn main() -> Result<(), String> {
             Ok((stream, _)) => stream.split(),
             Err(e) => {
                 let msg: String = format!("WebSocket connection failed:{}", e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
@@ -178,10 +175,10 @@ async fn main() -> Result<(), String> {
             .send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string()))
             .await
         {
-            Ok(_) => log::info!("Subscribe:/spotMarket/tradeOrdersV2"),
+            Ok(_) => info!("Subscribe:/spotMarket/tradeOrdersV2"),
             Err(e) => {
                 let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
@@ -192,10 +189,10 @@ async fn main() -> Result<(), String> {
             .send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string()))
             .await
         {
-            Ok(_) => log::info!("Subscribe:/spotMarket/advancedOrders"),
+            Ok(_) => info!("Subscribe:/spotMarket/advancedOrders"),
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
@@ -204,10 +201,10 @@ async fn main() -> Result<(), String> {
 
         match event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await
         {
-            Ok(_) => log::info!("Subscribe:/account/balance"),
+            Ok(_) => info!("Subscribe:/account/balance"),
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/account/balance:{}", e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
@@ -216,17 +213,17 @@ async fn main() -> Result<(), String> {
 
         match event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await
         {
-            Ok(_) => log::info!("Subscribe:/margin/position"),
+            Ok(_) => info!("Subscribe:/margin/position"),
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/margin/position:{}", e);
-                log::error!("{}", msg);
+                error!("{}", msg);
                 handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
         }
 
-        log::info!("Subscribed and listening for messages...");
+        info!("Subscribed and listening for messages...");
 
         let event_ping_interval: Interval = interval(config::PING_INTERVAL);
         tokio::pin!(event_ping_interval);
@@ -239,7 +236,7 @@ async fn main() -> Result<(), String> {
                         Ok(_) => {},
                         Err(e) =>  {
                             let msg: String = format!("Fail send Ping to WebSocket:{}", e);
-                            log::error!("{}", msg);
+                            error!("{}", msg);
                             handle_db_error(&pool,  &msg).await;
                             break
                         }
@@ -251,13 +248,13 @@ async fn main() -> Result<(), String> {
                         Some(Ok(msg_event)) =>  msg_event,
                         Some(Err(e)) =>  {
                             let msg: String = format!("WebSocket read error:{}", e);
-                            log::error!("{}", msg);
+                            error!("{}", msg);
                             handle_db_error(&pool, &msg).await;
                             break
                         }
                         None => {
                             let msg: String = String::from("WebSocket stream ended");
-                            log::error!("{}", msg);
+                            error!("{}", msg);
                             handle_db_error(&pool,  &msg).await;
                             break
                         }
@@ -268,7 +265,7 @@ async fn main() -> Result<(), String> {
                             Ok(_) => {}
                             Err(e) => {
                                 let msg: String = format!("Failed to send to handler, reconnecting...{}", e);
-                                log::error!("{}", msg);
+                                error!("{}", msg);
                                 handle_db_error(&pool, &msg).await;
                                 break;
                             }
@@ -277,20 +274,20 @@ async fn main() -> Result<(), String> {
                             Ok(_) => {},
                             Err(e) => {
                                 let msg: String = format!("Fail send Pong to WebSocket:{}", e);
-                                log::error!("{}", msg);
+                                error!("{}", msg);
                                 handle_db_error(&pool,  &msg).await;
                                 break
                             }
                         }
                         Message::Close(_close) => {
                             let msg: String = String::from("Connection closed by server:");
-                            log::error!("{}", msg);
+                            error!("{}", msg);
                             handle_db_error(&pool,  &msg).await;
                             break
                         }
                         _ => {
                             let msg: String = format!("Unexpected msg:{}", msg_event);
-                            log::error!("{}", msg);
+                            error!("{}", msg);
                             handle_db_error(&pool,  &msg).await;
                             break
                         }
@@ -299,7 +296,7 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        log::error!("Reconnecting in {} seconds...", config::RECONNECT_DELAY.as_secs());
+        error!("Reconnecting in {} seconds...", config::RECONNECT_DELAY.as_secs());
         sleep(config::RECONNECT_DELAY).await;
     }
 }
