@@ -53,7 +53,7 @@ async fn main() -> Result<(), String> {
     match wipe_bots_info(&pool, &init_balance_per_bot).await {
         Ok(_) => log::info!("wipe_bots_info"),
         Err(e) => {
-            handle_db_error(&pool, e.clone()).await;
+            handle_db_error(&pool, &e).await;
             return Err(e);
         }
     }
@@ -66,7 +66,7 @@ async fn main() -> Result<(), String> {
         let open_stop_orders: Option<ApiV3HfMarginStopOrdersResData> = match api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await {
             Ok(orders) => orders,
             Err(e) => {
-                handle_db_error(&pool, e.clone()).await;
+                handle_db_error(&pool, &e).await;
                 return Err(e);
             }
         };
@@ -76,7 +76,7 @@ async fn main() -> Result<(), String> {
             None => {
                 let msg: String = String::from("Fail get list open stop orders:None");
                 log::error!("{}", msg);
-                handle_db_error(&pool, msg.clone()).await;
+                handle_db_error(&pool, &msg).await;
                 return Err(msg);
             }
         };
@@ -102,7 +102,7 @@ async fn main() -> Result<(), String> {
             let canceled_stop_order_option: Option<ApiV3HfMarginStopOrderCancelByIdResData> = match api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(query_params)).await {
                 Ok(canceled_stop_order_option) => canceled_stop_order_option,
                 Err(e) => {
-                    handle_db_error(&pool, e.clone()).await;
+                    handle_db_error(&pool, &e.clone()).await;
                     return Err(e);
                 }
             };
@@ -112,7 +112,7 @@ async fn main() -> Result<(), String> {
                 None => {
                     let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
                     log::error!("{}", msg);
-                    handle_db_error(&pool, msg).await;
+                    handle_db_error(&pool, &msg).await;
                     continue;
                 }
             };
@@ -145,7 +145,7 @@ async fn main() -> Result<(), String> {
             match create_init_orders(&pool_init_orders).await {
                 Ok(_) => {}
                 Err(e) => {
-                    handle_db_error(&pool_init_orders, e).await;
+                    handle_db_error(&pool_init_orders, &e).await;
                 }
             }
         });
@@ -156,7 +156,7 @@ async fn main() -> Result<(), String> {
         let event_ws_url: String = match api_v1_bullet_private_post().await {
             Ok(event_ws_url) => event_ws_url,
             Err(e) => {
-                handle_db_error(&pool, e).await;
+                handle_db_error(&pool, &e).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -167,7 +167,7 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("WebSocket connection failed:{}", e);
                 log::error!("{}", msg);
-                handle_db_error(&pool, msg).await;
+                handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -182,7 +182,7 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
                 log::error!("{}", msg);
-                handle_db_error(&pool, msg).await;
+                handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -196,7 +196,7 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
                 log::error!("{}", msg);
-                handle_db_error(&pool, msg).await;
+                handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -208,7 +208,7 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/account/balance:{}", e);
                 log::error!("{}", msg);
-                handle_db_error(&pool, msg).await;
+                handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -220,7 +220,7 @@ async fn main() -> Result<(), String> {
             Err(e) => {
                 let msg: String = format!("Failed to subscribe subject:/margin/position:{}", e);
                 log::error!("{}", msg);
-                handle_db_error(&pool, msg).await;
+                handle_db_error(&pool, &msg).await;
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -240,7 +240,7 @@ async fn main() -> Result<(), String> {
                         Err(e) =>  {
                             let msg: String = format!("Fail send Ping to WebSocket:{}", e);
                             log::error!("{}", msg);
-                            handle_db_error(&pool,  msg).await;
+                            handle_db_error(&pool,  &msg).await;
                             break
                         }
                     };
@@ -252,13 +252,13 @@ async fn main() -> Result<(), String> {
                         Some(Err(e)) =>  {
                             let msg: String = format!("WebSocket read error:{}", e);
                             log::error!("{}", msg);
-                            handle_db_error(&pool, msg).await;
+                            handle_db_error(&pool, &msg).await;
                             break
                         }
                         None => {
                             let msg: String = String::from("WebSocket stream ended");
                             log::error!("{}", msg);
-                            handle_db_error(&pool,  msg).await;
+                            handle_db_error(&pool,  &msg).await;
                             break
                         }
                     };
@@ -269,7 +269,7 @@ async fn main() -> Result<(), String> {
                             Err(e) => {
                                 let msg: String = format!("Failed to send to handler, reconnecting...{}", e);
                                 log::error!("{}", msg);
-                                handle_db_error(&pool, msg).await;
+                                handle_db_error(&pool, &msg).await;
                                 break;
                             }
                         }
@@ -278,20 +278,20 @@ async fn main() -> Result<(), String> {
                             Err(e) => {
                                 let msg: String = format!("Fail send Pong to WebSocket:{}", e);
                                 log::error!("{}", msg);
-                                handle_db_error(&pool,  msg).await;
+                                handle_db_error(&pool,  &msg).await;
                                 break
                             }
                         }
                         Message::Close(_close) => {
                             let msg: String = String::from("Connection closed by server:");
                             log::error!("{}", msg);
-                            handle_db_error(&pool,  msg).await;
+                            handle_db_error(&pool,  &msg).await;
                             break
                         }
                         _ => {
                             let msg: String = format!("Unexpected msg:{}", msg_event);
                             log::error!("{}", msg);
-                            handle_db_error(&pool,  msg).await;
+                            handle_db_error(&pool,  &msg).await;
                             break
                         }
                     }

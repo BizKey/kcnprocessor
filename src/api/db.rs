@@ -16,8 +16,9 @@ pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<(), Strin
     .execute(pool)
     .await
     .map_err(|e| {
-        log::error!("Fail inster into errors msg:{} exchange:{} error:{}", msg, config::EXCHANGE, e);
-        format!("Fail inster into errors msg:{} exchange:{} error:{}", msg, config::EXCHANGE, e)
+        let err = format!("Fail insert into errors msg:{msg} exchange:{} error:{e}", config::EXCHANGE);
+        log::error!("{err}");
+        err
     })?;
     Ok(())
 }
@@ -769,8 +770,8 @@ pub async fn upsert_position_asset(pool: &sqlx::PgPool, asset_symbol: &str, asse
     })?;
     Ok(())
 }
-pub async fn handle_db_error(pool: &sqlx::PgPool, error_msg: String) -> () {
-    match insert_db_error(pool, &error_msg).await {
+pub async fn handle_db_error(pool: &sqlx::PgPool, error_msg: &str) -> () {
+    match insert_db_error(pool, error_msg).await {
         Ok(_) => (),
         Err(db_err) => {
             let msg: String = format!("Failed to insert error to DB: {} | Original: {}", db_err, error_msg);
