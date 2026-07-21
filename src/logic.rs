@@ -24,51 +24,35 @@ use tokio::time::{Duration, sleep};
 use uuid::Uuid;
 
 fn tp_buy_percent() -> Result<Decimal, String> {
-    match Decimal::from_str("1.07") {
-        // +7%
-        Ok(percent) => Ok(percent),
-        Err(e) => {
-            let msg: String = format!("{}", e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    }
+    // +7%
+    Ok(Decimal::from_str("1.07").map_err(|e| {
+        log::error!("{}", e);
+        format!("{}", e)
+    })?)
 }
 
 fn sl_buy_percent() -> Result<Decimal, String> {
-    match Decimal::from_str("0.95") {
-        // -5%
-        Ok(percent) => Ok(percent),
-        Err(e) => {
-            let msg: String = format!("{}", e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    }
+    // -5%
+    Ok(Decimal::from_str("0.95").map_err(|e| {
+        log::error!("{}", e);
+        format!("{}", e)
+    })?)
 }
 
 fn tp_sell_percent() -> Result<Decimal, String> {
-    match Decimal::from_str("0.93") {
-        // -7%
-        Ok(percent) => Ok(percent),
-        Err(e) => {
-            let msg: String = format!("{}", e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    }
+    // -7%
+    Ok(Decimal::from_str("0.93").map_err(|e| {
+        log::error!("{}", e);
+        format!("{}", e)
+    })?)
 }
 
 fn sl_sell_percent() -> Result<Decimal, String> {
-    match Decimal::from_str("1.05") {
-        // +5%
-        Ok(percent) => Ok(percent),
-        Err(e) => {
-            let msg: String = format!("{}", e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    }
+    // +5%
+    Ok(Decimal::from_str("1.05").map_err(|e| {
+        log::error!("{}", e);
+        format!("{}", e)
+    })?)
 }
 
 fn get_random_side() -> &'static str {
@@ -156,10 +140,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
     query_params.insert("quoteCurrency", "USDT");
     query_params.insert("queryType", "MARGIN");
 
-    match api_v3_margin_accounts_get(build_query_string(query_params)).await {
-        Ok(accounts) => Ok(accounts),
-        Err(e) => Err(e),
-    }
+    Ok(api_v3_margin_accounts_get(build_query_string(query_params)).await.map_err(|e| e)?)
 }
 
 pub async fn repay_account(pool: &PgPool, currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>, String> {
@@ -750,14 +731,10 @@ pub async fn process_bot_by_entry_client_oid(pool: &PgPool, client_oid: &str, or
         }
     };
 
-    let new_balance: Decimal = match Decimal::from_str(&return_balance_string) {
-        Ok(new_balance) => new_balance,
-        Err(e) => {
-            let msg: String = format!("Fail parse return balance:{}", e);
-            log::error!("{}", msg);
-            return Err(msg);
-        }
-    };
+    let new_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
+        log::error!("Fail parse return balance:{}", e);
+        format!("Fail parse return balance:{}", e)
+    })?;
 
     match update_bot_balance_by_entry_client_oid(pool, client_oid, &format!("{:.4}", new_balance)).await {
         Err(e) => {
