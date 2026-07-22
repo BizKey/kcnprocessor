@@ -17,11 +17,8 @@ pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<(), Strin
     .execute(pool)
     .await
     .map_err(|e| {
-        let err = format!(
-            "Fail insert into errors msg:{msg} exchange:{} error:{e}",
-            config::EXCHANGE
-        );
-        error!("{err}");
+        let err = format!("Fail insert into errors msg:{msg} error:{e}");
+        eprintln!("{err}");
         err
     })?;
     Ok(())

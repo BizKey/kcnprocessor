@@ -23,7 +23,7 @@ rust_decimal = { version = "1.42", default-features = false }
 dotenvy = { version = "0.15", default-features = false }
 bytes = { version = "1.12", default-features = false }
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "registry"] }
 tracing-appender = { version = "0.2", default-features = false }
 
 [profile.release]

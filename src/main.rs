@@ -6,12 +6,24 @@ mod api {
 }
 mod config;
 mod logic;
-use crate::api::db::{handle_db_error, wipe_bots_info};
+use crate::api::db::{handle_db_error, insert_db_error, wipe_bots_info};
 use crate::api::models::{ApiV3HfMarginStopOrderCancelByIdResData, ApiV3HfMarginStopOrdersResData};
 use crate::api::requests::{
     api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
     api_v3_hf_margin_stop_orders_get, build_query_string,
 };
+use tracing::{
+    Event,
+    field::{Field, Visit},
+    subscriber::Subscriber,
+};
+use tracing_subscriber::{
+    filter::EnvFilter,
+    layer::{Context, Layer, SubscriberExt},
+    registry::LookupSpan,
+    util::SubscriberInitExt,
+};
+
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use bytes::Bytes;
@@ -26,17 +38,87 @@ use tokio::sync::mpsc;
 use tokio::time::{Duration, Interval, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-fn init_tracing() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+struct MessageVisitor {
+    message: String,
+}
+
+impl MessageVisitor {
+    fn new() -> Self {
+        Self {
+            message: String::new(),
+        }
+    }
+}
+
+impl Visit for MessageVisitor {
+    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
+        if field.name() == "message" {
+            self.message = format!("{:?}", value).trim_matches('"').to_string();
+        }
+    }
+
+    fn record_str(&mut self, field: &Field, value: &str) {
+        if field.name() == "message" {
+            self.message = value.to_string();
+        }
+    }
+}
+
+pub struct DbErrorLayer {
+    pool: sqlx::PgPool,
+}
+
+impl DbErrorLayer {
+    pub fn new(pool: sqlx::PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+impl<S> Layer<S> for DbErrorLayer
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+        if *event.metadata().level() != tracing::Level::ERROR {
+            return;
+        }
+
+        let mut visitor = MessageVisitor::new();
+        event.record(&mut visitor);
+
+        let msg = if visitor.message.is_empty() {
+            event.metadata().name().to_string()
+        } else {
+            visitor.message
+        };
+
+        let pool = self.pool.clone();
+        tokio::spawn(async move {
+            if let Err(e) = insert_db_error(&pool, &msg).await {
+                eprintln!("Failed to save error to DB: {e}");
+            }
+        });
+    }
+}
+
+fn init_tracing(pool: sqlx::PgPool) {
+    let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(true)
-        .with_thread_ids(true)
+        .with_thread_ids(true);
+
+    let filter_layer = EnvFilter::from_default_env();
+
+    let db_layer = DbErrorLayer::new(pool);
+
+    tracing_subscriber::registry()
+        .with(filter_layer) // фильтрация по RUST_LOG
+        .with(fmt_layer) // консольный вывод с target и thread_ids
+        .with(db_layer) // сохранение error! в PostgreSQL
         .init();
 }
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    init_tracing();
     dotenv().ok();
     let init_order_execute: bool = true;
 
@@ -60,6 +142,8 @@ async fn main() -> Result<(), String> {
             return Err(msg);
         }
     };
+
+    init_tracing(pool.clone());
 
     // clear orders ids for bots
     match wipe_bots_info(&pool, &init_balance_per_bot).await {
