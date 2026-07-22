@@ -819,21 +819,15 @@ pub async fn process_bot_by_entry_client_oid(
     }
 
     if order.side == "buy" {
-        let tp_buy: Decimal = match tp_buy_percent() {
-            Ok(tp_buy) => tp_buy,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let tp_buy: Decimal = tp_buy_percent().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
-        let sl_buy: Decimal = match sl_buy_percent() {
-            Ok(sl_buy) => sl_buy,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let sl_buy: Decimal = sl_buy_percent().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
         let match_price: Decimal = new_balance / filled_size;
         let trigger_tp_price: Decimal = match_price * tp_buy; // price + 7%
