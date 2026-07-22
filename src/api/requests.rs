@@ -90,23 +90,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
@@ -128,23 +122,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
     async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
@@ -165,23 +153,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
@@ -200,23 +182,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
@@ -237,23 +213,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
@@ -274,23 +244,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
@@ -308,23 +272,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
@@ -342,23 +300,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
@@ -376,23 +328,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
@@ -411,23 +357,17 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status: reqwest::StatusCode = response.status();
+        let status = response.status().as_u16();
 
-        let response_string: String = response.text().await.map_err(|e| {
-            error!("Fail read text from response:{}", e);
-            format!("Fail read text from response:{}", e)
-        })?;
+        let body: String = response
+            .text()
+            .await
+            .map_err(|e| format!("Fail read text from response: {e}"))?;
 
-        match status.as_u16() {
-            200 => Ok(response_string),
-            status_code => {
-                let msg: String = format!(
-                    "API returned error status {}: {}",
-                    status_code, response_string
-                );
-                error!("{}", msg);
-                Err(msg)
-            }
+        if status == 200 {
+            Ok(body)
+        } else {
+            Err(format!("API returned error status {status}: {body}"))
         }
     }
 
