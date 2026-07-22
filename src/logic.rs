@@ -194,19 +194,16 @@ pub async fn get_token_price(
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", trade_symbol);
 
-    let token_price_option: Option<ApiV1MarketOrderbookLevel1ResData> =
+    let token_price: Option<ApiV1MarketOrderbookLevel1ResData> =
         api_v1_market_orderbook_level1_get(build_query_string(query_params)).await?;
 
-    match token_price_option {
-        Some(token_price_data) => Ok(token_price_data),
-        None => {
-            let msg: String = format!("Fail get token_price:{:?}", token_price_option);
-            error!("{}", msg);
-            handle_db_error(pool, &msg).await;
-
-            return Err(msg);
-        }
-    }
+    let Some(token_price) = token_price else {
+        let msg: String = format!("Fail get token_price:{:?}", token_price);
+        error!("{}", msg);
+        handle_db_error(pool, &msg).await;
+        return Err(msg);
+    };
+    Ok(token_price)
 }
 
 pub async fn transfer_amount(pool: &PgPool, currency: &str, amount: &str) -> Result<(), String> {
@@ -249,23 +246,20 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
 
     let mut passed: bool = true;
     for account in accounts.accounts.iter() {
-        let currency_info_option: Option<Currencies> =
+        let currency_info: Option<Currencies> =
             match fetch_currency_info_by_symbol(pool, &account.currency).await {
-                Ok(currency_info_option) => currency_info_option,
+                Ok(currency_info) => currency_info,
                 Err(e) => {
                     handle_db_error(pool, &e).await;
                     return Err(e);
                 }
             };
 
-        let currency_info: Currencies = match currency_info_option {
-            Some(currency_info) => currency_info,
-            None => {
-                let msg: String = format!("Currency info not found for {}", account.currency);
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
-                return Err(msg);
-            }
+        let Some(currency_info) = currency_info else {
+            let msg: String = format!("Currency info not found for {}", account.currency);
+            error!("{}", msg);
+            handle_db_error(pool, &msg).await;
+            return Err(msg);
         };
 
         let precision_decimal: Decimal = match currency_info.precision_decimal() {
@@ -276,23 +270,20 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
             }
         };
 
-        let symbol_info_option: Option<Symbol> =
+        let symbol_info: Option<Symbol> =
             match fetch_symbol_info_by_symbol(pool, &account.currency).await {
-                Ok(symbol_info_option) => symbol_info_option,
+                Ok(symbol_info) => symbol_info,
                 Err(e) => {
                     handle_db_error(pool, &e).await;
                     return Err(e);
                 }
             };
 
-        let symbol_info: Symbol = match symbol_info_option {
-            Some(info) => info,
-            None => {
-                let msg: String = format!("Symbol info not found for {}", &account.currency);
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
-                return Err(msg);
-            }
+        let Some(symbol_info) = symbol_info else {
+            let msg: String = format!("Symbol info not found for {}", &account.currency);
+            error!("{}", msg);
+            handle_db_error(pool, &msg).await;
+            return Err(msg);
         };
 
         let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
@@ -566,24 +557,21 @@ pub async fn process_bot_by_exit_sl_client_oid(
         None => {}
     }
 
-    let return_balance_option: Option<String> =
+    let return_balance: Option<String> =
         match get_total_match_value_by_client_oid(pool, client_oid).await {
-            Ok(return_balance_option) => return_balance_option,
+            Ok(return_balance) => return_balance,
             Err(e) => {
                 handle_db_error(pool, &e).await;
                 return Err(e);
             }
         };
 
-    let return_balance_string: String = match return_balance_option {
-        Some(return_balance_string) => return_balance_string,
-        None => {
-            error!("No records found or error occurred");
-            return Ok(());
-        }
+    let Some(return_balance) = return_balance else {
+        error!("No records found or error occurred");
+        return Ok(());
     };
 
-    let return_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
+    let return_balance: Decimal = Decimal::from_str(&return_balance).map_err(|e| {
         error!("Fail parse return balance:{}", e);
         format!("Fail parse return balance:{}", e)
     })?;
@@ -686,24 +674,21 @@ pub async fn process_bot_by_exit_tp_client_oid(
         }
         None => {}
     }
-    let return_balance_option: Option<String> =
+    let return_balance: Option<String> =
         match get_total_match_value_by_client_oid(pool, client_oid).await {
-            Ok(return_balance_option) => return_balance_option,
+            Ok(return_balance) => return_balance,
             Err(e) => {
                 handle_db_error(pool, &e).await;
                 return Ok(());
             }
         };
 
-    let return_balance_string: String = match return_balance_option {
-        Some(return_balance_string) => return_balance_string,
-        None => {
-            error!("No records found or error occurred");
-            return Ok(());
-        }
+    let Some(return_balance) = return_balance else {
+        error!("No records found or error occurred");
+        return Ok(());
     };
 
-    let return_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
+    let return_balance: Decimal = Decimal::from_str(&return_balance).map_err(|e| {
         error!("Fail parse return balance:{}", e);
         format!("Fail parse return balance:{}", e)
     })?;
@@ -765,23 +750,19 @@ pub async fn process_bot_by_entry_client_oid(
     client_oid: &str,
     order: &OrderData,
 ) -> Result<(), String> {
-    let symbol_info_option: Option<Symbol> =
-        match fetch_symbol_info_by_symbol(pool, &order.symbol).await {
-            Ok(symbol_info_option) => symbol_info_option,
-            Err(e) => {
-                handle_db_error(pool, &e).await;
-                return Err(e);
-            }
-        };
-
-    let symbol_info: Symbol = match symbol_info_option {
-        Some(symbol_info) => symbol_info,
-        None => {
-            let msg: String = format!("Symbol info not found for {}", order.symbol);
-            error!("{}", msg);
-            handle_db_error(pool, &msg).await;
-            return Err(msg);
+    let symbol_info: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, &order.symbol).await {
+        Ok(symbol_info) => symbol_info,
+        Err(e) => {
+            handle_db_error(pool, &e).await;
+            return Err(e);
         }
+    };
+
+    let Some(symbol_info) = symbol_info else {
+        let msg: String = format!("Symbol info not found for {}", order.symbol);
+        error!("{}", msg);
+        handle_db_error(pool, &msg).await;
+        return Err(msg);
     };
 
     let price_increment: Decimal = match symbol_info.price_increment_decimal() {
@@ -808,24 +789,21 @@ pub async fn process_bot_by_entry_client_oid(
         }
     };
 
-    let return_balance_option: Option<String> =
+    let return_balance: Option<String> =
         match get_total_match_value_by_client_oid(pool, client_oid).await {
-            Ok(return_balance_option) => return_balance_option,
+            Ok(return_balance) => return_balance,
             Err(e) => {
                 handle_db_error(pool, &e).await;
                 return Err(e);
             }
         };
 
-    let return_balance_string: String = match return_balance_option {
-        Some(return_balance_string) => return_balance_string,
-        None => {
-            error!("No records found or error occurred");
-            return Ok(());
-        }
+    let Some(return_balance) = return_balance else {
+        error!("No records found or error occurred");
+        return Ok(());
     };
 
-    let new_balance: Decimal = Decimal::from_str(&return_balance_string).map_err(|e| {
+    let new_balance: Decimal = Decimal::from_str(&return_balance).map_err(|e| {
         error!("Fail parse return balance:{}", e);
         format!("Fail parse return balance:{}", e)
     })?;
@@ -1434,21 +1412,18 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), S
         }
     };
 
-    let bot_option: Option<Bot> = match get_bot_by_client_oid(pool, client_oid).await {
+    let bot: Option<Bot> = match get_bot_by_client_oid(pool, client_oid).await {
         Err(e) => {
             handle_db_error(pool, &e).await;
             return Err(e);
         }
-        Ok(bot_option) => bot_option,
+        Ok(bot) => bot,
     };
 
-    let bot: Bot = match bot_option {
-        Some(bot) => bot,
-        None => {
-            let msg: String = format!("Bot is None by:{}", client_oid);
-            error!("{}", msg);
-            return Err(msg);
-        }
+    let Some(bot) = bot else {
+        let msg: String = format!("Bot is None by:{}", client_oid);
+        error!("{}", msg);
+        return Err(msg);
     };
 
     match client_oid.as_str() {
@@ -1527,7 +1502,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
         };
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
-            let currency_info_option: Option<Currencies> =
+            let currency_info: Option<Currencies> =
                 match fetch_currency_info_by_symbol(pool, &asset).await {
                     Ok(info) => info,
                     Err(e) => {
@@ -1536,14 +1511,11 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
                     }
                 };
 
-            let currency_info: Currencies = match currency_info_option {
-                Some(info) => info,
-                None => {
-                    let msg: String = format!("Currency info not found for {}", asset);
-                    error!("{}", msg);
-                    handle_db_error(pool, &msg).await;
-                    return Err(msg);
-                }
+            let Some(currency_info) = currency_info else {
+                let msg: String = format!("Currency info not found for {}", asset);
+                error!("{}", msg);
+                handle_db_error(pool, &msg).await;
+                return Err(msg);
             };
 
             let precision_decimal: Decimal = match currency_info.precision_decimal() {
@@ -2003,43 +1975,35 @@ pub async fn make_random_trade(
         sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
-        let tradeable_symbol_option: Option<String> = match get_random_symbol(pool).await {
-            Ok(tradeable_symbol_option) => tradeable_symbol_option,
+        let tradeable_symbol: Option<String> = match get_random_symbol(pool).await {
+            Ok(tradeable_symbol) => tradeable_symbol,
             Err(e) => {
                 handle_db_error(pool, &e).await;
                 continue;
             }
         };
 
-        let tradeable_symbol: String = match tradeable_symbol_option {
-            Some(tradeable_symbol) => tradeable_symbol,
-            None => {
-                let msg: String = String::from("Failed get_random_symbol:");
-                error!("{}", msg);
-
-                handle_db_error(pool, &msg).await;
-                continue;
-            }
+        let Some(tradeable_symbol) = tradeable_symbol else {
+            let msg: String = String::from("Failed get_random_symbol:");
+            error!("{}", msg);
+            handle_db_error(pool, &msg).await;
+            continue;
         };
 
-        let symbol_info_option: Option<Symbol> =
+        let symbol_info: Option<Symbol> =
             match fetch_symbol_info_by_symbol(pool, &tradeable_symbol).await {
-                Ok(symbol_info_option) => symbol_info_option,
+                Ok(symbol_info) => symbol_info,
                 Err(e) => {
                     handle_db_error(pool, &e).await;
                     continue;
                 }
             };
 
-        let symbol_info: Symbol = match symbol_info_option {
-            Some(symbol_info) => symbol_info,
-            None => {
-                let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
-                error!("{}", msg);
-
-                handle_db_error(pool, &msg).await;
-                continue;
-            }
+        let Some(symbol_info) = symbol_info else {
+            let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
+            error!("{}", msg);
+            handle_db_error(pool, &msg).await;
+            continue;
         };
 
         let entry_client_oid: String = Uuid::new_v4().to_string();

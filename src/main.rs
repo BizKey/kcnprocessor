@@ -84,14 +84,11 @@ async fn main() -> Result<(), String> {
                 }
             };
 
-        let open_stop_orders_data: ApiV3HfMarginStopOrdersResData = match open_stop_orders {
-            Some(open_stop_orders) => open_stop_orders,
-            None => {
-                let msg: String = String::from("Fail get list open stop orders:None");
-                error!("{}", msg);
-                handle_db_error(&pool, &msg).await;
-                return Err(msg);
-            }
+        let Some(open_stop_orders_data) = open_stop_orders else {
+            let msg: String = String::from("Fail get list open stop orders:None");
+            error!("{}", msg);
+            handle_db_error(&pool, &msg).await;
+            return Err(msg);
         };
 
         info!(
@@ -112,29 +109,25 @@ async fn main() -> Result<(), String> {
 
             query_params.insert("orderId", &stop_order.id);
 
-            let canceled_stop_order_option: Option<ApiV3HfMarginStopOrderCancelByIdResData> =
+            let canceled_stop_order: Option<ApiV3HfMarginStopOrderCancelByIdResData> =
                 match api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(
                     query_params,
                 ))
                 .await
                 {
-                    Ok(canceled_stop_order_option) => canceled_stop_order_option,
+                    Ok(canceled_stop_order) => canceled_stop_order,
                     Err(e) => {
                         handle_db_error(&pool, &e.clone()).await;
                         return Err(e);
                     }
                 };
 
-            let canceled_stop_order: ApiV3HfMarginStopOrderCancelByIdResData =
-                match canceled_stop_order_option {
-                    Some(canceled_stop_order) => canceled_stop_order,
-                    None => {
-                        let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
-                        error!("{}", msg);
-                        handle_db_error(&pool, &msg).await;
-                        continue;
-                    }
-                };
+            let Some(canceled_stop_order) = canceled_stop_order else {
+                let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
+                error!("{}", msg);
+                handle_db_error(&pool, &msg).await;
+                continue;
+            };
 
             for st_order in canceled_stop_order.cancelled_order_ids {
                 info!("Success cancel stop order:{}", st_order)
