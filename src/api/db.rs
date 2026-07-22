@@ -17,7 +17,10 @@ pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<(), Strin
     .execute(pool)
     .await
     .map_err(|e| {
-        let err = format!("Fail insert into errors msg:{msg} exchange:{} error:{e}", config::EXCHANGE);
+        let err = format!(
+            "Fail insert into errors msg:{msg} exchange:{} error:{e}",
+            config::EXCHANGE
+        );
         error!("{err}");
         err
     })?;
@@ -35,8 +38,18 @@ pub async fn insert_db_event(pool: &sqlx::PgPool, msg: &serde_json::Value) -> Re
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail insert into events msg:{} exchange:{} error:{}", msg, config::EXCHANGE, e);
-        format!("Fail insert into events msg:{} exchange:{} error:{}", msg, config::EXCHANGE, e)
+        error!(
+            "Fail insert into events msg:{} exchange:{} error:{}",
+            msg,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail insert into events msg:{} exchange:{} error:{}",
+            msg,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
@@ -114,7 +127,11 @@ pub async fn insert_db_balance(pool: &sqlx::PgPool, balance: BalanceData) -> Res
         Some(ctx) => ctx,
         None => {
             error!("Missing relationContext for balance");
-            &BalanceRelationContext { symbol: None, order_id: None, trade_id: None }
+            &BalanceRelationContext {
+                symbol: None,
+                order_id: None,
+                trade_id: None,
+            }
         }
     };
     sqlx::query(
@@ -184,7 +201,10 @@ pub async fn insert_db_orderevent(pool: &sqlx::PgPool, order: OrderData) -> Resu
         })?;
     Ok(())
 }
-pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exit_sl_client_oid: &str) -> Result<(), String> {
+pub async fn delete_exit_sl_id_bot_by_client_oid(
+    pool: &sqlx::PgPool,
+    exit_sl_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -202,7 +222,10 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(pool: &sqlx::PgPool, exit_sl_cl
     })?;
     Ok(())
 }
-pub async fn fetch_currency_info_by_symbol(pool: &PgPool, currency: &str) -> Result<Option<Currencies>, String> {
+pub async fn fetch_currency_info_by_symbol(
+    pool: &PgPool,
+    currency: &str,
+) -> Result<Option<Currencies>, String> {
     Ok(sqlx::query_as::<_, Currencies>(
         r#"
         SELECT precision
@@ -215,11 +238,24 @@ pub async fn fetch_currency_info_by_symbol(pool: &PgPool, currency: &str) -> Res
     .fetch_optional(pool)
     .await
     .map_err(|e| {
-        error!("Fail get currency by currency:{} exchange:{} error:{}", currency, config::EXCHANGE, e);
-        format!("Fail get currency by currency:{} exchange:{} error:{}", currency, config::EXCHANGE, e)
+        error!(
+            "Fail get currency by currency:{} exchange:{} error:{}",
+            currency,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail get currency by currency:{} exchange:{} error:{}",
+            currency,
+            config::EXCHANGE,
+            e
+        )
     })?)
 }
-pub async fn fetch_symbol_info_by_symbol(pool: &PgPool, symbol: &str) -> Result<Option<Symbol>, String> {
+pub async fn fetch_symbol_info_by_symbol(
+    pool: &PgPool,
+    symbol: &str,
+) -> Result<Option<Symbol>, String> {
     Ok(sqlx::query_as::<_, Symbol>(
         r#"
         SELECT exchange, symbol, base_increment, min_funds, price_increment, quote_increment, base_min_size, quote_min_size
@@ -236,7 +272,10 @@ pub async fn fetch_symbol_info_by_symbol(pool: &PgPool, symbol: &str) -> Result<
         format!("Fail get symbol by symbol:{} exchange:{} error:{}", symbol, config::EXCHANGE, e)
     })?)
 }
-pub async fn delete_symbol_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exit_sl_client_oid: &str) -> Result<(), String> {
+pub async fn delete_symbol_bot_by_exit_sl_client_oid(
+    pool: &sqlx::PgPool,
+    exit_sl_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -249,12 +288,25 @@ pub async fn delete_symbol_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exit_s
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update bot symbol:NULL by exit_sl_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, config::EXCHANGE, e);
-        format!("Fail update bot symbol:NULL by exit_sl_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, config::EXCHANGE, e)
+        error!(
+            "Fail update bot symbol:NULL by exit_sl_client_oid:{} exchange:{} error:{}",
+            exit_sl_client_oid,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update bot symbol:NULL by exit_sl_client_oid:{} exchange:{} error:{}",
+            exit_sl_client_oid,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exit_tp_client_oid: &str) -> Result<(), String> {
+pub async fn delete_exit_tp_id_bot_by_client_oid(
+    pool: &sqlx::PgPool,
+    exit_tp_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -272,7 +324,10 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(pool: &sqlx::PgPool, exit_tp_cl
     })?;
     Ok(())
 }
-pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, client_oid: &str) -> Result<Option<String>, String> {
+pub async fn get_total_match_value_by_client_oid(
+    pool: &sqlx::PgPool,
+    client_oid: &str,
+) -> Result<Option<String>, String> {
     let row: sqlx::postgres::PgRow = sqlx::query(
         r#"
         SELECT SUM(match_size::numeric * match_price::numeric)::text AS total_match_value
@@ -289,12 +344,29 @@ pub async fn get_total_match_value_by_client_oid(pool: &sqlx::PgPool, client_oid
         format!("Fail get total match value by client_oid:{} exchange:{} error:{}", client_oid, config::EXCHANGE, e)
     })?;
 
-    Ok(row.try_get::<Option<String>, _>("total_match_value").map_err(|e| {
-        error!("Fail get total_match_value by client_oid:{} exchange:{} from:{:?} error:{}", client_oid, config::EXCHANGE, row, e);
-        format!("Fail get total_match_value by client_oid:{} exchange:{} from:{:?} error:{}", client_oid, config::EXCHANGE, row, e)
-    })?)
+    Ok(row
+        .try_get::<Option<String>, _>("total_match_value")
+        .map_err(|e| {
+            error!(
+                "Fail get total_match_value by client_oid:{} exchange:{} from:{:?} error:{}",
+                client_oid,
+                config::EXCHANGE,
+                row,
+                e
+            );
+            format!(
+                "Fail get total_match_value by client_oid:{} exchange:{} from:{:?} error:{}",
+                client_oid,
+                config::EXCHANGE,
+                row,
+                e
+            )
+        })?)
 }
-pub async fn set_null_entry_client_oid_by_entry_client_oid(pool: &sqlx::PgPool, entry_client_oid: &str) -> Result<(), String> {
+pub async fn set_null_entry_client_oid_by_entry_client_oid(
+    pool: &sqlx::PgPool,
+    entry_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -307,13 +379,29 @@ pub async fn set_null_entry_client_oid_by_entry_client_oid(pool: &sqlx::PgPool, 
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update entry_client_oid:{} for bot by entry_client_oid:{} exchange:{} error:{}", entry_client_oid, entry_client_oid, config::EXCHANGE, e);
-        format!("Fail update entry_client_oid:{} for bot by entry_client_oid:{} exchange:{} error:{}", entry_client_oid, entry_client_oid, config::EXCHANGE, e)
+        error!(
+            "Fail update entry_client_oid:{} for bot by entry_client_oid:{} exchange:{} error:{}",
+            entry_client_oid,
+            entry_client_oid,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update entry_client_oid:{} for bot by entry_client_oid:{} exchange:{} error:{}",
+            entry_client_oid,
+            entry_client_oid,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
 
-pub async fn update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool: &sqlx::PgPool, exit_sl_order_id: &str, exit_sl_client_oid: &str) -> Result<(), String> {
+pub async fn update_exit_sl_client_oid_bot_by_exit_sl_order_id(
+    pool: &sqlx::PgPool,
+    exit_sl_order_id: &str,
+    exit_sl_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -327,12 +415,28 @@ pub async fn update_exit_sl_client_oid_bot_by_exit_sl_order_id(pool: &sqlx::PgPo
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update exit_sl_client_oid:{} for bot by exit_sl_order_id:{} exchange:{} error:{}", exit_sl_client_oid, exit_sl_order_id, config::EXCHANGE, e);
-        format!("Fail update exit_sl_client_oid:{} for bot by exit_sl_order_id:{} exchange:{} error:{}", exit_sl_client_oid, exit_sl_order_id, config::EXCHANGE, e)
+        error!(
+            "Fail update exit_sl_client_oid:{} for bot by exit_sl_order_id:{} exchange:{} error:{}",
+            exit_sl_client_oid,
+            exit_sl_order_id,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update exit_sl_client_oid:{} for bot by exit_sl_order_id:{} exchange:{} error:{}",
+            exit_sl_client_oid,
+            exit_sl_order_id,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn update_exit_tp_client_oid_bot_by_exit_tp_order_id(pool: &sqlx::PgPool, exit_tp_order_id: &str, exit_tp_client_oid: &str) -> Result<(), String> {
+pub async fn update_exit_tp_client_oid_bot_by_exit_tp_order_id(
+    pool: &sqlx::PgPool,
+    exit_tp_order_id: &str,
+    exit_tp_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -346,12 +450,28 @@ pub async fn update_exit_tp_client_oid_bot_by_exit_tp_order_id(pool: &sqlx::PgPo
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update exit_tp_client_oid:{} for bot by exit_tp_order_id:{} exchange:{} error:{}", exit_tp_client_oid, exit_tp_order_id, config::EXCHANGE, e);
-        format!("Fail update exit_tp_client_oid:{} for bot by exit_tp_order_id:{} exchange:{} error:{}", exit_tp_client_oid, exit_tp_order_id, config::EXCHANGE, e)
+        error!(
+            "Fail update exit_tp_client_oid:{} for bot by exit_tp_order_id:{} exchange:{} error:{}",
+            exit_tp_client_oid,
+            exit_tp_order_id,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update exit_tp_client_oid:{} for bot by exit_tp_order_id:{} exchange:{} error:{}",
+            exit_tp_client_oid,
+            exit_tp_order_id,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn update_exit_tp_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPool, entry_client_oid: &str, exit_tp_client_oid: &str) -> Result<(), String> {
+pub async fn update_exit_tp_client_oid_bot_by_entry_client_oid(
+    pool: &sqlx::PgPool,
+    entry_client_oid: &str,
+    exit_tp_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -365,12 +485,28 @@ pub async fn update_exit_tp_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPo
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update exit_tp_client_oid:{} by entry_client_oid:{} and exchange:{} error:{}", exit_tp_client_oid, entry_client_oid, config::EXCHANGE, e);
-        format!("Fail update exit_tp_client_oid:{} by entry_client_oid:{} and exchange:{} error:{}", exit_tp_client_oid, entry_client_oid, config::EXCHANGE, e)
+        error!(
+            "Fail update exit_tp_client_oid:{} by entry_client_oid:{} and exchange:{} error:{}",
+            exit_tp_client_oid,
+            entry_client_oid,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update exit_tp_client_oid:{} by entry_client_oid:{} and exchange:{} error:{}",
+            exit_tp_client_oid,
+            entry_client_oid,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exit_tp_order_id: &str, exit_tp_client_oid: &str) -> Result<(), String> {
+pub async fn update_exit_tp_order_id_bot_by_exit_tp_client_oid(
+    pool: &sqlx::PgPool,
+    exit_tp_order_id: &str,
+    exit_tp_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -384,12 +520,28 @@ pub async fn update_exit_tp_order_id_bot_by_exit_tp_client_oid(pool: &sqlx::PgPo
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update exit_tp_order_id:{} by exit_tp_client_oid:{} and exchange:{} error:{}", exit_tp_order_id, exit_tp_client_oid, config::EXCHANGE, e);
-        format!("Fail update exit_tp_order_id:{} by exit_tp_client_oid:{} and exchange:{} error:{}", exit_tp_order_id, exit_tp_client_oid, config::EXCHANGE, e)
+        error!(
+            "Fail update exit_tp_order_id:{} by exit_tp_client_oid:{} and exchange:{} error:{}",
+            exit_tp_order_id,
+            exit_tp_client_oid,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update exit_tp_order_id:{} by exit_tp_client_oid:{} and exchange:{} error:{}",
+            exit_tp_order_id,
+            exit_tp_client_oid,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exit_sl_order_id: &str, exit_sl_client_oid: &str) -> Result<(), String> {
+pub async fn update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+    pool: &sqlx::PgPool,
+    exit_sl_order_id: &str,
+    exit_sl_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -403,12 +555,28 @@ pub async fn update_exit_sl_order_id_bot_by_exit_sl_client_oid(pool: &sqlx::PgPo
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update exit_sl_order_id:{} bot by exit_sl_client_oid:{} and exchange:{} error:{}", exit_sl_order_id, exit_sl_client_oid, config::EXCHANGE, e);
-        format!("Fail update exit_sl_order_id:{} bot by exit_sl_client_oid:{} and exchange:{} error:{}", exit_sl_order_id, exit_sl_client_oid, config::EXCHANGE, e)
+        error!(
+            "Fail update exit_sl_order_id:{} bot by exit_sl_client_oid:{} and exchange:{} error:{}",
+            exit_sl_order_id,
+            exit_sl_client_oid,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update exit_sl_order_id:{} bot by exit_sl_client_oid:{} and exchange:{} error:{}",
+            exit_sl_order_id,
+            exit_sl_client_oid,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPool, entry_client_oid: &str, exit_sl_client_oid: &str) -> Result<(), String> {
+pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(
+    pool: &sqlx::PgPool,
+    entry_client_oid: &str,
+    exit_sl_client_oid: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -422,12 +590,28 @@ pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(pool: &sqlx::PgPo
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update exit_sl_client_oid:{} by entry_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, entry_client_oid, config::EXCHANGE, e);
-        format!("Fail update exit_sl_client_oid:{} by entry_client_oid:{} exchange:{} error:{}", exit_sl_client_oid, entry_client_oid, config::EXCHANGE, e)
+        error!(
+            "Fail update exit_sl_client_oid:{} by entry_client_oid:{} exchange:{} error:{}",
+            exit_sl_client_oid,
+            entry_client_oid,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update exit_sl_client_oid:{} by entry_client_oid:{} exchange:{} error:{}",
+            exit_sl_client_oid,
+            entry_client_oid,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn update_balance_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exit_tp_client_oid: &str, balance: &str) -> Result<(), String> {
+pub async fn update_balance_bot_by_exit_tp_client_oid(
+    pool: &sqlx::PgPool,
+    exit_tp_client_oid: &str,
+    balance: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -441,12 +625,28 @@ pub async fn update_balance_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exit_
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update balance to:{} by exit_tp_client_oid:{} exchange:{} error:{}", balance, exit_tp_client_oid, config::EXCHANGE, e);
-        format!("Fail update balance to:{} by exit_tp_client_oid:{} exchange:{} error:{}", balance, exit_tp_client_oid, config::EXCHANGE, e)
+        error!(
+            "Fail update balance to:{} by exit_tp_client_oid:{} exchange:{} error:{}",
+            balance,
+            exit_tp_client_oid,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update balance to:{} by exit_tp_client_oid:{} exchange:{} error:{}",
+            balance,
+            exit_tp_client_oid,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn update_bot_balance_by_entry_client_oid(pool: &sqlx::PgPool, entry_client_oid: &str, balance: &str) -> Result<(), String> {
+pub async fn update_bot_balance_by_entry_client_oid(
+    pool: &sqlx::PgPool,
+    entry_client_oid: &str,
+    balance: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -460,12 +660,28 @@ pub async fn update_bot_balance_by_entry_client_oid(pool: &sqlx::PgPool, entry_c
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update balance bot to:{} by entry_client_oid:{} exchange:{} error:{}", balance, entry_client_oid, config::EXCHANGE, e);
-        format!("Fail update balance bot to:{} by entry_client_oid:{} exchange:{} error:{}", balance, entry_client_oid, config::EXCHANGE, e)
+        error!(
+            "Fail update balance bot to:{} by entry_client_oid:{} exchange:{} error:{}",
+            balance,
+            entry_client_oid,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update balance bot to:{} by entry_client_oid:{} exchange:{} error:{}",
+            balance,
+            entry_client_oid,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
-pub async fn update_balance_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exit_sl_client_oid: &str, balance: &str) -> Result<(), String> {
+pub async fn update_balance_bot_by_exit_sl_client_oid(
+    pool: &sqlx::PgPool,
+    exit_sl_client_oid: &str,
+    balance: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -519,7 +735,12 @@ pub async fn wipe_bots_info(pool: &sqlx::PgPool, balance: &str) -> Result<(), St
     })?;
     Ok(())
 }
-pub async fn update_bot_entry_client_oid_by_id(pool: &sqlx::PgPool, symbol: Option<&str>, entry_client_oid: Option<&str>, id: i32) -> Result<(), String> {
+pub async fn update_bot_entry_client_oid_by_id(
+    pool: &sqlx::PgPool,
+    symbol: Option<&str>,
+    entry_client_oid: Option<&str>,
+    id: i32,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         UPDATE bots
@@ -534,13 +755,30 @@ pub async fn update_bot_entry_client_oid_by_id(pool: &sqlx::PgPool, symbol: Opti
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail update entry_client_oid:{:?} and symbol:{:?} by id:{} exchange:{} error:{}", entry_client_oid, symbol, id, config::EXCHANGE, e);
-        format!("Fail update entry_client_oid:{:?} and symbol:{:?} by id:{} exchange:{} error:{}", entry_client_oid, symbol, id, config::EXCHANGE, e)
+        error!(
+            "Fail update entry_client_oid:{:?} and symbol:{:?} by id:{} exchange:{} error:{}",
+            entry_client_oid,
+            symbol,
+            id,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail update entry_client_oid:{:?} and symbol:{:?} by id:{} exchange:{} error:{}",
+            entry_client_oid,
+            symbol,
+            id,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
 
-pub async fn get_bot_by_client_oid(pool: &sqlx::PgPool, client_oid: &str) -> Result<Option<Bot>, String> {
+pub async fn get_bot_by_client_oid(
+    pool: &sqlx::PgPool,
+    client_oid: &str,
+) -> Result<Option<Bot>, String> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
@@ -558,7 +796,10 @@ pub async fn get_bot_by_client_oid(pool: &sqlx::PgPool, client_oid: &str) -> Res
         format!("Fail get bot by exit_sl_client_oid:{} exchange:{} error:{} ", client_oid, config::EXCHANGE, e)
     })?)
 }
-pub async fn get_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exit_sl_client_oid: &str) -> Result<Option<Bot>, String> {
+pub async fn get_bot_by_exit_sl_client_oid(
+    pool: &sqlx::PgPool,
+    exit_sl_client_oid: &str,
+) -> Result<Option<Bot>, String> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
@@ -576,7 +817,10 @@ pub async fn get_bot_by_exit_sl_client_oid(pool: &sqlx::PgPool, exit_sl_client_o
         format!("Fail get bot by exit_sl_client_oid:{} exchange:{} error:{} ", exit_sl_client_oid, config::EXCHANGE, e)
     })?)
 }
-pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exit_tp_client_oid: &str) -> Result<Option<Bot>, String> {
+pub async fn get_bot_by_exit_tp_client_oid(
+    pool: &sqlx::PgPool,
+    exit_tp_client_oid: &str,
+) -> Result<Option<Bot>, String> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
@@ -594,7 +838,10 @@ pub async fn get_bot_by_exit_tp_client_oid(pool: &sqlx::PgPool, exit_tp_client_o
         format!("Fail get bot by exit_tp_client_oid:{} exchange:{} error:{}", exit_tp_client_oid, config::EXCHANGE, e)
     })?)
 }
-pub async fn get_bot_by_entry_client_oid(pool: &sqlx::PgPool, entry_client_oid: &str) -> Result<Option<Bot>, String> {
+pub async fn get_bot_by_entry_client_oid(
+    pool: &sqlx::PgPool,
+    entry_client_oid: &str,
+) -> Result<Option<Bot>, String> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
         SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
@@ -657,12 +904,26 @@ pub async fn get_random_symbol(pool: &sqlx::PgPool) -> Result<Option<String>, St
     .fetch_optional(pool)
     .await
     .map_err(|e| {
-        error!("Fail get random symbol by exchange:{} error:{}", config::EXCHANGE, e);
-        format!("Fail get random symbol by exchange:{} error:{}", config::EXCHANGE, e)
+        error!(
+            "Fail get random symbol by exchange:{} error:{}",
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail get random symbol by exchange:{} error:{}",
+            config::EXCHANGE,
+            e
+        )
     })?)
 }
 
-pub async fn upsert_position_ratio(pool: &sqlx::PgPool, debt_ratio: f64, total_asset: f64, margin_coefficient_total_asset: &str, total_debt: &str) -> Result<(), String> {
+pub async fn upsert_position_ratio(
+    pool: &sqlx::PgPool,
+    debt_ratio: f64,
+    total_asset: f64,
+    margin_coefficient_total_asset: &str,
+    total_debt: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         INSERT INTO positionratio (exchange, debt_ratio, total_asset, margin_coefficient_total_asset, total_debt, updated_at)
@@ -706,7 +967,11 @@ pub async fn upsert_position_ratio(pool: &sqlx::PgPool, debt_ratio: f64, total_a
     Ok(())
 }
 
-pub async fn upsert_position_debt(pool: &sqlx::PgPool, debt_symbol: &str, debt_value: &str) -> Result<(), String> {
+pub async fn upsert_position_debt(
+    pool: &sqlx::PgPool,
+    debt_symbol: &str,
+    debt_value: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         INSERT INTO positiondebt
@@ -722,13 +987,31 @@ pub async fn upsert_position_debt(pool: &sqlx::PgPool, debt_symbol: &str, debt_v
     .execute(pool)
     .await
     .map_err(|e| {
-        error!("Fail insert debt_symbol:{} debt_value:{} exchange:{} into positiondebt error:{}", debt_symbol, debt_value, config::EXCHANGE, e);
-        format!("Fail insert debt_symbol:{} debt_value:{} exchange:{} into positiondebt error:{}", debt_symbol, debt_value, config::EXCHANGE, e)
+        error!(
+            "Fail insert debt_symbol:{} debt_value:{} exchange:{} into positiondebt error:{}",
+            debt_symbol,
+            debt_value,
+            config::EXCHANGE,
+            e
+        );
+        format!(
+            "Fail insert debt_symbol:{} debt_value:{} exchange:{} into positiondebt error:{}",
+            debt_symbol,
+            debt_value,
+            config::EXCHANGE,
+            e
+        )
     })?;
     Ok(())
 }
 
-pub async fn upsert_position_asset(pool: &sqlx::PgPool, asset_symbol: &str, asset_total: &str, asset_available: &str, asset_hold: &str) -> Result<(), String> {
+pub async fn upsert_position_asset(
+    pool: &sqlx::PgPool,
+    asset_symbol: &str,
+    asset_total: &str,
+    asset_available: &str,
+    asset_hold: &str,
+) -> Result<(), String> {
     sqlx::query(
         r#"
         INSERT INTO positionasset

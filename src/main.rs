@@ -8,7 +8,10 @@ mod config;
 mod logic;
 use crate::api::db::{handle_db_error, wipe_bots_info};
 use crate::api::models::{ApiV3HfMarginStopOrderCancelByIdResData, ApiV3HfMarginStopOrdersResData};
-use crate::api::requests::{api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get, build_query_string};
+use crate::api::requests::{
+    api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
+    api_v3_hf_margin_stop_orders_get, build_query_string,
+};
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use bytes::Bytes;
@@ -24,7 +27,11 @@ use tokio::time::{Duration, Interval, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 fn init_tracing() {
-    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).with_target(true).with_thread_ids(true).init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_target(true)
+        .with_thread_ids(true)
+        .init();
 }
 
 #[tokio::main]
@@ -68,13 +75,14 @@ async fn main() -> Result<(), String> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
         query_params.insert("pageSize", "1");
 
-        let open_stop_orders: Option<ApiV3HfMarginStopOrdersResData> = match api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await {
-            Ok(orders) => orders,
-            Err(e) => {
-                handle_db_error(&pool, &e).await;
-                return Err(e);
-            }
-        };
+        let open_stop_orders: Option<ApiV3HfMarginStopOrdersResData> =
+            match api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await {
+                Ok(orders) => orders,
+                Err(e) => {
+                    handle_db_error(&pool, &e).await;
+                    return Err(e);
+                }
+            };
 
         let open_stop_orders_data: ApiV3HfMarginStopOrdersResData = match open_stop_orders {
             Some(open_stop_orders) => open_stop_orders,
@@ -88,7 +96,10 @@ async fn main() -> Result<(), String> {
 
         info!(
             "Stop orders: current_page:{} page_size:{} total_num:{} total_page:{}",
-            open_stop_orders_data.current_page, open_stop_orders_data.page_size, open_stop_orders_data.total_num, open_stop_orders_data.total_page
+            open_stop_orders_data.current_page,
+            open_stop_orders_data.page_size,
+            open_stop_orders_data.total_num,
+            open_stop_orders_data.total_page
         );
 
         if open_stop_orders_data.total_num == 0 {
@@ -101,23 +112,29 @@ async fn main() -> Result<(), String> {
 
             query_params.insert("orderId", &stop_order.id);
 
-            let canceled_stop_order_option: Option<ApiV3HfMarginStopOrderCancelByIdResData> = match api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(query_params)).await {
-                Ok(canceled_stop_order_option) => canceled_stop_order_option,
-                Err(e) => {
-                    handle_db_error(&pool, &e.clone()).await;
-                    return Err(e);
-                }
-            };
+            let canceled_stop_order_option: Option<ApiV3HfMarginStopOrderCancelByIdResData> =
+                match api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(
+                    query_params,
+                ))
+                .await
+                {
+                    Ok(canceled_stop_order_option) => canceled_stop_order_option,
+                    Err(e) => {
+                        handle_db_error(&pool, &e.clone()).await;
+                        return Err(e);
+                    }
+                };
 
-            let canceled_stop_order: ApiV3HfMarginStopOrderCancelByIdResData = match canceled_stop_order_option {
-                Some(canceled_stop_order) => canceled_stop_order,
-                None => {
-                    let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
-                    error!("{}", msg);
-                    handle_db_error(&pool, &msg).await;
-                    continue;
-                }
-            };
+            let canceled_stop_order: ApiV3HfMarginStopOrderCancelByIdResData =
+                match canceled_stop_order_option {
+                    Some(canceled_stop_order) => canceled_stop_order,
+                    None => {
+                        let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
+                        error!("{}", msg);
+                        handle_db_error(&pool, &msg).await;
+                        continue;
+                    }
+                };
 
             for st_order in canceled_stop_order.cancelled_order_ids {
                 info!("Success cancel stop order:{}", st_order)
@@ -137,7 +154,8 @@ async fn main() -> Result<(), String> {
     let (tx_in, rx_in) = mpsc::channel::<String>(10000);
 
     let pool_process: PgPool = pool.clone();
-    let _spawn_process_kcn_msg_point = tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, rx_in).await });
+    let _spawn_process_kcn_msg_point =
+        tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, rx_in).await });
 
     if !init_order_execute {
         let pool_init_orders: PgPool = pool.clone();
@@ -301,7 +319,10 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        error!("Reconnecting in {} seconds...", config::RECONNECT_DELAY.as_secs());
+        error!(
+            "Reconnecting in {} seconds...",
+            config::RECONNECT_DELAY.as_secs()
+        );
         sleep(config::RECONNECT_DELAY).await;
     }
 }
