@@ -77,10 +77,7 @@ impl KuCoinClient {
 
     async fn api_v1_bullet_private_post(&self) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/websocket-api/base-info/get-private-token-spot-margin
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
@@ -118,10 +115,7 @@ impl KuCoinClient {
         query_string_str: String,
     ) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
@@ -158,10 +152,7 @@ impl KuCoinClient {
         query_string_str: String,
     ) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
@@ -196,10 +187,7 @@ impl KuCoinClient {
 
     async fn api_v3_margin_accounts_get(&self, query_params_str: String) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/account-info/account-funding/get-account-cross-margin
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
@@ -236,10 +224,7 @@ impl KuCoinClient {
         &self,
         query_params_str: String,
     ) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
@@ -276,10 +261,7 @@ impl KuCoinClient {
         &self,
         body_str: String,
     ) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
@@ -313,10 +295,7 @@ impl KuCoinClient {
     }
 
     async fn api_v3_hf_margin_stop_order_post(&self, body_str: String) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
@@ -350,10 +329,7 @@ impl KuCoinClient {
     }
 
     async fn api_v3_hf_margin_order_post(&self, body_str: String) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
@@ -387,10 +363,7 @@ impl KuCoinClient {
     }
 
     async fn api_v3_margin_repay_post(&self, body_str: String) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
 
         let response: Response = self
             .make_request(
