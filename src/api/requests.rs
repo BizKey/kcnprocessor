@@ -77,16 +77,14 @@ impl KuCoinClient {
 
     async fn api_v1_bullet_private_post(&self) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/websocket-api/base-info/get-private-token-spot-margin
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::POST,
                 "/api/v1/bullet-private",
                 String::new(),
                 String::new(),
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -109,16 +107,14 @@ impl KuCoinClient {
         query_string_str: String,
     ) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::DELETE,
                 "/api/v3/hf/margin/stop-order/cancel-by-clientOid",
                 query_string_str,
                 String::new(),
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -140,16 +136,14 @@ impl KuCoinClient {
         query_string_str: String,
     ) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::DELETE,
                 "/api/v3/hf/margin/stop-order/cancel-by-id",
                 query_string_str,
                 String::new(),
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -169,16 +163,14 @@ impl KuCoinClient {
 
     async fn api_v3_margin_accounts_get(&self, query_params_str: String) -> Result<String, String> {
         // https://www.kucoin.com/docs-new/rest/account-info/account-funding/get-account-cross-margin
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::GET,
                 "/api/v3/margin/accounts",
                 query_params_str,
                 String::new(),
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -200,16 +192,14 @@ impl KuCoinClient {
         &self,
         query_params_str: String,
     ) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::GET,
                 "/api/v3/hf/margin/stop-orders",
                 query_params_str,
                 String::new(),
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -231,16 +221,14 @@ impl KuCoinClient {
         &self,
         body_str: String,
     ) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::POST,
                 "/api/v3/accounts/universal-transfer",
                 String::new(),
                 body_str,
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -259,16 +247,14 @@ impl KuCoinClient {
     }
 
     async fn api_v3_hf_margin_stop_order_post(&self, body_str: String) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::POST,
                 "/api/v3/hf/margin/stop-order",
                 String::new(),
                 body_str,
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -287,16 +273,14 @@ impl KuCoinClient {
     }
 
     async fn api_v3_hf_margin_order_post(&self, body_str: String) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::POST,
                 "/api/v3/hf/margin/order",
                 String::new(),
                 body_str,
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -315,16 +299,14 @@ impl KuCoinClient {
     }
 
     async fn api_v3_margin_repay_post(&self, body_str: String) -> Result<String, String> {
-        let system_timestamp_ms: u64 = self.get_system_timestamp_ms()?;
-
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::POST,
                 "/api/v3/margin/repay",
                 String::new(),
                 body_str,
                 true,
-                system_timestamp_ms,
+                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -346,7 +328,7 @@ impl KuCoinClient {
         &self,
         query_params_str: String,
     ) -> Result<String, String> {
-        let response: Response = self
+        let response = self
             .make_request(
                 Method::GET,
                 "/api/v1/market/orderbook/level1",
@@ -496,21 +478,20 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
 
     let response_string: String = client.api_v1_bullet_private_post().await?;
 
-    let response: ApiV3BulletPrivate = serde_json::from_str::<ApiV3BulletPrivate>(&response_string)
-        .map_err(|e| {
-            error!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(ApiV3BulletPrivate),
-                e
-            );
-            format!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(ApiV3BulletPrivate),
-                e
-            )
-        })?;
+    let response = serde_json::from_str::<ApiV3BulletPrivate>(&response_string).map_err(|e| {
+        error!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(ApiV3BulletPrivate),
+            e
+        );
+        format!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(ApiV3BulletPrivate),
+            e
+        )
+    })?;
 
     let ws: Option<ApiV3BulletPrivateData> = match response.code.as_str() {
         "200000" => response.data,
@@ -545,21 +526,20 @@ pub async fn api_v3_margin_accounts_get(
 
     let response_string: String = client.api_v3_margin_accounts_get(query_params_str).await?;
 
-    let response: MarginAccount =
-        serde_json::from_str::<MarginAccount>(&response_string).map_err(|e| {
-            error!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(MarginAccount),
-                e
-            );
-            format!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(MarginAccount),
-                e
-            )
-        })?;
+    let response = serde_json::from_str::<MarginAccount>(&response_string).map_err(|e| {
+        error!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(MarginAccount),
+            e
+        );
+        format!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(MarginAccount),
+            e
+        )
+    })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
@@ -582,23 +562,21 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
         .api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str)
         .await?;
 
-    let response: ApiV3HfMarginStopOrderCancelByIdRes = serde_json::from_str::<
-        ApiV3HfMarginStopOrderCancelByIdRes,
-    >(&response_string)
-    .map_err(|e| {
-        error!(
-            "Failed to deserialize response '{}' as {}: {}",
-            response_string,
-            stringify!(ApiV3HfMarginStopOrderCancelByIdRes),
-            e
-        );
-        format!(
-            "Failed to deserialize response '{}' as {}: {}",
-            response_string,
-            stringify!(ApiV3HfMarginStopOrderCancelByIdRes),
-            e
-        )
-    })?;
+    let response = serde_json::from_str::<ApiV3HfMarginStopOrderCancelByIdRes>(&response_string)
+        .map_err(|e| {
+            error!(
+                "Failed to deserialize response '{}' as {}: {}",
+                response_string,
+                stringify!(ApiV3HfMarginStopOrderCancelByIdRes),
+                e
+            );
+            format!(
+                "Failed to deserialize response '{}' as {}: {}",
+                response_string,
+                stringify!(ApiV3HfMarginStopOrderCancelByIdRes),
+                e
+            )
+        })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
@@ -621,7 +599,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
         .api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_string_str)
         .await?;
 
-    let response: ApiV3HfMarginStopOrderCancelByClientOidRes =
+    let response =
         serde_json::from_str::<ApiV3HfMarginStopOrderCancelByClientOidRes>(&response_string)
             .map_err(|e| {
                 error!(
@@ -659,23 +637,21 @@ pub async fn api_v3_accounts_universal_transfer_post(
         .api_v3_accounts_universal_transfer_post(body_str)
         .await?;
 
-    let response: ApiV3AccountsUniversalTransferRes = serde_json::from_str::<
-        ApiV3AccountsUniversalTransferRes,
-    >(&response_string)
-    .map_err(|e| {
-        error!(
-            "Failed to deserialize response '{}' as {}: {}",
-            response_string,
-            stringify!(ApiV3AccountsUniversalTransferRes),
-            e
-        );
-        format!(
-            "Failed to deserialize response '{}' as {}: {}",
-            response_string,
-            stringify!(ApiV3AccountsUniversalTransferRes),
-            e
-        )
-    })?;
+    let response = serde_json::from_str::<ApiV3AccountsUniversalTransferRes>(&response_string)
+        .map_err(|e| {
+            error!(
+                "Failed to deserialize response '{}' as {}: {}",
+                response_string,
+                stringify!(ApiV3AccountsUniversalTransferRes),
+                e
+            );
+            format!(
+                "Failed to deserialize response '{}' as {}: {}",
+                response_string,
+                stringify!(ApiV3AccountsUniversalTransferRes),
+                e
+            )
+        })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
@@ -698,8 +674,8 @@ pub async fn api_v1_market_orderbook_level1_get(
         .api_v1_market_orderbook_level1_get(query_params_str)
         .await?;
 
-    let response: ApiV1MarketOrderbookLevel1Res =
-        serde_json::from_str::<ApiV1MarketOrderbookLevel1Res>(&response_string).map_err(|e| {
+    let response = serde_json::from_str::<ApiV1MarketOrderbookLevel1Res>(&response_string)
+        .map_err(|e| {
             error!(
                 "Failed to deserialize response '{}' as {}: {}",
                 response_string,
@@ -736,7 +712,7 @@ pub async fn api_v3_hf_margin_stop_orders_get(
         .api_v3_hf_margin_stop_orders_get(query_params_str)
         .await?;
 
-    let response: ApiV3HfMarginStopOrdersRes =
+    let response =
         serde_json::from_str::<ApiV3HfMarginStopOrdersRes>(&response_string).map_err(|e| {
             error!(
                 "Failed to deserialize response '{}' as {}: {}",
@@ -771,21 +747,20 @@ pub async fn api_v3_hf_margin_stop_order_post(
 
     let response_string: String = client.api_v3_hf_margin_stop_order_post(body_str).await?;
 
-    let response: MakeStopOrderRes = serde_json::from_str::<MakeStopOrderRes>(&response_string)
-        .map_err(|e| {
-            error!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(MakeStopOrderRes),
-                e
-            );
-            format!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(MakeStopOrderRes),
-                e
-            )
-        })?;
+    let response = serde_json::from_str::<MakeStopOrderRes>(&response_string).map_err(|e| {
+        error!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(MakeStopOrderRes),
+            e
+        );
+        format!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(MakeStopOrderRes),
+            e
+        )
+    })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
@@ -806,21 +781,20 @@ pub async fn api_v3_hf_margin_order_post(
 
     let response_string: String = client.api_v3_hf_margin_order_post(body_str).await?;
 
-    let response: MakeOrderRes =
-        serde_json::from_str::<MakeOrderRes>(&response_string).map_err(|e| {
-            error!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(MakeOrderRes),
-                e
-            );
-            format!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(MakeOrderRes),
-                e
-            )
-        })?;
+    let response = serde_json::from_str::<MakeOrderRes>(&response_string).map_err(|e| {
+        error!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(MakeOrderRes),
+            e
+        );
+        format!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(MakeOrderRes),
+            e
+        )
+    })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
@@ -841,21 +815,20 @@ pub async fn api_v3_margin_repay_post(
 
     let response_string: String = client.api_v3_margin_repay_post(body_str).await?;
 
-    let response: ApiV3MarginRepayRes =
-        serde_json::from_str::<ApiV3MarginRepayRes>(&response_string).map_err(|e| {
-            error!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(ApiV3MarginRepayRes),
-                e
-            );
-            format!(
-                "Failed to deserialize response '{}' as {}: {}",
-                response_string,
-                stringify!(ApiV3MarginRepayRes),
-                e
-            )
-        })?;
+    let response = serde_json::from_str::<ApiV3MarginRepayRes>(&response_string).map_err(|e| {
+        error!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(ApiV3MarginRepayRes),
+            e
+        );
+        format!(
+            "Failed to deserialize response '{}' as {}: {}",
+            response_string,
+            stringify!(ApiV3MarginRepayRes),
+            e
+        )
+    })?;
 
     match response.code.as_str() {
         "200000" => Ok(response.data),
