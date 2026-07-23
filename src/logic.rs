@@ -531,36 +531,31 @@ pub async fn process_bot_by_exit_sl_client_oid(
             }
         }
         // create new random order
-        match make_random_trade(pool, new_balance, bot.id).await {
-            Ok(()) => {}
-            Err(e) => {
+        make_random_trade(pool, new_balance, bot.id)
+            .await
+            .map_err(|e| {
                 error!("{}", e);
-                return Err(e);
-            }
-        }
+                e
+            })?;
     } else if order.side == "sell" {
-        match update_balance_bot_by_exit_sl_client_oid(
+        update_balance_bot_by_exit_sl_client_oid(
             pool,
             client_oid,
             &format!("{:.4}", return_balance),
         )
         .await
-        {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        }
+        .map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
         // create new random order
-        match make_random_trade(pool, return_balance, bot.id).await {
-            Ok(()) => {}
-            Err(e) => {
+        make_random_trade(pool, return_balance, bot.id)
+            .await
+            .map_err(|e| {
                 error!("{}", e);
-                return Err(e);
-            }
-        }
+                e
+            })?;
     };
     Ok(())
 }
@@ -571,38 +566,36 @@ pub async fn process_bot_by_exit_tp_client_oid(
     client_oid: &str,
     order: &OrderData,
 ) -> Result<(), String> {
-    match delete_exit_tp_id_bot_by_client_oid(pool, client_oid).await {
-        Ok(_) => {}
-        Err(e) => {
+    delete_exit_tp_id_bot_by_client_oid(pool, client_oid)
+        .await
+        .map_err(|e| {
             error!("{}", e);
-            return Err(e);
-        }
-    }
+            e
+        })?;
+
     match &bot.exit_sl_client_oid {
         Some(exit_sl_client_oid) => {
             // clear exit_sl_client_oid in bots by id !!
-            match delete_exit_sl_id_bot_by_client_oid(pool, exit_sl_client_oid).await {
-                Ok(_) => {}
-                Err(e) => {
+            delete_exit_sl_id_bot_by_client_oid(pool, exit_sl_client_oid)
+                .await
+                .map_err(|e| {
                     error!("{}", e);
-                }
-            }
+                    e
+                })?;
             let mut query_params: Map<&str, &str, 8> = Map::new();
 
             query_params.insert("clientOid", exit_sl_client_oid);
 
-            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(
+            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(
                 query_params,
             ))
             .await
-            {
-                Ok(_) => {
-                    info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
-                }
-                Err(e) => {
-                    error!("{}", e);
-                }
-            }
+            .map_err(|e| {
+                error!("{}", e);
+                e
+            })?;
+
+            info!("Successfully cancel stop order :{}", &exit_sl_client_oid);
         }
         None => {}
     }
@@ -924,13 +917,12 @@ pub async fn process_bot_by_entry_client_oid(
                     None => {}
                 }
 
-                match delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await {
-                    Ok(_) => {}
-                    Err(e) => {
+                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid)
+                    .await
+                    .map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                }
+                        e
+                    })?;
 
                 error!(
                     "Failed add SL order: {}. TP was cancelled for symmetry.",
@@ -943,27 +935,26 @@ pub async fn process_bot_by_entry_client_oid(
                 error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
                 {}
 
-                match delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid).await {
-                    Ok(_) => {}
-                    Err(e) => {
+                delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid)
+                    .await
+                    .map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                }
-                match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
-                    Ok(_) => {}
-                    Err(e) => {
+                        e
+                    })?;
+
+                delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid)
+                    .await
+                    .map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                }
-                match delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await {
-                    Ok(_) => {}
-                    Err(e) => {
+                        e
+                    })?;
+
+                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid)
+                    .await
+                    .map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                }
+                        e
+                    })?;
             }
         }
     } else if order.side == "sell" {
@@ -1276,22 +1267,22 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), S
 
     match client_oid.as_str() {
         s if Some(s.to_string()) == bot.entry_client_oid => {
-            match process_bot_by_entry_client_oid(pool, client_oid, order).await {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            }
+            process_bot_by_entry_client_oid(pool, client_oid, order)
+                .await
+                .map(|_| Ok(()))
+                .map_err(|e| e)?
         }
         s if Some(s.to_string()) == bot.exit_tp_client_oid => {
-            match process_bot_by_exit_tp_client_oid(pool, bot, client_oid, order).await {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            }
+            process_bot_by_exit_tp_client_oid(pool, bot, client_oid, order)
+                .await
+                .map(|_| Ok(()))
+                .map_err(|e| e)?
         }
         s if Some(s.to_string()) == bot.exit_sl_client_oid => {
-            match process_bot_by_exit_sl_client_oid(pool, bot, client_oid, order).await {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            }
+            process_bot_by_exit_sl_client_oid(pool, bot, client_oid, order)
+                .await
+                .map(|_| Ok(()))
+                .map_err(|e| e)?
         }
         _ => {
             let msg: String = format!("don't find client_oid in:{}", order);
@@ -1342,14 +1333,12 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
         })?;
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
-            let currency_info: Option<Currencies> =
-                match fetch_currency_info_by_symbol(pool, &asset).await {
-                    Ok(info) => info,
-                    Err(e) => {
-                        error!("{}", e);
-                        return Err(e);
-                    }
-                };
+            let currency_info = fetch_currency_info_by_symbol(pool, &asset)
+                .await
+                .map_err(|e| {
+                    error!("{}", e);
+                    e
+                })?;
 
             let Some(currency_info) = currency_info else {
                 error!("Currency info not found for {}", asset);
@@ -1368,13 +1357,10 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
                         e
                     })?;
 
-            match repay_account(&asset, &size).await {
-                Ok(_) => continue,
-                Err(e) => {
-                    error!("{}", e);
-                    continue;
-                }
-            }
+            repay_account(&asset, &size).await.map_err(|e| {
+                error!("{}", e);
+                e
+            })?;
         }
     }
 
@@ -1395,16 +1381,15 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
     };
 
     for (symbol, amount) in &position.debt_list {
-        match upsert_position_debt(pool, symbol, amount).await {
-            Ok(_) => {}
-            Err(e) => {
+        upsert_position_debt(pool, symbol, amount)
+            .await
+            .map_err(|e| {
                 error!("{}", e);
-                continue;
-            }
-        }
+                e
+            })?;
     }
     for (symbol, symbol_info) in &position.asset_list {
-        match upsert_position_asset(
+        upsert_position_asset(
             pool,
             symbol,
             &symbol_info.total,
@@ -1412,13 +1397,10 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
             &symbol_info.hold,
         )
         .await
-        {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{}", e);
-                continue;
-            }
-        }
+        .map_err(|e| {
+            error!("{}", e);
+            e
+        })?
     }
 
     Ok(())
@@ -1579,7 +1561,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                     },
                     Err(e) => {
                         error!("{}", e);
-
                         continue;
                     }
                 }
@@ -1701,24 +1682,24 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                 }
             },
         },
-        "/spotMarket/advancedOrders" => match AdvancedOrders::deserialize(&data.data) {
-            Err(e) => {
+        "/spotMarket/advancedOrders" => {
+            let order = AdvancedOrders::deserialize(&data.data).map_err(|e| {
                 error!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data.data,
                     stringify!(AdvancedOrders),
                     e
                 );
-                return Err("".to_string());
-            }
-            Ok(order) => handle_advanced_orders(order, pool)
+                "".to_string()
+            })?;
+            handle_advanced_orders(order, pool)
                 .await
                 .map(|_| Ok(()))
                 .map_err(|e| {
                     error!("{}", e);
                     e
-                })?,
-        },
+                })?
+        }
         "/margin/position" => match PositionData::deserialize(&data.data) {
             Err(e) => {
                 error!(
@@ -1729,13 +1710,13 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                 );
                 return Err("".to_string());
             }
-            Ok(position) => match handle_position_event(position, pool).await {
-                Ok(_) => Ok(()),
-                Err(e) => {
+            Ok(position) => handle_position_event(position, pool)
+                .await
+                .map(|_| Ok(()))
+                .map_err(|e| {
                     error!("{}", e);
-                    return Err(e);
-                }
-            },
+                    e
+                })?,
         },
         _ => {
             error!("Unknown topic: {}", data.topic);
@@ -1769,14 +1750,12 @@ pub async fn make_random_trade(
             continue;
         };
 
-        let symbol_info: Option<Symbol> =
-            match fetch_symbol_info_by_symbol(pool, &tradeable_symbol).await {
-                Ok(symbol_info) => symbol_info,
-                Err(e) => {
-                    error!("{}", e);
-                    continue;
-                }
-            };
+        let symbol_info: Option<Symbol> = fetch_symbol_info_by_symbol(pool, &tradeable_symbol)
+            .await
+            .map_err(|e| {
+                error!("{}", e);
+                e
+            })?;
 
         let Some(symbol_info) = symbol_info else {
             error!("Symbol info not found for {}", tradeable_symbol);
@@ -1802,13 +1781,10 @@ pub async fn make_random_trade(
 
         let order_result = match get_random_side() {
             "sell" => {
-                let base_increment: Decimal = match symbol_info.base_increment_decimal() {
-                    Ok(base_increment) => base_increment,
-                    Err(e) => {
-                        error!("{}", e);
-                        continue;
-                    }
-                };
+                let base_increment = symbol_info.base_increment_decimal().map_err(|e| {
+                    error!("{}", e);
+                    e
+                })?;
 
                 let mut query_params: Map<&str, &str, 8> = Map::new();
 
@@ -1826,19 +1802,17 @@ pub async fn make_random_trade(
                     return Err("".to_string());
                 };
 
-                let token_price: Decimal = token_price_obj.price_decimal().map_err(|e| {
+                let token_price = token_price_obj.price_decimal().map_err(|e| {
                     error!("{}", e);
                     e
                 })?;
 
-                let token_size: Decimal = balance_funds / token_price;
-                let size: String = match format_assert_decimal(token_size, base_increment) {
-                    Ok(size) => size,
-                    Err(e) => {
-                        error!("Fail parse:{} {} error:{}", token_size, base_increment, e);
-                        return Err(e);
-                    }
-                };
+                let token_size = balance_funds / token_price;
+                let size = format_assert_decimal(token_size, base_increment).map_err(|e| {
+                    error!("Fail parse:{} {} error:{}", token_size, base_increment, e);
+                    e
+                })?;
+
                 make_hf_size_margin_order(
                     pool,
                     &entry_client_oid,
@@ -1852,23 +1826,19 @@ pub async fn make_random_trade(
                 .await
             }
             "buy" => {
-                let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
-                    Ok(quote_increment) => quote_increment,
-                    Err(e) => {
-                        error!("{}", e);
-                        continue;
-                    }
-                };
-                let funds: String = match format_assert_decimal(balance_funds, quote_increment) {
-                    Ok(funds) => funds,
-                    Err(e) => {
-                        error!(
-                            "Fail parse:{} {} error:{}",
-                            balance_funds, quote_increment, e
-                        );
-                        return Err(e);
-                    }
-                };
+                let quote_increment = symbol_info.quote_increment_decimal().map_err(|e| {
+                    error!("{}", e);
+                    e
+                })?;
+
+                let funds = format_assert_decimal(balance_funds, quote_increment).map_err(|e| {
+                    error!(
+                        "Fail parse:{} {} error:{}",
+                        balance_funds, quote_increment, e
+                    );
+                    e
+                })?;
+
                 make_hf_funds_margin_order(
                     pool,
                     &entry_client_oid,
@@ -1895,13 +1865,12 @@ pub async fn make_random_trade(
                 return Ok(());
             }
             Err(e) => {
-                match update_bot_entry_client_oid_by_id(pool, None, None, trade_bot_id).await {
-                    Ok(_) => {}
-                    Err(e) => {
+                update_bot_entry_client_oid_by_id(pool, None, None, trade_bot_id)
+                    .await
+                    .map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                }
+                        e
+                    })?;
 
                 error!(
                     "❌ Order failed (attempt {}/{}): {} {}",
@@ -1948,7 +1917,7 @@ pub async fn make_hf_funds_margin_order(
     // only for buy orders
     let args_time_in_force: &str = "GTC";
 
-    match insert_db_msgsend(
+    insert_db_msgsend(
         pool,
         Some(symbol),
         Some(side),
@@ -1963,14 +1932,12 @@ pub async fn make_hf_funds_margin_order(
         None,
     )
     .await
-    {
-        Ok(_) => {}
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        }
-    };
-    let msg: serde_json::Value = serde_json::json!({
+    .map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
+
+    let msg = serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
@@ -1982,23 +1949,19 @@ pub async fn make_hf_funds_margin_order(
     });
     info!("{}", msg);
 
-    let body_str: String = match serialize_body(Some(msg)) {
-        Ok(body_str) => body_str,
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        }
+    let body_str: String = serialize_body(Some(msg)).map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
+
+    let data = api_v3_hf_margin_order_post(body_str).await.map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
+    let Some(data) = data else {
+        return Err("".to_string());
     };
-    match api_v3_hf_margin_order_post(body_str).await {
-        Ok(data) => match data {
-            Some(data) => Ok(data),
-            None => Err("".to_string()),
-        },
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        }
-    }
+    Ok(data)
 }
 
 pub async fn make_hf_size_margin_order(
@@ -2014,7 +1977,7 @@ pub async fn make_hf_size_margin_order(
     // only for sell orders
     let args_time_in_force: &str = "GTC";
 
-    match insert_db_msgsend(
+    insert_db_msgsend(
         pool,
         Some(symbol),
         Some(side),
@@ -2029,15 +1992,12 @@ pub async fn make_hf_size_margin_order(
         None,
     )
     .await
-    {
-        Ok(_) => {}
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        }
-    };
+    .map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
 
-    let body_str: String = match serialize_body(Some(serde_json::json!({
+    let body_str = serialize_body(Some(serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
@@ -2046,23 +2006,20 @@ pub async fn make_hf_size_margin_order(
         "autoRepay": auto_repay,
         "timeInForce": args_time_in_force,
         "size": size
-    }))) {
-        Ok(body_str) => body_str,
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        }
+    })))
+    .map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
+
+    let data = api_v3_hf_margin_order_post(body_str).await.map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
+    let Some(data) = data else {
+        return Err("".to_string());
     };
-    match api_v3_hf_margin_order_post(body_str).await {
-        Ok(data) => match data {
-            Some(data) => Ok(data),
-            None => Err("".to_string()),
-        },
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        }
-    }
+    Ok(data)
 }
 
 #[cfg(test)]

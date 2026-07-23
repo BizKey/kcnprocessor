@@ -192,17 +192,12 @@ async fn main() -> Result<(), String> {
             query_params.insert("orderId", &stop_order.id);
 
             let canceled_stop_order: Option<ApiV3HfMarginStopOrderCancelByIdResData> =
-                match api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(
-                    query_params,
-                ))
-                .await
-                {
-                    Ok(canceled_stop_order) => canceled_stop_order,
-                    Err(e) => {
+                api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(query_params))
+                    .await
+                    .map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                };
+                        e
+                    })?;
 
             let Some(canceled_stop_order) = canceled_stop_order else {
                 error!("Cancel stop order:{} None", &stop_order.id);
@@ -246,14 +241,10 @@ async fn main() -> Result<(), String> {
 
     loop {
         // Position/Orders/Balance/AdvancedOrders WS
-        let event_ws_url: String = match api_v1_bullet_private_post().await {
-            Ok(event_ws_url) => event_ws_url,
-            Err(e) => {
-                error!("{}", e);
-                sleep(config::RECONNECT_DELAY).await;
-                continue;
-            }
-        };
+        let event_ws_url = api_v1_bullet_private_post().await.map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
         let (mut event_ws_write, mut event_ws_read) = match connect_async(event_ws_url).await {
             Ok((stream, _)) => stream.split(),
