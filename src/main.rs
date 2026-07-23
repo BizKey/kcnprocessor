@@ -169,14 +169,16 @@ async fn main() -> Result<(), String> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
         query_params.insert("pageSize", "10");
 
-        let open_stop_orders = api_v3_hf_margin_stop_orders_get(build_query_string(query_params))
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+        let open_stop_orders =
+            api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await;
 
-        let Some(open_stop_orders_data) = open_stop_orders else {
+        if let Err(e) = &open_stop_orders {
+            error!("{}", e);
+            sleep(config::RECONNECT_DELAY).await;
+            continue;
+        }
+
+        let Ok(Some(open_stop_orders_data)) = open_stop_orders else {
             error!("Fail get list open stop orders:None");
             return Err("".to_string());
         };
