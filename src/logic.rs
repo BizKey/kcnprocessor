@@ -232,24 +232,20 @@ pub async fn transfer_amount(currency: &str, amount: &str) -> Result<(), String>
 pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
     sleep(AUTO_CLEAN_DELAY).await;
 
-    let accounts: MarginAccountData = match get_all_accounts_data().await {
-        Ok(accounts) => accounts,
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        }
-    };
+    let accounts: MarginAccountData = get_all_accounts_data().await.map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
 
     let mut passed: bool = true;
     for account in accounts.accounts.iter() {
         let currency_info: Option<Currencies> =
-            match fetch_currency_info_by_symbol(pool, &account.currency).await {
-                Ok(currency_info) => currency_info,
-                Err(e) => {
+            fetch_currency_info_by_symbol(pool, &account.currency)
+                .await
+                .map_err(|e| {
                     error!("{}", e);
-                    return Err(e);
-                }
-            };
+                    e
+                })?;
 
         let Some(currency_info) = currency_info else {
             error!("Currency info not found for {}", account.currency);
@@ -278,113 +274,79 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
             return Err("".to_string());
         };
 
-        let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
-            Ok(quote_increment) => quote_increment,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let quote_increment: Decimal = symbol_info.quote_increment_decimal().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
-        let min_funds: Decimal = match symbol_info.min_funds_decimal() {
-            Ok(min_funds) => min_funds,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let min_funds: Decimal = symbol_info.min_funds_decimal().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
-        let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
-            Ok(base_min_size) => base_min_size,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let base_min_size: Decimal = symbol_info.base_min_size_decimal().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
-        let base_increment: Decimal = match symbol_info.base_increment_decimal() {
-            Ok(base_increment) => base_increment,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let base_increment: Decimal = symbol_info.base_increment_decimal().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
-        let quote_min_size: Decimal = match symbol_info.quote_min_size_decimal() {
-            Ok(quote_min_size) => quote_min_size,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let quote_min_size: Decimal = symbol_info.quote_min_size_decimal().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
-        let token_liability: Decimal = match account.liability_decimal() {
-            Ok(token_liability) => token_liability,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let token_liability: Decimal = account.liability_decimal().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
-        let token_available: Decimal = match account.available_decimal() {
-            Ok(token_available) => token_available,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+        let token_available: Decimal = account.available_decimal().map_err(|e| {
+            error!("{}", e);
+            e
+        })?;
 
         if token_liability > Decimal::ZERO {
             passed = false;
             if token_available >= token_liability {
-                let size: String = match format_assert_decimal(token_liability, precision_decimal) {
-                    Ok(size) => size,
-                    Err(e) => {
+                let size: String = format_assert_decimal(token_liability, precision_decimal)
+                    .map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                };
-                match repay_account(&account.currency, &size).await {
-                    Ok(_) => continue,
-                    Err(e) => {
-                        error!("{}", e);
-                        return Err(e);
-                    }
-                }
+                        e
+                    })?;
+
+                repay_account(&account.currency, &size).await.map_err(|e| {
+                    error!("{}", e);
+                    e
+                })?;
             } else if token_available > Decimal::ZERO {
-                let size: String = match format_assert_decimal(token_available, precision_decimal) {
-                    Ok(size) => size,
-                    Err(e) => {
+                let size: String = format_assert_decimal(token_available, precision_decimal)
+                    .map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                };
-                match repay_account(&account.currency, &size).await {
-                    Ok(_) => continue,
-                    Err(e) => {
-                        error!("{}", e);
-                        return Err(e);
-                    }
-                }
+                        e
+                    })?;
+
+                repay_account(&account.currency, &size).await.map_err(|e| {
+                    error!("{}", e);
+                    e
+                })?;
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                 let trade_symbol: String = format!("{}-USDT", &account.currency);
 
                 let token_price_data: ApiV1MarketOrderbookLevel1ResData =
-                    match get_token_price(&trade_symbol).await {
-                        Ok(token_price_data) => token_price_data,
-                        Err(e) => {
-                            error!("{}", e);
-                            return Err(e);
-                        }
-                    };
-
-                let best_ask_token_price: Decimal = match token_price_data.best_ask_decimal() {
-                    Ok(best_ask_token_price) => best_ask_token_price,
-                    Err(e) => {
+                    get_token_price(&trade_symbol).await.map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                };
+                        e
+                    })?;
+
+                let best_ask_token_price: Decimal =
+                    token_price_data.best_ask_decimal().map_err(|e| {
+                        error!("{}", e);
+                        e
+                    })?;
 
                 info!(
                     "Successfully get token:{} ask price:{}",
@@ -397,17 +359,15 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
 
                 let final_funds: Decimal = token_funds.max(min_funds_by_size).max(min_funds);
 
-                let funds: String = match format_assert_decimal(final_funds, quote_increment) {
-                    Ok(funds) => funds,
-                    Err(e) => {
+                let funds: String =
+                    format_assert_decimal(final_funds, quote_increment).map_err(|e| {
                         error!("{}", e);
-                        return Err(e);
-                    }
-                };
+                        e
+                    })?;
 
                 let client_oid: String = Uuid::new_v4().to_string();
 
-                match make_hf_funds_margin_order(
+                make_hf_funds_margin_order(
                     pool,
                     &client_oid,
                     "buy",
@@ -418,13 +378,11 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                     false,
                 )
                 .await
-                {
-                    Ok(_) => continue,
-                    Err(e) => {
-                        error!("{}", e);
-                        return Err(e);
-                    }
-                }
+                .map_err(|e| {
+                    error!("{}", e);
+                    e
+                })?;
+                continue;
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
