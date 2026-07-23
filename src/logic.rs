@@ -1598,13 +1598,13 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
 
     let data: MessageData = match event {
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
-            Ok(data) => match insert_db_event(pool, &data).await {
-                Ok(_) => return Ok(()),
-                Err(e) => {
+            Ok(data) => {
+                insert_db_event(pool, &data).await.map_err(|e| {
                     error!("{}", e);
-                    return Err(e);
-                }
-            },
+                    e
+                })?;
+                return Ok(());
+            }
             Err(e) => {
                 error!(
                     "Failed to serialize request '{:?}' as {}: {}",
@@ -1674,13 +1674,10 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                 );
                 return Err("".to_string());
             }
-            Ok(order) => match handle_trade_order_event(order, pool).await {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    error!("{}", e);
-                    return Err(e);
-                }
-            },
+            Ok(order) => Ok(handle_trade_order_event(order, pool).await.map_err(|e| {
+                error!("{}", e);
+                e
+            })?),
         },
         "/spotMarket/advancedOrders" => {
             let order = AdvancedOrders::deserialize(&data.data).map_err(|e| {
@@ -1885,19 +1882,16 @@ pub async fn make_random_trade(
 
 pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::Receiver<String>) {
     loop {
-        match rx_in.recv().await {
-            Some(msg) => {
-                match process_kcn_msg(pool, &msg).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("{}", e);
-                        ()
-                    }
-                };
-            }
-            None => {
-                error!("Channel closed, exiting message processor");
-                break;
+        let Some(msg) = rx_in.recv().await else {
+            error!("Channel closed, exiting message processor");
+            break;
+        };
+
+        match process_kcn_msg(pool, &msg).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("{}", e);
+                ()
             }
         }
     }
