@@ -2,12 +2,9 @@ use std::env;
 use tracing::error;
 
 pub fn get_env(key: &str) -> Result<String, String> {
-    match env::var(key) {
-        Ok(value) => Ok(value.trim().to_string()),
-        Err(e) => {
-            let msg: String = format!("Don't find ENV:{} {}", key, e);
-            error!("{}", msg);
-            Err(msg)
-        }
-    }
+    env::var(key).map(|v| v.trim().to_string()).map_err(|e| {
+        let msg: String = format!("ENV variable not found: {key} — {e}");
+        error!("{msg}");
+        msg
+    })
 }
