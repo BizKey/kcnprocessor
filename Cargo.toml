@@ -25,6 +25,7 @@ bytes = { version = "1.12", default-features = false }
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "registry"] }
 tracing-appender = { version = "0.2", default-features = false }
+anyhow = { version = "1.0", default-features = false } 
 
 [profile.release]
 opt-level = 3

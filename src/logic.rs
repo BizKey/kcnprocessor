@@ -1590,11 +1590,10 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
     let data: MessageData = match event {
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => {
-                insert_db_event(pool, &data).await.map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
-                return Ok(());
+                if let Err(e) = insert_db_event(pool, msg).await {
+                    error!("{}", e); // выведет полную цепочку ошибок с контекстом
+                    return Err(e);
+                }
             }
             Err(e) => {
                 error!(

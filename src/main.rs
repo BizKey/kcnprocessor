@@ -107,8 +107,6 @@ where
             visitor.message
         };
 
-        // Синхронная, неблокирующая (или мало-блокирующая) отправка
-        // Не зависит от tokio runtime, не создаёт потоки
         if let Err(e) = self.sender.send(msg) {
             eprintln!("DbErrorLayer: failed to queue error: {e}");
         }
@@ -156,13 +154,14 @@ async fn main() -> Result<(), String> {
     init_tracing(pool.clone());
 
     // clear orders ids for bots
-    wipe_bots_info(&pool, &init_balance_per_bot)
-        .await
-        .map_err(|e| {
+    match wipe_bots_info(&pool, &init_balance_per_bot).await {
+        Ok(_) => info!("wipe_bots_info"),
+        Err(e) => {
             error!("{}", e);
-            e
-        })?;
-    info!("wipe_bots_info");
+            sleep(config::DELETE_STOP_ORDER_DELAY).await;
+            return Err(e);
+        }
+    };
 
     loop {
         sleep(config::DELETE_STOP_ORDER_DELAY).await;

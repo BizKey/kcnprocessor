@@ -2,6 +2,7 @@ use crate::{
     api::models::{BalanceData, BalanceRelationContext, Bot, Currencies, OrderData, Symbol},
     config,
 };
+use anyhow::{Context, Result};
 use sqlx::PgPool;
 use sqlx::Row;
 use tracing::error;
@@ -23,7 +24,7 @@ pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<(), Strin
     })?;
     Ok(())
 }
-pub async fn insert_db_event(pool: &sqlx::PgPool, msg: &serde_json::Value) -> Result<(), String> {
+pub async fn insert_db_event(pool: &sqlx::PgPool, msg: &serde_json::Value) -> Result<()> {
     sqlx::query(
         r#"
         INSERT INTO events (exchange, msg)
@@ -34,18 +35,11 @@ pub async fn insert_db_event(pool: &sqlx::PgPool, msg: &serde_json::Value) -> Re
     .bind(msg)
     .execute(pool)
     .await
-    .map_err(|e| {
-        error!(
-            "Fail insert into events msg:{} exchange:{} error:{}",
-            msg,
-            config::EXCHANGE,
-            e
-        );
+    .with_context(|| {
         format!(
-            "Fail insert into events msg:{} exchange:{} error:{}",
+            "Fail insert into events msg:{} exchange:{}",
             msg,
-            config::EXCHANGE,
-            e
+            config::EXCHANGE
         )
     })?;
     Ok(())
