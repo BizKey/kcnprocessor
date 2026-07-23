@@ -64,22 +64,12 @@ impl Visit for MessageVisitor {
 }
 
 pub struct DbErrorLayer {
-    sender: mpsc::UnboundedSender<String>,
+    pool: sqlx::PgPool,
 }
 
 impl DbErrorLayer {
     pub fn new(pool: sqlx::PgPool) -> Self {
-        let (sender, mut receiver) = mpsc::unbounded_channel::<String>();
-
-        tokio::spawn(async move {
-            while let Some(msg) = receiver.recv().await {
-                if let Err(e) = insert_db_error(&pool, &msg).await {
-                    eprintln!("Failed to save error to DB: {e}");
-                }
-            }
-        });
-
-        Self { sender }
+        Self { pool }
     }
 }
 
@@ -88,12 +78,22 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
-        if *event.metadata().level() != tracing::Level::ERROR {
+        let level = *event.metadata().level();
+        eprintln!("DbErrorLayer: event level = {:?}", level);
+
+        if level != tracing::Level::ERROR {
+            eprintln!("DbErrorLayer: skipping, not ERROR");
             return;
         }
 
         let mut visitor = MessageVisitor::new();
         event.record(&mut visitor);
+
+        eprintln!("DbErrorLayer: visitor.message = '{}'", visitor.message);
+        eprintln!(
+            "DbErrorLayer: metadata.name = '{}'",
+            event.metadata().name()
+        );
 
         let msg = if visitor.message.is_empty() {
             event.metadata().name().to_string()
@@ -101,7 +101,14 @@ where
             visitor.message
         };
 
-        let _ = self.sender.send(msg);
+        eprintln!("DbErrorLayer: sending msg = '{}'", msg);
+
+        let pool = self.pool.clone();
+        tokio::spawn(async move {
+            if let Err(e) = insert_db_error(&pool, &msg).await {
+                eprintln!("Failed to save error to DB: {e}");
+            }
+        });
     }
 }
 
