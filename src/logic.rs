@@ -1464,28 +1464,27 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                             )
                             .await
                         }
-                        "sell" => match size_clone {
-                            Some(size) => {
-                                make_hf_size_margin_order(
-                                    pool,
-                                    &new_exit_client_oid,
-                                    side_ref,
-                                    symbol_ref,
-                                    size,
-                                    "market",
-                                    true,
-                                    false,
-                                )
-                                .await
-                            }
-                            None => {
+                        "sell" => {
+                            let Some(size) = size_clone else {
                                 error!(
                                     "Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}",
                                     order_id_ref, new_exit_client_oid, size_clone,
                                 );
-                                continue;
-                            }
-                        },
+                                return Err("".to_string());
+                            };
+
+                            make_hf_size_margin_order(
+                                pool,
+                                &new_exit_client_oid,
+                                side_ref,
+                                symbol_ref,
+                                size,
+                                "market",
+                                true,
+                                false,
+                            )
+                            .await
+                        }
                         _ => {
                             error!("Fail match side_clone:{}", side_ref);
                             continue;
