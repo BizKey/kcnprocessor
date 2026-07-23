@@ -164,7 +164,7 @@ async fn main() -> Result<(), String> {
     loop {
         sleep(config::DELETE_STOP_ORDER_DELAY).await;
         let mut query_params: Map<&str, &str, 8> = Map::new();
-        query_params.insert("pageSize", "1");
+        query_params.insert("pageSize", "10");
 
         let open_stop_orders = api_v3_hf_margin_stop_orders_get(build_query_string(query_params))
             .await
