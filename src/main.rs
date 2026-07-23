@@ -64,22 +64,12 @@ impl Visit for MessageVisitor {
 }
 
 pub struct DbErrorLayer {
-    sender: mpsc::UnboundedSender<String>,
+    pool: sqlx::PgPool,
 }
 
 impl DbErrorLayer {
     pub fn new(pool: sqlx::PgPool) -> Self {
-        let (sender, mut receiver) = mpsc::unbounded_channel::<String>();
-
-        tokio::spawn(async move {
-            while let Some(msg) = receiver.recv().await {
-                if let Err(e) = insert_db_error(&pool, &msg).await {
-                    eprintln!("Failed to save error to DB: {e}");
-                }
-            }
-        });
-
-        Self { sender }
+        Self { pool }
     }
 }
 
@@ -101,7 +91,12 @@ where
             visitor.message
         };
 
-        let _ = self.sender.send(msg);
+        let pool = self.pool.clone();
+        tokio::spawn(async move {
+            if let Err(e) = insert_db_error(&pool, &msg).await {
+                eprintln!("Failed to save error to DB: {e}");
+            }
+        });
     }
 }
 
