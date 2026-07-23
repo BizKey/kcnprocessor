@@ -1408,9 +1408,8 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
 
 pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Result<(), String> {
     info!("{}", order);
-    match order.error {
-        Some(_) => {}
-        None => return Ok(()),
+    if order.error.is_none() {
+        return Ok(());
     }
 
     error!("Got error on stop order : {}", order);
@@ -1444,28 +1443,27 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                 .await
                 {
                     Ok(_) => match side_ref.as_str() {
-                        "buy" => match funds_clone {
-                            Some(funds) => {
-                                make_hf_funds_margin_order(
-                                    pool,
-                                    &new_exit_client_oid,
-                                    side_ref,
-                                    symbol_ref,
-                                    funds,
-                                    "market",
-                                    true,
-                                    false,
-                                )
-                                .await
-                            }
-                            None => {
+                        "buy" => {
+                            let Some(funds) = funds_clone else {
                                 error!(
                                     "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
                                     order_id_ref, new_exit_client_oid, funds_clone,
                                 );
-                                continue;
-                            }
-                        },
+                                return Err("".to_string());
+                            };
+
+                            make_hf_funds_margin_order(
+                                pool,
+                                &new_exit_client_oid,
+                                side_ref,
+                                symbol_ref,
+                                funds,
+                                "market",
+                                true,
+                                false,
+                            )
+                            .await
+                        }
                         "sell" => match size_clone {
                             Some(size) => {
                                 make_hf_size_margin_order(

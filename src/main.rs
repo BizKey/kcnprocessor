@@ -125,7 +125,7 @@ async fn main() -> Result<(), String> {
 
     let init_balance_per_bot: String = get_env("INIT_BALANCE_PER_BOT")?;
 
-    let pool: PgPool = match PgPoolOptions::new()
+    let pool = PgPoolOptions::new()
         .max_connections(10)
         .min_connections(1)
         .acquire_timeout(Duration::from_secs(10))
@@ -133,25 +133,21 @@ async fn main() -> Result<(), String> {
         .max_lifetime(Duration::from_secs(1800))
         .connect(&database_url)
         .await
-    {
-        Ok(pool) => pool,
-        Err(e) => {
-            let msg: String = format!("Failed to create pg pool:{}", e);
-            error!("{}", msg);
-            return Err(msg);
-        }
-    };
+        .map_err(|e| {
+            eprintln!("Failed to create pg pool:{}", e);
+            "".to_string()
+        })?;
 
     init_tracing(pool.clone());
 
     // clear orders ids for bots
-    match wipe_bots_info(&pool, &init_balance_per_bot).await {
-        Ok(_) => info!("wipe_bots_info"),
-        Err(e) => {
+    wipe_bots_info(&pool, &init_balance_per_bot)
+        .await
+        .map_err(|e| {
             error!("{}", e);
-            return Err(e);
-        }
-    }
+            e
+        })?;
+    info!("wipe_bots_info");
 
     loop {
         sleep(config::DELETE_STOP_ORDER_DELAY).await;
@@ -254,17 +250,15 @@ async fn main() -> Result<(), String> {
         };
 
         // subscribtion
-        match event_ws_write
+        event_ws_write
             .send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string()))
             .await
-        {
-            Ok(_) => info!("Subscribe:/spotMarket/tradeOrdersV2"),
-            Err(e) => {
+            .map_err(|e|{
                 error!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
-                sleep(config::RECONNECT_DELAY).await;
-                continue;
-            }
-        }
+                "".to_string()
+            })?;
+
+        info!("Subscribe:/spotMarket/tradeOrdersV2");
 
         match event_ws_write
             .send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string()))
@@ -278,25 +272,18 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        match event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await
-        {
-            Ok(_) => info!("Subscribe:/account/balance"),
-            Err(e) => {
-                error!("Failed to subscribe subject:/account/balance:{}", e);
-                sleep(config::RECONNECT_DELAY).await;
-                continue;
-            }
-        }
+        event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await.map_err(|e|{
+            error!("Failed to subscribe subject:/account/balance:{}", e);
+            "".to_string()
+         })?;
+        info!("Subscribe:/account/balance");
 
-        match event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await
-        {
-            Ok(_) => info!("Subscribe:/margin/position"),
-            Err(e) => {
-                error!("Failed to subscribe subject:/margin/position:{}", e);
-                sleep(config::RECONNECT_DELAY).await;
-                continue;
-            }
-        }
+        event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await.map_err(|e|{
+            error!("Failed to subscribe subject:/margin/position:{}", e);
+            "".to_string()
+        })?;
+
+        info!("Subscribe:/margin/position");
 
         info!("Subscribed and listening for messages...");
 
