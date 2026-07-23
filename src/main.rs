@@ -243,7 +243,6 @@ async fn main() -> Result<(), String> {
         let (mut event_ws_write, mut event_ws_read) = match connect_async(event_ws_url).await {
             Ok((stream, _)) => stream.split(),
             Err(e) => {
-                error!("WebSocket connection failed:{}", e);
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -260,17 +259,14 @@ async fn main() -> Result<(), String> {
 
         info!("Subscribe:/spotMarket/tradeOrdersV2");
 
-        match event_ws_write
+        event_ws_write
             .send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string()))
             .await
-        {
-            Ok(_) => info!("Subscribe:/spotMarket/advancedOrders"),
-            Err(e) => {
+            .map_err(|e|{
                 error!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
-                sleep(config::RECONNECT_DELAY).await;
-                continue;
-            }
-        }
+                "".to_string()
+            })?;
+        info!("Subscribe:/spotMarket/advancedOrders");
 
         event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await.map_err(|e|{
             error!("Failed to subscribe subject:/account/balance:{}", e);

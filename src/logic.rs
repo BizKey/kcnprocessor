@@ -1233,31 +1233,25 @@ pub async fn process_bot_by_entry_client_oid(
     }
 
     // delete entry_id from db
-    match set_null_entry_client_oid_by_entry_client_oid(pool, client_oid).await {
-        Ok(_) => Ok(()),
-        Err(e) => {
+    set_null_entry_client_oid_by_entry_client_oid(pool, client_oid)
+        .await
+        .map(|_| Ok(()))
+        .map_err(|e| {
             error!("{}", e);
-            Ok(())
-        }
-    }
+            e
+        })?
 }
 
 pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), String> {
-    let client_oid: &String = match &order.client_oid {
-        Some(client_oid) => client_oid,
-        None => {
-            error!("client_oid in order is none: {}", order);
-            return Err("".to_string());
-        }
+    let Some(client_oid) = &order.client_oid else {
+        error!("client_oid in order is none: {}", order);
+        return Err("".to_string());
     };
 
-    let bot: Option<Bot> = match get_bot_by_client_oid(pool, client_oid).await {
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        }
-        Ok(bot) => bot,
-    };
+    let bot = get_bot_by_client_oid(pool, client_oid).await.map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
 
     let Some(bot) = bot else {
         let msg: String = format!("Bot is None by:{}", client_oid);
