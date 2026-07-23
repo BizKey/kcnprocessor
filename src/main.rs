@@ -7,7 +7,6 @@ mod api {
 mod config;
 mod logic;
 use crate::api::db::{insert_db_error, wipe_bots_info};
-use crate::api::models::{ApiV3HfMarginStopOrderCancelByIdResData, ApiV3HfMarginStopOrdersResData};
 use crate::api::requests::{
     api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
     api_v3_hf_margin_stop_orders_get, build_query_string,
@@ -159,14 +158,12 @@ async fn main() -> Result<(), String> {
         let mut query_params: Map<&str, &str, 8> = Map::new();
         query_params.insert("pageSize", "1");
 
-        let open_stop_orders: Option<ApiV3HfMarginStopOrdersResData> =
-            match api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await {
-                Ok(orders) => orders,
-                Err(e) => {
-                    error!("{}", e);
-                    return Err(e);
-                }
-            };
+        let open_stop_orders = api_v3_hf_margin_stop_orders_get(build_query_string(query_params))
+            .await
+            .map_err(|e| {
+                error!("{}", e);
+                e
+            })?;
 
         let Some(open_stop_orders_data) = open_stop_orders else {
             error!("Fail get list open stop orders:None");
@@ -191,7 +188,7 @@ async fn main() -> Result<(), String> {
 
             query_params.insert("orderId", &stop_order.id);
 
-            let canceled_stop_order: Option<ApiV3HfMarginStopOrderCancelByIdResData> =
+            let canceled_stop_order =
                 api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(query_params))
                     .await
                     .map_err(|e| {
@@ -212,11 +209,12 @@ async fn main() -> Result<(), String> {
 
     // repay all liability assets and sell
     loop {
-        match auto_clean_account(&pool).await {
-            Ok(true) => break,
-            Ok(false) => continue,
-            Err(e) => return Err(e),
-        };
+        if auto_clean_account(&pool).await.map_err(|e| {
+            error!("{}", e);
+            e
+        })? {
+            break;
+        }
     }
 
     let (tx_in, rx_in) = mpsc::channel::<String>(10000);
@@ -319,19 +317,19 @@ async fn main() -> Result<(), String> {
                 }
 
                 event = event_ws_read.next() => {
-                    let msg_event =  match event {
-                        Some(Ok(msg_event)) =>  msg_event,
-                        Some(Err(e)) =>  {
-                            error!("WebSocket read error:{}", e);
-                            break
-                        }
-                        None => {
-                            error!("WebSocket stream ended");
-                            break
+                    let Some(event) = event else {error!("WebSocket stream ended");
+                            break};
+
+                    let event = match event {
+                        Ok(e) => e,
+                        Err(e) => {
+                            error!("WebSocket read error: {}", e);
+                            break;
                         }
                     };
 
-                    match msg_event {
+
+                    match event {
                         Message::Text(text) => match tx_in.send(text.to_string()).await {
                             Ok(_) => {}
                             Err(e) => {
@@ -351,7 +349,7 @@ async fn main() -> Result<(), String> {
                             break
                         }
                         _ => {
-                            error!("Unexpected msg:{}", msg_event);
+                            error!("Unexpected msg:{}", event);
                             break
                         }
                     }
