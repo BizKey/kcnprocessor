@@ -78,18 +78,30 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
-        if *event.metadata().level() != tracing::Level::ERROR {
+        let level = *event.metadata().level();
+        eprintln!("DbErrorLayer: event level = {:?}", level);
+
+        if level != tracing::Level::ERROR {
+            eprintln!("DbErrorLayer: skipping, not ERROR");
             return;
         }
 
         let mut visitor = MessageVisitor::new();
         event.record(&mut visitor);
 
+        eprintln!("DbErrorLayer: visitor.message = '{}'", visitor.message);
+        eprintln!(
+            "DbErrorLayer: metadata.name = '{}'",
+            event.metadata().name()
+        );
+
         let msg = if visitor.message.is_empty() {
             event.metadata().name().to_string()
         } else {
             visitor.message
         };
+
+        eprintln!("DbErrorLayer: sending msg = '{}'", msg);
 
         let pool = self.pool.clone();
         tokio::spawn(async move {
