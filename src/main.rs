@@ -11,6 +11,8 @@ use crate::api::requests::{
     api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
     api_v3_hf_margin_stop_orders_get, build_query_string,
 };
+use std::sync::mpsc::{Sender, channel};
+use std::thread;
 use tracing::{
     Event,
     field::{Field, Visit},
@@ -64,12 +66,26 @@ impl Visit for MessageVisitor {
 }
 
 pub struct DbErrorLayer {
-    pool: sqlx::PgPool,
+    sender: Sender<String>,
 }
 
 impl DbErrorLayer {
     pub fn new(pool: sqlx::PgPool) -> Self {
-        Self { pool }
+        let (sender, receiver) = channel::<String>();
+
+        thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+            rt.block_on(async move {
+                while let Ok(msg) = receiver.recv() {
+                    if let Err(e) = insert_db_error(&pool, &msg).await {
+                        eprintln!("Failed to save error to DB: {e}");
+                    }
+                }
+                eprintln!("DbErrorLayer: receiver closed, worker thread exiting");
+            });
+        });
+
+        Self { sender }
     }
 }
 
@@ -78,22 +94,12 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
-        let level = *event.metadata().level();
-        eprintln!("DbErrorLayer: event level = {:?}", level);
-
-        if level != tracing::Level::ERROR {
-            eprintln!("DbErrorLayer: skipping, not ERROR");
+        if *event.metadata().level() != tracing::Level::ERROR {
             return;
         }
 
         let mut visitor = MessageVisitor::new();
         event.record(&mut visitor);
-
-        eprintln!("DbErrorLayer: visitor.message = '{}'", visitor.message);
-        eprintln!(
-            "DbErrorLayer: metadata.name = '{}'",
-            event.metadata().name()
-        );
 
         let msg = if visitor.message.is_empty() {
             event.metadata().name().to_string()
@@ -101,14 +107,11 @@ where
             visitor.message
         };
 
-        eprintln!("DbErrorLayer: sending msg = '{}'", msg);
-
-        let pool = self.pool.clone();
-        tokio::spawn(async move {
-            if let Err(e) = insert_db_error(&pool, &msg).await {
-                eprintln!("Failed to save error to DB: {e}");
-            }
-        });
+        // Синхронная, неблокирующая (или мало-блокирующая) отправка
+        // Не зависит от tokio runtime, не создаёт потоки
+        if let Err(e) = self.sender.send(msg) {
+            eprintln!("DbErrorLayer: failed to queue error: {e}");
+        }
     }
 }
 
@@ -151,7 +154,6 @@ async fn main() -> Result<(), String> {
         })?;
 
     init_tracing(pool.clone());
-    error!("test error");
 
     // clear orders ids for bots
     wipe_bots_info(&pool, &init_balance_per_bot)
