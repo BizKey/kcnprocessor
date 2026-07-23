@@ -2,8 +2,8 @@ use crate::api::db::{
     delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid,
     delete_symbol_bot_by_exit_sl_client_oid, fetch_currency_info_by_symbol,
     fetch_symbol_info_by_symbol, get_all_bots_for_trade, get_bot_by_client_oid, get_random_symbol,
-    get_total_match_value_by_client_oid, handle_db_error, insert_db_balance, insert_db_event,
-    insert_db_msgsend, insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid,
+    get_total_match_value_by_client_oid, insert_db_balance, insert_db_event, insert_db_msgsend,
+    insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid,
     update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid,
     update_bot_balance_by_entry_client_oid, update_bot_entry_client_oid_by_id,
     update_exit_sl_client_oid_bot_by_entry_client_oid,
@@ -126,7 +126,7 @@ pub async fn create_init_orders(pool: &PgPool) -> Result<(), String> {
     let trade_bots: Vec<Bot> = match get_all_bots_for_trade(pool).await {
         Ok(trade_bots) => trade_bots,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -136,14 +136,14 @@ pub async fn create_init_orders(pool: &PgPool) -> Result<(), String> {
         let token_funds: Decimal = match trade_bot.balance_decimal() {
             Ok(token_funds) => token_funds,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 continue;
             }
         };
         match make_random_trade(pool, token_funds, trade_bot.id).await {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
             }
         }
     }
@@ -173,7 +173,7 @@ pub async fn repay_account(
     }))) {
         Ok(body_str) => body_str,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -181,7 +181,7 @@ pub async fn repay_account(
     match api_v3_margin_repay_post(body_str).await {
         Ok(res) => Ok(res),
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     }
@@ -198,9 +198,7 @@ pub async fn get_token_price(
         api_v1_market_orderbook_level1_get(build_query_string(query_params)).await?;
 
     let Some(token_price) = token_price else {
-        let msg: String = format!("Fail get token_price:{:?}", token_price);
-        error!("{}", msg);
-        handle_db_error(pool, &msg).await;
+        error!("Fail get token_price:{:?}", token_price);
         return Err(msg);
     };
     Ok(token_price)
@@ -219,7 +217,7 @@ pub async fn transfer_amount(pool: &PgPool, currency: &str, amount: &str) -> Res
     }))) {
         Ok(body_str) => body_str,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -227,7 +225,7 @@ pub async fn transfer_amount(pool: &PgPool, currency: &str, amount: &str) -> Res
     match api_v3_accounts_universal_transfer_post(body_str).await {
         Ok(_) => Ok(()),
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     }
@@ -239,7 +237,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
     let accounts: MarginAccountData = match get_all_accounts_data().await {
         Ok(accounts) => accounts,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -250,22 +248,20 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
             match fetch_currency_info_by_symbol(pool, &account.currency).await {
                 Ok(currency_info) => currency_info,
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             };
 
         let Some(currency_info) = currency_info else {
-            let msg: String = format!("Currency info not found for {}", account.currency);
-            error!("{}", msg);
-            handle_db_error(pool, &msg).await;
+            error!("Currency info not found for {}", account.currency);
             return Err(msg);
         };
 
         let precision_decimal: Decimal = match currency_info.precision_decimal() {
             Ok(precision_decimal) => precision_decimal,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -274,22 +270,20 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
             match fetch_symbol_info_by_symbol(pool, &account.currency).await {
                 Ok(symbol_info) => symbol_info,
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             };
 
         let Some(symbol_info) = symbol_info else {
-            let msg: String = format!("Symbol info not found for {}", &account.currency);
-            error!("{}", msg);
-            handle_db_error(pool, &msg).await;
+            error!("Symbol info not found for {}", &account.currency);
             return Err(msg);
         };
 
         let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
             Ok(quote_increment) => quote_increment,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -297,7 +291,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
         let min_funds: Decimal = match symbol_info.min_funds_decimal() {
             Ok(min_funds) => min_funds,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -305,7 +299,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
         let base_min_size: Decimal = match symbol_info.base_min_size_decimal() {
             Ok(base_min_size) => base_min_size,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -313,7 +307,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
         let base_increment: Decimal = match symbol_info.base_increment_decimal() {
             Ok(base_increment) => base_increment,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -321,7 +315,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
         let quote_min_size: Decimal = match symbol_info.quote_min_size_decimal() {
             Ok(quote_min_size) => quote_min_size,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -329,7 +323,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
         let token_liability: Decimal = match account.liability_decimal() {
             Ok(token_liability) => token_liability,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -337,7 +331,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
         let token_available: Decimal = match account.available_decimal() {
             Ok(token_available) => token_available,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -348,14 +342,14 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 let size: String = match format_assert_decimal(token_liability, precision_decimal) {
                     Ok(size) => size,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
                 match repay_account(pool, &account.currency, &size).await {
                     Ok(_) => continue,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
@@ -363,14 +357,14 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 let size: String = match format_assert_decimal(token_available, precision_decimal) {
                     Ok(size) => size,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
                 match repay_account(pool, &account.currency, &size).await {
                     Ok(_) => continue,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
@@ -381,7 +375,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                     match get_token_price(pool, &trade_symbol).await {
                         Ok(token_price_data) => token_price_data,
                         Err(e) => {
-                            handle_db_error(pool, &e).await;
+                            error!("{}", e);
                             return Err(e);
                         }
                     };
@@ -389,7 +383,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 let best_ask_token_price: Decimal = match token_price_data.best_ask_decimal() {
                     Ok(best_ask_token_price) => best_ask_token_price,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
@@ -408,7 +402,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 let funds: String = match format_assert_decimal(final_funds, quote_increment) {
                     Ok(funds) => funds,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
@@ -429,7 +423,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 {
                     Ok(_) => continue,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
@@ -443,7 +437,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 match get_token_price(pool, &trade_symbol).await {
                     Ok(token_price_data) => token_price_data,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
@@ -451,7 +445,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
             let best_bid_token_price: Decimal = match token_price_data.best_bid_decimal() {
                 Ok(best_bid_token_price) => best_bid_token_price,
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             };
@@ -468,14 +462,14 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 {
                     Ok(size) => size,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
                 match transfer_amount(pool, &account.currency, &amount).await {
                     Ok(_) => continue,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
@@ -483,7 +477,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 let size: String = match format_assert_decimal(token_available, base_increment) {
                     Ok(size) => size,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
@@ -503,7 +497,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 {
                     Ok(_) => continue,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
@@ -521,7 +515,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
 ) -> Result<(), String> {
     match delete_exit_sl_id_bot_by_client_oid(pool, client_oid).await {
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
         Ok(_) => {}
@@ -532,7 +526,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             match delete_exit_tp_id_bot_by_client_oid(pool, exit_tp_client_oid).await {
                 Ok(_) => {}
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             }
@@ -549,7 +543,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
                     info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                 }
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error("{}", e);
                     return Err(e);
                 }
             }
@@ -561,7 +555,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
         match get_total_match_value_by_client_oid(pool, client_oid).await {
             Ok(return_balance) => return_balance,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -580,7 +574,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
         let old_balance = match bot.balance_decimal() {
             Ok(old_balance) => old_balance,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -594,7 +588,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         }
@@ -602,7 +596,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
         match make_random_trade(pool, new_balance, bot.id).await {
             Ok(()) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         }
@@ -616,7 +610,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         }
@@ -625,7 +619,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
         match make_random_trade(pool, return_balance, bot.id).await {
             Ok(()) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         }
@@ -642,7 +636,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
     match delete_exit_tp_id_bot_by_client_oid(pool, client_oid).await {
         Ok(_) => {}
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     }
@@ -652,7 +646,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
             match delete_exit_sl_id_bot_by_client_oid(pool, exit_sl_client_oid).await {
                 Ok(_) => {}
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                 }
             }
             let mut query_params: Map<&str, &str, 8> = Map::new();
@@ -668,7 +662,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
                     info!("Successfully cancel stop order :{}", &exit_sl_client_oid)
                 }
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                 }
             }
         }
@@ -678,7 +672,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
         match get_total_match_value_by_client_oid(pool, client_oid).await {
             Ok(return_balance) => return_balance,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Ok(());
             }
         };
@@ -697,7 +691,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
         let old_balance: Decimal = match bot.balance_decimal() {
             Ok(old_balance) => old_balance,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -711,14 +705,14 @@ pub async fn process_bot_by_exit_tp_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
             }
         }
         // create new random order
         match make_random_trade(pool, new_balance, bot.id).await {
             Ok(()) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
             }
         }
     } else if order.side == "sell" {
@@ -731,14 +725,14 @@ pub async fn process_bot_by_exit_tp_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
             }
         }
         // create new random order
         match make_random_trade(pool, return_balance, bot.id).await {
             Ok(()) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
             }
         }
     };
@@ -753,22 +747,20 @@ pub async fn process_bot_by_entry_client_oid(
     let symbol_info: Option<Symbol> = match fetch_symbol_info_by_symbol(pool, &order.symbol).await {
         Ok(symbol_info) => symbol_info,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
 
     let Some(symbol_info) = symbol_info else {
-        let msg: String = format!("Symbol info not found for {}", order.symbol);
-        error!("{}", msg);
-        handle_db_error(pool, &msg).await;
+        error!("Symbol info not found for {}", order.symbol);
         return Err(msg);
     };
 
     let price_increment: Decimal = match symbol_info.price_increment_decimal() {
         Ok(price_increment) => price_increment,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -776,7 +768,7 @@ pub async fn process_bot_by_entry_client_oid(
     let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
         Ok(quote_increment) => quote_increment,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -784,7 +776,7 @@ pub async fn process_bot_by_entry_client_oid(
     let filled_size: Decimal = match order.filled_size_decimal() {
         Ok(filled_size) => filled_size,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -793,7 +785,7 @@ pub async fn process_bot_by_entry_client_oid(
         match get_total_match_value_by_client_oid(pool, client_oid).await {
             Ok(return_balance) => return_balance,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -812,7 +804,7 @@ pub async fn process_bot_by_entry_client_oid(
         .await
     {
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
         Ok(_) => {}
@@ -840,12 +832,11 @@ pub async fn process_bot_by_entry_client_oid(
         let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
             Ok(stop_price_tp) => stop_price_tp,
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Fail parse:{} {} error:{}",
                     trigger_tp_price, price_increment, e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
+
                 return Err(msg);
             }
         };
@@ -866,12 +857,11 @@ pub async fn process_bot_by_entry_client_oid(
         let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
             Ok(stop_price_sl) => stop_price_sl,
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Fail parse:{} {} error:{}",
                     trigger_sl_price, price_increment, e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
+
                 return Err(msg);
             }
         };
@@ -902,7 +892,7 @@ pub async fn process_bot_by_entry_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         }
@@ -916,7 +906,7 @@ pub async fn process_bot_by_entry_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         }
@@ -924,7 +914,7 @@ pub async fn process_bot_by_entry_client_oid(
         let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
             Ok(body_str) => body_str,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -933,7 +923,7 @@ pub async fn process_bot_by_entry_client_oid(
         let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
             Ok(body_str) => body_str,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -953,7 +943,7 @@ pub async fn process_bot_by_entry_client_oid(
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            handle_db_error(pool, &e).await;
+                            error!("{}", e);
                             return Err(e);
                         }
                     },
@@ -970,7 +960,7 @@ pub async fn process_bot_by_entry_client_oid(
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            handle_db_error(pool, &e).await;
+                            error!("{}", e);
                             return Err(e);
                         }
                     },
@@ -996,7 +986,7 @@ pub async fn process_bot_by_entry_client_oid(
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                handle_db_error(pool, &e).await;
+                                error!("{}", e);
                                 return Err(e);
                             }
                         };
@@ -1007,18 +997,16 @@ pub async fn process_bot_by_entry_client_oid(
                 match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
 
-                let msg: String = format!(
+                error!(
                     "Failed add TP order: {}. SL was cancelled for symmetry.",
                     tp_err
                 );
-                error!("{}", msg);
 
-                handle_db_error(pool, &msg).await;
                 {}
             }
             (Ok(tp_resp), Err(sl_err)) => {
@@ -1035,7 +1023,7 @@ pub async fn process_bot_by_entry_client_oid(
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                handle_db_error(pool, &e).await;
+                                error!("{}", e);
                                 return Err(e);
                             }
                         }
@@ -1046,46 +1034,40 @@ pub async fn process_bot_by_entry_client_oid(
                 match delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
 
-                let msg: String = format!(
+                error!(
                     "Failed add SL order: {}. TP was cancelled for symmetry.",
                     sl_err
                 );
-                error!("{}", msg);
 
-                handle_db_error(pool, &msg).await;
                 {}
             }
             (Err(tp_err), Err(sl_err)) => {
-                let msg: String =
-                    format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
-                error!("{}", msg);
-
-                handle_db_error(pool, &msg).await;
+                error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
                 {}
 
                 match delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
                 match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
                 match delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
@@ -1121,22 +1103,18 @@ pub async fn process_bot_by_entry_client_oid(
         let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
             Ok(stop_price_tp) => stop_price_tp,
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Fail parse:{} {} error:{}",
                     trigger_tp_price, price_increment, e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
+
                 return Err(msg);
             }
         };
         let funds_tp_str: String = match format_assert_decimal(funds_tp, quote_increment) {
             Ok(funds_tp_str) => funds_tp_str,
             Err(e) => {
-                let msg: String =
-                    format!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e);
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
+                error!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e);
                 return Err(msg);
             }
         };
@@ -1156,22 +1134,17 @@ pub async fn process_bot_by_entry_client_oid(
         let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
             Ok(stop_price_sl) => stop_price_sl,
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Fail parse:{} {} error:{}",
                     trigger_sl_price, price_increment, e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
         };
         let funds_sl_str: String = match format_assert_decimal(funds_sl, quote_increment) {
             Ok(funds_sl_str) => funds_sl_str,
             Err(e) => {
-                let msg: String =
-                    format!("Fail parse:{} {} error:{}", funds_sl, quote_increment, e);
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
+                error!("Fail parse:{} {} error:{}", funds_sl, quote_increment, e);
                 return Err(msg);
             }
         };
@@ -1202,7 +1175,7 @@ pub async fn process_bot_by_entry_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         }
@@ -1216,7 +1189,7 @@ pub async fn process_bot_by_entry_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         }
@@ -1224,7 +1197,7 @@ pub async fn process_bot_by_entry_client_oid(
         let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
             Ok(body_str) => body_str,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -1233,7 +1206,7 @@ pub async fn process_bot_by_entry_client_oid(
         let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
             Ok(body_str) => body_str,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 return Err(e);
             }
         };
@@ -1252,7 +1225,7 @@ pub async fn process_bot_by_entry_client_oid(
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            handle_db_error(pool, &e).await;
+                            error!("{}", e);
                             return Err(e);
                         }
                     },
@@ -1269,7 +1242,7 @@ pub async fn process_bot_by_entry_client_oid(
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            handle_db_error(pool, &e).await;
+                            error!("{}", e);
                             return Err(e);
                         }
                     },
@@ -1294,7 +1267,7 @@ pub async fn process_bot_by_entry_client_oid(
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                handle_db_error(pool, &e).await;
+                                error!("{}", e);
                                 return Err(e);
                             }
                         }
@@ -1305,17 +1278,15 @@ pub async fn process_bot_by_entry_client_oid(
                 match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
 
-                let msg: String = format!(
+                error!(
                     "Failed add TP order: {}. SL was cancelled for symmetry.",
                     tp_err
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
             }
             (Ok(tp_resp), Err(sl_err)) => match tp_resp {
                 Some(response_data) => {
@@ -1333,21 +1304,19 @@ pub async fn process_bot_by_entry_client_oid(
                             {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    handle_db_error(pool, &e).await;
+                                    error!("{}", e);
                                     return Err(e);
                                 }
                             }
-                            let msg: String = format!(
+                            error!(
                                 "Failed add SL order: {}. TP was cancelled for symmetry.",
                                 sl_err
                             );
-                            error!("{}", msg);
 
-                            handle_db_error(pool, &msg).await;
                             {}
                         }
                         Err(e) => {
-                            handle_db_error(pool, &e).await;
+                            error!("{}", e);
                             return Err(e);
                         }
                     }
@@ -1355,30 +1324,27 @@ pub async fn process_bot_by_entry_client_oid(
                 None => {}
             },
             (Err(tp_err), Err(sl_err)) => {
-                let msg: String =
-                    format!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
-                error!("{}", msg);
+                error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
 
-                handle_db_error(pool, &msg).await;
                 {}
 
                 match delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
                 match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                     }
                 }
                 match delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                     }
                 }
             }
@@ -1389,7 +1355,7 @@ pub async fn process_bot_by_entry_client_oid(
     match set_null_entry_client_oid_by_entry_client_oid(pool, client_oid).await {
         Ok(_) => Ok(()),
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             Ok(())
         }
     }
@@ -1399,16 +1365,14 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), S
     let client_oid: &String = match &order.client_oid {
         Some(client_oid) => client_oid,
         None => {
-            let msg: String = format!("client_oid in order is none: {}", order);
-            error!("{}", msg);
-            handle_db_error(pool, &msg).await;
+            error!("client_oid in order is none: {}", order);
             return Err(msg);
         }
     };
 
     let bot: Option<Bot> = match get_bot_by_client_oid(pool, client_oid).await {
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
         Ok(bot) => bot,
@@ -1451,7 +1415,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result
     match insert_db_orderevent(pool, order.clone()).await {
         Ok(_) => info!("{}", order),
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     }
@@ -1478,10 +1442,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
     for (asset, token_liability) in debt_pair {
         let asset_info: &AssetInfo = match position.asset_list.get(&asset) {
             None => {
-                let msg: String =
-                    format!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
+                error!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
                 continue;
             }
             Some(asset_info) => asset_info,
@@ -1489,7 +1450,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
 
         let token_available: Decimal = match asset_info.available_decimal() {
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 continue;
             }
             Ok(available) => available,
@@ -1500,22 +1461,20 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
                 match fetch_currency_info_by_symbol(pool, &asset).await {
                     Ok(info) => info,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
 
             let Some(currency_info) = currency_info else {
-                let msg: String = format!("Currency info not found for {}", asset);
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
+                error!("Currency info not found for {}", asset);
                 return Err(msg);
             };
 
             let precision_decimal: Decimal = match currency_info.precision_decimal() {
                 Ok(precision_decimal) => precision_decimal,
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             };
@@ -1526,7 +1485,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
             ) {
                 Ok(size) => size,
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             };
@@ -1534,7 +1493,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
             match repay_account(pool, &asset, &size).await {
                 Ok(_) => continue,
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     continue;
                 }
             }
@@ -1552,7 +1511,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
     {
         Ok(_) => {}
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -1561,7 +1520,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
         match upsert_position_debt(pool, symbol, amount).await {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 continue;
             }
         }
@@ -1578,7 +1537,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 continue;
             }
         }
@@ -1594,10 +1553,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
         None => return Ok(()),
     }
 
-    let msg: String = format!("Got error on stop order : {}", order);
-    error!("{}", msg);
-
-    handle_db_error(pool, &msg).await;
+    error!("Got error on stop order : {}", order);
 
     const MAX_RETRIES: u32 = 1000;
     let mut attempt: u32 = 0;
@@ -1643,7 +1599,10 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                 .await
                             }
                             None => {
-                                let _ = handle_db_error(pool, &format!("Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}", order_id_ref, new_exit_client_oid, funds_clone,)).await;
+                                error!(
+                                    "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
+                                    order_id_ref, new_exit_client_oid, funds_clone,
+                                );
                                 continue;
                             }
                         },
@@ -1662,27 +1621,20 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                 .await
                             }
                             None => {
-                                let msg: String = format!(
+                                error!(
                                     "Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}",
                                     order_id_ref, new_exit_client_oid, size_clone,
                                 );
-                                error!("{}", msg);
-
-                                handle_db_error(pool, &msg).await;
-
                                 continue;
                             }
                         },
                         _ => {
-                            let msg: String = format!("Fail match side_clone:{}", side_ref);
-                            error!("{}", msg);
-
-                            handle_db_error(pool, &msg).await;
+                            error!("Fail match side_clone:{}", side_ref);
                             continue;
                         }
                     },
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         continue;
                     }
                 }
@@ -1712,13 +1664,11 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                 .await
                             }
                             None => {
-                                let msg: String = format!(
+                                error!(
                                     "Fail parse funds_clone order:{} new_exit_tp_client_oid:{} funds_clone:{:.?}",
                                     order_id_ref, new_exit_client_oid, funds_clone
                                 );
-                                error!("{}", msg);
 
-                                handle_db_error(pool, &msg).await;
                                 continue;
                             }
                         },
@@ -1737,35 +1687,27 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                 .await
                             }
                             None => {
-                                let msg: String = format!(
+                                error!(
                                     "Fail parse size_clone order:{} new_exit_tp_client_oid:{} size_clone:{:.?}",
                                     order_id_ref, new_exit_client_oid, size_clone
                                 );
-                                error!("{}", msg);
-
-                                handle_db_error(pool, &msg).await;
                                 continue;
                             }
                         },
                         _ => {
-                            let msg: String = format!("Fail match side_clone:{}", side_ref);
-                            error!("{}", msg);
-
-                            handle_db_error(pool, &msg).await;
+                            error!("Fail match side_clone:{}", side_ref);
                             continue;
                         }
                     },
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
+
                         continue;
                     }
                 }
             }
             _ => {
-                let msg: String = format!("Fail match stop_clone:{}", stop_ref);
-                error!("{}", msg);
-
-                handle_db_error(pool, &msg).await;
+                error!("Fail match stop_clone:{}", stop_ref);
                 continue;
             }
         };
@@ -1779,13 +1721,10 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                 break Ok(());
             }
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "❌ Order failed: {} {} (attempt {}/{}) {}",
                     order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES, e
                 );
-                error!("{}", msg);
-
-                handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
         }
@@ -1795,10 +1734,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
 pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
     let event: KuCoinMessage = match serde_json::from_str::<KuCoinMessage>(msg) {
         Err(e) => {
-            let msg: String = format!("Failed to parse message:{} {}", msg, e);
-            error!("{}", msg);
-
-            handle_db_error(pool, &msg).await;
+            error!("Failed to parse message:{} {}", msg, e);
             return Err(msg);
         }
         Ok(event) => event,
@@ -1809,20 +1745,18 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
             Ok(data) => match insert_db_event(pool, &data).await {
                 Ok(_) => return Ok(()),
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             },
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data,
                     stringify!(WelcomeData),
                     e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
-                return Err(msg);
+                return Err(e);
             }
         },
         KuCoinMessage::Message(data) => data,
@@ -1830,35 +1764,27 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
             Ok(data) => match insert_db_event(pool, &data).await {
                 Ok(_) => return Ok(()),
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             },
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data,
                     stringify!(AckData),
                     e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
-                return Err(msg);
+                return Err(e);
             }
         },
         KuCoinMessage::Error(data) => {
-            let msg: String = format!("Got error in WS {:?}", data);
-            error!("{}", msg);
-
-            handle_db_error(pool, &msg).await;
+            error!("Got error in WS {:?}", data);
             return Err(msg);
         }
 
         KuCoinMessage::Unknown => {
-            let msg: String = String::from("Unknown WS message type");
-            error!("{}", msg);
-
-            handle_db_error(pool, &msg).await;
+            error!("Unknown WS message type");
             return Err(msg);
         }
     };
@@ -1866,89 +1792,78 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
     match data.topic.as_str() {
         "/account/balance" => match BalanceData::deserialize(&data.data) {
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data.data,
                     stringify!(BalanceData),
                     e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
                 return Err(msg);
             }
             Ok(balance) => match insert_db_balance(pool, balance).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             },
         },
         "/spotMarket/tradeOrdersV2" => match OrderData::deserialize(&data.data) {
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data.data,
                     stringify!(OrderData),
                     e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
-                return Err(msg);
+                return Err(e);
             }
             Ok(order) => match handle_trade_order_event(order, pool).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             },
         },
         "/spotMarket/advancedOrders" => match AdvancedOrders::deserialize(&data.data) {
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data.data,
                     stringify!(AdvancedOrders),
                     e
                 );
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
-                return Err(msg);
+                return Err(e);
             }
             Ok(order) => match handle_advanced_orders(order, pool).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             },
         },
         "/margin/position" => match PositionData::deserialize(&data.data) {
             Err(e) => {
-                let msg: String = format!(
+                error!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data.data,
                     stringify!(PositionData),
                     e
                 );
-                error!("{}", msg);
-                handle_db_error(&pool, &msg).await;
                 return Err(msg);
             }
             Ok(position) => match handle_position_event(position, pool).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             },
         },
         _ => {
-            let msg: String = format!("Unknown topic: {}", data.topic);
-            error!("{}", msg);
-
-            handle_db_error(pool, &msg).await;
+            error!("Unknown topic: {}", data.topic);
             return Err(msg);
         }
     }
@@ -1972,15 +1887,13 @@ pub async fn make_random_trade(
         let tradeable_symbol: Option<String> = match get_random_symbol(pool).await {
             Ok(tradeable_symbol) => tradeable_symbol,
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 continue;
             }
         };
 
         let Some(tradeable_symbol) = tradeable_symbol else {
-            let msg: String = String::from("Failed get_random_symbol:");
-            error!("{}", msg);
-            handle_db_error(pool, &msg).await;
+            error!("Failed get_random_symbol:");
             continue;
         };
 
@@ -1988,15 +1901,13 @@ pub async fn make_random_trade(
             match fetch_symbol_info_by_symbol(pool, &tradeable_symbol).await {
                 Ok(symbol_info) => symbol_info,
                 Err(e) => {
-                    handle_db_error(pool, &e).await;
+                    error!("{}", e);
                     continue;
                 }
             };
 
         let Some(symbol_info) = symbol_info else {
-            let msg: String = format!("Symbol info not found for {}", tradeable_symbol);
-            error!("{}", msg);
-            handle_db_error(pool, &msg).await;
+            error!("Symbol info not found for {}", tradeable_symbol);
             continue;
         };
 
@@ -2012,7 +1923,7 @@ pub async fn make_random_trade(
         {
             Ok(_) => {}
             Err(e) => {
-                handle_db_error(pool, &e).await;
+                error!("{}", e);
                 continue;
             }
         }
@@ -2022,7 +1933,7 @@ pub async fn make_random_trade(
                 let base_increment: Decimal = match symbol_info.base_increment_decimal() {
                     Ok(base_increment) => base_increment,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         continue;
                     }
                 };
@@ -2038,7 +1949,7 @@ pub async fn make_random_trade(
                 {
                     Ok(token_price_obj) => token_price_obj,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         continue;
                     }
                 };
@@ -2051,7 +1962,7 @@ pub async fn make_random_trade(
                 let token_price: Decimal = match token_price_obj2.price_decimal() {
                     Ok(token_price) => token_price,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         continue;
                     }
                 };
@@ -2059,11 +1970,8 @@ pub async fn make_random_trade(
                 let size: String = match format_assert_decimal(token_size, base_increment) {
                     Ok(size) => size,
                     Err(e) => {
-                        let msg: String =
-                            format!("Fail parse:{} {} error:{}", token_size, base_increment, e);
-                        error!("{}", msg);
-                        handle_db_error(pool, &msg).await;
-                        return Err(msg);
+                        error!("Fail parse:{} {} error:{}", token_size, base_increment, e);
+                        return Err(e);
                     }
                 };
                 make_hf_size_margin_order(
@@ -2082,20 +1990,18 @@ pub async fn make_random_trade(
                 let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
                     Ok(quote_increment) => quote_increment,
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         continue;
                     }
                 };
                 let funds: String = match format_assert_decimal(balance_funds, quote_increment) {
                     Ok(funds) => funds,
                     Err(e) => {
-                        let msg: String = format!(
+                        error!(
                             "Fail parse:{} {} error:{}",
                             balance_funds, quote_increment, e
                         );
-                        error!("{}", msg);
-                        handle_db_error(pool, &msg).await;
-                        return Err(msg);
+                        return Err(e);
                     }
                 };
                 make_hf_funds_margin_order(
@@ -2127,18 +2033,16 @@ pub async fn make_random_trade(
                 match update_bot_entry_client_oid_by_id(pool, None, None, trade_bot_id).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 }
 
-                let msg: String = format!(
+                error!(
                     "❌ Order failed (attempt {}/{}): {} {}",
                     attempt, MAX_RETRIES, tradeable_symbol, e
                 );
-                error!("{}", msg);
 
-                handle_db_error(pool, &msg).await;
                 continue;
             }
         }
@@ -2152,15 +2056,13 @@ pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::
                 match process_kcn_msg(pool, &msg).await {
                     Ok(_) => {}
                     Err(e) => {
-                        handle_db_error(pool, &e).await;
+                        error!("{}", e);
                         ()
                     }
                 };
             }
             None => {
-                let msg: String = String::from("Channel closed, exiting message processor");
-                error!("{}", msg);
-                handle_db_error(pool, &msg).await;
+                error!("Channel closed, exiting message processor");
                 break;
             }
         }
@@ -2199,7 +2101,7 @@ pub async fn make_hf_funds_margin_order(
     {
         Ok(_) => {}
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -2218,7 +2120,7 @@ pub async fn make_hf_funds_margin_order(
     let body_str: String = match serialize_body(Some(msg)) {
         Ok(body_str) => body_str,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -2228,7 +2130,7 @@ pub async fn make_hf_funds_margin_order(
             None => Err("".to_string()),
         },
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     }
@@ -2265,7 +2167,7 @@ pub async fn make_hf_size_margin_order(
     {
         Ok(_) => {}
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -2282,7 +2184,7 @@ pub async fn make_hf_size_margin_order(
     }))) {
         Ok(body_str) => body_str,
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     };
@@ -2292,7 +2194,7 @@ pub async fn make_hf_size_margin_order(
             None => Err("".to_string()),
         },
         Err(e) => {
-            handle_db_error(pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     }

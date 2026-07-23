@@ -6,7 +6,7 @@ mod api {
 }
 mod config;
 mod logic;
-use crate::api::db::{handle_db_error, insert_db_error, wipe_bots_info};
+use crate::api::db::{insert_db_error, wipe_bots_info};
 use crate::api::models::{ApiV3HfMarginStopOrderCancelByIdResData, ApiV3HfMarginStopOrdersResData};
 use crate::api::requests::{
     api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
@@ -111,9 +111,9 @@ fn init_tracing(pool: sqlx::PgPool) {
     let db_layer = DbErrorLayer::new(pool);
 
     tracing_subscriber::registry()
-        .with(filter_layer) // фильтрация по RUST_LOG
-        .with(fmt_layer) // консольный вывод с target и thread_ids
-        .with(db_layer) // сохранение error! в PostgreSQL
+        .with(filter_layer)
+        .with(fmt_layer)
+        .with(db_layer)
         .init();
 }
 
@@ -149,7 +149,7 @@ async fn main() -> Result<(), String> {
     match wipe_bots_info(&pool, &init_balance_per_bot).await {
         Ok(_) => info!("wipe_bots_info"),
         Err(e) => {
-            handle_db_error(&pool, &e).await;
+            error!("{}", e);
             return Err(e);
         }
     }
@@ -163,15 +163,13 @@ async fn main() -> Result<(), String> {
             match api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await {
                 Ok(orders) => orders,
                 Err(e) => {
-                    handle_db_error(&pool, &e).await;
+                    error!("{}", e);
                     return Err(e);
                 }
             };
 
         let Some(open_stop_orders_data) = open_stop_orders else {
-            let msg: String = String::from("Fail get list open stop orders:None");
-            error!("{}", msg);
-            handle_db_error(&pool, &msg).await;
+            error!("Fail get list open stop orders:None");
             return Err(msg);
         };
 
@@ -201,15 +199,13 @@ async fn main() -> Result<(), String> {
                 {
                     Ok(canceled_stop_order) => canceled_stop_order,
                     Err(e) => {
-                        handle_db_error(&pool, &e.clone()).await;
+                        error!("{}", e);
                         return Err(e);
                     }
                 };
 
             let Some(canceled_stop_order) = canceled_stop_order else {
-                let msg: String = format!("Cancel stop order:{} None", &stop_order.id);
-                error!("{}", msg);
-                handle_db_error(&pool, &msg).await;
+                error!("Cancel stop order:{} None", &stop_order.id);
                 continue;
             };
 
@@ -242,7 +238,7 @@ async fn main() -> Result<(), String> {
             match create_init_orders(&pool_init_orders).await {
                 Ok(_) => {}
                 Err(e) => {
-                    handle_db_error(&pool_init_orders, &e).await;
+                    error!("{}", e);
                 }
             }
         });
@@ -253,7 +249,7 @@ async fn main() -> Result<(), String> {
         let event_ws_url: String = match api_v1_bullet_private_post().await {
             Ok(event_ws_url) => event_ws_url,
             Err(e) => {
-                handle_db_error(&pool, &e).await;
+                error!("{}", e);
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -262,9 +258,7 @@ async fn main() -> Result<(), String> {
         let (mut event_ws_write, mut event_ws_read) = match connect_async(event_ws_url).await {
             Ok((stream, _)) => stream.split(),
             Err(e) => {
-                let msg: String = format!("WebSocket connection failed:{}", e);
-                error!("{}", msg);
-                handle_db_error(&pool, &msg).await;
+                error!("WebSocket connection failed:{}", e);
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -277,9 +271,7 @@ async fn main() -> Result<(), String> {
         {
             Ok(_) => info!("Subscribe:/spotMarket/tradeOrdersV2"),
             Err(e) => {
-                let msg: String = format!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
-                error!("{}", msg);
-                handle_db_error(&pool, &msg).await;
+                error!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -291,9 +283,7 @@ async fn main() -> Result<(), String> {
         {
             Ok(_) => info!("Subscribe:/spotMarket/advancedOrders"),
             Err(e) => {
-                let msg: String = format!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
-                error!("{}", msg);
-                handle_db_error(&pool, &msg).await;
+                error!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -303,9 +293,7 @@ async fn main() -> Result<(), String> {
         {
             Ok(_) => info!("Subscribe:/account/balance"),
             Err(e) => {
-                let msg: String = format!("Failed to subscribe subject:/account/balance:{}", e);
-                error!("{}", msg);
-                handle_db_error(&pool, &msg).await;
+                error!("Failed to subscribe subject:/account/balance:{}", e);
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -315,9 +303,7 @@ async fn main() -> Result<(), String> {
         {
             Ok(_) => info!("Subscribe:/margin/position"),
             Err(e) => {
-                let msg: String = format!("Failed to subscribe subject:/margin/position:{}", e);
-                error!("{}", msg);
-                handle_db_error(&pool, &msg).await;
+                error!("Failed to subscribe subject:/margin/position:{}", e);
                 sleep(config::RECONNECT_DELAY).await;
                 continue;
             }
@@ -335,9 +321,7 @@ async fn main() -> Result<(), String> {
                    match event_ws_write.send(Message::Ping(Bytes::new())).await {
                         Ok(_) => {},
                         Err(e) =>  {
-                            let msg: String = format!("Fail send Ping to WebSocket:{}", e);
-                            error!("{}", msg);
-                            handle_db_error(&pool,  &msg).await;
+                            error!("Fail send Ping to WebSocket:{}", e);
                             break
                         }
                     };
@@ -347,15 +331,11 @@ async fn main() -> Result<(), String> {
                     let msg_event =  match event {
                         Some(Ok(msg_event)) =>  msg_event,
                         Some(Err(e)) =>  {
-                            let msg: String = format!("WebSocket read error:{}", e);
-                            error!("{}", msg);
-                            handle_db_error(&pool, &msg).await;
+                            error!("WebSocket read error:{}", e);
                             break
                         }
                         None => {
-                            let msg: String = String::from("WebSocket stream ended");
-                            error!("{}", msg);
-                            handle_db_error(&pool,  &msg).await;
+                            error!("WebSocket stream ended");
                             break
                         }
                     };
@@ -364,31 +344,23 @@ async fn main() -> Result<(), String> {
                         Message::Text(text) => match tx_in.send(text.to_string()).await {
                             Ok(_) => {}
                             Err(e) => {
-                                let msg: String = format!("Failed to send to handler, reconnecting...{}", e);
-                                error!("{}", msg);
-                                handle_db_error(&pool, &msg).await;
+                                error!("Failed to send to handler, reconnecting...{}", e);
                                 break;
                             }
                         }
                         Message::Ping(data) => match event_ws_write.send(Message::Pong(data)).await {
                             Ok(_) => {},
                             Err(e) => {
-                                let msg: String = format!("Fail send Pong to WebSocket:{}", e);
-                                error!("{}", msg);
-                                handle_db_error(&pool,  &msg).await;
+                                error!("Fail send Pong to WebSocket:{}", e);
                                 break
                             }
                         }
                         Message::Close(_close) => {
-                            let msg: String = String::from("Connection closed by server:");
-                            error!("{}", msg);
-                            handle_db_error(&pool,  &msg).await;
+                            error!("Connection closed by server:");
                             break
                         }
                         _ => {
-                            let msg: String = format!("Unexpected msg:{}", msg_event);
-                            error!("{}", msg);
-                            handle_db_error(&pool,  &msg).await;
+                            error!("Unexpected msg:{}", msg_event);
                             break
                         }
                     }
