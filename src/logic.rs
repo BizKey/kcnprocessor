@@ -160,7 +160,6 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
 }
 
 pub async fn repay_account(
-    pool: &PgPool,
     currency: &str,
     size: &str,
 ) -> Result<Option<ApiV3MarginRepayResData>, String> {
@@ -188,7 +187,6 @@ pub async fn repay_account(
 }
 
 pub async fn get_token_price(
-    pool: &PgPool,
     trade_symbol: &str,
 ) -> Result<ApiV1MarketOrderbookLevel1ResData, String> {
     let mut query_params: Map<&str, &str, 8> = Map::new();
@@ -199,12 +197,12 @@ pub async fn get_token_price(
 
     let Some(token_price) = token_price else {
         error!("Fail get token_price:{:?}", token_price);
-        return Err(msg);
+        return Err("".to_string());
     };
     Ok(token_price)
 }
 
-pub async fn transfer_amount(pool: &PgPool, currency: &str, amount: &str) -> Result<(), String> {
+pub async fn transfer_amount(currency: &str, amount: &str) -> Result<(), String> {
     let client_oid: String = Uuid::new_v4().to_string();
 
     let body_str: String = match serialize_body(Some(serde_json::json!({
@@ -255,7 +253,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
 
         let Some(currency_info) = currency_info else {
             error!("Currency info not found for {}", account.currency);
-            return Err(msg);
+            return Err("".to_string());
         };
 
         let precision_decimal: Decimal = match currency_info.precision_decimal() {
@@ -277,7 +275,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
 
         let Some(symbol_info) = symbol_info else {
             error!("Symbol info not found for {}", &account.currency);
-            return Err(msg);
+            return Err("".to_string());
         };
 
         let quote_increment: Decimal = match symbol_info.quote_increment_decimal() {
@@ -346,7 +344,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                         return Err(e);
                     }
                 };
-                match repay_account(pool, &account.currency, &size).await {
+                match repay_account(&account.currency, &size).await {
                     Ok(_) => continue,
                     Err(e) => {
                         error!("{}", e);
@@ -361,7 +359,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                         return Err(e);
                     }
                 };
-                match repay_account(pool, &account.currency, &size).await {
+                match repay_account(&account.currency, &size).await {
                     Ok(_) => continue,
                     Err(e) => {
                         error!("{}", e);
@@ -372,7 +370,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 let trade_symbol: String = format!("{}-USDT", &account.currency);
 
                 let token_price_data: ApiV1MarketOrderbookLevel1ResData =
-                    match get_token_price(pool, &trade_symbol).await {
+                    match get_token_price(&trade_symbol).await {
                         Ok(token_price_data) => token_price_data,
                         Err(e) => {
                             error!("{}", e);
@@ -434,7 +432,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
             let trade_symbol: String = format!("{}-USDT", account.currency);
 
             let token_price_data: ApiV1MarketOrderbookLevel1ResData =
-                match get_token_price(pool, &trade_symbol).await {
+                match get_token_price(&trade_symbol).await {
                     Ok(token_price_data) => token_price_data,
                     Err(e) => {
                         error!("{}", e);
@@ -466,7 +464,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                         return Err(e);
                     }
                 };
-                match transfer_amount(pool, &account.currency, &amount).await {
+                match transfer_amount(&account.currency, &amount).await {
                     Ok(_) => continue,
                     Err(e) => {
                         error!("{}", e);
@@ -543,7 +541,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
                     info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                 }
                 Err(e) => {
-                    error("{}", e);
+                    error!("{}", e);
                     return Err(e);
                 }
             }
@@ -754,7 +752,7 @@ pub async fn process_bot_by_entry_client_oid(
 
     let Some(symbol_info) = symbol_info else {
         error!("Symbol info not found for {}", order.symbol);
-        return Err(msg);
+        return Err("".to_string());
     };
 
     let price_increment: Decimal = match symbol_info.price_increment_decimal() {
@@ -837,7 +835,7 @@ pub async fn process_bot_by_entry_client_oid(
                     trigger_tp_price, price_increment, e
                 );
 
-                return Err(msg);
+                return Err("".to_string());
             }
         };
         let msg_tp_order: serde_json::Value = serde_json::json!({
@@ -862,7 +860,7 @@ pub async fn process_bot_by_entry_client_oid(
                     trigger_sl_price, price_increment, e
                 );
 
-                return Err(msg);
+                return Err("".to_string());
             }
         };
         let msg_sl_order: serde_json::Value = serde_json::json!({
@@ -1108,14 +1106,14 @@ pub async fn process_bot_by_entry_client_oid(
                     trigger_tp_price, price_increment, e
                 );
 
-                return Err(msg);
+                return Err("".to_string());
             }
         };
         let funds_tp_str: String = match format_assert_decimal(funds_tp, quote_increment) {
             Ok(funds_tp_str) => funds_tp_str,
             Err(e) => {
                 error!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e);
-                return Err(msg);
+                return Err("".to_string());
             }
         };
         let msg_tp_order: serde_json::Value = serde_json::json!({
@@ -1138,14 +1136,14 @@ pub async fn process_bot_by_entry_client_oid(
                     "Fail parse:{} {} error:{}",
                     trigger_sl_price, price_increment, e
                 );
-                return Err(msg);
+                return Err("".to_string());
             }
         };
         let funds_sl_str: String = match format_assert_decimal(funds_sl, quote_increment) {
             Ok(funds_sl_str) => funds_sl_str,
             Err(e) => {
                 error!("Fail parse:{} {} error:{}", funds_sl, quote_increment, e);
-                return Err(msg);
+                return Err("".to_string());
             }
         };
         let msg_sl_order: serde_json::Value = serde_json::json!({
@@ -1366,7 +1364,7 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), S
         Some(client_oid) => client_oid,
         None => {
             error!("client_oid in order is none: {}", order);
-            return Err(msg);
+            return Err("".to_string());
         }
     };
 
@@ -1468,7 +1466,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
 
             let Some(currency_info) = currency_info else {
                 error!("Currency info not found for {}", asset);
-                return Err(msg);
+                return Err("".to_string());
             };
 
             let precision_decimal: Decimal = match currency_info.precision_decimal() {
@@ -1490,7 +1488,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
                 }
             };
 
-            match repay_account(pool, &asset, &size).await {
+            match repay_account(&asset, &size).await {
                 Ok(_) => continue,
                 Err(e) => {
                     error!("{}", e);
@@ -1725,7 +1723,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                     "❌ Order failed: {} {} (attempt {}/{}) {}",
                     order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES, e
                 );
-                return Err(msg);
+                return Err("".to_string());
             }
         }
     }
@@ -1735,7 +1733,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
     let event: KuCoinMessage = match serde_json::from_str::<KuCoinMessage>(msg) {
         Err(e) => {
             error!("Failed to parse message:{} {}", msg, e);
-            return Err(msg);
+            return Err("".to_string());
         }
         Ok(event) => event,
     };
@@ -1756,7 +1754,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                     stringify!(WelcomeData),
                     e
                 );
-                return Err(e);
+                return Err("".to_string());
             }
         },
         KuCoinMessage::Message(data) => data,
@@ -1775,17 +1773,17 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                     stringify!(AckData),
                     e
                 );
-                return Err(e);
+                return Err("".to_string());
             }
         },
         KuCoinMessage::Error(data) => {
             error!("Got error in WS {:?}", data);
-            return Err(msg);
+            return Err("".to_string());
         }
 
         KuCoinMessage::Unknown => {
             error!("Unknown WS message type");
-            return Err(msg);
+            return Err("".to_string());
         }
     };
 
@@ -1798,7 +1796,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                     stringify!(BalanceData),
                     e
                 );
-                return Err(msg);
+                return Err("".to_string());
             }
             Ok(balance) => match insert_db_balance(pool, balance).await {
                 Ok(_) => Ok(()),
@@ -1816,7 +1814,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                     stringify!(OrderData),
                     e
                 );
-                return Err(e);
+                return Err("".to_string());
             }
             Ok(order) => match handle_trade_order_event(order, pool).await {
                 Ok(_) => Ok(()),
@@ -1834,7 +1832,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                     stringify!(AdvancedOrders),
                     e
                 );
-                return Err(e);
+                return Err("".to_string());
             }
             Ok(order) => match handle_advanced_orders(order, pool).await {
                 Ok(_) => Ok(()),
@@ -1852,7 +1850,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                     stringify!(PositionData),
                     e
                 );
-                return Err(msg);
+                return Err("".to_string());
             }
             Ok(position) => match handle_position_event(position, pool).await {
                 Ok(_) => Ok(()),
@@ -1864,7 +1862,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
         },
         _ => {
             error!("Unknown topic: {}", data.topic);
-            return Err(msg);
+            return Err("".to_string());
         }
     }
 }

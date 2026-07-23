@@ -170,7 +170,7 @@ async fn main() -> Result<(), String> {
 
         let Some(open_stop_orders_data) = open_stop_orders else {
             error!("Fail get list open stop orders:None");
-            return Err(msg);
+            return Err("".to_string());
         };
 
         info!(
