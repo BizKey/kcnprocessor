@@ -151,6 +151,7 @@ async fn main() -> Result<(), String> {
         })?;
 
     init_tracing(pool.clone());
+    error!("test error");
 
     // clear orders ids for bots
     wipe_bots_info(&pool, &init_balance_per_bot)
