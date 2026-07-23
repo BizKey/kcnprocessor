@@ -341,7 +341,7 @@ impl KuCoinClient {
 
         let status = response.status().as_u16();
 
-        let body: String = response
+        let body = response
             .text()
             .await
             .map_err(|e| format!("Fail read text from response: {e}"))?;
@@ -362,17 +362,16 @@ impl KuCoinClient {
         authenticated: bool,
         timestamp: u64,
     ) -> Result<Response, String> {
-        let url: String = if !query_string.is_empty() {
+        let url = if !query_string.is_empty() {
             format!("{}{}?{}", self.base_url, endpoint, query_string)
         } else {
             format!("{}{}", self.base_url, endpoint)
         };
 
-        let mut request_builder: reqwest::RequestBuilder =
-            self.client.request(method.clone(), &url);
+        let mut request_builder = self.client.request(method.clone(), &url);
 
         if authenticated {
-            let mut str_to_sign: String = format!(
+            let mut str_to_sign = format!(
                 "{}{}{}",
                 timestamp,
                 method.as_ref().to_uppercase(),
@@ -387,10 +386,9 @@ impl KuCoinClient {
                 str_to_sign.push_str(&body_str);
             }
 
-            let kc_api_sign: String = self.generate_signature(str_to_sign.as_bytes())?;
+            let kc_api_sign = self.generate_signature(str_to_sign.as_bytes())?;
 
-            let kc_api_passphrase: String =
-                self.generate_signature(self.api_passphrase.as_bytes())?;
+            let kc_api_passphrase = self.generate_signature(self.api_passphrase.as_bytes())?;
 
             request_builder = request_builder
                 .header("KC-API-KEY", &self.api_key)
@@ -429,7 +427,7 @@ impl KuCoinClient {
 static KUCLIENT: OnceLock<Result<KuCoinClient, String>> = OnceLock::new();
 
 pub fn serialize_body(body: Option<serde_json::Value>) -> Result<String, String> {
-    let clear_value: serde_json::Value = match body {
+    let clear_value = match body {
         Some(clear_value) => clear_value,
         None => return Ok(String::new()),
     };
@@ -453,7 +451,7 @@ pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
         + params.len()
         - 1;
 
-    let mut result: String = String::with_capacity(capacity);
+    let mut result = String::with_capacity(capacity);
     for (i, (k, v)) in params.iter().enumerate() {
         if i > 0 {
             result.push('&');
@@ -474,9 +472,9 @@ fn get_client() -> Result<&'static KuCoinClient, String> {
         })?)
 }
 pub async fn api_v1_bullet_private_post() -> Result<String, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client.api_v1_bullet_private_post().await?;
+    let response_string = client.api_v1_bullet_private_post().await?;
 
     let response = serde_json::from_str::<ApiV3BulletPrivate>(&response_string).map_err(|e| {
         error!(
@@ -493,10 +491,10 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
         )
     })?;
 
-    let ws: Option<ApiV3BulletPrivateData> = match response.code.as_str() {
+    let ws = match response.code.as_str() {
         "200000" => response.data,
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -505,7 +503,7 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
         }
     };
 
-    let server: ApiV3BulletPrivateData = match ws {
+    let server = match ws {
         Some(server) => server,
         None => return Err("".to_string()),
     };
@@ -513,7 +511,7 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
     match server.instance_servers.first() {
         Some(data) => Ok(format!("{}?token={}", data.endpoint, server.token)),
         None => {
-            let msg: String = format!("No instance servers in bullet response{:?}", server);
+            let msg = format!("No instance servers in bullet response{:?}", server);
             error!("{}", msg);
             Err(msg)
         }
@@ -522,9 +520,9 @@ pub async fn api_v1_bullet_private_post() -> Result<String, String> {
 pub async fn api_v3_margin_accounts_get(
     query_params_str: String,
 ) -> Result<MarginAccountData, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client.api_v3_margin_accounts_get(query_params_str).await?;
+    let response_string = client.api_v3_margin_accounts_get(query_params_str).await?;
 
     let response = serde_json::from_str::<MarginAccount>(&response_string).map_err(|e| {
         error!(
@@ -544,7 +542,7 @@ pub async fn api_v3_margin_accounts_get(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -556,9 +554,9 @@ pub async fn api_v3_margin_accounts_get(
 pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
     query_string_str: String,
 ) -> Result<Option<ApiV3HfMarginStopOrderCancelByIdResData>, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client
+    let response_string = client
         .api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str)
         .await?;
 
@@ -581,7 +579,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -593,9 +591,9 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
 pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
     query_string_str: String,
 ) -> Result<Option<ApiV3HfMarginStopOrderCancelByClientOidResData>, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client
+    let response_string = client
         .api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_string_str)
         .await?;
 
@@ -619,7 +617,7 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -631,9 +629,9 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
 pub async fn api_v3_accounts_universal_transfer_post(
     body_str: String,
 ) -> Result<Option<ApiV3AccountsUniversalTransferResData>, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client
+    let response_string = client
         .api_v3_accounts_universal_transfer_post(body_str)
         .await?;
 
@@ -656,7 +654,7 @@ pub async fn api_v3_accounts_universal_transfer_post(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -668,9 +666,9 @@ pub async fn api_v3_accounts_universal_transfer_post(
 pub async fn api_v1_market_orderbook_level1_get(
     query_params_str: String,
 ) -> Result<Option<ApiV1MarketOrderbookLevel1ResData>, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client
+    let response_string = client
         .api_v1_market_orderbook_level1_get(query_params_str)
         .await?;
 
@@ -693,7 +691,7 @@ pub async fn api_v1_market_orderbook_level1_get(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -706,9 +704,9 @@ pub async fn api_v1_market_orderbook_level1_get(
 pub async fn api_v3_hf_margin_stop_orders_get(
     query_params_str: String,
 ) -> Result<Option<ApiV3HfMarginStopOrdersResData>, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client
+    let response_string = client
         .api_v3_hf_margin_stop_orders_get(query_params_str)
         .await?;
 
@@ -731,7 +729,7 @@ pub async fn api_v3_hf_margin_stop_orders_get(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -743,9 +741,9 @@ pub async fn api_v3_hf_margin_stop_orders_get(
 pub async fn api_v3_hf_margin_stop_order_post(
     body_str: String,
 ) -> Result<Option<MakeStopOrderResData>, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client.api_v3_hf_margin_stop_order_post(body_str).await?;
+    let response_string = client.api_v3_hf_margin_stop_order_post(body_str).await?;
 
     let response = serde_json::from_str::<MakeStopOrderRes>(&response_string).map_err(|e| {
         error!(
@@ -765,7 +763,7 @@ pub async fn api_v3_hf_margin_stop_order_post(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -777,9 +775,9 @@ pub async fn api_v3_hf_margin_stop_order_post(
 pub async fn api_v3_hf_margin_order_post(
     body_str: String,
 ) -> Result<Option<MakeOrderResData>, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client.api_v3_hf_margin_order_post(body_str).await?;
+    let response_string = client.api_v3_hf_margin_order_post(body_str).await?;
 
     let response = serde_json::from_str::<MakeOrderRes>(&response_string).map_err(|e| {
         error!(
@@ -799,7 +797,7 @@ pub async fn api_v3_hf_margin_order_post(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -811,9 +809,9 @@ pub async fn api_v3_hf_margin_order_post(
 pub async fn api_v3_margin_repay_post(
     body_str: String,
 ) -> Result<Option<ApiV3MarginRepayResData>, String> {
-    let client: &KuCoinClient = get_client()?;
+    let client = get_client()?;
 
-    let response_string: String = client.api_v3_margin_repay_post(body_str).await?;
+    let response_string = client.api_v3_margin_repay_post(body_str).await?;
 
     let response = serde_json::from_str::<ApiV3MarginRepayRes>(&response_string).map_err(|e| {
         error!(
@@ -833,7 +831,7 @@ pub async fn api_v3_margin_repay_post(
     match response.code.as_str() {
         "200000" => Ok(response.data),
         _ => {
-            let msg: String = format!(
+            let msg = format!(
                 "KuCoin API error: code={}, msg={:?}, data={:?}",
                 response.code, response.msg, response.data
             );
@@ -866,13 +864,13 @@ mod tests {
             "type": "market"
         });
 
-        let body_str: String = serde_json::to_string(&body).unwrap();
-        let timestamp: u64 = 1234567890u64;
+        let body_str = serde_json::to_string(&body).unwrap();
+        let timestamp = 1234567890u64;
         let method = "POST";
         let endpoint = "/api/v3/hf/margin/order";
         let query_string = "";
 
-        let mut to_sign: String = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign.push('?');
             to_sign.push_str(query_string);
