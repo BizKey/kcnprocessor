@@ -69,17 +69,17 @@ impl KuCoinClient {
 
     async fn api_v1_bullet_private_post(&self) -> Result<String> {
         // https://www.kucoin.com/docs-new/websocket-api/base-info/get-private-token-spot-margin
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::POST,
                 "/api/v1/bullet-private",
                 &String::new(),
                 &String::new(),
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
@@ -87,133 +87,133 @@ impl KuCoinClient {
         query_string_str: String,
     ) -> Result<String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::DELETE,
                 "/api/v3/hf/margin/stop-order/cancel-by-clientOid",
                 &query_string_str,
                 &String::new(),
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
     async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
         &self,
         query_string_str: String,
     ) -> Result<String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::DELETE,
                 "/api/v3/hf/margin/stop-order/cancel-by-id",
                 &query_string_str,
                 &String::new(),
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn api_v3_margin_accounts_get(&self, query_params_str: String) -> Result<String> {
         // https://www.kucoin.com/docs-new/rest/account-info/account-funding/get-account-cross-margin
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::GET,
                 "/api/v3/margin/accounts",
                 &query_params_str,
                 &String::new(),
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn api_v3_hf_margin_stop_orders_get(&self, query_params_str: String) -> Result<String> {
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::GET,
                 "/api/v3/hf/margin/stop-orders",
                 &query_params_str,
                 &String::new(),
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn api_v3_accounts_universal_transfer_post(&self, body_str: String) -> Result<String> {
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::POST,
                 "/api/v3/accounts/universal-transfer",
                 &String::new(),
                 &body_str,
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn api_v3_hf_margin_stop_order_post(&self, body_str: String) -> Result<String> {
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::POST,
                 "/api/v3/hf/margin/stop-order",
                 &String::new(),
                 &body_str,
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn api_v3_hf_margin_order_post(&self, body_str: String) -> Result<String> {
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::POST,
                 "/api/v3/hf/margin/order",
                 &String::new(),
                 &body_str,
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn api_v3_margin_repay_post(&self, body_str: String) -> Result<String> {
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::POST,
                 "/api/v3/margin/repay",
                 &String::new(),
                 &body_str,
                 true,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn api_v1_market_orderbook_level1_get(&self, query_params_str: String) -> Result<String> {
-        let response = self
-            .make_request(
+        Ok(read_response(
+            self.make_request(
                 Method::GET,
                 "/api/v1/market/orderbook/level1",
                 &query_params_str,
                 &String::new(),
                 false,
             )
-            .await?;
-
-        Ok(read_response(response).await?)
+            .await?,
+        )
+        .await?)
     }
 
     async fn make_request(
