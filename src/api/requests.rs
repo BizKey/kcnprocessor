@@ -80,18 +80,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v1/bullet-private")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
@@ -110,17 +99,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response.text().await.context(
-            "Fail read text from response:/api/v3/hf/margin/stop-order/cancel-by-clientOid",
-        )?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
     async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
         &self,
@@ -138,18 +117,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v3/hf/margin/stop-order/cancel-by-id")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn api_v3_margin_accounts_get(&self, query_params_str: String) -> Result<String> {
@@ -165,18 +133,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v3/margin/accounts")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn api_v3_hf_margin_stop_orders_get(&self, query_params_str: String) -> Result<String> {
@@ -191,18 +148,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v3/hf/margin/stop-orders")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn api_v3_accounts_universal_transfer_post(&self, body_str: String) -> Result<String> {
@@ -217,18 +163,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v3/accounts/universal-transfer")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn api_v3_hf_margin_stop_order_post(&self, body_str: String) -> Result<String> {
@@ -243,18 +178,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v3/hf/margin/stop-order")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn api_v3_hf_margin_order_post(&self, body_str: String) -> Result<String> {
@@ -269,18 +193,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v3/hf/margin/order")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn api_v3_margin_repay_post(&self, body_str: String) -> Result<String> {
@@ -295,18 +208,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v3/margin/repay")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn api_v1_market_orderbook_level1_get(&self, query_params_str: String) -> Result<String> {
@@ -321,18 +223,7 @@ impl KuCoinClient {
             )
             .await?;
 
-        let status = response.status().as_u16();
-
-        let body = response
-            .text()
-            .await
-            .context("Fail read text from response:/api/v1/market/orderbook/level1")?;
-
-        if status == 200 {
-            Ok(body)
-        } else {
-            anyhow::bail!("API returned error status {status}: {body}")
-        }
+        Ok(read_response(response).await?)
     }
 
     async fn make_request(
@@ -448,6 +339,20 @@ fn get_client() -> Result<&'static KuCoinClient> {
         .as_ref()
         .map_err(|e| anyhow::anyhow!("Fail get or init KuCoinClient: {e}"))
 }
+
+async fn read_response(response: Response) -> Result<String> {
+    let status = response.status().as_u16();
+    let body = response
+        .text()
+        .await
+        .context("Failed to read response body from")?;
+
+    match status {
+        200 => Ok(body),
+        _ => anyhow::bail!("API returned error status {}: {}", status, body),
+    }
+}
+
 pub async fn api_v1_bullet_private_post() -> Result<String> {
     let client = get_client()?;
 
