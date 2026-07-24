@@ -11,6 +11,14 @@ use crate::api::requests::{
     api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
     api_v3_hf_margin_stop_orders_get, build_query_string,
 };
+use crate::api::tools::get_env;
+use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
+use anyhow::Result;
+use bytes::Bytes;
+use dotenvy::dotenv;
+use futures_util::{SinkExt, StreamExt};
+use micromap::Map;
+use sqlx::PgPool;
 use std::sync::mpsc::{Sender, channel};
 use std::thread;
 use tracing::{
@@ -18,21 +26,13 @@ use tracing::{
     field::{Field, Visit},
     subscriber::Subscriber,
 };
+use tracing::{error, info};
 use tracing_subscriber::{
     filter::EnvFilter,
-    layer::{Context, Layer, SubscriberExt},
+    layer::{Context as layer_Context, Layer, SubscriberExt},
     registry::LookupSpan,
     util::SubscriberInitExt,
 };
-
-use crate::api::tools::get_env;
-use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
-use bytes::Bytes;
-use dotenvy::dotenv;
-use futures_util::{SinkExt, StreamExt};
-use micromap::Map;
-use sqlx::PgPool;
-use tracing::{error, info};
 
 use sqlx::postgres::PgPoolOptions;
 use tokio::sync::mpsc;
@@ -93,7 +93,7 @@ impl<S> Layer<S> for DbErrorLayer
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+    fn on_event(&self, event: &Event<'_>, _ctx: layer_Context<'_, S>) {
         if *event.metadata().level() != tracing::Level::ERROR {
             return;
         }
@@ -107,7 +107,7 @@ where
             visitor.message
         };
 
-        if let Err(e) = self.sender.send(msg) {
+        if let Err(e) = self.sender.send(format!("{:?}", msg)) {
             eprintln!("DbErrorLayer: failed to queue error: {e}");
         }
     }
@@ -130,7 +130,7 @@ fn init_tracing(pool: sqlx::PgPool) {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> Result<()> {
     dotenv().ok();
     let init_order_execute: bool = true;
 
@@ -145,11 +145,7 @@ async fn main() -> Result<(), String> {
         .idle_timeout(Duration::from_secs(600))
         .max_lifetime(Duration::from_secs(1800))
         .connect(&database_url)
-        .await
-        .map_err(|e| {
-            eprintln!("Failed to create pg pool:{}", e);
-            "".to_string()
-        })?;
+        .await?;
 
     init_tracing(pool.clone());
 
@@ -178,8 +174,7 @@ async fn main() -> Result<(), String> {
         }
 
         let Ok(Some(open_stop_orders_data)) = open_stop_orders else {
-            error!("Fail get list open stop orders:None");
-            return Err("".to_string());
+            anyhow::bail!("Fail get list open stop orders:None")
         };
 
         info!(
@@ -265,35 +260,27 @@ async fn main() -> Result<(), String> {
         };
 
         // subscribtion
-        event_ws_write
-            .send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string()))
-            .await
-            .map_err(|e|{
-                error!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
-                "".to_string()
-            })?;
+        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string())).await {
+            anyhow::bail!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e)
+        };
 
         info!("Subscribe:/spotMarket/tradeOrdersV2");
 
-        event_ws_write
-            .send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string()))
-            .await
-            .map_err(|e|{
-                error!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
-                "".to_string()
-            })?;
+        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string())).await {
+            anyhow::bail!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e)
+        };
+
         info!("Subscribe:/spotMarket/advancedOrders");
 
-        event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await.map_err(|e|{
-            error!("Failed to subscribe subject:/account/balance:{}", e);
-            "".to_string()
-         })?;
+        if let Err(e) =  event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await {
+            anyhow::bail!("Failed to subscribe subject:/account/balance:{}", e)
+        };
+
         info!("Subscribe:/account/balance");
 
-        event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await.map_err(|e|{
-            error!("Failed to subscribe subject:/margin/position:{}", e);
-            "".to_string()
-        })?;
+        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await {
+            anyhow::bail!("Failed to subscribe subject:/margin/position:{}", e)
+         };
 
         info!("Subscribe:/margin/position");
 
