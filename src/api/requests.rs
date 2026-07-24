@@ -443,11 +443,10 @@ pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
     result
 }
 fn get_client() -> Result<&'static KuCoinClient> {
-    let client = KUCLIENT.get_or_init(|| KuCoinClient::new());
-    match client {
-        Ok(c) => Ok(c),
-        Err(e) => Err(anyhow::anyhow!("Fail get or init KuCoinClient: {e}")),
-    }
+    KUCLIENT
+        .get_or_init(|| KuCoinClient::new())
+        .as_ref()
+        .map_err(|e| anyhow::anyhow!("Fail get or init KuCoinClient: {e}"))
 }
 pub async fn api_v1_bullet_private_post() -> Result<String> {
     let client = get_client()?;
