@@ -73,10 +73,9 @@ impl KuCoinClient {
             .make_request(
                 Method::POST,
                 "/api/v1/bullet-private",
-                String::new(),
-                String::new(),
+                &String::new(),
+                &String::new(),
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -92,10 +91,9 @@ impl KuCoinClient {
             .make_request(
                 Method::DELETE,
                 "/api/v3/hf/margin/stop-order/cancel-by-clientOid",
-                query_string_str,
-                String::new(),
+                &query_string_str,
+                &String::new(),
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -110,10 +108,9 @@ impl KuCoinClient {
             .make_request(
                 Method::DELETE,
                 "/api/v3/hf/margin/stop-order/cancel-by-id",
-                query_string_str,
-                String::new(),
+                &query_string_str,
+                &String::new(),
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -126,10 +123,9 @@ impl KuCoinClient {
             .make_request(
                 Method::GET,
                 "/api/v3/margin/accounts",
-                query_params_str,
-                String::new(),
+                &query_params_str,
+                &String::new(),
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -141,10 +137,9 @@ impl KuCoinClient {
             .make_request(
                 Method::GET,
                 "/api/v3/hf/margin/stop-orders",
-                query_params_str,
-                String::new(),
+                &query_params_str,
+                &String::new(),
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -156,10 +151,9 @@ impl KuCoinClient {
             .make_request(
                 Method::POST,
                 "/api/v3/accounts/universal-transfer",
-                String::new(),
-                body_str,
+                &String::new(),
+                &body_str,
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -171,10 +165,9 @@ impl KuCoinClient {
             .make_request(
                 Method::POST,
                 "/api/v3/hf/margin/stop-order",
-                String::new(),
-                body_str,
+                &String::new(),
+                &body_str,
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -186,10 +179,9 @@ impl KuCoinClient {
             .make_request(
                 Method::POST,
                 "/api/v3/hf/margin/order",
-                String::new(),
-                body_str,
+                &String::new(),
+                &body_str,
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -201,10 +193,9 @@ impl KuCoinClient {
             .make_request(
                 Method::POST,
                 "/api/v3/margin/repay",
-                String::new(),
-                body_str,
+                &String::new(),
+                &body_str,
                 true,
-                self.get_system_timestamp_ms()?,
             )
             .await?;
 
@@ -216,10 +207,9 @@ impl KuCoinClient {
             .make_request(
                 Method::GET,
                 "/api/v1/market/orderbook/level1",
-                query_params_str,
-                String::new(),
+                &query_params_str,
+                &String::new(),
                 false,
-                0,
             )
             .await?;
 
@@ -230,11 +220,11 @@ impl KuCoinClient {
         &self,
         method: Method,
         endpoint: &str,
-        query_string: String,
-        body_str: String,
+        query_string: &str,
+        body_str: &str,
         authenticated: bool,
-        timestamp: u64,
     ) -> Result<Response> {
+        let timestamp = self.get_system_timestamp_ms()?;
         let url = if !query_string.is_empty() {
             format!("{}{}?{}", self.base_url, endpoint, query_string)
         } else {
@@ -251,12 +241,12 @@ impl KuCoinClient {
                 endpoint
             );
 
-            if !&query_string.is_empty() {
+            if !query_string.is_empty() {
                 str_to_sign.push('?');
                 str_to_sign.push_str(&query_string);
             }
             if !&body_str.is_empty() {
-                str_to_sign.push_str(&body_str);
+                str_to_sign.push_str(body_str);
             }
 
             let kc_api_sign = self
@@ -275,7 +265,7 @@ impl KuCoinClient {
             if !body_str.is_empty() {
                 request_builder = request_builder
                     .header("Content-Type", "application/json")
-                    .body(body_str);
+                    .body(body_str.to_string());
             }
         }
 
