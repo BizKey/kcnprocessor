@@ -134,9 +134,8 @@ async fn main() -> Result<()> {
     dotenv().ok();
     let init_order_execute: bool = true;
 
-    let database_url: String = get_env("DATABASE_URL")?;
-
-    let init_balance_per_bot: String = get_env("INIT_BALANCE_PER_BOT")?;
+    let database_url = get_env("DATABASE_URL")?;
+    let init_balance_per_bot = get_env("INIT_BALANCE_PER_BOT")?;
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
@@ -150,14 +149,12 @@ async fn main() -> Result<()> {
     init_tracing(pool.clone());
 
     // clear orders ids for bots
-    match wipe_bots_info(&pool, &init_balance_per_bot).await {
-        Ok(_) => info!("wipe_bots_info"),
-        Err(e) => {
-            error!("{}", e);
-            sleep(config::DELETE_STOP_ORDER_DELAY).await;
-            return Err(e);
-        }
+    if let Err(e) = wipe_bots_info(&pool, &init_balance_per_bot).await {
+        error!("{}", e);
+        anyhow::bail!(e);
     };
+
+    info!("wipe_bots_info");
 
     loop {
         sleep(config::DELETE_STOP_ORDER_DELAY).await;
