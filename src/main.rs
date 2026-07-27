@@ -162,7 +162,7 @@ async fn main() -> Result<()> {
         query_params.insert("pageSize", "10");
 
         let open_stop_orders =
-            api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await;
+            api_v3_hf_margin_stop_orders_get(&build_query_string(query_params)).await;
 
         if let Err(e) = &open_stop_orders {
             error!("{}", e);

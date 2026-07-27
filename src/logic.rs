@@ -145,7 +145,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
     query_params.insert("quoteCurrency", "USDT");
     query_params.insert("queryType", "MARGIN");
 
-    Ok(api_v3_margin_accounts_get(build_query_string(query_params)).await?)
+    Ok(api_v3_margin_accounts_get(&build_query_string(query_params)).await?)
 }
 
 pub async fn repay_account(currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>> {
@@ -165,7 +165,7 @@ pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookL
     query_params.insert("symbol", trade_symbol);
 
     let token_price: Option<ApiV1MarketOrderbookLevel1ResData> =
-        api_v1_market_orderbook_level1_get(build_query_string(query_params)).await?;
+        api_v1_market_orderbook_level1_get(&build_query_string(query_params)).await?;
 
     let Some(token_price) = token_price else {
         anyhow::bail!("Fail get token_price:{:?}", token_price)
@@ -1383,7 +1383,7 @@ pub async fn make_random_trade(
                 query_params.insert("symbol", &tradeable_symbol);
 
                 let token_price_obj =
-                    api_v1_market_orderbook_level1_get(build_query_string(query_params)).await?;
+                    api_v1_market_orderbook_level1_get(&build_query_string(query_params)).await?;
 
                 let Some(token_price_obj) = token_price_obj else {
                     anyhow::bail!("")
