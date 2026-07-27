@@ -143,10 +143,12 @@ pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookL
     let token_price: Option<ApiV1MarketOrderbookLevel1ResData> =
         api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
 
-    let Some(token_price) = token_price else {
-        anyhow::bail!("Fail get token_price:{:?}", token_price)
-    };
-    Ok(token_price)
+    match token_price {
+        Some(token_price) => Ok(token_price),
+        None => {
+            anyhow::bail!("Fail get token_price:{:?}", token_price)
+        }
+    }
 }
 
 pub async fn transfer_amount(currency: &str, amount: &str) -> Result<()> {
