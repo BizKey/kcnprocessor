@@ -673,7 +673,7 @@ mod tests {
         let endpoint = "/api/test";
         let query_string = "";
 
-        let mut to_sign1: String = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign1 = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign1.push('?');
             to_sign1.push_str(query_string);
@@ -682,7 +682,7 @@ mod tests {
             to_sign1.push_str(&body_str1);
         }
 
-        let mut to_sign2: String = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign2 = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign2.push('?');
             to_sign2.push_str(query_string);
@@ -713,12 +713,12 @@ mod tests {
         let query_string = "";
         let body_str = "";
 
-        let to_sign: String = format!("{}{}{}", timestamp, method, endpoint);
-        let signature: String = client.generate_signature(to_sign.as_bytes()).unwrap();
+        let to_sign = format!("{}{}{}", timestamp, method, endpoint);
+        let signature = client.generate_signature(to_sign.as_bytes()).unwrap();
 
         // Так как оба вызова идентичны, подписи должны совпадать
-        let to_sign2: String = format!("{}{}{}", timestamp, method, endpoint);
-        let signature2: String = client.generate_signature(to_sign2.as_bytes()).unwrap();
+        let to_sign2 = format!("{}{}{}", timestamp, method, endpoint);
+        let signature2 = client.generate_signature(to_sign2.as_bytes()).unwrap();
 
         assert_eq!(signature, signature2);
     }
@@ -739,7 +739,7 @@ mod tests {
         let query_string = "symbol=BTC-USDT&limit=10";
         let body_str = "";
 
-        let mut to_sign: String = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign.push('?');
             to_sign.push_str(query_string);
@@ -775,7 +775,7 @@ mod tests {
         });
         let body_str = serde_json::to_string(&body).unwrap();
 
-        let mut to_sign: String = format!("{}{}{}", timestamp, method, endpoint);
+        let mut to_sign = format!("{}{}{}", timestamp, method, endpoint);
         if !query_string.is_empty() {
             to_sign.push('?');
             to_sign.push_str(query_string);
