@@ -237,10 +237,14 @@ async fn main() -> Result<()> {
 
     // repay all liability assets and sell
     loop {
-        if auto_clean_account(&pool).await.map_err(|e| {
-            error!("{}", e);
-            e
-        })? {
+        let is_completed = match auto_clean_account(&pool).await {
+            Ok(is_completed) => is_completed,
+            Err(e) => {
+                error!("{}", e);
+                continue;
+            }
+        };
+        if is_completed {
             break;
         }
     }

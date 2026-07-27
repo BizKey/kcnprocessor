@@ -28,6 +28,7 @@ use crate::api::requests::{
 use anyhow::{Context, Result};
 use micromap::Map;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::*;
 use serde::Deserialize;
 use serde_json;
 use sqlx::PgPool;
@@ -68,47 +69,22 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
     let precision = increment.scale() as usize;
 
     if precision == 0 {
-        let increment_int: i64 = increment
-            .to_string()
-            .parse()
-            .with_context(|| format!("Fail parse increment:{}", increment))?;
+        let size_int = size
+            .floor()
+            .to_i64()
+            .with_context(|| format!("Fail convert size:{}", size))?;
+        let increment_int = increment
+            .to_i64()
+            .with_context(|| format!("Fail convert increment:{}", increment))?;
 
-        let size_int: i64 = size
-            .to_string()
-            .parse()
-            .with_context(|| format!("Fail parse size:{}", size))?;
-
-        let rounded_down: i64 = (size_int / increment_int) * increment_int;
+        let rounded_down = (size_int / increment_int) * increment_int;
         return Ok(rounded_down.to_string());
     }
 
-    // Дробный increment (0.01, 0.001, и т.д.)
-    let s: String = size.to_string();
+    let factor = Decimal::from(10_u64.pow(precision as u32));
+    let result = (size * factor).floor() / factor;
 
-    if let Some(dot_pos) = s.find('.') {
-        let integer_part = &s[..dot_pos];
-        let fractional_part = &s[dot_pos + 1..];
-
-        let truncated = if fractional_part.len() >= precision {
-            &fractional_part[..precision]
-        } else {
-            fractional_part
-        };
-
-        let trimmed = truncated.trim_end_matches('0');
-
-        if trimmed.is_empty() {
-            Ok(integer_part.to_string())
-        } else {
-            Ok(format!("{}.{}", integer_part, trimmed))
-        }
-    } else {
-        if precision == 0 {
-            Ok(s)
-        } else {
-            Ok(format!("{}.{}", s, "0".repeat(precision)))
-        }
-    }
+    Ok(result.normalize().to_string())
 }
 
 pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
@@ -200,8 +176,9 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
         let currency_info: Option<Currencies> =
             fetch_currency_info_by_symbol(pool, &account.currency).await?;
 
-        let Some(currency_info) = currency_info else {
-            anyhow::bail!("Currency info not found for {}", account.currency)
+        let currency_info = match currency_info {
+            Some(currency_info) => currency_info,
+            None => anyhow::bail!("Currency info not found for {}", account.currency),
         };
 
         let precision_decimal: Decimal = currency_info.precision_decimal()?;
@@ -209,8 +186,11 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
         let symbol_info: Option<Symbol> =
             fetch_symbol_info_by_symbol(pool, &account.currency).await?;
 
-        let Some(symbol_info) = symbol_info else {
-            anyhow::bail!("Symbol info not found for {}", &account.currency)
+        let symbol_info = match symbol_info {
+            Some(symbol_info) => symbol_info,
+            None => {
+                anyhow::bail!("Symbol info not found for {}", &account.currency)
+            }
         };
 
         let quote_increment: Decimal = symbol_info.quote_increment_decimal()?;
@@ -1682,6 +1662,10 @@ mod tests {
         let inc_7: Decimal = Decimal::from_str("0.0000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.4567891").unwrap(), inc_7).unwrap(),
+            "123.4567891".to_string()
+        );
+        assert_eq!(
+            format_assert_decimal(Decimal::from_str("123.456789123121").unwrap(), inc_7).unwrap(),
             "123.4567891".to_string()
         );
 
