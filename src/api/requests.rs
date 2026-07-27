@@ -146,13 +146,13 @@ impl KuCoinClient {
         .await?)
     }
 
-    async fn api_v3_accounts_universal_transfer_post(&self, body_str: String) -> Result<String> {
+    async fn api_v3_accounts_universal_transfer_post(&self, body: &str) -> Result<String> {
         Ok(read_response(
             self.make_request(
                 Method::POST,
                 "/api/v3/accounts/universal-transfer",
                 &String::new(),
-                &body_str,
+                body,
                 true,
             )
             .await?,
@@ -160,13 +160,13 @@ impl KuCoinClient {
         .await?)
     }
 
-    async fn api_v3_hf_margin_stop_order_post(&self, body_str: String) -> Result<String> {
+    async fn api_v3_hf_margin_stop_order_post(&self, body: &str) -> Result<String> {
         Ok(read_response(
             self.make_request(
                 Method::POST,
                 "/api/v3/hf/margin/stop-order",
                 &String::new(),
-                &body_str,
+                body,
                 true,
             )
             .await?,
@@ -174,13 +174,13 @@ impl KuCoinClient {
         .await?)
     }
 
-    async fn api_v3_hf_margin_order_post(&self, body_str: String) -> Result<String> {
+    async fn api_v3_hf_margin_order_post(&self, body: &str) -> Result<String> {
         Ok(read_response(
             self.make_request(
                 Method::POST,
                 "/api/v3/hf/margin/order",
                 &String::new(),
-                &body_str,
+                body,
                 true,
             )
             .await?,
@@ -188,13 +188,13 @@ impl KuCoinClient {
         .await?)
     }
 
-    async fn api_v3_margin_repay_post(&self, body_str: String) -> Result<String> {
+    async fn api_v3_margin_repay_post(&self, body: &str) -> Result<String> {
         Ok(read_response(
             self.make_request(
                 Method::POST,
                 "/api/v3/margin/repay",
                 &String::new(),
-                &body_str,
+                body,
                 true,
             )
             .await?,
@@ -455,10 +455,10 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
     }
 }
 pub async fn api_v3_accounts_universal_transfer_post(
-    body_str: String,
+    body: &str,
 ) -> Result<Option<ApiV3AccountsUniversalTransferResData>> {
     let response_string = get_client()?
-        .api_v3_accounts_universal_transfer_post(body_str)
+        .api_v3_accounts_universal_transfer_post(body)
         .await?;
 
     let response = serde_json::from_str::<ApiV3AccountsUniversalTransferRes>(&response_string)
@@ -536,12 +536,8 @@ pub async fn api_v3_hf_margin_stop_orders_get(
         )
     }
 }
-pub async fn api_v3_hf_margin_stop_order_post(
-    body_str: String,
-) -> Result<Option<MakeStopOrderResData>> {
-    let response_string = get_client()?
-        .api_v3_hf_margin_stop_order_post(body_str)
-        .await?;
+pub async fn api_v3_hf_margin_stop_order_post(body: &str) -> Result<Option<MakeStopOrderResData>> {
+    let response_string = get_client()?.api_v3_hf_margin_stop_order_post(body).await?;
 
     let response =
         serde_json::from_str::<MakeStopOrderRes>(&response_string).with_context(|| {
@@ -563,8 +559,8 @@ pub async fn api_v3_hf_margin_stop_order_post(
         )
     }
 }
-pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<Option<MakeOrderResData>> {
-    let response_string = get_client()?.api_v3_hf_margin_order_post(body_str).await?;
+pub async fn api_v3_hf_margin_order_post(body: &str) -> Result<Option<MakeOrderResData>> {
+    let response_string = get_client()?.api_v3_hf_margin_order_post(body).await?;
 
     let response = serde_json::from_str::<MakeOrderRes>(&response_string).with_context(|| {
         format!(
@@ -585,8 +581,8 @@ pub async fn api_v3_hf_margin_order_post(body_str: String) -> Result<Option<Make
         )
     }
 }
-pub async fn api_v3_margin_repay_post(body_str: String) -> Result<Option<ApiV3MarginRepayResData>> {
-    let response_string = get_client()?.api_v3_margin_repay_post(body_str).await?;
+pub async fn api_v3_margin_repay_post(body: &str) -> Result<Option<ApiV3MarginRepayResData>> {
+    let response_string = get_client()?.api_v3_margin_repay_post(body).await?;
 
     let response =
         serde_json::from_str::<ApiV3MarginRepayRes>(&response_string).with_context(|| {

@@ -16,8 +16,8 @@ use crate::api::db::{
 };
 use crate::api::models::{
     AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot,
-    Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MessageData, OrderData,
-    PositionData, Symbol,
+    KuCoinMessage, MakeOrderResData, MarginAccountData, MessageData, OrderData, PositionData,
+    Symbol,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
@@ -133,14 +133,14 @@ pub async fn repay_account(currency: &str, size: &str) -> Result<Option<ApiV3Mar
         "isHf": true
     })))?;
 
-    Ok(api_v3_margin_repay_post(body_str).await?)
+    Ok(api_v3_margin_repay_post(&body_str).await?)
 }
 
 pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookLevel1ResData> {
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", trade_symbol);
 
-    let token_price: Option<ApiV1MarketOrderbookLevel1ResData> =
+    let token_price =
         api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
 
     match token_price {
@@ -163,7 +163,7 @@ pub async fn transfer_amount(currency: &str, amount: &str) -> Result<()> {
         "toAccountType": "TRADE"
     })))?;
 
-    api_v3_accounts_universal_transfer_post(body_str)
+    api_v3_accounts_universal_transfer_post(&body_str)
         .await
         .map(|_| Ok(()))?
 }
@@ -171,7 +171,7 @@ pub async fn transfer_amount(currency: &str, amount: &str) -> Result<()> {
 pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
     sleep(AUTO_CLEAN_DELAY).await;
 
-    let accounts: MarginAccountData = get_all_accounts_data().await?;
+    let accounts = get_all_accounts_data().await?;
 
     let mut passed: bool = true;
     for account in accounts.accounts.iter() {
@@ -569,11 +569,11 @@ pub async fn process_bot_by_entry_client_oid(
 
         let msg_tp_order2: String = serialize_body(Some(msg_tp_order))?;
 
-        let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
+        let tp_fut = api_v3_hf_margin_stop_order_post(&msg_tp_order2);
 
         let msg_sl_order2: String = serialize_body(Some(msg_sl_order))?;
 
-        let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
+        let sl_fut = api_v3_hf_margin_stop_order_post(&msg_sl_order2);
 
         let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
@@ -808,7 +808,7 @@ pub async fn process_bot_by_entry_client_oid(
                 return Err(e);
             }
         };
-        let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
+        let tp_fut = api_v3_hf_margin_stop_order_post(&msg_tp_order2);
 
         let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
             Ok(body_str) => body_str,
@@ -817,7 +817,7 @@ pub async fn process_bot_by_entry_client_oid(
                 return Err(e);
             }
         };
-        let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
+        let sl_fut = api_v3_hf_margin_stop_order_post(&msg_sl_order2);
         let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
         match (&tp_res, &sl_res) {
@@ -1493,7 +1493,7 @@ pub async fn make_hf_funds_margin_order(
 
     let body_str: String = serialize_body(Some(msg))?;
 
-    let data = api_v3_hf_margin_order_post(body_str).await?;
+    let data = api_v3_hf_margin_order_post(&body_str).await?;
 
     let Some(data) = data else { anyhow::bail!("") };
 
@@ -1540,7 +1540,7 @@ pub async fn make_hf_size_margin_order(
         "size": size
     })))?;
 
-    let data = api_v3_hf_margin_order_post(body_str).await?;
+    let data = api_v3_hf_margin_order_post(&body_str).await?;
     let Some(data) = data else { anyhow::bail!("") };
     Ok(data)
 }

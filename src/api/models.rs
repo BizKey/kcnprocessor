@@ -350,8 +350,7 @@ impl Currencies {
             anyhow::bail!("Precision cannot be negative: {}", self.precision)
         }
 
-        let precision_str: String = format!("1e-{}", self.precision);
-        Ok(Decimal::from_str(&precision_str)
+        Ok(Decimal::from_str(&format!("1e-{}", self.precision))
             .map_err(|e| anyhow::anyhow!(e))
             .with_context(|| format!("Fail parse decimal: {}", self.precision))?)
     }
