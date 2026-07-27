@@ -175,18 +175,16 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
     let mut passed: bool = true;
     for account in accounts.accounts.iter() {
-        let currency_info: Option<Currencies> =
-            fetch_currency_info_by_symbol(pool, &account.currency).await?;
+        let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
 
         let currency_info = match currency_info {
             Some(currency_info) => currency_info,
             None => anyhow::bail!("Currency info not found for {}", account.currency),
         };
 
-        let precision_decimal: Decimal = currency_info.precision_decimal()?;
+        let precision_decimal = currency_info.precision_decimal()?;
 
-        let symbol_info: Option<Symbol> =
-            fetch_symbol_info_by_symbol(pool, &account.currency).await?;
+        let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
 
         let symbol_info = match symbol_info {
             Some(symbol_info) => symbol_info,
@@ -195,19 +193,19 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             }
         };
 
-        let quote_increment: Decimal = symbol_info.quote_increment_decimal()?;
+        let quote_increment = symbol_info.quote_increment_decimal()?;
 
-        let min_funds: Decimal = symbol_info.min_funds_decimal()?;
+        let min_funds = symbol_info.min_funds_decimal()?;
 
-        let base_min_size: Decimal = symbol_info.base_min_size_decimal()?;
+        let base_min_size = symbol_info.base_min_size_decimal()?;
 
-        let base_increment: Decimal = symbol_info.base_increment_decimal()?;
+        let base_increment = symbol_info.base_increment_decimal()?;
 
-        let quote_min_size: Decimal = symbol_info.quote_min_size_decimal()?;
+        let quote_min_size = symbol_info.quote_min_size_decimal()?;
 
-        let token_liability: Decimal = account.liability_decimal()?;
+        let token_liability = account.liability_decimal()?;
 
-        let token_available: Decimal = account.available_decimal()?;
+        let token_available = account.available_decimal()?;
 
         if token_liability > Decimal::ZERO {
             passed = false;
@@ -224,27 +222,26 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 )
                 .await?;
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
-                let trade_symbol: String = format!("{}-USDT", &account.currency);
+                let trade_symbol = format!("{}-USDT", &account.currency);
 
-                let token_price_data: ApiV1MarketOrderbookLevel1ResData =
-                    get_token_price(&trade_symbol).await?;
+                let token_price_data = get_token_price(&trade_symbol).await?;
 
-                let best_ask_token_price: Decimal = token_price_data.best_ask_decimal()?;
+                let best_ask_token_price = token_price_data.best_ask_decimal()?;
 
                 info!(
                     "Successfully get token:{} ask price:{}",
                     trade_symbol, best_ask_token_price
                 );
 
-                let token_funds: Decimal = best_ask_token_price * token_liability;
+                let token_funds = best_ask_token_price * token_liability;
 
-                let min_funds_by_size: Decimal = best_ask_token_price * base_min_size;
+                let min_funds_by_size = best_ask_token_price * base_min_size;
 
-                let final_funds: Decimal = token_funds.max(min_funds_by_size).max(min_funds);
+                let final_funds = token_funds.max(min_funds_by_size).max(min_funds);
 
-                let funds: String = format_assert_decimal(final_funds, quote_increment)?;
+                let funds = format_assert_decimal(final_funds, quote_increment)?;
 
-                let client_oid: String = Uuid::new_v4().to_string();
+                let client_oid = Uuid::new_v4().to_string();
 
                 make_hf_funds_margin_order(
                     pool,
@@ -262,18 +259,17 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
 
-            let trade_symbol: String = format!("{}-USDT", account.currency);
+            let trade_symbol = format!("{}-USDT", account.currency);
 
-            let token_price_data: ApiV1MarketOrderbookLevel1ResData =
-                match get_token_price(&trade_symbol).await {
-                    Ok(token_price_data) => token_price_data,
-                    Err(e) => {
-                        error!("{}", e);
-                        return Err(e);
-                    }
-                };
+            let token_price_data = match get_token_price(&trade_symbol).await {
+                Ok(token_price_data) => token_price_data,
+                Err(e) => {
+                    error!("{}", e);
+                    return Err(e);
+                }
+            };
 
-            let best_bid_token_price: Decimal = match token_price_data.best_bid_decimal() {
+            let best_bid_token_price = match token_price_data.best_bid_decimal() {
                 Ok(best_bid_token_price) => best_bid_token_price,
                 Err(e) => {
                     error!("{}", e);
@@ -286,17 +282,19 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 &trade_symbol, best_bid_token_price
             );
 
-            let token_funds: Decimal = best_bid_token_price * token_available;
+            let token_funds = best_bid_token_price * token_available;
 
             if token_available <= base_min_size || token_funds <= quote_min_size {
-                let amount: String = format_assert_decimal(token_available, precision_decimal)?;
-
-                transfer_amount(&account.currency, &amount).await?;
+                transfer_amount(
+                    &account.currency,
+                    &format_assert_decimal(token_available, precision_decimal)?,
+                )
+                .await?;
                 continue;
             } else {
-                let size: String = format_assert_decimal(token_available, base_increment)?;
+                let size = format_assert_decimal(token_available, base_increment)?;
 
-                let client_oid: String = Uuid::new_v4().to_string();
+                let client_oid = Uuid::new_v4().to_string();
 
                 make_hf_size_margin_order(
                     pool,
