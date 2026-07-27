@@ -1,28 +1,34 @@
-FROM rust:1.97.1-alpine3.24 AS builder
+FROM rust:1.97.1-slim-bookworm AS builder
 
-RUN apk add --no-cache musl-dev
-ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+ENV RUSTFLAGS="-C target-cpu=broadwell"
 
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo build --release
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
 
 COPY src ./src
-RUN touch src/main.rs && cargo build --release
+RUN touch src/main.rs && cargo build --release && strip /app/target/release/kcnprocessor
 
-FROM alpine:3.24
+FROM debian:bookworm-slim AS runner
 
-RUN apk add --no-cache libgcc ca-certificates
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/kcnprocessor /app/
+RUN addgroup --system --gid 1000 appuser && adduser --system --uid 1000 --gid 1000 appuser
 
-RUN chmod +x /app/kcnprocessor
+COPY --from=builder /app/target/release/kcnprocessor /app/kcnprocessor
 
-RUN adduser -D -u 1000 myuser
-USER myuser
+USER appuser
 
 CMD ["/app/kcnprocessor"]

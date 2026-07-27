@@ -11,6 +11,14 @@ use crate::api::requests::{
     api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
     api_v3_hf_margin_stop_orders_get, build_query_string,
 };
+use crate::api::tools::get_env;
+use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
+use anyhow::Result;
+use bytes::Bytes;
+use dotenvy::dotenv;
+use futures_util::{SinkExt, StreamExt};
+use micromap::Map;
+use sqlx::PgPool;
 use std::sync::mpsc::{Sender, channel};
 use std::thread;
 use tracing::{
@@ -18,21 +26,13 @@ use tracing::{
     field::{Field, Visit},
     subscriber::Subscriber,
 };
+use tracing::{error, info};
 use tracing_subscriber::{
     filter::EnvFilter,
-    layer::{Context, Layer, SubscriberExt},
+    layer::{Context as layer_Context, Layer, SubscriberExt},
     registry::LookupSpan,
     util::SubscriberInitExt,
 };
-
-use crate::api::tools::get_env;
-use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
-use bytes::Bytes;
-use dotenvy::dotenv;
-use futures_util::{SinkExt, StreamExt};
-use micromap::Map;
-use sqlx::PgPool;
-use tracing::{error, info};
 
 use sqlx::postgres::PgPoolOptions;
 use tokio::sync::mpsc;
@@ -93,7 +93,7 @@ impl<S> Layer<S> for DbErrorLayer
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+    fn on_event(&self, event: &Event<'_>, _ctx: layer_Context<'_, S>) {
         if *event.metadata().level() != tracing::Level::ERROR {
             return;
         }
@@ -107,9 +107,7 @@ where
             visitor.message
         };
 
-        // Синхронная, неблокирующая (или мало-блокирующая) отправка
-        // Не зависит от tokio runtime, не создаёт потоки
-        if let Err(e) = self.sender.send(msg) {
+        if let Err(e) = self.sender.send(format!("{:?}", msg)) {
             eprintln!("DbErrorLayer: failed to queue error: {e}");
         }
     }
@@ -132,13 +130,12 @@ fn init_tracing(pool: sqlx::PgPool) {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> Result<()> {
     dotenv().ok();
     let init_order_execute: bool = true;
 
-    let database_url: String = get_env("DATABASE_URL")?;
-
-    let init_balance_per_bot: String = get_env("INIT_BALANCE_PER_BOT")?;
+    let database_url = get_env("DATABASE_URL")?;
+    let init_balance_per_bot = get_env("INIT_BALANCE_PER_BOT")?;
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
@@ -147,40 +144,46 @@ async fn main() -> Result<(), String> {
         .idle_timeout(Duration::from_secs(600))
         .max_lifetime(Duration::from_secs(1800))
         .connect(&database_url)
-        .await
-        .map_err(|e| {
-            eprintln!("Failed to create pg pool:{}", e);
-            "".to_string()
-        })?;
+        .await?;
 
     init_tracing(pool.clone());
 
     // clear orders ids for bots
-    wipe_bots_info(&pool, &init_balance_per_bot)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+    if let Err(e) = wipe_bots_info(&pool, &init_balance_per_bot).await {
+        error!("{}", e);
+        anyhow::bail!(e);
+    };
+
     info!("wipe_bots_info");
 
     loop {
         sleep(config::DELETE_STOP_ORDER_DELAY).await;
+
         let mut query_params: Map<&str, &str, 8> = Map::new();
         query_params.insert("pageSize", "10");
 
-        let open_stop_orders =
-            api_v3_hf_margin_stop_orders_get(build_query_string(query_params)).await;
+        let query_params = match build_query_string(query_params) {
+            Ok(query_params) => query_params,
+            Err(e) => {
+                error!("{}", e);
+                continue;
+            }
+        };
 
-        if let Err(e) = &open_stop_orders {
-            error!("{}", e);
-            sleep(config::RECONNECT_DELAY).await;
-            continue;
-        }
+        let open_stop_orders = match api_v3_hf_margin_stop_orders_get(&query_params).await {
+            Ok(open_stop_orders) => open_stop_orders,
+            Err(e) => {
+                error!("{}", e);
+                continue;
+            }
+        };
 
-        let Ok(Some(open_stop_orders_data)) = open_stop_orders else {
-            error!("Fail get list open stop orders:None");
-            return Err("".to_string());
+        let open_stop_orders_data = match open_stop_orders {
+            Some(open_stop_orders_data) => open_stop_orders_data,
+            None => {
+                error!("Fail get list open stop orders:None");
+                continue;
+            }
         };
 
         info!(
@@ -197,21 +200,33 @@ async fn main() -> Result<(), String> {
 
         for stop_order in open_stop_orders_data.items {
             info!("Stop order:{}", stop_order);
-            let mut query_params: Map<&str, &str, 8> = Map::new();
 
+            let mut query_params: Map<&str, &str, 8> = Map::new();
             query_params.insert("orderId", &stop_order.id);
 
-            let canceled_stop_order =
-                api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(query_params))
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+            let query_params = match build_query_string(query_params) {
+                Ok(query_params) => query_params,
+                Err(e) => {
+                    error!("{}", e);
+                    continue;
+                }
+            };
 
-            let Some(canceled_stop_order) = canceled_stop_order else {
-                error!("Cancel stop order:{} None", &stop_order.id);
-                continue;
+            let canceled_stop_order =
+                match api_v3_hf_margin_stop_order_cancel_by_id_delete(&query_params).await {
+                    Ok(canceled_stop_order) => canceled_stop_order,
+                    Err(e) => {
+                        error!("{}", e);
+                        continue;
+                    }
+                };
+
+            let canceled_stop_order = match canceled_stop_order {
+                Some(canceled_stop_order) => canceled_stop_order,
+                None => {
+                    error!("Cancel stop order:{} None", &stop_order.id);
+                    continue;
+                }
             };
 
             for st_order in canceled_stop_order.cancelled_order_ids {
@@ -222,10 +237,14 @@ async fn main() -> Result<(), String> {
 
     // repay all liability assets and sell
     loop {
-        if auto_clean_account(&pool).await.map_err(|e| {
-            error!("{}", e);
-            e
-        })? {
+        let is_completed = match auto_clean_account(&pool).await {
+            Ok(is_completed) => is_completed,
+            Err(e) => {
+                error!("{}", e);
+                continue;
+            }
+        };
+        if is_completed {
             break;
         }
     }
@@ -266,35 +285,27 @@ async fn main() -> Result<(), String> {
         };
 
         // subscribtion
-        event_ws_write
-            .send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string()))
-            .await
-            .map_err(|e|{
-                error!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e);
-                "".to_string()
-            })?;
+        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string())).await {
+            anyhow::bail!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e)
+        };
 
         info!("Subscribe:/spotMarket/tradeOrdersV2");
 
-        event_ws_write
-            .send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string()))
-            .await
-            .map_err(|e|{
-                error!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e);
-                "".to_string()
-            })?;
+        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string())).await {
+            anyhow::bail!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e)
+        };
+
         info!("Subscribe:/spotMarket/advancedOrders");
 
-        event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await.map_err(|e|{
-            error!("Failed to subscribe subject:/account/balance:{}", e);
-            "".to_string()
-         })?;
+        if let Err(e) =  event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await {
+            anyhow::bail!("Failed to subscribe subject:/account/balance:{}", e)
+        };
+
         info!("Subscribe:/account/balance");
 
-        event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await.map_err(|e|{
-            error!("Failed to subscribe subject:/margin/position:{}", e);
-            "".to_string()
-        })?;
+        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await {
+            anyhow::bail!("Failed to subscribe subject:/margin/position:{}", e)
+         };
 
         info!("Subscribe:/margin/position");
 

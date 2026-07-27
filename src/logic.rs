@@ -16,8 +16,8 @@ use crate::api::db::{
 };
 use crate::api::models::{
     AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot,
-    Currencies, KuCoinMessage, MakeOrderResData, MarginAccountData, MessageData, OrderData,
-    PositionData, Symbol,
+    KuCoinMessage, MakeOrderResData, MarginAccountData, MessageData, OrderData, PositionData,
+    Symbol,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
@@ -25,8 +25,10 @@ use crate::api::requests::{
     api_v3_hf_margin_stop_order_post, api_v3_margin_accounts_get, api_v3_margin_repay_post,
     build_query_string, serialize_body,
 };
+use anyhow::{Context, Result};
 use micromap::Map;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::*;
 use serde::Deserialize;
 use serde_json;
 use sqlx::PgPool;
@@ -35,36 +37,24 @@ use tokio::time::{Duration, sleep};
 use tracing::{error, info};
 use uuid::Uuid;
 
-fn tp_buy_percent() -> Result<Decimal, String> {
+fn tp_buy_percent() -> Result<Decimal> {
     // +7%
-    Ok(Decimal::from_str("1.07").map_err(|e| {
-        error!("{}", e);
-        format!("{}", e)
-    })?)
+    Ok(Decimal::from_str("1.07").map_err(|e| anyhow::anyhow!(e))?)
 }
 
-fn sl_buy_percent() -> Result<Decimal, String> {
+fn sl_buy_percent() -> Result<Decimal> {
     // -5%
-    Ok(Decimal::from_str("0.95").map_err(|e| {
-        error!("{}", e);
-        format!("{}", e)
-    })?)
+    Ok(Decimal::from_str("0.95").map_err(|e| anyhow::anyhow!(e))?)
 }
 
-fn tp_sell_percent() -> Result<Decimal, String> {
+fn tp_sell_percent() -> Result<Decimal> {
     // -7%
-    Ok(Decimal::from_str("0.93").map_err(|e| {
-        error!("{}", e);
-        format!("{}", e)
-    })?)
+    Ok(Decimal::from_str("0.93").map_err(|e| anyhow::anyhow!(e))?)
 }
 
-fn sl_sell_percent() -> Result<Decimal, String> {
+fn sl_sell_percent() -> Result<Decimal> {
     // +5%
-    Ok(Decimal::from_str("1.05").map_err(|e| {
-        error!("{}", e);
-        format!("{}", e)
-    })?)
+    Ok(Decimal::from_str("1.05").map_err(|e| anyhow::anyhow!(e))?)
 }
 
 fn get_random_side() -> &'static str {
@@ -75,54 +65,29 @@ const RETRY_DELAY_BASE: u64 = 500;
 const BOT_INIT_DELAY: Duration = Duration::from_secs(5);
 const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(5);
 
-pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String, String> {
+pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String> {
     let precision = increment.scale() as usize;
 
     if precision == 0 {
-        let increment_int: i64 = increment.to_string().parse().map_err(|e| {
-            error!("Fail parse increment:{} error:{}", increment, e);
-            format!("Fail parse increment:{} error:{}", increment, e)
-        })?;
+        let size_int = size
+            .floor()
+            .to_i64()
+            .with_context(|| format!("Fail convert size:{}", size))?;
+        let increment_int = increment
+            .to_i64()
+            .with_context(|| format!("Fail convert increment:{}", increment))?;
 
-        let size_int: i64 = size.to_string().parse().map_err(|e| {
-            error!("Fail parse size:{} error:{}", size, e);
-            format!("Fail parse size:{} error:{}", size, e)
-        })?;
-
-        let rounded_down: i64 = (size_int / increment_int) * increment_int;
+        let rounded_down = (size_int / increment_int) * increment_int;
         return Ok(rounded_down.to_string());
     }
 
-    // Дробный increment (0.01, 0.001, и т.д.)
-    let s: String = size.to_string();
+    let factor = Decimal::from(10_u64.pow(precision as u32));
+    let result = (size * factor).floor() / factor;
 
-    if let Some(dot_pos) = s.find('.') {
-        let integer_part = &s[..dot_pos];
-        let fractional_part = &s[dot_pos + 1..];
-
-        let truncated = if fractional_part.len() >= precision {
-            &fractional_part[..precision]
-        } else {
-            fractional_part
-        };
-
-        let trimmed = truncated.trim_end_matches('0');
-
-        if trimmed.is_empty() {
-            Ok(integer_part.to_string())
-        } else {
-            Ok(format!("{}.{}", integer_part, trimmed))
-        }
-    } else {
-        if precision == 0 {
-            Ok(s)
-        } else {
-            Ok(format!("{}.{}", s, "0".repeat(precision)))
-        }
-    }
+    Ok(result.normalize().to_string())
 }
 
-pub async fn create_init_orders(pool: &PgPool) -> Result<(), String> {
+pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
     let trade_bots: Vec<Bot> = match get_all_bots_for_trade(pool).await {
         Ok(trade_bots) => trade_bots,
         Err(e) => {
@@ -151,53 +116,42 @@ pub async fn create_init_orders(pool: &PgPool) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn get_all_accounts_data() -> Result<MarginAccountData, String> {
+pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("quoteCurrency", "USDT");
     query_params.insert("queryType", "MARGIN");
 
-    Ok(api_v3_margin_accounts_get(build_query_string(query_params)).await?)
+    Ok(api_v3_margin_accounts_get(&build_query_string(query_params)?).await?)
 }
 
-pub async fn repay_account(
-    currency: &str,
-    size: &str,
-) -> Result<Option<ApiV3MarginRepayResData>, String> {
+pub async fn repay_account(currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>> {
     info!("Repay {} liability:{}", size, currency);
     let body_str: String = serialize_body(Some(serde_json::json!({
         "currency": currency,
         "size": size,
         "isIsolated": false,
         "isHf": true
-    })))
-    .map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    })))?;
 
-    Ok(api_v3_margin_repay_post(body_str).await.map_err(|e| {
-        error!("{}", e);
-        e
-    })?)
+    Ok(api_v3_margin_repay_post(&body_str).await?)
 }
 
-pub async fn get_token_price(
-    trade_symbol: &str,
-) -> Result<ApiV1MarketOrderbookLevel1ResData, String> {
+pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookLevel1ResData> {
     let mut query_params: Map<&str, &str, 8> = Map::new();
     query_params.insert("symbol", trade_symbol);
 
-    let token_price: Option<ApiV1MarketOrderbookLevel1ResData> =
-        api_v1_market_orderbook_level1_get(build_query_string(query_params)).await?;
+    let token_price =
+        api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
 
-    let Some(token_price) = token_price else {
-        error!("Fail get token_price:{:?}", token_price);
-        return Err("".to_string());
-    };
-    Ok(token_price)
+    match token_price {
+        Some(token_price) => Ok(token_price),
+        None => {
+            anyhow::bail!("Fail get token_price:{:?}", token_price)
+        }
+    }
 }
 
-pub async fn transfer_amount(currency: &str, amount: &str) -> Result<(), String> {
+pub async fn transfer_amount(currency: &str, amount: &str) -> Result<()> {
     let client_oid: String = Uuid::new_v4().to_string();
 
     let body_str: String = serialize_body(Some(serde_json::json!({
@@ -207,153 +161,87 @@ pub async fn transfer_amount(currency: &str, amount: &str) -> Result<(), String>
         "type": "INTERNAL",
         "fromAccountType": "MARGIN",
         "toAccountType": "TRADE"
-    })))
-    .map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    })))?;
 
-    api_v3_accounts_universal_transfer_post(body_str)
+    api_v3_accounts_universal_transfer_post(&body_str)
         .await
-        .map(|_| Ok(()))
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?
+        .map(|_| Ok(()))?
 }
 
-pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
+pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
     sleep(AUTO_CLEAN_DELAY).await;
 
-    let accounts: MarginAccountData = get_all_accounts_data().await.map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    let accounts = get_all_accounts_data().await?;
 
     let mut passed: bool = true;
     for account in accounts.accounts.iter() {
-        let currency_info: Option<Currencies> =
-            fetch_currency_info_by_symbol(pool, &account.currency)
-                .await
-                .map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+        let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
 
-        let Some(currency_info) = currency_info else {
-            error!("Currency info not found for {}", account.currency);
-            return Err("".to_string());
+        let currency_info = match currency_info {
+            Some(currency_info) => currency_info,
+            None => anyhow::bail!("Currency info not found for {}", account.currency),
         };
 
-        let precision_decimal: Decimal = currency_info.precision_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let precision_decimal = currency_info.precision_decimal()?;
 
-        let symbol_info: Option<Symbol> = fetch_symbol_info_by_symbol(pool, &account.currency)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+        let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
 
-        let Some(symbol_info) = symbol_info else {
-            error!("Symbol info not found for {}", &account.currency);
-            return Err("".to_string());
+        let symbol_info = match symbol_info {
+            Some(symbol_info) => symbol_info,
+            None => {
+                anyhow::bail!("Symbol info not found for {}", &account.currency)
+            }
         };
 
-        let quote_increment: Decimal = symbol_info.quote_increment_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let quote_increment = symbol_info.quote_increment_decimal()?;
 
-        let min_funds: Decimal = symbol_info.min_funds_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let min_funds = symbol_info.min_funds_decimal()?;
 
-        let base_min_size: Decimal = symbol_info.base_min_size_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let base_min_size = symbol_info.base_min_size_decimal()?;
 
-        let base_increment: Decimal = symbol_info.base_increment_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let base_increment = symbol_info.base_increment_decimal()?;
 
-        let quote_min_size: Decimal = symbol_info.quote_min_size_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let quote_min_size = symbol_info.quote_min_size_decimal()?;
 
-        let token_liability: Decimal = account.liability_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let token_liability = account.liability_decimal()?;
 
-        let token_available: Decimal = account.available_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let token_available = account.available_decimal()?;
 
         if token_liability > Decimal::ZERO {
             passed = false;
             if token_available >= token_liability {
-                let size: String = format_assert_decimal(token_liability, precision_decimal)
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
-
-                repay_account(&account.currency, &size).await.map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+                repay_account(
+                    &account.currency,
+                    &format_assert_decimal(token_liability, precision_decimal)?,
+                )
+                .await?;
             } else if token_available > Decimal::ZERO {
-                let size: String = format_assert_decimal(token_available, precision_decimal)
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
-
-                repay_account(&account.currency, &size).await.map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+                repay_account(
+                    &account.currency,
+                    &format_assert_decimal(token_available, precision_decimal)?,
+                )
+                .await?;
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
-                let trade_symbol: String = format!("{}-USDT", &account.currency);
+                let trade_symbol = format!("{}-USDT", &account.currency);
 
-                let token_price_data: ApiV1MarketOrderbookLevel1ResData =
-                    get_token_price(&trade_symbol).await.map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                let token_price_data = get_token_price(&trade_symbol).await?;
 
-                let best_ask_token_price: Decimal =
-                    token_price_data.best_ask_decimal().map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                let best_ask_token_price = token_price_data.best_ask_decimal()?;
 
                 info!(
                     "Successfully get token:{} ask price:{}",
                     trade_symbol, best_ask_token_price
                 );
 
-                let token_funds: Decimal = best_ask_token_price * token_liability;
+                let token_funds = best_ask_token_price * token_liability;
 
-                let min_funds_by_size: Decimal = best_ask_token_price * base_min_size;
+                let min_funds_by_size = best_ask_token_price * base_min_size;
 
-                let final_funds: Decimal = token_funds.max(min_funds_by_size).max(min_funds);
+                let final_funds = token_funds.max(min_funds_by_size).max(min_funds);
 
-                let funds: String =
-                    format_assert_decimal(final_funds, quote_increment).map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                let funds = format_assert_decimal(final_funds, quote_increment)?;
 
-                let client_oid: String = Uuid::new_v4().to_string();
+                let client_oid = Uuid::new_v4().to_string();
 
                 make_hf_funds_margin_order(
                     pool,
@@ -365,28 +253,23 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                     false,
                     false,
                 )
-                .await
-                .map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+                .await?;
                 continue;
             }
         } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
 
-            let trade_symbol: String = format!("{}-USDT", account.currency);
+            let trade_symbol = format!("{}-USDT", account.currency);
 
-            let token_price_data: ApiV1MarketOrderbookLevel1ResData =
-                match get_token_price(&trade_symbol).await {
-                    Ok(token_price_data) => token_price_data,
-                    Err(e) => {
-                        error!("{}", e);
-                        return Err(e);
-                    }
-                };
+            let token_price_data = match get_token_price(&trade_symbol).await {
+                Ok(token_price_data) => token_price_data,
+                Err(e) => {
+                    error!("{}", e);
+                    return Err(e);
+                }
+            };
 
-            let best_bid_token_price: Decimal = match token_price_data.best_bid_decimal() {
+            let best_bid_token_price = match token_price_data.best_bid_decimal() {
                 Ok(best_bid_token_price) => best_bid_token_price,
                 Err(e) => {
                     error!("{}", e);
@@ -399,30 +282,19 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                 &trade_symbol, best_bid_token_price
             );
 
-            let token_funds: Decimal = best_bid_token_price * token_available;
+            let token_funds = best_bid_token_price * token_available;
 
             if token_available <= base_min_size || token_funds <= quote_min_size {
-                let amount: String = format_assert_decimal(token_available, precision_decimal)
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
-
-                transfer_amount(&account.currency, &amount)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                transfer_amount(
+                    &account.currency,
+                    &format_assert_decimal(token_available, precision_decimal)?,
+                )
+                .await?;
                 continue;
             } else {
-                let size: String =
-                    format_assert_decimal(token_available, base_increment).map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                let size = format_assert_decimal(token_available, base_increment)?;
 
-                let client_oid: String = Uuid::new_v4().to_string();
+                let client_oid = Uuid::new_v4().to_string();
 
                 make_hf_size_margin_order(
                     pool,
@@ -434,11 +306,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool, String> {
                     false,
                     false,
                 )
-                .await
-                .map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+                .await?;
             }
         }
     }
@@ -450,7 +318,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
-) -> Result<(), String> {
+) -> Result<()> {
     match delete_exit_sl_id_bot_by_client_oid(pool, client_oid).await {
         Err(e) => {
             error!("{}", e);
@@ -472,9 +340,9 @@ pub async fn process_bot_by_exit_sl_client_oid(
 
             query_params.insert("clientOid", exit_tp_client_oid);
 
-            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(
+            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(
                 query_params,
-            ))
+            )?)
             .await
             {
                 Ok(_) => {
@@ -503,10 +371,8 @@ pub async fn process_bot_by_exit_sl_client_oid(
         return Ok(());
     };
 
-    let return_balance: Decimal = Decimal::from_str(&return_balance).map_err(|e| {
-        error!("Fail parse return balance:{}", e);
-        format!("Fail parse return balance:{}", e)
-    })?;
+    let return_balance: Decimal =
+        Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
     if order.side == "buy" {
         let old_balance = match bot.balance_decimal() {
@@ -531,31 +397,17 @@ pub async fn process_bot_by_exit_sl_client_oid(
             }
         }
         // create new random order
-        make_random_trade(pool, new_balance, bot.id)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+        make_random_trade(pool, new_balance, bot.id).await?;
     } else if order.side == "sell" {
         update_balance_bot_by_exit_sl_client_oid(
             pool,
             client_oid,
             &format!("{:.4}", return_balance),
         )
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        .await?;
 
         // create new random order
-        make_random_trade(pool, return_balance, bot.id)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+        make_random_trade(pool, return_balance, bot.id).await?;
     };
     Ok(())
 }
@@ -565,62 +417,39 @@ pub async fn process_bot_by_exit_tp_client_oid(
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
-) -> Result<(), String> {
-    delete_exit_tp_id_bot_by_client_oid(pool, client_oid)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+) -> Result<()> {
+    delete_exit_tp_id_bot_by_client_oid(pool, client_oid).await?;
 
     match &bot.exit_sl_client_oid {
         Some(exit_sl_client_oid) => {
             // clear exit_sl_client_oid in bots by id !!
-            delete_exit_sl_id_bot_by_client_oid(pool, exit_sl_client_oid)
-                .await
-                .map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+            delete_exit_sl_id_bot_by_client_oid(pool, exit_sl_client_oid).await?;
             let mut query_params: Map<&str, &str, 8> = Map::new();
 
             query_params.insert("clientOid", exit_sl_client_oid);
 
-            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(build_query_string(
+            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(
                 query_params,
-            ))
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+            )?)
+            .await?;
 
             info!("Successfully cancel stop order :{}", &exit_sl_client_oid);
         }
         None => {}
     }
-    let return_balance: Option<String> = get_total_match_value_by_client_oid(pool, client_oid)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+    let return_balance: Option<String> =
+        get_total_match_value_by_client_oid(pool, client_oid).await?;
 
     let Some(return_balance) = return_balance else {
         error!("No records found or error occurred");
         return Ok(());
     };
 
-    let return_balance: Decimal = Decimal::from_str(&return_balance).map_err(|e| {
-        error!("Fail parse return balance:{}", e);
-        format!("Fail parse return balance:{}", e)
-    })?;
+    let return_balance: Decimal =
+        Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
     if order.side == "buy" {
-        let old_balance: Decimal = bot.balance_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let old_balance: Decimal = bot.balance_decimal()?;
 
         let new_balance: Decimal = old_balance + old_balance - return_balance;
         match update_balance_bot_by_exit_tp_client_oid(
@@ -636,31 +465,17 @@ pub async fn process_bot_by_exit_tp_client_oid(
             }
         }
         // create new random order
-        make_random_trade(pool, new_balance, bot.id)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+        make_random_trade(pool, new_balance, bot.id).await?;
     } else if order.side == "sell" {
         update_balance_bot_by_exit_tp_client_oid(
             pool,
             client_oid,
             &format!("{:.4}", return_balance),
         )
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        .await?;
 
         // create new random order
-        make_random_trade(pool, return_balance, bot.id)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+        make_random_trade(pool, return_balance, bot.id).await?;
     };
     Ok(())
 }
@@ -669,68 +484,37 @@ pub async fn process_bot_by_entry_client_oid(
     pool: &PgPool,
     client_oid: &str,
     order: &OrderData,
-) -> Result<(), String> {
-    let symbol_info: Option<Symbol> = fetch_symbol_info_by_symbol(pool, &order.symbol)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+) -> Result<()> {
+    let symbol_info: Option<Symbol> = fetch_symbol_info_by_symbol(pool, &order.symbol).await?;
 
     let Some(symbol_info) = symbol_info else {
-        error!("Symbol info not found for {}", order.symbol);
-        return Err("".to_string());
+        anyhow::bail!("Symbol info not found for {}", order.symbol)
     };
 
-    let price_increment: Decimal = symbol_info.price_increment_decimal().map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    let price_increment: Decimal = symbol_info.price_increment_decimal()?;
 
-    let quote_increment: Decimal = symbol_info.quote_increment_decimal().map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    let quote_increment: Decimal = symbol_info.quote_increment_decimal()?;
 
-    let filled_size: Decimal = order.filled_size_decimal().map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    let filled_size: Decimal = order.filled_size_decimal()?;
 
-    let return_balance: Option<String> = get_total_match_value_by_client_oid(pool, client_oid)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+    let return_balance: Option<String> =
+        get_total_match_value_by_client_oid(pool, client_oid).await?;
 
     let Some(return_balance) = return_balance else {
         error!("No records found or error occurred");
         return Ok(());
     };
 
-    let new_balance: Decimal = Decimal::from_str(&return_balance).map_err(|e| {
-        error!("Fail parse return balance:{}", e);
-        format!("Fail parse return balance:{}", e)
-    })?;
+    let new_balance: Decimal =
+        Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
     update_bot_balance_by_entry_client_oid(pool, client_oid, &format!("{:.4}", new_balance))
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        .await?;
 
     if order.side == "buy" {
-        let tp_buy: Decimal = tp_buy_percent().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let tp_buy: Decimal = tp_buy_percent()?;
 
-        let sl_buy: Decimal = sl_buy_percent().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let sl_buy: Decimal = sl_buy_percent()?;
 
         let match_price: Decimal = new_balance / filled_size;
         let trigger_tp_price: Decimal = match_price * tp_buy; // price + 7%
@@ -740,15 +524,7 @@ pub async fn process_bot_by_entry_client_oid(
         let exit_sl_client_oid: String = Uuid::new_v4().to_string();
 
         // tp order
-        let stop_price_tp: String = format_assert_decimal(trigger_tp_price, price_increment)
-            .map_err(|e| {
-                error!(
-                    "Fail parse:{} {} error:{}",
-                    trigger_tp_price, price_increment, e
-                );
-
-                "".to_string()
-            })?;
+        let stop_price_tp: String = format_assert_decimal(trigger_tp_price, price_increment)?;
 
         let msg_tp_order: serde_json::Value = serde_json::json!({
             "clientOid": exit_tp_client_oid,
@@ -764,15 +540,7 @@ pub async fn process_bot_by_entry_client_oid(
             "timeInForce": "GTC",
         });
         // sl order
-        let stop_price_sl: String = format_assert_decimal(trigger_sl_price, price_increment)
-            .map_err(|e| {
-                error!(
-                    "Fail parse:{} {} error:{}",
-                    trigger_sl_price, price_increment, e
-                );
-
-                "".to_string()
-            })?;
+        let stop_price_sl: String = format_assert_decimal(trigger_sl_price, price_increment)?;
 
         let msg_sl_order: serde_json::Value = serde_json::json!({
             "clientOid": exit_sl_client_oid,
@@ -793,33 +561,19 @@ pub async fn process_bot_by_entry_client_oid(
 
         // add exit_tp_client_oid by entry_id
         update_exit_tp_client_oid_bot_by_entry_client_oid(pool, client_oid, &exit_tp_client_oid)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+            .await?;
 
         // add exit_sl_client_oid by entry_id
         update_exit_sl_client_oid_bot_by_entry_client_oid(pool, client_oid, &exit_sl_client_oid)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+            .await?;
 
-        let msg_tp_order2: String = serialize_body(Some(msg_tp_order)).map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let msg_tp_order2: String = serialize_body(Some(msg_tp_order))?;
 
-        let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
+        let tp_fut = api_v3_hf_margin_stop_order_post(&msg_tp_order2);
 
-        let msg_sl_order2: String = serialize_body(Some(msg_sl_order)).map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let msg_sl_order2: String = serialize_body(Some(msg_sl_order))?;
 
-        let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
+        let sl_fut = api_v3_hf_margin_stop_order_post(&msg_sl_order2);
 
         let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
@@ -843,16 +597,14 @@ pub async fn process_bot_by_entry_client_oid(
                 }
 
                 match sl_resp {
-                    Some(response_data) => update_exit_sl_order_id_bot_by_exit_sl_client_oid(
-                        pool,
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?,
+                    Some(response_data) => {
+                        update_exit_sl_order_id_bot_by_exit_sl_client_oid(
+                            pool,
+                            &response_data.order_id,
+                            &response_data.client_oid,
+                        )
+                        .await?
+                    }
                     None => {}
                 }
 
@@ -869,13 +621,9 @@ pub async fn process_bot_by_entry_client_oid(
                         query_params.insert("clientOid", &response_data.client_oid);
 
                         api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                            build_query_string(query_params),
+                            &build_query_string(query_params)?,
                         )
-                        .await
-                        .map_err(|e| {
-                            error!("{}", e);
-                            e
-                        })?;
+                        .await?;
                     }
                     None => {}
                 }
@@ -903,7 +651,7 @@ pub async fn process_bot_by_entry_client_oid(
                         query_params.insert("clientOid", &response_data.client_oid);
 
                         match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                            build_query_string(query_params),
+                            &build_query_string(query_params)?,
                         )
                         .await
                         {
@@ -917,12 +665,7 @@ pub async fn process_bot_by_entry_client_oid(
                     None => {}
                 }
 
-                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await?;
 
                 error!(
                     "Failed add SL order: {}. TP was cancelled for symmetry.",
@@ -935,26 +678,11 @@ pub async fn process_bot_by_entry_client_oid(
                 error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
                 {}
 
-                delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid).await?;
 
-                delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await?;
 
-                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await?;
             }
         }
     } else if order.side == "sell" {
@@ -987,19 +715,18 @@ pub async fn process_bot_by_entry_client_oid(
         let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
             Ok(stop_price_tp) => stop_price_tp,
             Err(e) => {
-                error!(
+                anyhow::bail!(
                     "Fail parse:{} {} error:{}",
-                    trigger_tp_price, price_increment, e
-                );
-
-                return Err("".to_string());
+                    trigger_tp_price,
+                    price_increment,
+                    e
+                )
             }
         };
         let funds_tp_str: String = match format_assert_decimal(funds_tp, quote_increment) {
             Ok(funds_tp_str) => funds_tp_str,
             Err(e) => {
-                error!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e);
-                return Err("".to_string());
+                anyhow::bail!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e)
             }
         };
         let msg_tp_order: serde_json::Value = serde_json::json!({
@@ -1018,18 +745,15 @@ pub async fn process_bot_by_entry_client_oid(
         let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
             Ok(stop_price_sl) => stop_price_sl,
             Err(e) => {
-                error!(
+                anyhow::bail!(
                     "Fail parse:{} {} error:{}",
-                    trigger_sl_price, price_increment, e
-                );
-                return Err("".to_string());
+                    trigger_sl_price,
+                    price_increment,
+                    e
+                )
             }
         };
-        let funds_sl_str: String =
-            format_assert_decimal(funds_sl, quote_increment).map_err(|e| {
-                error!("Fail parse:{} {} error:{}", funds_sl, quote_increment, e);
-                "".to_string()
-            })?;
+        let funds_sl_str: String = format_assert_decimal(funds_sl, quote_increment)?;
 
         let msg_sl_order: serde_json::Value = serde_json::json!({
             "clientOid": exit_sl_client_oid,
@@ -1084,7 +808,7 @@ pub async fn process_bot_by_entry_client_oid(
                 return Err(e);
             }
         };
-        let tp_fut = api_v3_hf_margin_stop_order_post(msg_tp_order2);
+        let tp_fut = api_v3_hf_margin_stop_order_post(&msg_tp_order2);
 
         let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
             Ok(body_str) => body_str,
@@ -1093,7 +817,7 @@ pub async fn process_bot_by_entry_client_oid(
                 return Err(e);
             }
         };
-        let sl_fut = api_v3_hf_margin_stop_order_post(msg_sl_order2);
+        let sl_fut = api_v3_hf_margin_stop_order_post(&msg_sl_order2);
         let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
         match (&tp_res, &sl_res) {
@@ -1144,7 +868,7 @@ pub async fn process_bot_by_entry_client_oid(
 
                         query_params.insert("clientOid", &response_data.client_oid);
                         match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                            build_query_string(query_params),
+                            &build_query_string(query_params)?,
                         )
                         .await
                         {
@@ -1177,21 +901,12 @@ pub async fn process_bot_by_entry_client_oid(
 
                     query_params.insert("clientOid", &response_data.client_oid);
                     match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                        build_query_string(query_params),
+                        &build_query_string(query_params)?,
                     )
                     .await
                     {
                         Ok(_) => {
-                            delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid)
-                                .await
-                                .map_err(|e| {
-                                    error!(
-                                        "Failed add SL order: {}. TP was cancelled for symmetry.",
-                                        sl_err
-                                    );
-                                    error!("{}", e);
-                                    e
-                                })?;
+                            delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await?;
 
                             {}
                         }
@@ -1208,26 +923,11 @@ pub async fn process_bot_by_entry_client_oid(
 
                 {}
 
-                delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid).await?;
 
-                delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await?;
 
-                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await?;
             }
         }
     }
@@ -1235,64 +935,44 @@ pub async fn process_bot_by_entry_client_oid(
     // delete entry_id from db
     set_null_entry_client_oid_by_entry_client_oid(pool, client_oid)
         .await
-        .map(|_| Ok(()))
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?
+        .map(|_| Ok(()))?
 }
 
-pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<(), String> {
+pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<()> {
     let Some(client_oid) = &order.client_oid else {
-        error!("client_oid in order is none: {}", order);
-        return Err("".to_string());
+        anyhow::bail!("client_oid in order is none: {}", order)
     };
 
-    let bot = get_bot_by_client_oid(pool, client_oid).await.map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    let bot = get_bot_by_client_oid(pool, client_oid).await?;
 
     let Some(bot) = bot else {
-        let msg: String = format!("Bot is None by:{}", client_oid);
-        error!("{}", msg);
-        return Err(msg);
+        anyhow::bail!("Bot is None by:{}", client_oid)
     };
 
     match client_oid.as_str() {
         s if Some(s.to_string()) == bot.entry_client_oid => {
             process_bot_by_entry_client_oid(pool, client_oid, order)
                 .await
-                .map(|_| Ok(()))
-                .map_err(|e| e)?
+                .map(|_| Ok(()))?
         }
         s if Some(s.to_string()) == bot.exit_tp_client_oid => {
             process_bot_by_exit_tp_client_oid(pool, bot, client_oid, order)
                 .await
-                .map(|_| Ok(()))
-                .map_err(|e| e)?
+                .map(|_| Ok(()))?
         }
         s if Some(s.to_string()) == bot.exit_sl_client_oid => {
             process_bot_by_exit_sl_client_oid(pool, bot, client_oid, order)
                 .await
-                .map(|_| Ok(()))
-                .map_err(|e| e)?
+                .map(|_| Ok(()))?
         }
         _ => {
-            let msg: String = format!("don't find client_oid in:{}", order);
-            error!("{}", msg);
-            Err(msg)
+            anyhow::bail!("don't find client_oid in:{}", order)
         }
     }
 }
 
-pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result<(), String> {
-    insert_db_orderevent(pool, order.clone())
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result<()> {
+    insert_db_orderevent(pool, order.clone()).await?;
 
     info!("{}", order);
 
@@ -1309,7 +989,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result
     }
 }
 
-pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<(), String> {
+pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<()> {
     let debt_pair: Vec<(String, Decimal)> = match position.debt_pairs() {
         Err(e) => return Err(e),
         Ok(debt_pair) => debt_pair,
@@ -1321,40 +1001,21 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
             continue;
         };
 
-        let token_available: Decimal = asset_info.available_decimal().map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let token_available: Decimal = asset_info.available_decimal()?;
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
-            let currency_info = fetch_currency_info_by_symbol(pool, &asset)
-                .await
-                .map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+            let currency_info = fetch_currency_info_by_symbol(pool, &asset).await?;
 
             let Some(currency_info) = currency_info else {
-                error!("Currency info not found for {}", asset);
-                return Err("".to_string());
+                anyhow::bail!("Currency info not found for {}", asset)
             };
 
-            let precision_decimal: Decimal = currency_info.precision_decimal().map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+            let precision_decimal: Decimal = currency_info.precision_decimal()?;
 
             let size: String =
-                format_assert_decimal(token_liability.min(token_available), precision_decimal)
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                format_assert_decimal(token_liability.min(token_available), precision_decimal)?;
 
-            repay_account(&asset, &size).await.map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+            repay_account(&asset, &size).await?;
         }
     }
 
@@ -1375,12 +1036,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
     };
 
     for (symbol, amount) in &position.debt_list {
-        upsert_position_debt(pool, symbol, amount)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+        upsert_position_debt(pool, symbol, amount).await?;
     }
     for (symbol, symbol_info) in &position.asset_list {
         upsert_position_asset(
@@ -1390,17 +1046,13 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
             &symbol_info.available,
             &symbol_info.hold,
         )
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-            e
-        })?
+        .await?
     }
 
     Ok(())
 }
 
-pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Result<(), String> {
+pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Result<()> {
     info!("{}", order);
     if order.error.is_none() {
         return Ok(());
@@ -1443,7 +1095,12 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                     "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
                                     order_id_ref, new_exit_client_oid, funds_clone,
                                 );
-                                return Err("".to_string());
+                                anyhow::bail!(
+                                    "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
+                                    order_id_ref,
+                                    new_exit_client_oid,
+                                    funds_clone,
+                                );
                             };
 
                             make_hf_funds_margin_order(
@@ -1460,11 +1117,12 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                         }
                         "sell" => {
                             let Some(size) = size_clone else {
-                                error!(
+                                anyhow::bail!(
                                     "Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}",
-                                    order_id_ref, new_exit_client_oid, size_clone,
-                                );
-                                return Err("".to_string());
+                                    order_id_ref,
+                                    new_exit_client_oid,
+                                    size_clone,
+                                )
                             };
 
                             make_hf_size_margin_order(
@@ -1571,39 +1229,35 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                 break Ok(());
             }
             Err(e) => {
-                error!(
+                anyhow::bail!(
                     "❌ Order failed: {} {} (attempt {}/{}) {}",
-                    order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES, e
-                );
-                return Err("".to_string());
+                    order_id_ref,
+                    new_exit_client_oid,
+                    attempt,
+                    MAX_RETRIES,
+                    e
+                )
             }
         }
     }
 }
 
-pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
-    let event: KuCoinMessage = serde_json::from_str::<KuCoinMessage>(msg).map_err(|e| {
-        error!("Failed to parse message:{} {}", msg, e);
-        "".to_string()
-    })?;
+pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
+    let event: KuCoinMessage = serde_json::from_str::<KuCoinMessage>(msg)?;
 
     let data: MessageData = match event {
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => {
-                insert_db_event(pool, &data).await.map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+                insert_db_event(pool, &data).await?;
                 return Ok(());
             }
             Err(e) => {
-                error!(
+                anyhow::bail!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data,
                     stringify!(WelcomeData),
                     e
-                );
-                return Err("".to_string());
+                )
             }
         },
         KuCoinMessage::Message(data) => data,
@@ -1616,99 +1270,43 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<(), String> {
                 }
             },
             Err(e) => {
-                error!(
+                anyhow::bail!(
                     "Failed to serialize request '{:?}' as {}: {}",
                     &data,
                     stringify!(AckData),
                     e
-                );
-                return Err("".to_string());
+                )
             }
         },
         KuCoinMessage::Error(data) => {
-            error!("Got error in WS {:?}", data);
-            return Err("".to_string());
+            anyhow::bail!("Got error in WS {:?}", data)
         }
 
         KuCoinMessage::Unknown => {
             error!("Unknown WS message type");
-            return Err("".to_string());
+            anyhow::bail!("Unknown WS message type");
         }
     };
 
     match data.topic.as_str() {
-        "/account/balance" => match BalanceData::deserialize(&data.data) {
-            Err(e) => {
-                error!(
-                    "Failed to serialize request '{:?}' as {}: {}",
-                    &data.data,
-                    stringify!(BalanceData),
-                    e
-                );
-                return Err("".to_string());
-            }
-            Ok(balance) => match insert_db_balance(pool, balance).await {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    error!("{}", e);
-                    return Err(e);
-                }
-            },
-        },
-        "/spotMarket/tradeOrdersV2" => match OrderData::deserialize(&data.data) {
-            Err(e) => {
-                error!(
-                    "Failed to serialize request '{:?}' as {}: {}",
-                    &data.data,
-                    stringify!(OrderData),
-                    e
-                );
-                return Err("".to_string());
-            }
-            Ok(order) => Ok(handle_trade_order_event(order, pool).await.map_err(|e| {
-                error!("{}", e);
-                e
-            })?),
-        },
-        "/spotMarket/advancedOrders" => {
-            let order = AdvancedOrders::deserialize(&data.data).map_err(|e| {
-                error!(
-                    "Failed to serialize request '{:?}' as {}: {}",
-                    &data.data,
-                    stringify!(AdvancedOrders),
-                    e
-                );
-                "".to_string()
-            })?;
-            handle_advanced_orders(order, pool)
-                .await
-                .map(|_| Ok(()))
-                .map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?
+        "/account/balance" => {
+            let balance = BalanceData::deserialize(&data.data)?;
+            insert_db_balance(pool, balance).await
         }
-        "/margin/position" => match PositionData::deserialize(&data.data) {
-            Err(e) => {
-                error!(
-                    "Failed to serialize request '{:?}' as {}: {}",
-                    &data.data,
-                    stringify!(PositionData),
-                    e
-                );
-                return Err("".to_string());
-            }
-            Ok(position) => handle_position_event(position, pool)
-                .await
-                .map(|_| Ok(()))
-                .map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?,
-        },
+        "/spotMarket/tradeOrdersV2" => {
+            let order = OrderData::deserialize(&data.data)?;
+            handle_trade_order_event(order, pool).await
+        }
+        "/spotMarket/advancedOrders" => {
+            let order = AdvancedOrders::deserialize(&data.data)?;
+            handle_advanced_orders(order, pool).await
+        }
+        "/margin/position" => {
+            let position = PositionData::deserialize(&data.data)?;
+            handle_position_event(position, pool).await
+        }
         _ => {
-            error!("Unknown topic: {}", data.topic);
-            return Err("".to_string());
+            anyhow::bail!("Unknown topic: {}", data.topic)
         }
     }
 }
@@ -1717,7 +1315,7 @@ pub async fn make_random_trade(
     pool: &PgPool,
     balance_funds: Decimal,
     trade_bot_id: i32,
-) -> Result<(), String> {
+) -> Result<()> {
     const MAX_RETRIES: u32 = 10;
     let mut attempt: u32 = 0;
 
@@ -1728,22 +1326,15 @@ pub async fn make_random_trade(
         sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
-        let tradeable_symbol: Option<String> = get_random_symbol(pool).await.map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
+        let tradeable_symbol: Option<String> = get_random_symbol(pool).await?;
 
         let Some(tradeable_symbol) = tradeable_symbol else {
             error!("Failed get_random_symbol:");
             continue;
         };
 
-        let symbol_info: Option<Symbol> = fetch_symbol_info_by_symbol(pool, &tradeable_symbol)
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+        let symbol_info: Option<Symbol> =
+            fetch_symbol_info_by_symbol(pool, &tradeable_symbol).await?;
 
         let Some(symbol_info) = symbol_info else {
             error!("Symbol info not found for {}", tradeable_symbol);
@@ -1769,37 +1360,24 @@ pub async fn make_random_trade(
 
         let order_result = match get_random_side() {
             "sell" => {
-                let base_increment = symbol_info.base_increment_decimal().map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+                let base_increment = symbol_info.base_increment_decimal()?;
 
                 let mut query_params: Map<&str, &str, 8> = Map::new();
 
                 query_params.insert("symbol", &tradeable_symbol);
 
                 let token_price_obj =
-                    api_v1_market_orderbook_level1_get(build_query_string(query_params))
-                        .await
-                        .map_err(|e| {
-                            error!("{}", e);
-                            e
-                        })?;
+                    api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
 
                 let Some(token_price_obj) = token_price_obj else {
-                    return Err("".to_string());
+                    anyhow::bail!("")
                 };
 
-                let token_price = token_price_obj.price_decimal().map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+                let token_price = token_price_obj.price_decimal()?;
 
                 let token_size = balance_funds / token_price;
-                let size = format_assert_decimal(token_size, base_increment).map_err(|e| {
-                    error!("Fail parse:{} {} error:{}", token_size, base_increment, e);
-                    e
-                })?;
+                let size = format_assert_decimal(token_size, base_increment)
+                    .with_context(|| format!("Fail parse:{} {}", token_size, base_increment,))?;
 
                 make_hf_size_margin_order(
                     pool,
@@ -1814,18 +1392,10 @@ pub async fn make_random_trade(
                 .await
             }
             "buy" => {
-                let quote_increment = symbol_info.quote_increment_decimal().map_err(|e| {
-                    error!("{}", e);
-                    e
-                })?;
+                let quote_increment = symbol_info.quote_increment_decimal()?;
 
-                let funds = format_assert_decimal(balance_funds, quote_increment).map_err(|e| {
-                    error!(
-                        "Fail parse:{} {} error:{}",
-                        balance_funds, quote_increment, e
-                    );
-                    e
-                })?;
+                let funds = format_assert_decimal(balance_funds, quote_increment)
+                    .with_context(|| format!("Fail parse:{} {}", balance_funds, quote_increment))?;
 
                 make_hf_funds_margin_order(
                     pool,
@@ -1853,12 +1423,7 @@ pub async fn make_random_trade(
                 return Ok(());
             }
             Err(e) => {
-                update_bot_entry_client_oid_by_id(pool, None, None, trade_bot_id)
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+                update_bot_entry_client_oid_by_id(pool, None, None, trade_bot_id).await?;
 
                 error!(
                     "❌ Order failed (attempt {}/{}): {} {}",
@@ -1878,12 +1443,8 @@ pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::
             break;
         };
 
-        match process_kcn_msg(pool, &msg).await {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{}", e);
-                ()
-            }
+        if let Err(e) = process_kcn_msg(pool, &msg).await {
+            error!("{}", e);
         }
     }
     info!("Message processor stopped");
@@ -1898,7 +1459,7 @@ pub async fn make_hf_funds_margin_order(
     type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
-) -> Result<MakeOrderResData, String> {
+) -> Result<MakeOrderResData> {
     // only for buy orders
     let args_time_in_force: &str = "GTC";
 
@@ -1916,11 +1477,7 @@ pub async fn make_hf_funds_margin_order(
         Some(client_oid),
         None,
     )
-    .await
-    .map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    .await?;
 
     let msg = serde_json::json!({
         "clientOid": client_oid,
@@ -1934,18 +1491,12 @@ pub async fn make_hf_funds_margin_order(
     });
     info!("{}", msg);
 
-    let body_str: String = serialize_body(Some(msg)).map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    let body_str: String = serialize_body(Some(msg))?;
 
-    let data = api_v3_hf_margin_order_post(body_str).await.map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
-    let Some(data) = data else {
-        return Err("".to_string());
-    };
+    let data = api_v3_hf_margin_order_post(&body_str).await?;
+
+    let Some(data) = data else { anyhow::bail!("") };
+
     Ok(data)
 }
 
@@ -1958,7 +1509,7 @@ pub async fn make_hf_size_margin_order(
     type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
-) -> Result<MakeOrderResData, String> {
+) -> Result<MakeOrderResData> {
     // only for sell orders
     let args_time_in_force: &str = "GTC";
 
@@ -1976,11 +1527,7 @@ pub async fn make_hf_size_margin_order(
         Some(client_oid),
         None,
     )
-    .await
-    .map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    .await?;
 
     let body_str = serialize_body(Some(serde_json::json!({
         "clientOid": client_oid,
@@ -1991,19 +1538,10 @@ pub async fn make_hf_size_margin_order(
         "autoRepay": auto_repay,
         "timeInForce": args_time_in_force,
         "size": size
-    })))
-    .map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
+    })))?;
 
-    let data = api_v3_hf_margin_order_post(body_str).await.map_err(|e| {
-        error!("{}", e);
-        e
-    })?;
-    let Some(data) = data else {
-        return Err("".to_string());
-    };
+    let data = api_v3_hf_margin_order_post(&body_str).await?;
+    let Some(data) = data else { anyhow::bail!("") };
     Ok(data)
 }
 
@@ -2128,6 +1666,10 @@ mod tests {
         let inc_7: Decimal = Decimal::from_str("0.0000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.4567891").unwrap(), inc_7).unwrap(),
+            "123.4567891".to_string()
+        );
+        assert_eq!(
+            format_assert_decimal(Decimal::from_str("123.456789123121").unwrap(), inc_7).unwrap(),
             "123.4567891".to_string()
         );
 
