@@ -357,22 +357,20 @@ pub async fn process_bot_by_exit_sl_client_oid(
         None => {}
     }
 
-    let return_balance: Option<String> =
-        match get_total_match_value_by_client_oid(pool, client_oid).await {
-            Ok(return_balance) => return_balance,
-            Err(e) => {
-                error!("{}", e);
-                return Err(e);
-            }
-        };
+    let return_balance = match get_total_match_value_by_client_oid(pool, client_oid).await {
+        Ok(return_balance) => return_balance,
+        Err(e) => {
+            error!("{}", e);
+            return Err(e);
+        }
+    };
 
     let Some(return_balance) = return_balance else {
         error!("No records found or error occurred");
         return Ok(());
     };
 
-    let return_balance: Decimal =
-        Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
+    let return_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
     if order.side == "buy" {
         let old_balance = match bot.balance_decimal() {
@@ -437,21 +435,19 @@ pub async fn process_bot_by_exit_tp_client_oid(
         }
         None => {}
     }
-    let return_balance: Option<String> =
-        get_total_match_value_by_client_oid(pool, client_oid).await?;
+    let return_balance = get_total_match_value_by_client_oid(pool, client_oid).await?;
 
     let Some(return_balance) = return_balance else {
         error!("No records found or error occurred");
         return Ok(());
     };
 
-    let return_balance: Decimal =
-        Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
+    let return_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
     if order.side == "buy" {
-        let old_balance: Decimal = bot.balance_decimal()?;
+        let old_balance = bot.balance_decimal()?;
 
-        let new_balance: Decimal = old_balance + old_balance - return_balance;
+        let new_balance = old_balance + old_balance - return_balance;
         match update_balance_bot_by_exit_tp_client_oid(
             pool,
             client_oid,
@@ -485,48 +481,46 @@ pub async fn process_bot_by_entry_client_oid(
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
-    let symbol_info: Option<Symbol> = fetch_symbol_info_by_symbol(pool, &order.symbol).await?;
+    let symbol_info = fetch_symbol_info_by_symbol(pool, &order.symbol).await?;
 
     let Some(symbol_info) = symbol_info else {
         anyhow::bail!("Symbol info not found for {}", order.symbol)
     };
 
-    let price_increment: Decimal = symbol_info.price_increment_decimal()?;
+    let price_increment = symbol_info.price_increment_decimal()?;
 
-    let quote_increment: Decimal = symbol_info.quote_increment_decimal()?;
+    let quote_increment = symbol_info.quote_increment_decimal()?;
 
-    let filled_size: Decimal = order.filled_size_decimal()?;
+    let filled_size = order.filled_size_decimal()?;
 
-    let return_balance: Option<String> =
-        get_total_match_value_by_client_oid(pool, client_oid).await?;
+    let return_balance = get_total_match_value_by_client_oid(pool, client_oid).await?;
 
     let Some(return_balance) = return_balance else {
         error!("No records found or error occurred");
         return Ok(());
     };
 
-    let new_balance: Decimal =
-        Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
+    let new_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
     update_bot_balance_by_entry_client_oid(pool, client_oid, &format!("{:.4}", new_balance))
         .await?;
 
     if order.side == "buy" {
-        let tp_buy: Decimal = tp_buy_percent()?;
+        let tp_buy = tp_buy_percent()?;
 
-        let sl_buy: Decimal = sl_buy_percent()?;
+        let sl_buy = sl_buy_percent()?;
 
-        let match_price: Decimal = new_balance / filled_size;
-        let trigger_tp_price: Decimal = match_price * tp_buy; // price + 7%
-        let trigger_sl_price: Decimal = match_price * sl_buy; // price - 5%
+        let match_price = new_balance / filled_size;
+        let trigger_tp_price = match_price * tp_buy; // price + 7%
+        let trigger_sl_price = match_price * sl_buy; // price - 5%
 
-        let exit_tp_client_oid: String = Uuid::new_v4().to_string();
-        let exit_sl_client_oid: String = Uuid::new_v4().to_string();
+        let exit_tp_client_oid = Uuid::new_v4().to_string();
+        let exit_sl_client_oid = Uuid::new_v4().to_string();
 
         // tp order
-        let stop_price_tp: String = format_assert_decimal(trigger_tp_price, price_increment)?;
+        let stop_price_tp = format_assert_decimal(trigger_tp_price, price_increment)?;
 
-        let msg_tp_order: serde_json::Value = serde_json::json!({
+        let msg_tp_order = serde_json::json!({
             "clientOid": exit_tp_client_oid,
             "side": "sell",
             "symbol": order.symbol,
@@ -540,9 +534,9 @@ pub async fn process_bot_by_entry_client_oid(
             "timeInForce": "GTC",
         });
         // sl order
-        let stop_price_sl: String = format_assert_decimal(trigger_sl_price, price_increment)?;
+        let stop_price_sl = format_assert_decimal(trigger_sl_price, price_increment)?;
 
-        let msg_sl_order: serde_json::Value = serde_json::json!({
+        let msg_sl_order = serde_json::json!({
             "clientOid": exit_sl_client_oid,
             "side": "sell",
             "symbol": order.symbol,
@@ -567,11 +561,11 @@ pub async fn process_bot_by_entry_client_oid(
         update_exit_sl_client_oid_bot_by_entry_client_oid(pool, client_oid, &exit_sl_client_oid)
             .await?;
 
-        let msg_tp_order2: String = serialize_body(Some(msg_tp_order))?;
+        let msg_tp_order2 = serialize_body(Some(msg_tp_order))?;
 
         let tp_fut = api_v3_hf_margin_stop_order_post(&msg_tp_order2);
 
-        let msg_sl_order2: String = serialize_body(Some(msg_sl_order))?;
+        let msg_sl_order2 = serialize_body(Some(msg_sl_order))?;
 
         let sl_fut = api_v3_hf_margin_stop_order_post(&msg_sl_order2);
 
@@ -686,7 +680,7 @@ pub async fn process_bot_by_entry_client_oid(
             }
         }
     } else if order.side == "sell" {
-        let tp_sell: Decimal = match tp_sell_percent() {
+        let tp_sell = match tp_sell_percent() {
             Ok(tp_sell) => tp_sell,
             Err(e) => {
                 error!("{}", e);
@@ -694,7 +688,7 @@ pub async fn process_bot_by_entry_client_oid(
             }
         };
 
-        let sl_sell: Decimal = match sl_sell_percent() {
+        let sl_sell = match sl_sell_percent() {
             Ok(sl_sell) => sl_sell,
             Err(e) => {
                 error!("{}", e);
@@ -702,17 +696,17 @@ pub async fn process_bot_by_entry_client_oid(
             }
         };
 
-        let match_price: Decimal = new_balance / filled_size;
-        let trigger_tp_price: Decimal = match_price * tp_sell; // price - 7%
-        let trigger_sl_price: Decimal = match_price * sl_sell; // price + 5%
+        let match_price = new_balance / filled_size;
+        let trigger_tp_price = match_price * tp_sell; // price - 7%
+        let trigger_sl_price = match_price * sl_sell; // price + 5%
 
-        let funds_tp: Decimal = trigger_tp_price * filled_size;
-        let funds_sl: Decimal = trigger_sl_price * filled_size;
+        let funds_tp = trigger_tp_price * filled_size;
+        let funds_sl = trigger_sl_price * filled_size;
 
-        let exit_tp_client_oid: String = Uuid::new_v4().to_string();
-        let exit_sl_client_oid: String = Uuid::new_v4().to_string();
+        let exit_tp_client_oid = Uuid::new_v4().to_string();
+        let exit_sl_client_oid = Uuid::new_v4().to_string();
 
-        let stop_price_tp: String = match format_assert_decimal(trigger_tp_price, price_increment) {
+        let stop_price_tp = match format_assert_decimal(trigger_tp_price, price_increment) {
             Ok(stop_price_tp) => stop_price_tp,
             Err(e) => {
                 anyhow::bail!(
@@ -723,13 +717,13 @@ pub async fn process_bot_by_entry_client_oid(
                 )
             }
         };
-        let funds_tp_str: String = match format_assert_decimal(funds_tp, quote_increment) {
+        let funds_tp_str = match format_assert_decimal(funds_tp, quote_increment) {
             Ok(funds_tp_str) => funds_tp_str,
             Err(e) => {
                 anyhow::bail!("Fail parse:{} {} error:{}", funds_tp, quote_increment, e)
             }
         };
-        let msg_tp_order: serde_json::Value = serde_json::json!({
+        let msg_tp_order = serde_json::json!({
             "clientOid": exit_tp_client_oid,
             "side": "buy",
             "symbol": order.symbol,
@@ -742,7 +736,7 @@ pub async fn process_bot_by_entry_client_oid(
             "timeInForce": "GTC",
             "funds":funds_tp_str,
         });
-        let stop_price_sl: String = match format_assert_decimal(trigger_sl_price, price_increment) {
+        let stop_price_sl = match format_assert_decimal(trigger_sl_price, price_increment) {
             Ok(stop_price_sl) => stop_price_sl,
             Err(e) => {
                 anyhow::bail!(
@@ -753,9 +747,9 @@ pub async fn process_bot_by_entry_client_oid(
                 )
             }
         };
-        let funds_sl_str: String = format_assert_decimal(funds_sl, quote_increment)?;
+        let funds_sl_str = format_assert_decimal(funds_sl, quote_increment)?;
 
-        let msg_sl_order: serde_json::Value = serde_json::json!({
+        let msg_sl_order = serde_json::json!({
             "clientOid": exit_sl_client_oid,
             "side": "buy",
             "symbol": order.symbol,
@@ -801,7 +795,7 @@ pub async fn process_bot_by_entry_client_oid(
             }
         }
 
-        let msg_tp_order2: String = match serialize_body(Some(msg_tp_order)) {
+        let msg_tp_order2 = match serialize_body(Some(msg_tp_order)) {
             Ok(body_str) => body_str,
             Err(e) => {
                 error!("{}", e);
