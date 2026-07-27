@@ -132,7 +132,7 @@ fn init_tracing(pool: sqlx::PgPool) {
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
-    let init_order_execute: bool = true;
+    let init_order_execute = true;
 
     let database_url = get_env("DATABASE_URL")?;
     let init_balance_per_bot = get_env("INIT_BALANCE_PER_BOT")?;
@@ -251,12 +251,12 @@ async fn main() -> Result<()> {
 
     let (tx_in, rx_in) = mpsc::channel::<String>(10000);
 
-    let pool_process: PgPool = pool.clone();
+    let pool_process = pool.clone();
     let _spawn_process_kcn_msg_point =
         tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, rx_in).await });
 
     if !init_order_execute {
-        let pool_init_orders: PgPool = pool.clone();
+        let pool_init_orders = pool.clone();
         tokio::spawn(async move {
             sleep(config::INIT_ORDER_DELAY).await;
             info!("Initializing start orders...");
@@ -311,7 +311,7 @@ async fn main() -> Result<()> {
 
         info!("Subscribed and listening for messages...");
 
-        let event_ping_interval: Interval = interval(config::PING_INTERVAL);
+        let event_ping_interval = interval(config::PING_INTERVAL);
         tokio::pin!(event_ping_interval);
 
         loop {
