@@ -162,7 +162,7 @@ async fn main() -> Result<()> {
         query_params.insert("pageSize", "10");
 
         let open_stop_orders =
-            api_v3_hf_margin_stop_orders_get(&build_query_string(query_params)).await;
+            api_v3_hf_margin_stop_orders_get(&build_query_string(query_params).unwrap()).await;
 
         if let Err(e) = &open_stop_orders {
             error!("{}", e);
@@ -192,13 +192,14 @@ async fn main() -> Result<()> {
 
             query_params.insert("orderId", &stop_order.id);
 
-            let canceled_stop_order =
-                api_v3_hf_margin_stop_order_cancel_by_id_delete(build_query_string(query_params))
-                    .await
-                    .map_err(|e| {
-                        error!("{}", e);
-                        e
-                    })?;
+            let canceled_stop_order = api_v3_hf_margin_stop_order_cancel_by_id_delete(
+                &build_query_string(query_params).unwrap(),
+            )
+            .await
+            .map_err(|e| {
+                error!("{}", e);
+                e
+            })?;
 
             let Some(canceled_stop_order) = canceled_stop_order else {
                 error!("Cancel stop order:{} None", &stop_order.id);

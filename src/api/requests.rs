@@ -84,14 +84,14 @@ impl KuCoinClient {
 
     async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
         &self,
-        query_string_str: String,
+        query_string: &str,
     ) -> Result<String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
         Ok(read_response(
             self.make_request(
                 Method::DELETE,
                 "/api/v3/hf/margin/stop-order/cancel-by-clientOid",
-                &query_string_str,
+                query_string,
                 &String::new(),
                 true,
             )
@@ -101,14 +101,14 @@ impl KuCoinClient {
     }
     async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
         &self,
-        query_string_str: String,
+        query_string: &str,
     ) -> Result<String> {
         // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
         Ok(read_response(
             self.make_request(
                 Method::DELETE,
                 "/api/v3/hf/margin/stop-order/cancel-by-id",
-                &query_string_str,
+                query_string,
                 &String::new(),
                 true,
             )
@@ -297,9 +297,9 @@ pub fn serialize_body(body: Option<serde_json::Value>) -> Result<String> {
     Ok(serde_json::to_string(&clear_value)
         .with_context(|| format!("Failed to deserialize body '{}'", clear_value))?)
 }
-pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
+pub fn build_query_string(query_params: Map<&str, &str, 8>) -> Result<String> {
     if query_params.is_empty() {
-        return String::new();
+        return Ok(String::new());
     }
 
     let mut params: SmallVec<[(&str, &str); 8]> = query_params.into_iter().collect();
@@ -321,7 +321,7 @@ pub fn build_query_string(query_params: Map<&str, &str, 8>) -> String {
         result.push('=');
         result.push_str(&encode(v));
     }
-    result
+    Ok(result)
 }
 fn get_client() -> Result<&'static KuCoinClient> {
     KUCLIENT
@@ -400,10 +400,10 @@ pub async fn api_v3_margin_accounts_get(query_params: &str) -> Result<MarginAcco
     }
 }
 pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
-    query_string_str: String,
+    query_string: &str,
 ) -> Result<Option<ApiV3HfMarginStopOrderCancelByIdResData>> {
     let response_string = get_client()?
-        .api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string_str)
+        .api_v3_hf_margin_stop_order_cancel_by_id_delete(query_string)
         .await?;
 
     let response = serde_json::from_str::<ApiV3HfMarginStopOrderCancelByIdRes>(&response_string)
@@ -427,10 +427,10 @@ pub async fn api_v3_hf_margin_stop_order_cancel_by_id_delete(
     }
 }
 pub async fn api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-    query_string_str: String,
+    query_string: &str,
 ) -> Result<Option<ApiV3HfMarginStopOrderCancelByClientOidResData>> {
     let response_string = get_client()?
-        .api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_string_str)
+        .api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(query_string)
         .await?;
 
     let response =
