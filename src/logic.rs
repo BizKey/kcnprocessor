@@ -212,13 +212,17 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
         if token_liability > Decimal::ZERO {
             passed = false;
             if token_available >= token_liability {
-                let size: String = format_assert_decimal(token_liability, precision_decimal)?;
-
-                repay_account(&account.currency, &size).await?;
+                repay_account(
+                    &account.currency,
+                    &format_assert_decimal(token_liability, precision_decimal)?,
+                )
+                .await?;
             } else if token_available > Decimal::ZERO {
-                let size: String = format_assert_decimal(token_available, precision_decimal)?;
-
-                repay_account(&account.currency, &size).await?;
+                repay_account(
+                    &account.currency,
+                    &format_assert_decimal(token_available, precision_decimal)?,
+                )
+                .await?;
             } else if account.currency != "USDT" && token_available == Decimal::ZERO {
                 let trade_symbol: String = format!("{}-USDT", &account.currency);
 
