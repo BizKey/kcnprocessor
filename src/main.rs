@@ -158,20 +158,32 @@ async fn main() -> Result<()> {
 
     loop {
         sleep(config::DELETE_STOP_ORDER_DELAY).await;
+
         let mut query_params: Map<&str, &str, 8> = Map::new();
         query_params.insert("pageSize", "10");
 
-        let open_stop_orders =
-            api_v3_hf_margin_stop_orders_get(&build_query_string(query_params).unwrap()).await;
+        let query_params = match build_query_string(query_params) {
+            Ok(query_params) => query_params,
+            Err(e) => {
+                error!("{}", e);
+                continue;
+            }
+        };
 
-        if let Err(e) = &open_stop_orders {
-            error!("{}", e);
-            sleep(config::RECONNECT_DELAY).await;
-            continue;
-        }
+        let open_stop_orders = match api_v3_hf_margin_stop_orders_get(&query_params).await {
+            Ok(open_stop_orders) => open_stop_orders,
+            Err(e) => {
+                error!("{}", e);
+                continue;
+            }
+        };
 
-        let Ok(Some(open_stop_orders_data)) = open_stop_orders else {
-            anyhow::bail!("Fail get list open stop orders:None")
+        let open_stop_orders_data = match open_stop_orders {
+            Some(open_stop_orders_data) => open_stop_orders_data,
+            None => {
+                error!("Fail get list open stop orders:None");
+                continue;
+            }
         };
 
         info!(
@@ -188,22 +200,33 @@ async fn main() -> Result<()> {
 
         for stop_order in open_stop_orders_data.items {
             info!("Stop order:{}", stop_order);
-            let mut query_params: Map<&str, &str, 8> = Map::new();
 
+            let mut query_params: Map<&str, &str, 8> = Map::new();
             query_params.insert("orderId", &stop_order.id);
 
-            let canceled_stop_order = api_v3_hf_margin_stop_order_cancel_by_id_delete(
-                &build_query_string(query_params).unwrap(),
-            )
-            .await
-            .map_err(|e| {
-                error!("{}", e);
-                e
-            })?;
+            let query_params = match build_query_string(query_params) {
+                Ok(query_params) => query_params,
+                Err(e) => {
+                    error!("{}", e);
+                    continue;
+                }
+            };
 
-            let Some(canceled_stop_order) = canceled_stop_order else {
-                error!("Cancel stop order:{} None", &stop_order.id);
-                continue;
+            let canceled_stop_order =
+                match api_v3_hf_margin_stop_order_cancel_by_id_delete(&query_params).await {
+                    Ok(canceled_stop_order) => canceled_stop_order,
+                    Err(e) => {
+                        error!("{}", e);
+                        continue;
+                    }
+                };
+
+            let canceled_stop_order = match canceled_stop_order {
+                Some(canceled_stop_order) => canceled_stop_order,
+                None => {
+                    error!("Cancel stop order:{} None", &stop_order.id);
+                    continue;
+                }
             };
 
             for st_order in canceled_stop_order.cancelled_order_ids {

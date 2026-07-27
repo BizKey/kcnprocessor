@@ -145,7 +145,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
     query_params.insert("quoteCurrency", "USDT");
     query_params.insert("queryType", "MARGIN");
 
-    Ok(api_v3_margin_accounts_get(&build_query_string(query_params).unwrap()).await?)
+    Ok(api_v3_margin_accounts_get(&build_query_string(query_params)?).await?)
 }
 
 pub async fn repay_account(currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>> {
@@ -165,7 +165,7 @@ pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookL
     query_params.insert("symbol", trade_symbol);
 
     let token_price: Option<ApiV1MarketOrderbookLevel1ResData> =
-        api_v1_market_orderbook_level1_get(&build_query_string(query_params).unwrap()).await?;
+        api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
 
     let Some(token_price) = token_price else {
         anyhow::bail!("Fail get token_price:{:?}", token_price)
@@ -356,9 +356,9 @@ pub async fn process_bot_by_exit_sl_client_oid(
 
             query_params.insert("clientOid", exit_tp_client_oid);
 
-            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                &build_query_string(query_params).unwrap(),
-            )
+            match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(
+                query_params,
+            )?)
             .await
             {
                 Ok(_) => {
@@ -444,9 +444,9 @@ pub async fn process_bot_by_exit_tp_client_oid(
 
             query_params.insert("clientOid", exit_sl_client_oid);
 
-            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                &build_query_string(query_params).unwrap(),
-            )
+            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(
+                query_params,
+            )?)
             .await?;
 
             info!("Successfully cancel stop order :{}", &exit_sl_client_oid);
@@ -637,7 +637,7 @@ pub async fn process_bot_by_entry_client_oid(
                         query_params.insert("clientOid", &response_data.client_oid);
 
                         api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                            &build_query_string(query_params).unwrap(),
+                            &build_query_string(query_params)?,
                         )
                         .await?;
                     }
@@ -667,7 +667,7 @@ pub async fn process_bot_by_entry_client_oid(
                         query_params.insert("clientOid", &response_data.client_oid);
 
                         match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                            &build_query_string(query_params).unwrap(),
+                            &build_query_string(query_params)?,
                         )
                         .await
                         {
@@ -884,7 +884,7 @@ pub async fn process_bot_by_entry_client_oid(
 
                         query_params.insert("clientOid", &response_data.client_oid);
                         match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                            &build_query_string(query_params).unwrap(),
+                            &build_query_string(query_params)?,
                         )
                         .await
                         {
@@ -917,7 +917,7 @@ pub async fn process_bot_by_entry_client_oid(
 
                     query_params.insert("clientOid", &response_data.client_oid);
                     match api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(
-                        &build_query_string(query_params).unwrap(),
+                        &build_query_string(query_params)?,
                     )
                     .await
                     {
@@ -1383,8 +1383,7 @@ pub async fn make_random_trade(
                 query_params.insert("symbol", &tradeable_symbol);
 
                 let token_price_obj =
-                    api_v1_market_orderbook_level1_get(&build_query_string(query_params).unwrap())
-                        .await?;
+                    api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
 
                 let Some(token_price_obj) = token_price_obj else {
                     anyhow::bail!("")
