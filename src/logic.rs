@@ -88,7 +88,7 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
 }
 
 pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
-    let trade_bots: Vec<Bot> = match get_all_bots_for_trade(pool).await {
+    let trade_bots = match get_all_bots_for_trade(pool).await {
         Ok(trade_bots) => trade_bots,
         Err(e) => {
             error!("{}", e);
@@ -98,7 +98,7 @@ pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
 
     for trade_bot in trade_bots.iter() {
         sleep(BOT_INIT_DELAY).await;
-        let token_funds: Decimal = match trade_bot.balance_decimal() {
+        let token_funds = match trade_bot.balance_decimal() {
             Ok(token_funds) => token_funds,
             Err(e) => {
                 error!("{}", e);
@@ -126,7 +126,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
 
 pub async fn repay_account(currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>> {
     info!("Repay {} liability:{}", size, currency);
-    let body_str: String = serialize_body(Some(serde_json::json!({
+    let body_str = serialize_body(Some(serde_json::json!({
         "currency": currency,
         "size": size,
         "isIsolated": false,
@@ -152,9 +152,9 @@ pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookL
 }
 
 pub async fn transfer_amount(currency: &str, amount: &str) -> Result<()> {
-    let client_oid: String = Uuid::new_v4().to_string();
+    let client_oid = Uuid::new_v4().to_string();
 
-    let body_str: String = serialize_body(Some(serde_json::json!({
+    let body_str = serialize_body(Some(serde_json::json!({
         "currency": currency,
         "clientOid": client_oid,
         "amount": amount,
@@ -173,7 +173,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
     let accounts = get_all_accounts_data().await?;
 
-    let mut passed: bool = true;
+    let mut passed = true;
     for account in accounts.accounts.iter() {
         let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
 
@@ -804,7 +804,7 @@ pub async fn process_bot_by_entry_client_oid(
         };
         let tp_fut = api_v3_hf_margin_stop_order_post(&msg_tp_order2);
 
-        let msg_sl_order2: String = match serialize_body(Some(msg_sl_order)) {
+        let msg_sl_order2 = match serialize_body(Some(msg_sl_order)) {
             Ok(body_str) => body_str,
             Err(e) => {
                 error!("{}", e);
@@ -984,7 +984,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<()> {
-    let debt_pair: Vec<(String, Decimal)> = match position.debt_pairs() {
+    let debt_pair = match position.debt_pairs() {
         Err(e) => return Err(e),
         Ok(debt_pair) => debt_pair,
     };
@@ -995,7 +995,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
             continue;
         };
 
-        let token_available: Decimal = asset_info.available_decimal()?;
+        let token_available = asset_info.available_decimal()?;
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
             let currency_info = fetch_currency_info_by_symbol(pool, &asset).await?;
@@ -1004,9 +1004,9 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
                 anyhow::bail!("Currency info not found for {}", asset)
             };
 
-            let precision_decimal: Decimal = currency_info.precision_decimal()?;
+            let precision_decimal = currency_info.precision_decimal()?;
 
-            let size: String =
+            let size =
                 format_assert_decimal(token_liability.min(token_available), precision_decimal)?;
 
             repay_account(&asset, &size).await?;
@@ -1055,7 +1055,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
     error!("Got error on stop order : {}", order);
 
     const MAX_RETRIES: u32 = 1000;
-    let mut attempt: u32 = 0;
+    let mut attempt = 0;
 
     loop {
         sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
@@ -1068,9 +1068,9 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
         let stop_ref = &order.stop;
         let side_ref = &order.side;
         let symbol_ref = &order.symbol;
-        let funds_clone: Option<String> = order.funds.clone();
-        let size_clone: Option<String> = order.size.clone();
-        let new_exit_client_oid: String = Uuid::new_v4().to_string();
+        let funds_clone = order.funds.clone();
+        let size_clone = order.size.clone();
+        let new_exit_client_oid = Uuid::new_v4().to_string();
 
         let order_result = match stop_ref.as_str() {
             "loss" => {
@@ -1237,9 +1237,9 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
 }
 
 pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
-    let event: KuCoinMessage = serde_json::from_str::<KuCoinMessage>(msg)?;
+    let event = serde_json::from_str::<KuCoinMessage>(msg)?;
 
-    let data: MessageData = match event {
+    let data = match event {
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => {
                 insert_db_event(pool, &data).await?;
@@ -1311,7 +1311,7 @@ pub async fn make_random_trade(
     trade_bot_id: i32,
 ) -> Result<()> {
     const MAX_RETRIES: u32 = 10;
-    let mut attempt: u32 = 0;
+    let mut attempt = 0;
 
     loop {
         if attempt >= MAX_RETRIES {
@@ -1320,22 +1320,21 @@ pub async fn make_random_trade(
         sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
-        let tradeable_symbol: Option<String> = get_random_symbol(pool).await?;
+        let tradeable_symbol = get_random_symbol(pool).await?;
 
         let Some(tradeable_symbol) = tradeable_symbol else {
             error!("Failed get_random_symbol:");
             continue;
         };
 
-        let symbol_info: Option<Symbol> =
-            fetch_symbol_info_by_symbol(pool, &tradeable_symbol).await?;
+        let symbol_info = fetch_symbol_info_by_symbol(pool, &tradeable_symbol).await?;
 
         let Some(symbol_info) = symbol_info else {
             error!("Symbol info not found for {}", tradeable_symbol);
             continue;
         };
 
-        let entry_client_oid: String = Uuid::new_v4().to_string();
+        let entry_client_oid = Uuid::new_v4().to_string();
 
         match update_bot_entry_client_oid_by_id(
             pool,
@@ -1455,7 +1454,7 @@ pub async fn make_hf_funds_margin_order(
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
     // only for buy orders
-    let args_time_in_force: &str = "GTC";
+    let args_time_in_force = "GTC";
 
     insert_db_msgsend(
         pool,
@@ -1485,7 +1484,7 @@ pub async fn make_hf_funds_margin_order(
     });
     info!("{}", msg);
 
-    let body_str: String = serialize_body(Some(msg))?;
+    let body_str = serialize_body(Some(msg))?;
 
     let data = api_v3_hf_margin_order_post(&body_str).await?;
 
@@ -1505,7 +1504,7 @@ pub async fn make_hf_size_margin_order(
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
     // only for sell orders
-    let args_time_in_force: &str = "GTC";
+    let args_time_in_force = "GTC";
 
     insert_db_msgsend(
         pool,
@@ -1548,14 +1547,14 @@ mod tests {
     #[test]
     fn test_format_assert_decimal_real_data() {
         // Increment = 1000 (precision 0)
-        let inc_1000: Decimal = Decimal::from_str("1000").unwrap();
+        let inc_1000 = Decimal::from_str("1000").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("1234.56").unwrap(), inc_1000).unwrap(),
             "1000".to_string()
         );
 
         // Increment = 100 (precision 0)
-        let inc_100: Decimal = Decimal::from_str("100").unwrap();
+        let inc_100 = Decimal::from_str("100").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_100).unwrap(),
             "100".to_string()
@@ -1570,7 +1569,7 @@ mod tests {
         );
 
         // Increment = 50 (precision 0)
-        let inc_50: Decimal = Decimal::from_str("50").unwrap();
+        let inc_50 = Decimal::from_str("50").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_50).unwrap(),
             "100".to_string()
@@ -1585,7 +1584,7 @@ mod tests {
         );
 
         // Increment = 10 (precision 0)
-        let inc_10: Decimal = Decimal::from_str("10").unwrap();
+        let inc_10 = Decimal::from_str("10").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_10).unwrap(),
             "120".to_string()
@@ -1596,7 +1595,7 @@ mod tests {
         );
 
         // Increment = 1 (precision 0)
-        let inc_1: Decimal = Decimal::from_str("1").unwrap();
+        let inc_1 = Decimal::from_str("1").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1).unwrap(),
             "123".to_string()
@@ -1607,7 +1606,7 @@ mod tests {
         );
 
         // Increment = 0.1 (precision 1)
-        let inc_1: Decimal = Decimal::from_str("0.1").unwrap();
+        let inc_1 = Decimal::from_str("0.1").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1).unwrap(),
             "123.4".to_string()
@@ -1618,7 +1617,7 @@ mod tests {
         );
 
         // Increment = 0.01 (precision 2)
-        let inc_2: Decimal = Decimal::from_str("0.01").unwrap();
+        let inc_2 = Decimal::from_str("0.01").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_2).unwrap(),
             "123.45".to_string()
@@ -1629,35 +1628,35 @@ mod tests {
         );
 
         // Increment = 0.001 (precision 3)
-        let inc_3: Decimal = Decimal::from_str("0.001").unwrap();
+        let inc_3 = Decimal::from_str("0.001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.4567").unwrap(), inc_3).unwrap(),
             "123.456".to_string()
         );
 
         // Increment = 0.0001 (precision 4)
-        let inc_4: Decimal = Decimal::from_str("0.0001").unwrap();
+        let inc_4 = Decimal::from_str("0.0001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_4).unwrap(),
             "123.4567".to_string()
         );
 
         // Increment = 0.0001 (precision 5)
-        let inc_5: Decimal = Decimal::from_str("0.00001").unwrap();
+        let inc_5 = Decimal::from_str("0.00001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_5).unwrap(),
             "123.45678".to_string()
         );
 
         // Increment = 0.000001 (precision 6)
-        let inc_6: Decimal = Decimal::from_str("0.000001").unwrap();
+        let inc_6 = Decimal::from_str("0.000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456789").unwrap(), inc_6).unwrap(),
             "123.456789".to_string()
         );
 
         // Increment = 0.0000001 (precision 7)
-        let inc_7: Decimal = Decimal::from_str("0.0000001").unwrap();
+        let inc_7 = Decimal::from_str("0.0000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.4567891").unwrap(), inc_7).unwrap(),
             "123.4567891".to_string()
@@ -1668,14 +1667,14 @@ mod tests {
         );
 
         // Increment = 0.00000001 (precision 8)
-        let inc_8: Decimal = Decimal::from_str("0.00000001").unwrap();
+        let inc_8 = Decimal::from_str("0.00000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("0.123456789").unwrap(), inc_8).unwrap(),
             "0.12345678".to_string()
         );
 
         // Increment = 0.000000001 (precision 9)
-        let inc_9: Decimal = Decimal::from_str("0.000000001").unwrap();
+        let inc_9 = Decimal::from_str("0.000000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("0.00000000123").unwrap(), inc_9).unwrap(),
             "0.000000001".to_string()
