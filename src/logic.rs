@@ -171,10 +171,8 @@ pub async fn transfer_amount(currency: &str, amount: &str) -> Result<()> {
 pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
     sleep(AUTO_CLEAN_DELAY).await;
 
-    let accounts = get_all_accounts_data().await?;
-
     let mut passed = true;
-    for account in accounts.accounts.iter() {
+    for account in get_all_accounts_data().await?.accounts.iter() {
         let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
 
         let currency_info = match currency_info {
@@ -183,25 +181,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
         };
 
         let precision_decimal = currency_info.precision_decimal()?;
-
-        let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
-
-        let symbol_info = match symbol_info {
-            Some(symbol_info) => symbol_info,
-            None => {
-                anyhow::bail!("Symbol info not found for {}", &account.currency)
-            }
-        };
-
-        let quote_increment = symbol_info.quote_increment_decimal()?;
-
-        let min_funds = symbol_info.min_funds_decimal()?;
-
-        let base_min_size = symbol_info.base_min_size_decimal()?;
-
-        let base_increment = symbol_info.base_increment_decimal()?;
-
-        let quote_min_size = symbol_info.quote_min_size_decimal()?;
 
         let token_liability = account.liability_decimal()?;
 
@@ -232,6 +211,25 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                     "Successfully get token:{} ask price:{}",
                     trade_symbol, best_ask_token_price
                 );
+
+                let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
+
+                let symbol_info = match symbol_info {
+                    Some(symbol_info) => symbol_info,
+                    None => {
+                        anyhow::bail!("Symbol info not found for {}", &account.currency)
+                    }
+                };
+
+                let quote_increment = symbol_info.quote_increment_decimal()?;
+
+                let min_funds = symbol_info.min_funds_decimal()?;
+
+                let base_min_size = symbol_info.base_min_size_decimal()?;
+
+                let quote_min_size = symbol_info.quote_min_size_decimal()?;
+
+                let base_increment = symbol_info.base_increment_decimal()?;
 
                 let token_funds = best_ask_token_price * token_liability;
 
@@ -281,6 +279,25 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 "Successfully get token:{} price:{}",
                 &trade_symbol, best_bid_token_price
             );
+
+            let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
+
+            let symbol_info = match symbol_info {
+                Some(symbol_info) => symbol_info,
+                None => {
+                    anyhow::bail!("Symbol info not found for {}", &account.currency)
+                }
+            };
+
+            let quote_increment = symbol_info.quote_increment_decimal()?;
+
+            let min_funds = symbol_info.min_funds_decimal()?;
+
+            let base_min_size = symbol_info.base_min_size_decimal()?;
+
+            let quote_min_size = symbol_info.quote_min_size_decimal()?;
+
+            let base_increment = symbol_info.base_increment_decimal()?;
 
             let token_funds = best_bid_token_price * token_available;
 
