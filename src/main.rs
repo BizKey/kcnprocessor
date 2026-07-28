@@ -336,8 +336,10 @@ async fn main() -> Result<()> {
                 }
 
                 event = event_ws_read.next() => {
-                    let Some(event) = event else {error!("WebSocket stream ended");
-                            break};
+                    let Some(event) = event else {
+                        error!("WebSocket stream ended");
+                        break
+                    };
 
                     let event = match event {
                         Ok(e) => e,
@@ -347,13 +349,26 @@ async fn main() -> Result<()> {
                         }
                     };
 
-
                     match event {
                         Message::Text(text) => match tx_in.send(text.to_string()).await {
                             Ok(_) => {}
                             Err(e) => {
                                 error!("Failed to send to handler, reconnecting...{}", e);
                                 break;
+                            }
+                        }
+                        Message::Binary(data) => {
+                            match String::from_utf8(data.to_vec()) {
+                                Ok(text) => {
+                                    if let Err(e) = tx_in.send(text).await {
+                                        error!("Failed to send to handler: {}", e);
+                                        break;
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Binary data is not valid UTF-8: {}", e);
+                                    break;
+                                }
                             }
                         }
                         Message::Ping(data) => match event_ws_write.send(Message::Pong(data)).await {
@@ -368,7 +383,7 @@ async fn main() -> Result<()> {
                             break
                         }
                         _ => {
-                            error!("Unexpected msg:{}", event);
+                            error!("Unexpected msg:{:?}", event);
                             break
                         }
                     }
