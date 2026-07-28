@@ -150,7 +150,7 @@ async fn main() -> Result<()> {
 
     // clear orders ids for bots
     if let Err(e) = wipe_bots_info(&pool, &init_balance_per_bot).await {
-        error!("{:.?}", e);
+        error!("{:#}", e);
         anyhow::bail!(e);
     };
 
@@ -165,7 +165,7 @@ async fn main() -> Result<()> {
         let query_params = match build_query_string(query_params) {
             Ok(query_params) => query_params,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 continue;
             }
         };
@@ -173,7 +173,7 @@ async fn main() -> Result<()> {
         let open_stop_orders = match api_v3_hf_margin_stop_orders_get(&query_params).await {
             Ok(open_stop_orders) => open_stop_orders,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 continue;
             }
         };
@@ -207,7 +207,7 @@ async fn main() -> Result<()> {
             let query_params = match build_query_string(query_params) {
                 Ok(query_params) => query_params,
                 Err(e) => {
-                    error!("{:.?}", e);
+                    error!("{:#}", e);
                     continue;
                 }
             };
@@ -216,7 +216,7 @@ async fn main() -> Result<()> {
                 match api_v3_hf_margin_stop_order_cancel_by_id_delete(&query_params).await {
                     Ok(canceled_stop_order) => canceled_stop_order,
                     Err(e) => {
-                        error!("{:.?}", e);
+                        error!("{:#}", e);
                         continue;
                     }
                 };
@@ -240,7 +240,7 @@ async fn main() -> Result<()> {
         let is_completed = match auto_clean_account(&pool).await {
             Ok(is_completed) => is_completed,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 continue;
             }
         };
@@ -264,7 +264,7 @@ async fn main() -> Result<()> {
             match create_init_orders(&pool_init_orders).await {
                 Ok(_) => {}
                 Err(e) => {
-                    error!("{:.?}", e);
+                    error!("{:#}", e);
                 }
             }
         });
@@ -276,7 +276,7 @@ async fn main() -> Result<()> {
         let event_ws_url = match api_v1_bullet_private_post().await {
             Ok(event_ws_url) => event_ws_url,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 continue;
             }
         };
@@ -284,7 +284,7 @@ async fn main() -> Result<()> {
         let (stream, _) = match connect_async(event_ws_url).await {
             Ok(stream) => stream,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 continue;
             }
         };
