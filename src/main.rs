@@ -271,19 +271,25 @@ async fn main() -> Result<()> {
     }
 
     loop {
+        sleep(config::RECONNECT_DELAY).await;
         // Position/Orders/Balance/AdvancedOrders WS
-        let event_ws_url = api_v1_bullet_private_post().await.map_err(|e| {
-            error!("{}", e);
-            e
-        })?;
-
-        let (mut event_ws_write, mut event_ws_read) = match connect_async(event_ws_url).await {
-            Ok((stream, _)) => stream.split(),
+        let event_ws_url = match api_v1_bullet_private_post().await {
+            Ok(event_ws_url) => event_ws_url,
             Err(e) => {
-                sleep(config::RECONNECT_DELAY).await;
+                error!("{}", e);
                 continue;
             }
         };
+
+        let (stream, _) = match connect_async(event_ws_url).await {
+            Ok(stream) => stream,
+            Err(e) => {
+                error!("{}", e);
+                continue;
+            }
+        };
+
+        let (mut event_ws_write, mut event_ws_read) = stream.split();
 
         // subscribtion
         if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string())).await {
