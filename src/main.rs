@@ -245,6 +245,7 @@ async fn main() -> Result<()> {
             }
         };
         if is_completed {
+            info!("auto_clean_account success");
             break;
         }
     }

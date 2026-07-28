@@ -18,6 +18,7 @@ use smallvec::SmallVec;
 use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::info;
 use urlencoding::encode;
 type HmacSha256 = Hmac<Sha256>;
 
@@ -270,7 +271,10 @@ impl KuCoinClient {
         }
 
         match request_builder.send().await {
-            Ok(response) => Ok(response),
+            Ok(response) => {
+                info!("HTTP:{}:{}", endpoint, response.status().as_u16());
+                Ok(response)
+            }
             Err(e) => {
                 if e.is_timeout() {
                     anyhow::bail!("Timeout {}: {}", url, e)
