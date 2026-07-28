@@ -116,6 +116,7 @@ where
 fn init_tracing(pool: sqlx::PgPool) {
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(true)
+        .with_line_number(true)
         .with_thread_ids(true);
 
     let filter_layer = EnvFilter::from_default_env();
