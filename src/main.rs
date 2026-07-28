@@ -336,9 +336,13 @@ async fn main() -> Result<()> {
                 }
 
                 event = event_ws_read.next() => {
-                    let Some(event) = event else {
-                        error!("WebSocket stream ended");
-                        break
+
+                    let event = match event {
+                        Some(event) => event,
+                        None => {
+                            error!("WebSocket event is None");
+                            break
+                        }
                     };
 
                     let event = match event {
