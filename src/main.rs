@@ -18,7 +18,7 @@ use bytes::Bytes;
 use dotenvy::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use micromap::Map;
-use sqlx::PgPool;
+
 use std::sync::mpsc::{Sender, channel};
 use std::thread;
 use tracing::{
@@ -36,7 +36,7 @@ use tracing_subscriber::{
 
 use sqlx::postgres::PgPoolOptions;
 use tokio::sync::mpsc;
-use tokio::time::{Duration, Interval, interval, sleep};
+use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 struct MessageVisitor {
