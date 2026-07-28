@@ -16,8 +16,7 @@ use crate::api::db::{
 };
 use crate::api::models::{
     AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot,
-    KuCoinMessage, MakeOrderResData, MarginAccountData, MessageData, OrderData, PositionData,
-    Symbol,
+    KuCoinMessage, MakeOrderResData, MarginAccountData, OrderData, PositionData,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
