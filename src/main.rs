@@ -357,20 +357,7 @@ async fn main() -> Result<()> {
                                 break;
                             }
                         }
-                        Message::Binary(data) => {
-                            match String::from_utf8(data.to_vec()) {
-                                Ok(text) => {
-                                    if let Err(e) = tx_in.send(text).await {
-                                        error!("Failed to send to handler: {}", e);
-                                        break;
-                                    }
-                                }
-                                Err(e) => {
-                                    error!("Binary data is not valid UTF-8: {}", e);
-                                    break;
-                                }
-                            }
-                        }
+                        Message::Pong(_) => {}
                         Message::Ping(data) => match event_ws_write.send(Message::Pong(data)).await {
                             Ok(_) => {},
                             Err(e) => {
