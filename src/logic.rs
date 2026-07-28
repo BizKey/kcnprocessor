@@ -90,7 +90,7 @@ pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
     let trade_bots = match get_all_bots_for_trade(pool).await {
         Ok(trade_bots) => trade_bots,
         Err(e) => {
-            error!("{:.?}", e);
+            error!("{:#}", e);
             return Err(e);
         }
     };
@@ -100,14 +100,14 @@ pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
         let token_funds = match trade_bot.balance_decimal() {
             Ok(token_funds) => token_funds,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 continue;
             }
         };
         match make_random_trade(pool, token_funds, trade_bot.id).await {
             Ok(_) => {}
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
             }
         }
     }
@@ -261,7 +261,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             let token_price_data = match get_token_price(&trade_symbol).await {
                 Ok(token_price_data) => token_price_data,
                 Err(e) => {
-                    error!("{:.?}", e);
+                    error!("{:#}", e);
                     return Err(e);
                 }
             };
@@ -269,7 +269,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             let best_bid_token_price = match token_price_data.best_bid_decimal() {
                 Ok(best_bid_token_price) => best_bid_token_price,
                 Err(e) => {
-                    error!("{:.?}", e);
+                    error!("{:#}", e);
                     return Err(e);
                 }
             };
@@ -337,7 +337,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
 ) -> Result<()> {
     match delete_exit_sl_id_bot_by_client_oid(pool, client_oid).await {
         Err(e) => {
-            error!("{:.?}", e);
+            error!("{:#}", e);
             return Err(e);
         }
         Ok(_) => {}
@@ -348,7 +348,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             match delete_exit_tp_id_bot_by_client_oid(pool, exit_tp_client_oid).await {
                 Ok(_) => {}
                 Err(e) => {
-                    error!("{:.?}", e);
+                    error!("{:#}", e);
                     return Err(e);
                 }
             }
@@ -365,7 +365,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
                     info!("Successfully cancel stop order :{}", &exit_tp_client_oid);
                 }
                 Err(e) => {
-                    error!("{:.?}", e);
+                    error!("{:#}", e);
                     return Err(e);
                 }
             }
@@ -376,7 +376,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
     let return_balance = match get_total_match_value_by_client_oid(pool, client_oid).await {
         Ok(return_balance) => return_balance,
         Err(e) => {
-            error!("{:.?}", e);
+            error!("{:#}", e);
             return Err(e);
         }
     };
@@ -392,7 +392,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
         let old_balance = match bot.balance_decimal() {
             Ok(old_balance) => old_balance,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 return Err(e);
             }
         };
@@ -406,7 +406,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 return Err(e);
             }
         }
@@ -473,7 +473,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
             }
         }
         // create new random order
@@ -599,7 +599,7 @@ pub async fn process_bot_by_entry_client_oid(
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            error!("{:.?}", e);
+                            error!("{:#}", e);
                             return Err(e);
                         }
                     },
@@ -641,7 +641,7 @@ pub async fn process_bot_by_entry_client_oid(
                 match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        error!("{:.?}", e);
+                        error!("{:#}", e);
                         return Err(e);
                     }
                 }
@@ -667,7 +667,7 @@ pub async fn process_bot_by_entry_client_oid(
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                error!("{:.?}", e);
+                                error!("{:#}", e);
                                 return Err(e);
                             }
                         }
@@ -699,7 +699,7 @@ pub async fn process_bot_by_entry_client_oid(
         let tp_sell = match tp_sell_percent() {
             Ok(tp_sell) => tp_sell,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 return Err(e);
             }
         };
@@ -707,7 +707,7 @@ pub async fn process_bot_by_entry_client_oid(
         let sl_sell = match sl_sell_percent() {
             Ok(sl_sell) => sl_sell,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 return Err(e);
             }
         };
@@ -792,7 +792,7 @@ pub async fn process_bot_by_entry_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 return Err(e);
             }
         }
@@ -806,7 +806,7 @@ pub async fn process_bot_by_entry_client_oid(
         {
             Ok(_) => {}
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 return Err(e);
             }
         }
@@ -814,7 +814,7 @@ pub async fn process_bot_by_entry_client_oid(
         let msg_tp_order2 = match serialize_body(Some(msg_tp_order)) {
             Ok(body_str) => body_str,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 return Err(e);
             }
         };
@@ -823,7 +823,7 @@ pub async fn process_bot_by_entry_client_oid(
         let msg_sl_order2 = match serialize_body(Some(msg_sl_order)) {
             Ok(body_str) => body_str,
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 return Err(e);
             }
         };
@@ -842,7 +842,7 @@ pub async fn process_bot_by_entry_client_oid(
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            error!("{:.?}", e);
+                            error!("{:#}", e);
                             return Err(e);
                         }
                     },
@@ -859,7 +859,7 @@ pub async fn process_bot_by_entry_client_oid(
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            error!("{:.?}", e);
+                            error!("{:#}", e);
                             return Err(e);
                         }
                     },
@@ -884,7 +884,7 @@ pub async fn process_bot_by_entry_client_oid(
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                error!("{:.?}", e);
+                                error!("{:#}", e);
                                 return Err(e);
                             }
                         }
@@ -895,7 +895,7 @@ pub async fn process_bot_by_entry_client_oid(
                 match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
                     Ok(_) => {}
                     Err(e) => {
-                        error!("{:.?}", e);
+                        error!("{:#}", e);
                         return Err(e);
                     }
                 }
@@ -921,7 +921,7 @@ pub async fn process_bot_by_entry_client_oid(
                             {}
                         }
                         Err(e) => {
-                            error!("{:.?}", e);
+                            error!("{:#}", e);
                             return Err(e);
                         }
                     }
@@ -1040,7 +1040,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
     {
         Ok(_) => {}
         Err(e) => {
-            error!("{:.?}", e);
+            error!("{:#}", e);
             return Err(e);
         }
     };
@@ -1153,7 +1153,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                         }
                     },
                     Err(e) => {
-                        error!("{:.?}", e);
+                        error!("{:#}", e);
                         continue;
                     }
                 }
@@ -1219,7 +1219,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                         }
                     },
                     Err(e) => {
-                        error!("{:.?}", e);
+                        error!("{:#}", e);
                         continue;
                     }
                 }
@@ -1275,7 +1275,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
             Ok(data) => match insert_db_event(pool, &data).await {
                 Ok(_) => return Ok(()),
                 Err(e) => {
-                    error!("{:.?}", e);
+                    error!("{:#}", e);
                     return Err(e);
                 }
             },
@@ -1362,7 +1362,7 @@ pub async fn make_random_trade(
         {
             Ok(_) => {}
             Err(e) => {
-                error!("{:.?}", e);
+                error!("{:#}", e);
                 continue;
             }
         }
@@ -1453,7 +1453,7 @@ pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::
         };
 
         if let Err(e) = process_kcn_msg(pool, &msg).await {
-            error!("{:.?}", e);
+            error!("{:#}", e);
         }
     }
     info!("Message processor stopped");
