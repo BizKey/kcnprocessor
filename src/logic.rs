@@ -211,11 +211,12 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
         let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
         let currency_info = match currency_info {
-            Some(currency_info) => currency_info,
+            Some(currency_info) => {
+                info!("Get currency info:{}", &account.currency);
+                currency_info
+            }
             None => anyhow::bail!("Currency info not found for {}", account.currency),
         };
-
-        info!("Get currency info:{}", &account.currency);
 
         let precision_decimal = currency_info.precision_decimal()?;
 
@@ -223,15 +224,27 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             if token_available >= token_liability {
                 // full repay
                 let size = &format_assert_decimal(token_liability, precision_decimal)?;
-                repay_account(&account.currency, size).await?;
-
-                info!("Repay {} size {}", &account.currency, size);
+                match repay_account(&account.currency, size).await {
+                    Ok(_) => {
+                        info!("Repay {} size {}", &account.currency, size);
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
             } else if token_available > Decimal::ZERO {
                 // particial repay
                 let size = &format_assert_decimal(token_available, precision_decimal)?;
-                repay_account(&account.currency, size).await?;
-
-                info!("Repay {} size {}", &account.currency, size);
+                match repay_account(&account.currency, size).await {
+                    Ok(_) => {
+                        info!("Repay {} size {}", &account.currency, size);
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
             };
             passed = false;
             continue;
@@ -239,28 +252,41 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
         let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
         let symbol_info = match symbol_info {
-            Some(symbol_info) => symbol_info,
+            Some(symbol_info) => {
+                info!("Get symbol info:{}", &account.currency);
+                symbol_info
+            }
             None => {
                 anyhow::bail!("Symbol info not found for {}", &account.currency)
             }
         };
-
-        info!("Get symbol info:{}", &account.currency);
 
         if token_liability > Decimal::ZERO {
             if token_available > Decimal::ZERO {
                 if token_available >= token_liability {
                     // full repay
                     let size = &format_assert_decimal(token_liability, precision_decimal)?;
-                    repay_account(&account.currency, size).await?;
-
-                    info!("Repay {} size {}", &account.currency, size);
+                    match repay_account(&account.currency, size).await {
+                        Ok(_) => {
+                            info!("Repay {} size {}", &account.currency, size);
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
                 } else if token_available > Decimal::ZERO {
                     // particional repay
                     let size = &format_assert_decimal(token_available, precision_decimal)?;
-                    repay_account(&account.currency, size).await?;
-
-                    info!("Repay {} size {}", &account.currency, size);
+                    match repay_account(&account.currency, size).await {
+                        Ok(_) => {
+                            info!("Repay {} size {}", &account.currency, size);
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
                 };
             } else {
                 // need buy tokens
@@ -270,10 +296,21 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 let base_min_size = symbol_info.base_min_size_decimal()?;
                 let min_funds = symbol_info.min_funds_decimal()?;
 
-                let best_ask_token_price =
-                    get_token_price(&trade_symbol).await?.best_ask_decimal()?;
+                let best_ask_token_price = match get_token_price(&trade_symbol).await {
+                    Ok(best_ask_token_price) => {
+                        info!(
+                            "Get token price:{} {:?}",
+                            &trade_symbol, best_ask_token_price
+                        );
+                        best_ask_token_price
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
 
-                info!("Get token price:{}", &trade_symbol);
+                let best_ask_token_price = best_ask_token_price.best_ask_decimal()?;
 
                 let token_funds = best_ask_token_price * token_liability;
                 let min_funds_by_size = best_ask_token_price * base_min_size;
@@ -301,9 +338,21 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             let quote_min_size = symbol_info.quote_min_size_decimal()?;
             let base_increment = symbol_info.base_increment_decimal()?;
 
-            let best_bid_token_price = get_token_price(&trade_symbol).await?.best_bid_decimal()?;
+            let best_bid_token_price = match get_token_price(&trade_symbol).await {
+                Ok(best_bid_token_price) => {
+                    info!(
+                        "Get token price:{} {:?}",
+                        &trade_symbol, best_bid_token_price
+                    );
+                    best_bid_token_price
+                }
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
 
-            info!("Get token price:{}", &trade_symbol);
+            let best_bid_token_price = best_bid_token_price.best_bid_decimal()?;
 
             let token_funds = best_bid_token_price * token_available;
 

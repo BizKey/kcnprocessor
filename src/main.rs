@@ -150,12 +150,15 @@ async fn main() -> Result<()> {
     init_tracing(pool.clone());
 
     // clear orders ids for bots
-    if let Err(e) = wipe_bots_info(&pool, &init_balance_per_bot).await {
-        error!("{:#}", e);
-        anyhow::bail!(e);
-    };
-
-    info!("wipe_bots_info");
+    match wipe_bots_info(&pool, &init_balance_per_bot).await {
+        Ok(_) => {
+            info!("wipe_bots_info");
+        }
+        Err(e) => {
+            error!("{:#}", e);
+            anyhow::bail!(e);
+        }
+    }
 
     loop {
         sleep(config::DELETE_STOP_ORDER_DELAY).await;
@@ -180,20 +183,21 @@ async fn main() -> Result<()> {
         };
 
         let open_stop_orders_data = match open_stop_orders {
-            Some(open_stop_orders_data) => open_stop_orders_data,
+            Some(open_stop_orders_data) => {
+                info!(
+                    "Stop orders: current_page:{} page_size:{} total_num:{} total_page:{}",
+                    open_stop_orders_data.current_page,
+                    open_stop_orders_data.page_size,
+                    open_stop_orders_data.total_num,
+                    open_stop_orders_data.total_page
+                );
+                open_stop_orders_data
+            }
             None => {
                 error!("Fail get list open stop orders:None");
                 continue;
             }
         };
-
-        info!(
-            "Stop orders: current_page:{} page_size:{} total_num:{} total_page:{}",
-            open_stop_orders_data.current_page,
-            open_stop_orders_data.page_size,
-            open_stop_orders_data.total_num,
-            open_stop_orders_data.total_page
-        );
 
         if open_stop_orders_data.total_num == 0 {
             break;
