@@ -267,7 +267,9 @@ async fn main() -> Result<()> {
             sleep(config::INIT_ORDER_DELAY).await;
             info!("Initializing start orders...");
             match create_init_orders(&pool_init_orders).await {
-                Ok(_) => {}
+                Ok(_) => {
+                    info!("Success create new init orders")
+                }
                 Err(e) => {
                     error!("{:#}", e);
                 }

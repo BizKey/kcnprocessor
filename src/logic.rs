@@ -1385,21 +1385,50 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
             anyhow::bail!("Got error in WS {:?}", data)
         }
         KuCoinMessage::Unknown => {
-            error!("Unknown WS message type");
             anyhow::bail!("Unknown WS message type");
         }
     };
 
     match data.topic.as_str() {
-        "/account/balance" => insert_db_balance(pool, BalanceData::deserialize(&data.data)?).await,
+        "/account/balance" => {
+            let data = match BalanceData::deserialize(&data.data) {
+                Ok(data) => data,
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+            insert_db_balance(pool, data).await
+        }
         "/spotMarket/tradeOrdersV2" => {
-            handle_trade_order_event(OrderData::deserialize(&data.data)?, pool).await
+            let data = match OrderData::deserialize(&data.data) {
+                Ok(data) => data,
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+            handle_trade_order_event(data, pool).await
         }
         "/spotMarket/advancedOrders" => {
-            handle_advanced_orders(AdvancedOrders::deserialize(&data.data)?, pool).await
+            let data = match AdvancedOrders::deserialize(&data.data) {
+                Ok(data) => data,
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+            handle_advanced_orders(data, pool).await
         }
         "/margin/position" => {
-            handle_position_event(PositionData::deserialize(&data.data)?, pool).await
+            let data = match PositionData::deserialize(&data.data) {
+                Ok(data) => data,
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+            handle_position_event(data, pool).await
         }
         _ => {
             anyhow::bail!("Unknown topic: {}", data.topic)
