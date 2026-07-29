@@ -252,7 +252,8 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             continue;
         }
 
-        let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
+        let trade_symbol = format!("{}-USDT", &account.currency);
+        let symbol_info = fetch_symbol_info_by_symbol(pool, &trade_symbol).await?;
         let symbol_info = match symbol_info {
             Some(symbol_info) => {
                 info!("Get symbol info:{}", &account.currency);
@@ -292,8 +293,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 };
             } else {
                 // need buy tokens
-                let trade_symbol = format!("{}-USDT", &account.currency);
-
                 let quote_increment = symbol_info.quote_increment_decimal()?;
                 let base_min_size = symbol_info.base_min_size_decimal()?;
                 let min_funds = symbol_info.min_funds_decimal()?;
@@ -345,8 +344,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             }
             passed = false;
         } else if token_available > Decimal::ZERO {
-            let trade_symbol = format!("{}-USDT", &account.currency);
-
             let base_min_size = symbol_info.base_min_size_decimal()?;
             let quote_min_size = symbol_info.quote_min_size_decimal()?;
             let base_increment = symbol_info.base_increment_decimal()?;
