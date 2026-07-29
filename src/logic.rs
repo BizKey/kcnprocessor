@@ -151,21 +151,54 @@ pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookL
     }
 }
 
-pub async fn transfer_amount(currency: &str, amount: &str) -> Result<()> {
-    let client_oid = Uuid::new_v4().to_string();
-
+pub async fn transfer_in_account(
+    currency: &str,
+    amount: &str,
+    type_: &str,
+    from_account_type: &str,
+    to_account_type: &str,
+) -> Result<()> {
     let body_str = serialize_body(Some(serde_json::json!({
         "currency": currency,
-        "clientOid": client_oid,
+        "clientOid":  Uuid::new_v4().to_string(),
         "amount": amount,
-        "type": "INTERNAL",
-        "fromAccountType": "MARGIN",
-        "toAccountType": "TRADE"
+        "type": type_,
+        "fromAccountType": from_account_type,
+        "toAccountType": to_account_type,
     })))?;
 
-    api_v3_accounts_universal_transfer_post(&body_str)
-        .await
-        .map(|_| Ok(()))?
+    let result = match api_v3_accounts_universal_transfer_post(&body_str).await {
+        Ok(result) => result,
+        Err(e) => {
+            anyhow::bail!(
+                "Fail transfer {} from {} to {} with {} {:#}",
+                currency,
+                from_account_type,
+                to_account_type,
+                amount,
+                e,
+            )
+        }
+    };
+
+    match result {
+        Some(result) => {
+            info!(
+                "Success transfer {} from {} to {} with {} with id:{}",
+                currency, from_account_type, to_account_type, amount, result.order_id,
+            )
+        }
+        None => {
+            anyhow::bail!(
+                "None transfer {} from {} to {} with {}",
+                currency,
+                from_account_type,
+                to_account_type,
+                amount,
+            )
+        }
+    };
+    Ok(())
 }
 
 pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
@@ -293,9 +326,12 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 .await?;
             } else {
                 // transfer from margin
-                transfer_amount(
+                transfer_in_account(
                     &account.currency,
                     &format_assert_decimal(token_available, precision_decimal)?,
+                    "INTERNAL",
+                    "MARGIN",
+                    "TRADE",
                 )
                 .await?;
             }
