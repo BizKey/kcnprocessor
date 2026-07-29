@@ -26,7 +26,7 @@ use tracing::{
     field::{Field, Visit},
     subscriber::Subscriber,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use tracing_subscriber::{
     filter::EnvFilter,
     layer::{Context as layer_Context, Layer, SubscriberExt},
@@ -251,7 +251,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    let (tx_in, rx_in) = mpsc::channel::<String>(10000);
+    let (tx_in, rx_in) = mpsc::channel::<Bytes>(8192);
 
     let pool_process = pool.clone();
     let _spawn_process_kcn_msg_point =
@@ -292,30 +292,32 @@ async fn main() -> Result<()> {
 
         let (mut event_ws_write, mut event_ws_read) = stream.split();
 
-        // subscribtion
-        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string())).await {
-            anyhow::bail!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e)
-        };
+        // subscribtions
+        let topics = vec![
+            ("subscribe_orders", "/spotMarket/tradeOrdersV2"),
+            ("subscribe_stop_orders", "/spotMarket/advancedOrders"),
+            ("subscribe_balance", "/account/balance"),
+            ("subscribe_position", "/margin/position"),
+        ];
 
-        info!("Subscribe:/spotMarket/tradeOrdersV2");
+        for (id, topic) in topics {
+            let subscribe_msg = serde_json::json!({
+                "id": id,
+                "type": "subscribe",
+                "topic": topic,
+                "response": true,
+                "privateChannel": true
+            });
 
-        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string())).await {
-            anyhow::bail!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e)
-        };
-
-        info!("Subscribe:/spotMarket/advancedOrders");
-
-        if let Err(e) =  event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await {
-            anyhow::bail!("Failed to subscribe subject:/account/balance:{}", e)
-        };
-
-        info!("Subscribe:/account/balance");
-
-        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await {
-            anyhow::bail!("Failed to subscribe subject:/margin/position:{}", e)
-         };
-
-        info!("Subscribe:/margin/position");
+            if let Err(e) = event_ws_write
+                .send(Message::text(subscribe_msg.to_string()))
+                .await
+            {
+                error!("Failed to subscribe to topic {}: {}", topic, e);
+                anyhow::bail!("Failed to subscribe to topic {}: {}", topic, e);
+            }
+            info!("Subscribed to: {}", topic);
+        }
 
         info!("Subscribed and listening for messages...");
 
@@ -327,7 +329,9 @@ async fn main() -> Result<()> {
                 // Events
                 _ = event_ping_interval.tick() => {
                    match event_ws_write.send(Message::Ping(Bytes::new())).await {
-                        Ok(_) => {},
+                        Ok(_) => {
+                            debug!("Ping sent");
+                        },
                         Err(e) =>  {
                             error!("Fail send Ping to WebSocket:{}", e);
                             break
@@ -340,7 +344,7 @@ async fn main() -> Result<()> {
                     let event = match event {
                         Some(event) => event,
                         None => {
-                            error!("WebSocket event is None");
+                            error!("WebSocket event is None, connection closed");
                             break
                         }
                     };
@@ -354,28 +358,44 @@ async fn main() -> Result<()> {
                     };
 
                     match event {
-                        Message::Text(text) => match tx_in.send(text.to_string()).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("Failed to send to handler, reconnecting...{}", e);
-                                break;
+                        Message::Text(text) => {
+                            match tx_in.send(Bytes::from(text)).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!("Failed to send message to handler: {}", e);
+                                    break;
+                                }
                             }
                         }
-                        Message::Pong(_) => {}
-                        Message::Ping(data) => match event_ws_write.send(Message::Pong(data)).await {
-                            Ok(_) => {},
-                            Err(e) => {
-                                error!("Fail send Pong to WebSocket:{}", e);
-                                break
+                        Message::Binary(data) => {
+                            debug!("Received binary message, size: {} bytes", data.len());
+                            match tx_in.send(Bytes::from(data)).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!("Failed to send binary message to handler: {}", e);
+                                    break;
+                                }
                             }
                         }
-                        Message::Close(_close) => {
-                            error!("Connection closed by server:");
+                        Message::Ping(_) => {
+                            debug!("Received Ping, auto-reply with Pong");
+                        }
+                        Message::Pong(_) => {
+                            debug!("Received Pong");
+                        }
+                        Message::Close(frame) => {
+                            match frame {
+                                Some(frame) => {
+                                    error!("Connection closed by server: code={}, reason={}", frame.code, frame.reason);
+                                },
+                                None => {
+                                    error!("Connection closed by server");
+                                }
+                            };
                             break
                         }
-                        _ => {
-                            error!("Unexpected msg:{:?}", event);
-                            break
+                        Message::Frame(_) => {
+                            debug!("Received raw frame");
                         }
                     }
                 }

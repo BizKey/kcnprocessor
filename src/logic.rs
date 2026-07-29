@@ -25,6 +25,7 @@ use crate::api::requests::{
     build_query_string, serialize_body,
 };
 use anyhow::{Context, Result};
+use bytes::Bytes;
 use micromap::Map;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
@@ -1253,9 +1254,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
 }
 
 pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
-    let event = serde_json::from_str::<KuCoinMessage>(msg)?;
-
-    let data = match event {
+    let data = match serde_json::from_str::<KuCoinMessage>(msg)? {
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => {
                 insert_db_event(pool, &data).await?;
@@ -1445,18 +1444,31 @@ pub async fn make_random_trade(
     }
 }
 
-pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::Receiver<String>) {
+pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::Receiver<Bytes>) {
     loop {
-        let Some(msg) = rx_in.recv().await else {
-            error!("Channel closed, exiting message processor");
-            break;
+        let msg = match rx_in.recv().await {
+            Some(msg) => msg,
+            None => {
+                error!("Message processor stopped - channel closed");
+                break;
+            }
         };
 
-        if let Err(e) = process_kcn_msg(pool, &msg).await {
-            error!("{:#}", e);
-        }
+        let text = match String::from_utf8(msg.to_vec()) {
+            Ok(text) => text,
+            Err(e) => {
+                error!("Failed to convert Bytes to UTF-8 string: {}", e);
+                continue;
+            }
+        };
+
+        match process_kcn_msg(pool, &text).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("{:#}", e)
+            }
+        };
     }
-    info!("Message processor stopped");
 }
 
 pub async fn make_hf_funds_margin_order(
