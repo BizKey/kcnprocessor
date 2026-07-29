@@ -309,17 +309,20 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
             if token_available >= base_min_size && token_funds >= quote_min_size {
                 // sell less
+                let size = format_assert_decimal(token_available, base_increment)?;
                 make_hf_size_margin_order(
                     pool,
                     &Uuid::new_v4().to_string(),
                     "sell",
                     &trade_symbol,
-                    format_assert_decimal(token_available, base_increment)?,
+                    &size,
                     "market",
                     false,
                     false,
                 )
                 .await?;
+
+                info!("Sell by market {} on size {}", &trade_symbol, size);
             } else {
                 // transfer from margin
                 transfer_in_account(
@@ -1148,7 +1151,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                 &new_exit_client_oid,
                                 side_ref,
                                 symbol_ref,
-                                size,
+                                &size,
                                 "market",
                                 true,
                                 false,
@@ -1206,7 +1209,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                     &new_exit_client_oid,
                                     side_ref,
                                     symbol_ref,
-                                    size,
+                                    &size,
                                     "market",
                                     true,
                                     false,
@@ -1392,7 +1395,7 @@ pub async fn make_random_trade(
                     &entry_client_oid,
                     "sell",
                     &tradeable_symbol,
-                    size,
+                    &size,
                     "market",
                     true,
                     false,
@@ -1526,7 +1529,7 @@ pub async fn make_hf_size_margin_order(
     client_oid: &str,
     side: &str,
     symbol: &str,
-    size: String,
+    size: &str,
     type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
@@ -1538,7 +1541,7 @@ pub async fn make_hf_size_margin_order(
         pool,
         Some(symbol),
         Some(side),
-        Some(&size),
+        Some(size),
         None,
         None,
         Some(args_time_in_force),
