@@ -173,8 +173,10 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
     let mut passed = true;
     for account in get_all_accounts_data().await?.accounts.iter() {
-        let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
+        let token_liability = account.liability_decimal()?;
+        let token_available = account.available_decimal()?;
 
+        let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
         let currency_info = match currency_info {
             Some(currency_info) => currency_info,
             None => anyhow::bail!("Currency info not found for {}", account.currency),
@@ -182,38 +184,48 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
         let precision_decimal = currency_info.precision_decimal()?;
 
-        let token_liability = account.liability_decimal()?;
-
-        let token_available = account.available_decimal()?;
-
-        if token_liability > Decimal::ZERO {
-            passed = false;
+        if account.currency == "USDT" && token_liability > Decimal::ZERO {
             if token_available >= token_liability {
+                // full repay
                 repay_account(
                     &account.currency,
                     &format_assert_decimal(token_liability, precision_decimal)?,
                 )
                 .await?;
             } else if token_available > Decimal::ZERO {
+                // particial repay
                 repay_account(
                     &account.currency,
                     &format_assert_decimal(token_available, precision_decimal)?,
                 )
                 .await?;
-            } else if account.currency != "USDT" && token_available == Decimal::ZERO {
+            };
+            passed = false;
+            continue;
+        };
+
+        if token_liability > Decimal::ZERO {
+            if token_available > Decimal::ZERO {
+                if token_available >= token_liability {
+                    // full repay
+                    repay_account(
+                        &account.currency,
+                        &format_assert_decimal(token_liability, precision_decimal)?,
+                    )
+                    .await?;
+                } else if token_available > Decimal::ZERO {
+                    // particional repay
+                    repay_account(
+                        &account.currency,
+                        &format_assert_decimal(token_available, precision_decimal)?,
+                    )
+                    .await?;
+                };
+            } else {
+                // need buy tokens
                 let trade_symbol = format!("{}-USDT", &account.currency);
 
-                let token_price_data = get_token_price(&trade_symbol).await?;
-
-                let best_ask_token_price = token_price_data.best_ask_decimal()?;
-
-                info!(
-                    "Successfully get token:{} ask price:{}",
-                    trade_symbol, best_ask_token_price
-                );
-
                 let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
-
                 let symbol_info = match symbol_info {
                     Some(symbol_info) => symbol_info,
                     None => {
@@ -222,66 +234,35 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 };
 
                 let quote_increment = symbol_info.quote_increment_decimal()?;
-
+                let base_min_size = symbol_info.base_min_size_decimal()?;
                 let min_funds = symbol_info.min_funds_decimal()?;
 
-                let base_min_size = symbol_info.base_min_size_decimal()?;
-
-                let quote_min_size = symbol_info.quote_min_size_decimal()?;
-
-                let base_increment = symbol_info.base_increment_decimal()?;
+                let best_ask_token_price =
+                    get_token_price(&trade_symbol).await?.best_ask_decimal()?;
 
                 let token_funds = best_ask_token_price * token_liability;
-
                 let min_funds_by_size = best_ask_token_price * base_min_size;
-
-                let final_funds = token_funds.max(min_funds_by_size).max(min_funds);
-
-                let funds = format_assert_decimal(final_funds, quote_increment)?;
-
-                let client_oid = Uuid::new_v4().to_string();
 
                 make_hf_funds_margin_order(
                     pool,
-                    &client_oid,
+                    &Uuid::new_v4().to_string(),
                     "buy",
                     &trade_symbol,
-                    funds,
+                    format_assert_decimal(
+                        token_funds.max(min_funds_by_size).max(min_funds),
+                        quote_increment,
+                    )?,
                     "market",
                     false,
                     false,
                 )
                 .await?;
-                continue;
             }
-        } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
-
-            let trade_symbol = format!("{}-USDT", account.currency);
-
-            let token_price_data = match get_token_price(&trade_symbol).await {
-                Ok(token_price_data) => token_price_data,
-                Err(e) => {
-                    error!("{:#}", e);
-                    return Err(e);
-                }
-            };
-
-            let best_bid_token_price = match token_price_data.best_bid_decimal() {
-                Ok(best_bid_token_price) => best_bid_token_price,
-                Err(e) => {
-                    error!("{:#}", e);
-                    return Err(e);
-                }
-            };
-
-            info!(
-                "Successfully get token:{} price:{}",
-                &trade_symbol, best_bid_token_price
-            );
+        } else if token_available > Decimal::ZERO {
+            let trade_symbol = format!("{}-USDT", &account.currency);
 
             let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
-
             let symbol_info = match symbol_info {
                 Some(symbol_info) => symbol_info,
                 None => {
@@ -289,39 +270,32 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 }
             };
 
-            let quote_increment = symbol_info.quote_increment_decimal()?;
-
-            let min_funds = symbol_info.min_funds_decimal()?;
-
             let base_min_size = symbol_info.base_min_size_decimal()?;
-
             let quote_min_size = symbol_info.quote_min_size_decimal()?;
-
             let base_increment = symbol_info.base_increment_decimal()?;
+
+            let best_bid_token_price = get_token_price(&trade_symbol).await?.best_bid_decimal()?;
 
             let token_funds = best_bid_token_price * token_available;
 
-            if token_available <= base_min_size || token_funds <= quote_min_size {
-                transfer_amount(
-                    &account.currency,
-                    &format_assert_decimal(token_available, precision_decimal)?,
-                )
-                .await?;
-                continue;
-            } else {
-                let size = format_assert_decimal(token_available, base_increment)?;
-
-                let client_oid = Uuid::new_v4().to_string();
-
+            if token_available >= base_min_size && token_funds >= quote_min_size {
+                // sell less
                 make_hf_size_margin_order(
                     pool,
-                    &client_oid,
+                    &Uuid::new_v4().to_string(),
                     "sell",
                     &trade_symbol,
-                    size,
+                    format_assert_decimal(token_available, base_increment)?,
                     "market",
                     false,
                     false,
+                )
+                .await?;
+            } else {
+                // transfer from margin
+                transfer_amount(
+                    &account.currency,
+                    &format_assert_decimal(token_available, precision_decimal)?,
                 )
                 .await?;
             }
@@ -1255,6 +1229,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
 
 pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
     let data = match serde_json::from_str::<KuCoinMessage>(msg)? {
+        KuCoinMessage::Message(data) => data,
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => {
                 insert_db_event(pool, &data).await?;
@@ -1269,7 +1244,6 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
                 )
             }
         },
-        KuCoinMessage::Message(data) => data,
         KuCoinMessage::Ack(data) => match serde_json::to_value(&data) {
             Ok(data) => match insert_db_event(pool, &data).await {
                 Ok(_) => return Ok(()),
@@ -1290,7 +1264,6 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
         KuCoinMessage::Error(data) => {
             anyhow::bail!("Got error in WS {:?}", data)
         }
-
         KuCoinMessage::Unknown => {
             error!("Unknown WS message type");
             anyhow::bail!("Unknown WS message type");
@@ -1298,21 +1271,15 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
     };
 
     match data.topic.as_str() {
-        "/account/balance" => {
-            let balance = BalanceData::deserialize(&data.data)?;
-            insert_db_balance(pool, balance).await
-        }
+        "/account/balance" => insert_db_balance(pool, BalanceData::deserialize(&data.data)?).await,
         "/spotMarket/tradeOrdersV2" => {
-            let order = OrderData::deserialize(&data.data)?;
-            handle_trade_order_event(order, pool).await
+            handle_trade_order_event(OrderData::deserialize(&data.data)?, pool).await
         }
         "/spotMarket/advancedOrders" => {
-            let order = AdvancedOrders::deserialize(&data.data)?;
-            handle_advanced_orders(order, pool).await
+            handle_advanced_orders(AdvancedOrders::deserialize(&data.data)?, pool).await
         }
         "/margin/position" => {
-            let position = PositionData::deserialize(&data.data)?;
-            handle_position_event(position, pool).await
+            handle_position_event(PositionData::deserialize(&data.data)?, pool).await
         }
         _ => {
             anyhow::bail!("Unknown topic: {}", data.topic)

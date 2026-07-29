@@ -301,16 +301,17 @@ async fn main() -> Result<()> {
         ];
 
         for (id, topic) in topics {
-            let subscribe_msg = serde_json::json!({
-                "id": id,
-                "type": "subscribe",
-                "topic": topic,
-                "response": true,
-                "privateChannel": true
-            });
-
             if let Err(e) = event_ws_write
-                .send(Message::text(subscribe_msg.to_string()))
+                .send(Message::text(
+                    serde_json::json!({
+                        "id": id,
+                        "type": "subscribe",
+                        "topic": topic,
+                        "response": true,
+                        "privateChannel": true
+                    })
+                    .to_string(),
+                ))
                 .await
             {
                 error!("Failed to subscribe to topic {}: {}", topic, e);
