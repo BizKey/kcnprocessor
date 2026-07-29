@@ -474,10 +474,12 @@ pub async fn process_bot_by_exit_sl_client_oid(
             return Err(e);
         }
     };
-
-    let Some(return_balance) = return_balance else {
-        error!("No records found or error occurred");
-        return Ok(());
+    let return_balance = match return_balance {
+        Some(return_balance) => return_balance,
+        None => {
+            error!("No records found or error occurred");
+            return Ok(());
+        }
     };
 
     let return_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
@@ -547,9 +549,12 @@ pub async fn process_bot_by_exit_tp_client_oid(
     }
     let return_balance = get_total_match_value_by_client_oid(pool, client_oid).await?;
 
-    let Some(return_balance) = return_balance else {
-        error!("No records found or error occurred");
-        return Ok(());
+    let return_balance = match return_balance {
+        Some(return_balance) => return_balance,
+        None => {
+            error!("No records found or error occurred");
+            return Ok(());
+        }
     };
 
     let return_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
@@ -592,9 +597,11 @@ pub async fn process_bot_by_entry_client_oid(
     order: &OrderData,
 ) -> Result<()> {
     let symbol_info = fetch_symbol_info_by_symbol(pool, &order.symbol).await?;
-
-    let Some(symbol_info) = symbol_info else {
-        anyhow::bail!("Symbol info not found for {}", order.symbol)
+    let symbol_info = match symbol_info {
+        Some(symbol_info) => symbol_info,
+        None => {
+            anyhow::bail!("Symbol info not found for {}", order.symbol)
+        }
     };
 
     let price_increment = symbol_info.price_increment_decimal()?;
@@ -604,10 +611,12 @@ pub async fn process_bot_by_entry_client_oid(
     let filled_size = order.filled_size_decimal()?;
 
     let return_balance = get_total_match_value_by_client_oid(pool, client_oid).await?;
-
-    let Some(return_balance) = return_balance else {
-        error!("No records found or error occurred");
-        return Ok(());
+    let return_balance = match return_balance {
+        Some(return_balance) => return_balance,
+        None => {
+            error!("No records found or error occurred");
+            return Ok(());
+        }
     };
 
     let new_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
@@ -1043,14 +1052,19 @@ pub async fn process_bot_by_entry_client_oid(
 }
 
 pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<()> {
-    let Some(client_oid) = &order.client_oid else {
-        anyhow::bail!("client_oid in order is none: {}", order)
+    let client_oid = match &order.client_oid {
+        Some(client_oid) => client_oid,
+        None => {
+            anyhow::bail!("client_oid in order is none: {}", order)
+        }
     };
 
     let bot = get_bot_by_client_oid(pool, client_oid).await?;
-
-    let Some(bot) = bot else {
-        anyhow::bail!("Bot is None by:{}", client_oid)
+    let bot = match bot {
+        Some(bot) => bot,
+        None => {
+            anyhow::bail!("Bot is None by:{}", client_oid)
+        }
     };
 
     match client_oid.as_str() {
@@ -1100,18 +1114,23 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
     };
 
     for (asset, token_liability) in debt_pair {
-        let Some(asset_info) = position.asset_list.get(&asset) else {
-            error!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
-            continue;
+        let asset_info = match position.asset_list.get(&asset) {
+            Some(asset_info) => asset_info,
+            None => {
+                error!("Failed get asset:{} from:{:.?}", asset, position.asset_list);
+                continue;
+            }
         };
 
         let token_available = asset_info.available_decimal()?;
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
             let currency_info = fetch_currency_info_by_symbol(pool, &asset).await?;
-
-            let Some(currency_info) = currency_info else {
-                anyhow::bail!("Currency info not found for {}", asset)
+            let currency_info = match currency_info {
+                Some(currency_info) => currency_info,
+                None => {
+                    anyhow::bail!("Currency info not found for {}", asset)
+                }
             };
 
             let precision_decimal = currency_info.precision_decimal()?;
@@ -1452,16 +1471,22 @@ pub async fn make_random_trade(
 
         let tradeable_symbol = get_random_symbol(pool).await?;
 
-        let Some(tradeable_symbol) = tradeable_symbol else {
-            error!("Failed get_random_symbol:");
-            continue;
+        let tradeable_symbol = match tradeable_symbol {
+            Some(tradeable_symbol) => tradeable_symbol,
+            None => {
+                error!("Failed get_random_symbol:");
+                continue;
+            }
         };
 
         let symbol_info = fetch_symbol_info_by_symbol(pool, &tradeable_symbol).await?;
 
-        let Some(symbol_info) = symbol_info else {
-            error!("Symbol info not found for {}", tradeable_symbol);
-            continue;
+        let symbol_info = match symbol_info {
+            Some(symbol_info) => symbol_info,
+            None => {
+                error!("Symbol info not found for {}", tradeable_symbol);
+                continue;
+            }
         };
 
         let entry_client_oid = Uuid::new_v4().to_string();
@@ -1491,9 +1516,11 @@ pub async fn make_random_trade(
 
                 let token_price_obj =
                     api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
-
-                let Some(token_price_obj) = token_price_obj else {
-                    anyhow::bail!("")
+                let token_price_obj = match token_price_obj {
+                    Some(token_price_obj) => token_price_obj,
+                    None => {
+                        anyhow::bail!("")
+                    }
                 };
 
                 let token_price = token_price_obj.price_decimal()?;
@@ -1630,8 +1657,12 @@ pub async fn make_hf_funds_margin_order(
     let body_str = serialize_body(Some(msg))?;
 
     let data = api_v3_hf_margin_order_post(&body_str).await?;
-
-    let Some(data) = data else { anyhow::bail!("") };
+    let data = match data {
+        Some(data) => data,
+        None => {
+            anyhow::bail!("")
+        }
+    };
 
     Ok(data)
 }
@@ -1677,7 +1708,12 @@ pub async fn make_hf_size_margin_order(
     })))?;
 
     let data = api_v3_hf_margin_order_post(&body_str).await?;
-    let Some(data) = data else { anyhow::bail!("") };
+    let data = match data {
+        Some(data) => data,
+        None => {
+            anyhow::bail!("")
+        }
+    };
     Ok(data)
 }
 
