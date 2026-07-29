@@ -390,7 +390,7 @@ pub struct MakeStopOrderRes {
 }
 #[derive(Debug, Deserialize)]
 pub struct ApiV3MarginRepayResData {
-    pub timestamp: i32,
+    pub timestamp: u64,
     #[serde(rename = "orderNo")]
     pub order_no: String,
     #[serde(rename = "actualSize")]
