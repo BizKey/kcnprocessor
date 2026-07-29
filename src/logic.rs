@@ -315,20 +315,31 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 let token_funds = best_ask_token_price * token_liability;
                 let min_funds_by_size = best_ask_token_price * base_min_size;
 
-                make_hf_funds_margin_order(
+                let size = format_assert_decimal(
+                    token_funds.max(min_funds_by_size).max(min_funds),
+                    quote_increment,
+                )?;
+
+                match make_hf_funds_margin_order(
                     pool,
                     &Uuid::new_v4().to_string(),
                     "buy",
                     &trade_symbol,
-                    format_assert_decimal(
-                        token_funds.max(min_funds_by_size).max(min_funds),
-                        quote_increment,
-                    )?,
+                    &size,
                     "market",
                     false,
                     false,
                 )
-                .await?;
+                .await
+                {
+                    Ok(_) => {
+                        info!("Buy by market {} on size {}", &trade_symbol, size);
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
             }
             passed = false;
         } else if token_available > Decimal::ZERO {
@@ -359,7 +370,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             if token_available >= base_min_size && token_funds >= quote_min_size {
                 // sell less
                 let size = format_assert_decimal(token_available, base_increment)?;
-                make_hf_size_margin_order(
+                match make_hf_size_margin_order(
                     pool,
                     &Uuid::new_v4().to_string(),
                     "sell",
@@ -369,27 +380,43 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                     false,
                     false,
                 )
-                .await?;
-
-                info!("Sell by market {} on size {}", &trade_symbol, size);
+                .await
+                {
+                    Ok(_) => {
+                        info!("Sell by market {} on size {}", &trade_symbol, size);
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
             } else {
                 // transfer from margin
                 let amount = format_assert_decimal(token_available, precision_decimal)?;
                 let type_ = "INTERNAL";
                 let from_account_type = "MARGIN";
                 let to_account_type = "TRADE";
-                transfer_in_account(
+
+                match transfer_in_account(
                     &account.currency,
                     &amount,
                     type_,
                     from_account_type,
                     to_account_type,
                 )
-                .await?;
-                info!(
-                    "Success transfer {} {} {} {} {}",
-                    &account.currency, amount, type_, from_account_type, to_account_type
-                )
+                .await
+                {
+                    Ok(_) => {
+                        info!(
+                            "Success transfer {} {} {} {} {}",
+                            &account.currency, amount, type_, from_account_type, to_account_type
+                        )
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
             }
             passed = false;
         }
@@ -1186,7 +1213,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                 &new_exit_client_oid,
                                 side_ref,
                                 symbol_ref,
-                                funds,
+                                &funds,
                                 "market",
                                 true,
                                 false,
@@ -1243,7 +1270,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                     &new_exit_client_oid,
                                     side_ref,
                                     symbol_ref,
-                                    funds,
+                                    &funds,
                                     "market",
                                     true,
                                     false,
@@ -1470,7 +1497,7 @@ pub async fn make_random_trade(
                     &entry_client_oid,
                     "buy",
                     &tradeable_symbol,
-                    funds,
+                    &funds,
                     "market",
                     true,
                     false,
@@ -1536,7 +1563,7 @@ pub async fn make_hf_funds_margin_order(
     client_oid: &str,
     side: &str,
     symbol: &str,
-    funds: String,
+    funds: &str,
     type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
