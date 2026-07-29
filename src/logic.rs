@@ -220,35 +220,37 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
         let precision_decimal = currency_info.precision_decimal()?;
 
-        if account.currency == "USDT" && token_liability > Decimal::ZERO {
-            if token_available >= token_liability {
-                // full repay
-                let size = &format_assert_decimal(token_liability, precision_decimal)?;
-                match repay_account(&account.currency, size).await {
-                    Ok(_) => {
-                        info!("Repay {} size {}", &account.currency, size);
-                    }
-                    Err(e) => {
-                        error!("{:#}", e);
-                        anyhow::bail!(e);
-                    }
+        if account.currency == "USDT" {
+            if token_liability > Decimal::ZERO {
+                if token_available >= token_liability {
+                    // full repay
+                    let size = &format_assert_decimal(token_liability, precision_decimal)?;
+                    match repay_account(&account.currency, size).await {
+                        Ok(_) => {
+                            info!("Repay {} size {}", &account.currency, size);
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
+                } else if token_available > Decimal::ZERO {
+                    // particial repay
+                    let size = &format_assert_decimal(token_available, precision_decimal)?;
+                    match repay_account(&account.currency, size).await {
+                        Ok(_) => {
+                            info!("Repay {} size {}", &account.currency, size);
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
                 };
-            } else if token_available > Decimal::ZERO {
-                // particial repay
-                let size = &format_assert_decimal(token_available, precision_decimal)?;
-                match repay_account(&account.currency, size).await {
-                    Ok(_) => {
-                        info!("Repay {} size {}", &account.currency, size);
-                    }
-                    Err(e) => {
-                        error!("{:#}", e);
-                        anyhow::bail!(e);
-                    }
-                };
+                passed = false;
             };
-            passed = false;
             continue;
-        };
+        }
 
         let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
         let symbol_info = match symbol_info {
