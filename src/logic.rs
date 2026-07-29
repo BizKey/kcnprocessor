@@ -215,56 +215,56 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             None => anyhow::bail!("Currency info not found for {}", account.currency),
         };
 
+        info!("Get currency info:{}", &account.currency);
+
         let precision_decimal = currency_info.precision_decimal()?;
 
         if account.currency == "USDT" && token_liability > Decimal::ZERO {
             if token_available >= token_liability {
                 // full repay
-                repay_account(
-                    &account.currency,
-                    &format_assert_decimal(token_liability, precision_decimal)?,
-                )
-                .await?;
+                let size = &format_assert_decimal(token_liability, precision_decimal)?;
+                repay_account(&account.currency, size).await?;
+
+                info!("Repay {} size {}", &account.currency, size);
             } else if token_available > Decimal::ZERO {
                 // particial repay
-                repay_account(
-                    &account.currency,
-                    &format_assert_decimal(token_available, precision_decimal)?,
-                )
-                .await?;
+                let size = &format_assert_decimal(token_available, precision_decimal)?;
+                repay_account(&account.currency, size).await?;
+
+                info!("Repay {} size {}", &account.currency, size);
             };
             passed = false;
             continue;
         };
 
+        let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
+        let symbol_info = match symbol_info {
+            Some(symbol_info) => symbol_info,
+            None => {
+                anyhow::bail!("Symbol info not found for {}", &account.currency)
+            }
+        };
+
+        info!("Get symbol info:{}", &account.currency);
+
         if token_liability > Decimal::ZERO {
             if token_available > Decimal::ZERO {
                 if token_available >= token_liability {
                     // full repay
-                    repay_account(
-                        &account.currency,
-                        &format_assert_decimal(token_liability, precision_decimal)?,
-                    )
-                    .await?;
+                    let size = &format_assert_decimal(token_liability, precision_decimal)?;
+                    repay_account(&account.currency, size).await?;
+
+                    info!("Repay {} size {}", &account.currency, size);
                 } else if token_available > Decimal::ZERO {
                     // particional repay
-                    repay_account(
-                        &account.currency,
-                        &format_assert_decimal(token_available, precision_decimal)?,
-                    )
-                    .await?;
+                    let size = &format_assert_decimal(token_available, precision_decimal)?;
+                    repay_account(&account.currency, size).await?;
+
+                    info!("Repay {} size {}", &account.currency, size);
                 };
             } else {
                 // need buy tokens
                 let trade_symbol = format!("{}-USDT", &account.currency);
-
-                let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
-                let symbol_info = match symbol_info {
-                    Some(symbol_info) => symbol_info,
-                    None => {
-                        anyhow::bail!("Symbol info not found for {}", &account.currency)
-                    }
-                };
 
                 let quote_increment = symbol_info.quote_increment_decimal()?;
                 let base_min_size = symbol_info.base_min_size_decimal()?;
@@ -272,6 +272,8 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
                 let best_ask_token_price =
                     get_token_price(&trade_symbol).await?.best_ask_decimal()?;
+
+                info!("Get token price:{}", &trade_symbol);
 
                 let token_funds = best_ask_token_price * token_liability;
                 let min_funds_by_size = best_ask_token_price * base_min_size;
@@ -295,19 +297,13 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
         } else if token_available > Decimal::ZERO {
             let trade_symbol = format!("{}-USDT", &account.currency);
 
-            let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
-            let symbol_info = match symbol_info {
-                Some(symbol_info) => symbol_info,
-                None => {
-                    anyhow::bail!("Symbol info not found for {}", &account.currency)
-                }
-            };
-
             let base_min_size = symbol_info.base_min_size_decimal()?;
             let quote_min_size = symbol_info.quote_min_size_decimal()?;
             let base_increment = symbol_info.base_increment_decimal()?;
 
             let best_bid_token_price = get_token_price(&trade_symbol).await?.best_bid_decimal()?;
+
+            info!("Get token price:{}", &trade_symbol);
 
             let token_funds = best_bid_token_price * token_available;
 
@@ -335,6 +331,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 )
                 .await?;
             }
+            passed = false;
         }
     }
     Ok(passed)
