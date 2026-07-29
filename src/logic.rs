@@ -25,6 +25,7 @@ use crate::api::requests::{
     build_query_string, serialize_body,
 };
 use anyhow::{Context, Result};
+use bytes::Bytes;
 use micromap::Map;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
@@ -150,21 +151,54 @@ pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookL
     }
 }
 
-pub async fn transfer_amount(currency: &str, amount: &str) -> Result<()> {
-    let client_oid = Uuid::new_v4().to_string();
-
+pub async fn transfer_in_account(
+    currency: &str,
+    amount: &str,
+    type_: &str,
+    from_account_type: &str,
+    to_account_type: &str,
+) -> Result<()> {
     let body_str = serialize_body(Some(serde_json::json!({
         "currency": currency,
-        "clientOid": client_oid,
+        "clientOid":  Uuid::new_v4().to_string(),
         "amount": amount,
-        "type": "INTERNAL",
-        "fromAccountType": "MARGIN",
-        "toAccountType": "TRADE"
+        "type": type_,
+        "fromAccountType": from_account_type,
+        "toAccountType": to_account_type,
     })))?;
 
-    api_v3_accounts_universal_transfer_post(&body_str)
-        .await
-        .map(|_| Ok(()))?
+    let result = match api_v3_accounts_universal_transfer_post(&body_str).await {
+        Ok(result) => result,
+        Err(e) => {
+            anyhow::bail!(
+                "Fail transfer {} from {} to {} with {} {:#}",
+                currency,
+                from_account_type,
+                to_account_type,
+                amount,
+                e,
+            )
+        }
+    };
+
+    match result {
+        Some(result) => {
+            info!(
+                "Success transfer {} from {} to {} with {} with id:{}",
+                currency, from_account_type, to_account_type, amount, result.order_id,
+            )
+        }
+        None => {
+            anyhow::bail!(
+                "None transfer {} from {} to {} with {}",
+                currency,
+                from_account_type,
+                to_account_type,
+                amount,
+            )
+        }
+    };
+    Ok(())
 }
 
 pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
@@ -172,158 +206,219 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 
     let mut passed = true;
     for account in get_all_accounts_data().await?.accounts.iter() {
-        let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
+        let token_liability = account.liability_decimal()?;
+        let token_available = account.available_decimal()?;
 
+        let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
         let currency_info = match currency_info {
-            Some(currency_info) => currency_info,
+            Some(currency_info) => {
+                info!("Get currency info:{}", &account.currency);
+                currency_info
+            }
             None => anyhow::bail!("Currency info not found for {}", account.currency),
         };
 
         let precision_decimal = currency_info.precision_decimal()?;
 
-        let token_liability = account.liability_decimal()?;
+        if account.currency == "USDT" && token_liability > Decimal::ZERO {
+            if token_available >= token_liability {
+                // full repay
+                let size = &format_assert_decimal(token_liability, precision_decimal)?;
+                match repay_account(&account.currency, size).await {
+                    Ok(_) => {
+                        info!("Repay {} size {}", &account.currency, size);
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
+            } else if token_available > Decimal::ZERO {
+                // particial repay
+                let size = &format_assert_decimal(token_available, precision_decimal)?;
+                match repay_account(&account.currency, size).await {
+                    Ok(_) => {
+                        info!("Repay {} size {}", &account.currency, size);
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
+            };
+            passed = false;
+            continue;
+        };
 
-        let token_available = account.available_decimal()?;
+        let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
+        let symbol_info = match symbol_info {
+            Some(symbol_info) => {
+                info!("Get symbol info:{}", &account.currency);
+                symbol_info
+            }
+            None => {
+                anyhow::bail!("Symbol info not found for {}", &account.currency)
+            }
+        };
 
         if token_liability > Decimal::ZERO {
-            passed = false;
-            if token_available >= token_liability {
-                repay_account(
-                    &account.currency,
-                    &format_assert_decimal(token_liability, precision_decimal)?,
-                )
-                .await?;
-            } else if token_available > Decimal::ZERO {
-                repay_account(
-                    &account.currency,
-                    &format_assert_decimal(token_available, precision_decimal)?,
-                )
-                .await?;
-            } else if account.currency != "USDT" && token_available == Decimal::ZERO {
+            if token_available > Decimal::ZERO {
+                if token_available >= token_liability {
+                    // full repay
+                    let size = &format_assert_decimal(token_liability, precision_decimal)?;
+                    match repay_account(&account.currency, size).await {
+                        Ok(_) => {
+                            info!("Repay {} size {}", &account.currency, size);
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
+                } else if token_available > Decimal::ZERO {
+                    // particional repay
+                    let size = &format_assert_decimal(token_available, precision_decimal)?;
+                    match repay_account(&account.currency, size).await {
+                        Ok(_) => {
+                            info!("Repay {} size {}", &account.currency, size);
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
+                };
+            } else {
+                // need buy tokens
                 let trade_symbol = format!("{}-USDT", &account.currency);
 
-                let token_price_data = get_token_price(&trade_symbol).await?;
+                let quote_increment = symbol_info.quote_increment_decimal()?;
+                let base_min_size = symbol_info.base_min_size_decimal()?;
+                let min_funds = symbol_info.min_funds_decimal()?;
 
-                let best_ask_token_price = token_price_data.best_ask_decimal()?;
-
-                info!(
-                    "Successfully get token:{} ask price:{}",
-                    trade_symbol, best_ask_token_price
-                );
-
-                let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
-
-                let symbol_info = match symbol_info {
-                    Some(symbol_info) => symbol_info,
-                    None => {
-                        anyhow::bail!("Symbol info not found for {}", &account.currency)
+                let best_ask_token_price = match get_token_price(&trade_symbol).await {
+                    Ok(best_ask_token_price) => {
+                        info!(
+                            "Get token price:{} {:?}",
+                            &trade_symbol, best_ask_token_price
+                        );
+                        best_ask_token_price
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
                     }
                 };
 
-                let quote_increment = symbol_info.quote_increment_decimal()?;
-
-                let min_funds = symbol_info.min_funds_decimal()?;
-
-                let base_min_size = symbol_info.base_min_size_decimal()?;
-
-                let quote_min_size = symbol_info.quote_min_size_decimal()?;
-
-                let base_increment = symbol_info.base_increment_decimal()?;
+                let best_ask_token_price = best_ask_token_price.best_ask_decimal()?;
 
                 let token_funds = best_ask_token_price * token_liability;
-
                 let min_funds_by_size = best_ask_token_price * base_min_size;
 
-                let final_funds = token_funds.max(min_funds_by_size).max(min_funds);
+                let size = format_assert_decimal(
+                    token_funds.max(min_funds_by_size).max(min_funds),
+                    quote_increment,
+                )?;
 
-                let funds = format_assert_decimal(final_funds, quote_increment)?;
-
-                let client_oid = Uuid::new_v4().to_string();
-
-                make_hf_funds_margin_order(
+                match make_hf_funds_margin_order(
                     pool,
-                    &client_oid,
+                    &Uuid::new_v4().to_string(),
                     "buy",
                     &trade_symbol,
-                    funds,
+                    &size,
                     "market",
                     false,
                     false,
                 )
-                .await?;
-                continue;
+                .await
+                {
+                    Ok(_) => {
+                        info!("Buy by market {} on size {}", &trade_symbol, size);
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
             }
-        } else if account.currency != "USDT" && token_available > Decimal::ZERO {
             passed = false;
-
-            let trade_symbol = format!("{}-USDT", account.currency);
-
-            let token_price_data = match get_token_price(&trade_symbol).await {
-                Ok(token_price_data) => token_price_data,
-                Err(e) => {
-                    error!("{:#}", e);
-                    return Err(e);
-                }
-            };
-
-            let best_bid_token_price = match token_price_data.best_bid_decimal() {
-                Ok(best_bid_token_price) => best_bid_token_price,
-                Err(e) => {
-                    error!("{:#}", e);
-                    return Err(e);
-                }
-            };
-
-            info!(
-                "Successfully get token:{} price:{}",
-                &trade_symbol, best_bid_token_price
-            );
-
-            let symbol_info = fetch_symbol_info_by_symbol(pool, &account.currency).await?;
-
-            let symbol_info = match symbol_info {
-                Some(symbol_info) => symbol_info,
-                None => {
-                    anyhow::bail!("Symbol info not found for {}", &account.currency)
-                }
-            };
-
-            let quote_increment = symbol_info.quote_increment_decimal()?;
-
-            let min_funds = symbol_info.min_funds_decimal()?;
+        } else if token_available > Decimal::ZERO {
+            let trade_symbol = format!("{}-USDT", &account.currency);
 
             let base_min_size = symbol_info.base_min_size_decimal()?;
-
             let quote_min_size = symbol_info.quote_min_size_decimal()?;
-
             let base_increment = symbol_info.base_increment_decimal()?;
+
+            let best_bid_token_price = match get_token_price(&trade_symbol).await {
+                Ok(best_bid_token_price) => {
+                    info!(
+                        "Get token price:{} {:?}",
+                        &trade_symbol, best_bid_token_price
+                    );
+                    best_bid_token_price
+                }
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+
+            let best_bid_token_price = best_bid_token_price.best_bid_decimal()?;
 
             let token_funds = best_bid_token_price * token_available;
 
-            if token_available <= base_min_size || token_funds <= quote_min_size {
-                transfer_amount(
-                    &account.currency,
-                    &format_assert_decimal(token_available, precision_decimal)?,
-                )
-                .await?;
-                continue;
-            } else {
+            if token_available >= base_min_size && token_funds >= quote_min_size {
+                // sell less
                 let size = format_assert_decimal(token_available, base_increment)?;
-
-                let client_oid = Uuid::new_v4().to_string();
-
-                make_hf_size_margin_order(
+                match make_hf_size_margin_order(
                     pool,
-                    &client_oid,
+                    &Uuid::new_v4().to_string(),
                     "sell",
                     &trade_symbol,
-                    size,
+                    &size,
                     "market",
                     false,
                     false,
                 )
-                .await?;
+                .await
+                {
+                    Ok(_) => {
+                        info!("Sell by market {} on size {}", &trade_symbol, size);
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
+            } else {
+                // transfer from margin
+                let amount = format_assert_decimal(token_available, precision_decimal)?;
+                let type_ = "INTERNAL";
+                let from_account_type = "MARGIN";
+                let to_account_type = "TRADE";
+
+                match transfer_in_account(
+                    &account.currency,
+                    &amount,
+                    type_,
+                    from_account_type,
+                    to_account_type,
+                )
+                .await
+                {
+                    Ok(_) => {
+                        info!(
+                            "Success transfer {} {} {} {} {}",
+                            &account.currency, amount, type_, from_account_type, to_account_type
+                        )
+                    }
+                    Err(e) => {
+                        error!("{:#}", e);
+                        anyhow::bail!(e);
+                    }
+                };
             }
+            passed = false;
         }
     }
     Ok(passed)
@@ -1118,7 +1213,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                 &new_exit_client_oid,
                                 side_ref,
                                 symbol_ref,
-                                funds,
+                                &funds,
                                 "market",
                                 true,
                                 false,
@@ -1140,7 +1235,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                 &new_exit_client_oid,
                                 side_ref,
                                 symbol_ref,
-                                size,
+                                &size,
                                 "market",
                                 true,
                                 false,
@@ -1175,7 +1270,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                     &new_exit_client_oid,
                                     side_ref,
                                     symbol_ref,
-                                    funds,
+                                    &funds,
                                     "market",
                                     true,
                                     false,
@@ -1198,7 +1293,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                                     &new_exit_client_oid,
                                     side_ref,
                                     symbol_ref,
-                                    size,
+                                    &size,
                                     "market",
                                     true,
                                     false,
@@ -1253,9 +1348,8 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
 }
 
 pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
-    let event = serde_json::from_str::<KuCoinMessage>(msg)?;
-
-    let data = match event {
+    let data = match serde_json::from_str::<KuCoinMessage>(msg)? {
+        KuCoinMessage::Message(data) => data,
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => {
                 insert_db_event(pool, &data).await?;
@@ -1270,7 +1364,6 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
                 )
             }
         },
-        KuCoinMessage::Message(data) => data,
         KuCoinMessage::Ack(data) => match serde_json::to_value(&data) {
             Ok(data) => match insert_db_event(pool, &data).await {
                 Ok(_) => return Ok(()),
@@ -1291,29 +1384,51 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
         KuCoinMessage::Error(data) => {
             anyhow::bail!("Got error in WS {:?}", data)
         }
-
         KuCoinMessage::Unknown => {
-            error!("Unknown WS message type");
             anyhow::bail!("Unknown WS message type");
         }
     };
 
     match data.topic.as_str() {
         "/account/balance" => {
-            let balance = BalanceData::deserialize(&data.data)?;
-            insert_db_balance(pool, balance).await
+            let data = match BalanceData::deserialize(&data.data) {
+                Ok(data) => data,
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+            insert_db_balance(pool, data).await
         }
         "/spotMarket/tradeOrdersV2" => {
-            let order = OrderData::deserialize(&data.data)?;
-            handle_trade_order_event(order, pool).await
+            let data = match OrderData::deserialize(&data.data) {
+                Ok(data) => data,
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+            handle_trade_order_event(data, pool).await
         }
         "/spotMarket/advancedOrders" => {
-            let order = AdvancedOrders::deserialize(&data.data)?;
-            handle_advanced_orders(order, pool).await
+            let data = match AdvancedOrders::deserialize(&data.data) {
+                Ok(data) => data,
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+            handle_advanced_orders(data, pool).await
         }
         "/margin/position" => {
-            let position = PositionData::deserialize(&data.data)?;
-            handle_position_event(position, pool).await
+            let data = match PositionData::deserialize(&data.data) {
+                Ok(data) => data,
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
+            handle_position_event(data, pool).await
         }
         _ => {
             anyhow::bail!("Unknown topic: {}", data.topic)
@@ -1393,7 +1508,7 @@ pub async fn make_random_trade(
                     &entry_client_oid,
                     "sell",
                     &tradeable_symbol,
-                    size,
+                    &size,
                     "market",
                     true,
                     false,
@@ -1411,7 +1526,7 @@ pub async fn make_random_trade(
                     &entry_client_oid,
                     "buy",
                     &tradeable_symbol,
-                    funds,
+                    &funds,
                     "market",
                     true,
                     false,
@@ -1445,18 +1560,31 @@ pub async fn make_random_trade(
     }
 }
 
-pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::Receiver<String>) {
+pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::Receiver<Bytes>) {
     loop {
-        let Some(msg) = rx_in.recv().await else {
-            error!("Channel closed, exiting message processor");
-            break;
+        let msg = match rx_in.recv().await {
+            Some(msg) => msg,
+            None => {
+                error!("Message processor stopped - channel closed");
+                break;
+            }
         };
 
-        if let Err(e) = process_kcn_msg(pool, &msg).await {
-            error!("{:#}", e);
-        }
+        let text = match String::from_utf8(msg.to_vec()) {
+            Ok(text) => text,
+            Err(e) => {
+                error!("Failed to convert Bytes to UTF-8 string: {}", e);
+                continue;
+            }
+        };
+
+        match process_kcn_msg(pool, &text).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("{:#}", e)
+            }
+        };
     }
-    info!("Message processor stopped");
 }
 
 pub async fn make_hf_funds_margin_order(
@@ -1464,7 +1592,7 @@ pub async fn make_hf_funds_margin_order(
     client_oid: &str,
     side: &str,
     symbol: &str,
-    funds: String,
+    funds: &str,
     type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
@@ -1514,7 +1642,7 @@ pub async fn make_hf_size_margin_order(
     client_oid: &str,
     side: &str,
     symbol: &str,
-    size: String,
+    size: &str,
     type_: &'static str,
     auto_borrow: bool,
     auto_repay: bool,
@@ -1526,7 +1654,7 @@ pub async fn make_hf_size_margin_order(
         pool,
         Some(symbol),
         Some(side),
-        Some(&size),
+        Some(size),
         None,
         None,
         Some(args_time_in_force),

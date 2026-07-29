@@ -26,7 +26,7 @@ use tracing::{
     field::{Field, Visit},
     subscriber::Subscriber,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use tracing_subscriber::{
     filter::EnvFilter,
     layer::{Context as layer_Context, Layer, SubscriberExt},
@@ -150,12 +150,15 @@ async fn main() -> Result<()> {
     init_tracing(pool.clone());
 
     // clear orders ids for bots
-    if let Err(e) = wipe_bots_info(&pool, &init_balance_per_bot).await {
-        error!("{:#}", e);
-        anyhow::bail!(e);
-    };
-
-    info!("wipe_bots_info");
+    match wipe_bots_info(&pool, &init_balance_per_bot).await {
+        Ok(_) => {
+            info!("wipe_bots_info");
+        }
+        Err(e) => {
+            error!("{:#}", e);
+            anyhow::bail!(e);
+        }
+    }
 
     loop {
         sleep(config::DELETE_STOP_ORDER_DELAY).await;
@@ -180,20 +183,21 @@ async fn main() -> Result<()> {
         };
 
         let open_stop_orders_data = match open_stop_orders {
-            Some(open_stop_orders_data) => open_stop_orders_data,
+            Some(open_stop_orders_data) => {
+                info!(
+                    "Stop orders: current_page:{} page_size:{} total_num:{} total_page:{}",
+                    open_stop_orders_data.current_page,
+                    open_stop_orders_data.page_size,
+                    open_stop_orders_data.total_num,
+                    open_stop_orders_data.total_page
+                );
+                open_stop_orders_data
+            }
             None => {
                 error!("Fail get list open stop orders:None");
                 continue;
             }
         };
-
-        info!(
-            "Stop orders: current_page:{} page_size:{} total_num:{} total_page:{}",
-            open_stop_orders_data.current_page,
-            open_stop_orders_data.page_size,
-            open_stop_orders_data.total_num,
-            open_stop_orders_data.total_page
-        );
 
         if open_stop_orders_data.total_num == 0 {
             break;
@@ -251,7 +255,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    let (tx_in, rx_in) = mpsc::channel::<String>(10000);
+    let (tx_in, rx_in) = mpsc::channel::<Bytes>(8192);
 
     let pool_process = pool.clone();
     let _spawn_process_kcn_msg_point =
@@ -263,7 +267,9 @@ async fn main() -> Result<()> {
             sleep(config::INIT_ORDER_DELAY).await;
             info!("Initializing start orders...");
             match create_init_orders(&pool_init_orders).await {
-                Ok(_) => {}
+                Ok(_) => {
+                    info!("Success create new init orders")
+                }
                 Err(e) => {
                     error!("{:#}", e);
                 }
@@ -292,30 +298,33 @@ async fn main() -> Result<()> {
 
         let (mut event_ws_write, mut event_ws_read) = stream.split();
 
-        // subscribtion
-        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_orders","type":"subscribe","topic":"/spotMarket/tradeOrdersV2","response":true,"privateChannel":"true"}).to_string())).await {
-            anyhow::bail!("Failed to subscribe topic:/spotMarket/tradeOrdersV2:{}", e)
-        };
+        // subscribtions
+        let topics = vec![
+            ("subscribe_orders", "/spotMarket/tradeOrdersV2"),
+            ("subscribe_stop_orders", "/spotMarket/advancedOrders"),
+            ("subscribe_balance", "/account/balance"),
+            ("subscribe_position", "/margin/position"),
+        ];
 
-        info!("Subscribe:/spotMarket/tradeOrdersV2");
-
-        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_stop_orders","type":"subscribe","topic":"/spotMarket/advancedOrders","response":true,"privateChannel":"true"}).to_string())).await {
-            anyhow::bail!("Failed to subscribe subject:/spotMarket/advancedOrders:{}", e)
-        };
-
-        info!("Subscribe:/spotMarket/advancedOrders");
-
-        if let Err(e) =  event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_balance","type":"subscribe","topic":"/account/balance","response":true,"privateChannel":"true"}).to_string())).await {
-            anyhow::bail!("Failed to subscribe subject:/account/balance:{}", e)
-        };
-
-        info!("Subscribe:/account/balance");
-
-        if let Err(e) = event_ws_write.send(Message::text(serde_json::json!({"id":"subscribe_position","type":"subscribe","topic":"/margin/position","response":true,"privateChannel":"true"}).to_string())).await {
-            anyhow::bail!("Failed to subscribe subject:/margin/position:{}", e)
-         };
-
-        info!("Subscribe:/margin/position");
+        for (id, topic) in topics {
+            if let Err(e) = event_ws_write
+                .send(Message::text(
+                    serde_json::json!({
+                        "id": id,
+                        "type": "subscribe",
+                        "topic": topic,
+                        "response": true,
+                        "privateChannel": true
+                    })
+                    .to_string(),
+                ))
+                .await
+            {
+                error!("Failed to subscribe to topic {}: {}", topic, e);
+                anyhow::bail!("Failed to subscribe to topic {}: {}", topic, e);
+            }
+            info!("Subscribed to: {}", topic);
+        }
 
         info!("Subscribed and listening for messages...");
 
@@ -327,7 +336,9 @@ async fn main() -> Result<()> {
                 // Events
                 _ = event_ping_interval.tick() => {
                    match event_ws_write.send(Message::Ping(Bytes::new())).await {
-                        Ok(_) => {},
+                        Ok(_) => {
+                            debug!("Ping sent");
+                        },
                         Err(e) =>  {
                             error!("Fail send Ping to WebSocket:{}", e);
                             break
@@ -336,9 +347,13 @@ async fn main() -> Result<()> {
                 }
 
                 event = event_ws_read.next() => {
-                    let Some(event) = event else {
-                        error!("WebSocket stream ended");
-                        break
+
+                    let event = match event {
+                        Some(event) => event,
+                        None => {
+                            error!("WebSocket event is None, connection closed");
+                            break
+                        }
                     };
 
                     let event = match event {
@@ -350,28 +365,44 @@ async fn main() -> Result<()> {
                     };
 
                     match event {
-                        Message::Text(text) => match tx_in.send(text.to_string()).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("Failed to send to handler, reconnecting...{}", e);
-                                break;
+                        Message::Text(text) => {
+                            match tx_in.send(Bytes::from(text)).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!("Failed to send message to handler: {}", e);
+                                    break;
+                                }
                             }
                         }
-                        Message::Pong(_) => {}
-                        Message::Ping(data) => match event_ws_write.send(Message::Pong(data)).await {
-                            Ok(_) => {},
-                            Err(e) => {
-                                error!("Fail send Pong to WebSocket:{}", e);
-                                break
+                        Message::Binary(data) => {
+                            debug!("Received binary message, size: {} bytes", data.len());
+                            match tx_in.send(Bytes::from(data)).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!("Failed to send binary message to handler: {}", e);
+                                    break;
+                                }
                             }
                         }
-                        Message::Close(_close) => {
-                            error!("Connection closed by server:");
+                        Message::Ping(_) => {
+                            debug!("Received Ping, auto-reply with Pong");
+                        }
+                        Message::Pong(_) => {
+                            debug!("Received Pong");
+                        }
+                        Message::Close(frame) => {
+                            match frame {
+                                Some(frame) => {
+                                    error!("Connection closed by server: code={}, reason={}", frame.code, frame.reason);
+                                },
+                                None => {
+                                    error!("Connection closed by server");
+                                }
+                            };
                             break
                         }
-                        _ => {
-                            error!("Unexpected msg:{:?}", event);
-                            break
+                        Message::Frame(_) => {
+                            debug!("Received raw frame");
                         }
                     }
                 }
