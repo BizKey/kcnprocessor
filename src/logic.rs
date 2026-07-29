@@ -325,14 +325,22 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 info!("Sell by market {} on size {}", &trade_symbol, size);
             } else {
                 // transfer from margin
+                let amount = format_assert_decimal(token_available, precision_decimal)?;
+                let type_ = "INTERNAL";
+                let from_account_type = "MARGIN";
+                let to_account_type = "TRADE";
                 transfer_in_account(
                     &account.currency,
-                    &format_assert_decimal(token_available, precision_decimal)?,
-                    "INTERNAL",
-                    "MARGIN",
-                    "TRADE",
+                    &amount,
+                    type_,
+                    from_account_type,
+                    to_account_type,
                 )
                 .await?;
+                info!(
+                    "Success transfer {} {} {} {} {}",
+                    &account.currency, amount, type_, from_account_type, to_account_type
+                )
             }
             passed = false;
         }
