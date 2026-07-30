@@ -1108,12 +1108,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<()> {
-    let debt_pair = match position.debt_pairs() {
-        Err(e) => return Err(e),
-        Ok(debt_pair) => debt_pair,
-    };
-
-    for (asset, token_liability) in debt_pair {
+    for (asset, token_liability) in position.debt_pairs()? {
         let asset_info = match position.asset_list.get(&asset) {
             Some(asset_info) => asset_info,
             None => {
@@ -1138,7 +1133,15 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
             let size =
                 format_assert_decimal(token_liability.min(token_available), precision_decimal)?;
 
-            repay_account(&asset, &size).await?;
+            match repay_account(&asset, &size).await {
+                Ok(_) => {
+                    info!("Repay {} size {}", &asset, size);
+                }
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!(e);
+                }
+            };
         }
     }
 
@@ -1213,17 +1216,16 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                 {
                     Ok(_) => match side_ref.as_str() {
                         "buy" => {
-                            let Some(funds) = funds_clone else {
-                                error!(
-                                    "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
-                                    order_id_ref, new_exit_client_oid, funds_clone,
-                                );
-                                anyhow::bail!(
-                                    "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
-                                    order_id_ref,
-                                    new_exit_client_oid,
-                                    funds_clone,
-                                );
+                            let funds = match funds_clone {
+                                Some(funds) => funds,
+                                None => {
+                                    anyhow::bail!(
+                                        "Fail parse funds order:{} new_exit_sl_client_oid:{} funds_clone:{:.?}",
+                                        order_id_ref,
+                                        new_exit_client_oid,
+                                        funds_clone,
+                                    );
+                                }
                             };
 
                             make_hf_funds_margin_order(
@@ -1239,13 +1241,16 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                             .await
                         }
                         "sell" => {
-                            let Some(size) = size_clone else {
-                                anyhow::bail!(
-                                    "Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}",
-                                    order_id_ref,
-                                    new_exit_client_oid,
-                                    size_clone,
-                                )
+                            let size = match size_clone {
+                                Some(size) => size,
+                                None => {
+                                    anyhow::bail!(
+                                        "Fail parse size order:{} new_exit_sl_client_oid:{} size_clone:{:.?}",
+                                        order_id_ref,
+                                        new_exit_client_oid,
+                                        size_clone,
+                                    )
+                                }
                             };
 
                             make_hf_size_margin_order(
