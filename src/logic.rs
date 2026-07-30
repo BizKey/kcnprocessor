@@ -1417,41 +1417,57 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
             let data = match BalanceData::deserialize(&data.data) {
                 Ok(data) => data,
                 Err(e) => {
-                    error!("{:#}", e);
                     anyhow::bail!(e);
                 }
             };
-            insert_db_balance(pool, data).await
+            match insert_db_balance(pool, data).await {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    anyhow::bail!(e);
+                }
+            }
         }
         "/spotMarket/tradeOrdersV2" => {
             let data = match OrderData::deserialize(&data.data) {
                 Ok(data) => data,
                 Err(e) => {
-                    error!("{:#}", e);
                     anyhow::bail!(e);
                 }
             };
-            handle_trade_order_event(data, pool).await
+            match handle_trade_order_event(data, pool).await {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    anyhow::bail!(e);
+                }
+            }
         }
         "/spotMarket/advancedOrders" => {
             let data = match AdvancedOrders::deserialize(&data.data) {
                 Ok(data) => data,
                 Err(e) => {
-                    error!("{:#}", e);
                     anyhow::bail!(e);
                 }
             };
-            handle_advanced_orders(data, pool).await
+            match handle_advanced_orders(data, pool).await {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    anyhow::bail!(e);
+                }
+            }
         }
         "/margin/position" => {
             let data = match PositionData::deserialize(&data.data) {
                 Ok(data) => data,
                 Err(e) => {
-                    error!("{:#}", e);
                     anyhow::bail!(e);
                 }
             };
-            handle_position_event(data, pool).await
+            match handle_position_event(data, pool).await {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    anyhow::bail!(e);
+                }
+            }
         }
         _ => {
             anyhow::bail!("Unknown topic: {}", data.topic)

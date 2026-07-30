@@ -5,7 +5,6 @@ use crate::{
 use anyhow::{Context, Result};
 use sqlx::PgPool;
 use sqlx::Row;
-use tracing::error;
 pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<()> {
     sqlx::query(
         r#"
@@ -96,14 +95,11 @@ pub async fn insert_db_msgsend(
 pub async fn insert_db_balance(pool: &sqlx::PgPool, balance: BalanceData) -> Result<()> {
     let relation_context: &BalanceRelationContext = match &balance.relation_context {
         Some(ctx) => ctx,
-        None => {
-            error!("Missing relationContext for balance");
-            &BalanceRelationContext {
-                symbol: None,
-                order_id: None,
-                trade_id: None,
-            }
-        }
+        None => &BalanceRelationContext {
+            symbol: None,
+            order_id: None,
+            trade_id: None,
+        },
     };
     sqlx::query(
         r#"
