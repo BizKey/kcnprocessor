@@ -94,15 +94,17 @@ pub struct PositionData {
 
 impl PositionData {
     pub fn debt_pairs(&self) -> Result<Vec<(String, Decimal)>> {
-        let mut result = Vec::new();
-        for (asset, debt_str) in &self.debt_list {
-            let decimal: Decimal = Decimal::from_str(debt_str)
-                .map_err(|e| anyhow::anyhow!(e))
-                .with_context(|| format!("Fail parse decimal:{}", debt_str))?;
-
-            result.push((asset.clone(), decimal));
-        }
-        Ok(result)
+        self.debt_list
+            .iter()
+            .map(|(asset, debt_str)| {
+                Ok((
+                    asset.clone(),
+                    Decimal::from_str(debt_str)
+                        .map_err(|e| anyhow::anyhow!(e))
+                        .with_context(|| format!("Invalid decimal in debt_list: {}", debt_str))?,
+                ))
+            })
+            .collect()
     }
 }
 
