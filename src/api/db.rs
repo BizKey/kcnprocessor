@@ -5,39 +5,43 @@ use crate::{
 use anyhow::{Context, Result};
 use sqlx::PgPool;
 use sqlx::Row;
-use tracing::error;
+
+const INSERT_DB_ERROR: &str = r#"
+    INSERT INTO errors (exchange, msg) VALUES ($1, $2);
+    "#;
+const INSERT_DB_EVENT: &str = r#"
+    INSERT INTO events (exchange, msg) VALUES ($1, $2);
+    "#;
+const INSERT_DB_MSGSEND: &str = r#"
+    INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+    "#;
+const INSERT_DB_BALANCE: &str = r#"
+    INSERT INTO balance (exchange, account_id, available, available_change, currency, hold_value, hold_change, relation_event, relation_event_id, event_time, total, symbol, order_id, trade_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
+    "#;
 pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<()> {
-    sqlx::query(
-        r#"
-        INSERT INTO errors (exchange, msg)
-        VALUES ($1, $2);
-        "#,
-    )
-    .bind(config::EXCHANGE)
-    .bind(msg)
-    .execute(pool)
-    .await
-    .with_context(|| format!("Fail insert into errors msg:{msg}"))?;
+    sqlx::query(INSERT_DB_ERROR)
+        .bind(config::EXCHANGE)
+        .bind(msg)
+        .execute(pool)
+        .await
+        .with_context(|| format!("Fail insert into errors msg:{msg}"))?;
     Ok(())
 }
 pub async fn insert_db_event(pool: &sqlx::PgPool, msg: &serde_json::Value) -> Result<()> {
-    sqlx::query(
-        r#"
-        INSERT INTO events (exchange, msg)
-        VALUES ($1, $2);
-        "#,
-    )
-    .bind(config::EXCHANGE)
-    .bind(msg)
-    .execute(pool)
-    .await
-    .with_context(|| {
-        format!(
-            "Fail insert into events msg:{} exchange:{}",
-            msg,
-            config::EXCHANGE
-        )
-    })?;
+    sqlx::query(INSERT_DB_EVENT)
+        .bind(config::EXCHANGE)
+        .bind(msg)
+        .execute(pool)
+        .await
+        .with_context(|| {
+            format!(
+                "Fail insert into events msg:{} exchange:{}",
+                msg,
+                config::EXCHANGE
+            )
+        })?;
     Ok(())
 }
 pub async fn insert_db_msgsend(
@@ -54,12 +58,7 @@ pub async fn insert_db_msgsend(
     args_client_oid: Option<&str>,
     args_order_id: Option<&str>,
 ) -> Result<()> {
-    sqlx::query(
-        r#"
-        INSERT INTO msgsend (exchange, args_symbol, args_side, args_size, args_funds, args_price, args_time_in_force, args_type, args_auto_borrow, args_auto_repay, args_client_oid, args_order_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
-        "#,
-    )
+    sqlx::query(INSERT_DB_MSGSEND)
     .bind(config::EXCHANGE)
     .bind(args_symbol)
     .bind(args_side)
@@ -96,40 +95,37 @@ pub async fn insert_db_msgsend(
 pub async fn insert_db_balance(pool: &sqlx::PgPool, balance: BalanceData) -> Result<()> {
     let relation_context: &BalanceRelationContext = match &balance.relation_context {
         Some(ctx) => ctx,
-        None => {
-            error!("Missing relationContext for balance");
-            &BalanceRelationContext {
-                symbol: None,
-                order_id: None,
-                trade_id: None,
-            }
-        }
+        None => &BalanceRelationContext {
+            symbol: None,
+            order_id: None,
+            trade_id: None,
+        },
     };
-    sqlx::query(
-        r#"
-        INSERT INTO balance (exchange, account_id, available, available_change, currency, hold_value, hold_change, relation_event, relation_event_id, event_time, total, symbol, order_id, trade_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
-        "#,
-    )
-    .bind(config::EXCHANGE)
-    .bind(&balance.account_id)
-    .bind(&balance.available)
-    .bind(&balance.available_change)
-    .bind(&balance.currency)
-    .bind(&balance.hold)
-    .bind(&balance.hold_change)
-    .bind(&balance.relation_event)
-    .bind(&balance.relation_event_id)
-    .bind(&balance.time)
-    .bind(&balance.total)
-    .bind(&relation_context.symbol)
-    .bind(&relation_context.order_id)
-    .bind(&relation_context.trade_id)
-    .execute(pool)
-    .await
-    .with_context(||{
-        format!("Fail insert into balance balance:{:?} relation_context:{:?} exchange:{}", balance, relation_context, config::EXCHANGE)
-    })?;
+    sqlx::query(INSERT_DB_BALANCE)
+        .bind(config::EXCHANGE)
+        .bind(&balance.account_id)
+        .bind(&balance.available)
+        .bind(&balance.available_change)
+        .bind(&balance.currency)
+        .bind(&balance.hold)
+        .bind(&balance.hold_change)
+        .bind(&balance.relation_event)
+        .bind(&balance.relation_event_id)
+        .bind(&balance.time)
+        .bind(&balance.total)
+        .bind(&relation_context.symbol)
+        .bind(&relation_context.order_id)
+        .bind(&relation_context.trade_id)
+        .execute(pool)
+        .await
+        .with_context(|| {
+            format!(
+                "Fail insert into balance balance:{:?} relation_context:{:?} exchange:{}",
+                balance,
+                relation_context,
+                config::EXCHANGE
+            )
+        })?;
     Ok(())
 }
 
@@ -184,7 +180,7 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(
     .bind(config::EXCHANGE)
     .execute(pool)
     .await
-    .with_context(||{     format!("Fail update bot exit_sl_client_oid:NULL and exit_sl_order_id:NULL by exit_sl_client_oid:{} exchange:{}", exit_sl_client_oid, config::EXCHANGE)})?;
+    .with_context(||{ format!("Fail update bot exit_sl_client_oid:NULL and exit_sl_order_id:NULL by exit_sl_client_oid:{} exchange:{}", exit_sl_client_oid, config::EXCHANGE)})?;
     Ok(())
 }
 pub async fn fetch_currency_info_by_symbol(

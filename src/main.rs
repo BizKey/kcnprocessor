@@ -161,8 +161,6 @@ async fn main() -> Result<()> {
     }
 
     loop {
-        sleep(config::DELETE_STOP_ORDER_DELAY).await;
-
         let mut query_params: Map<&str, &str, 8> = Map::new();
         query_params.insert("pageSize", "10");
 
@@ -182,16 +180,16 @@ async fn main() -> Result<()> {
             }
         };
 
-        let open_stop_orders_data = match open_stop_orders {
-            Some(open_stop_orders_data) => {
+        let open_stop_orders = match open_stop_orders {
+            Some(open_stop_orders) => {
                 info!(
                     "Stop orders: current_page:{} page_size:{} total_num:{} total_page:{}",
-                    open_stop_orders_data.current_page,
-                    open_stop_orders_data.page_size,
-                    open_stop_orders_data.total_num,
-                    open_stop_orders_data.total_page
+                    open_stop_orders.current_page,
+                    open_stop_orders.page_size,
+                    open_stop_orders.total_num,
+                    open_stop_orders.total_page
                 );
-                open_stop_orders_data
+                open_stop_orders
             }
             None => {
                 error!("Fail get list open stop orders:None");
@@ -199,11 +197,12 @@ async fn main() -> Result<()> {
             }
         };
 
-        if open_stop_orders_data.total_num == 0 {
+        if open_stop_orders.total_num == 0 {
+            info!("All stop orders closed");
             break;
         }
 
-        for stop_order in open_stop_orders_data.items {
+        for stop_order in open_stop_orders.items {
             info!("Stop order:{}", stop_order);
 
             let mut query_params: Map<&str, &str, 8> = Map::new();
@@ -238,6 +237,7 @@ async fn main() -> Result<()> {
                 info!("Success cancel stop order:{}", st_order)
             }
         }
+        sleep(config::DELETE_STOP_ORDER_DELAY).await;
     }
 
     // repay all liability assets and sell

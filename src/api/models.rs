@@ -94,15 +94,17 @@ pub struct PositionData {
 
 impl PositionData {
     pub fn debt_pairs(&self) -> Result<Vec<(String, Decimal)>> {
-        let mut result = Vec::new();
-        for (asset, debt_str) in &self.debt_list {
-            let decimal: Decimal = Decimal::from_str(debt_str)
-                .map_err(|e| anyhow::anyhow!(e))
-                .with_context(|| format!("Fail parse decimal:{}", debt_str))?;
-
-            result.push((asset.clone(), decimal));
-        }
-        Ok(result)
+        self.debt_list
+            .iter()
+            .map(|(asset, debt_str)| {
+                Ok((
+                    asset.clone(),
+                    Decimal::from_str(debt_str)
+                        .map_err(|e| anyhow::anyhow!(e))
+                        .with_context(|| format!("Invalid decimal in debt_list: {}", debt_str))?,
+                ))
+            })
+            .collect()
     }
 }
 
@@ -151,13 +153,16 @@ pub struct OrderData {
 impl OrderData {
     #[inline]
     pub fn filled_size_decimal(&self) -> Result<Decimal> {
-        let Some(filled_size_str) = &self.filled_size else {
-            anyhow::bail!("filled_size is None:{:?}", &self)
+        let filled_size = match &self.filled_size {
+            Some(filled_size) => filled_size,
+            None => {
+                anyhow::bail!("filled_size is None:{:?}", &self)
+            }
         };
 
-        Ok(Decimal::from_str(filled_size_str)
+        Ok(Decimal::from_str(filled_size)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", filled_size_str))?)
+            .with_context(|| format!("Fail parse decimal:{}", filled_size))?)
     }
 }
 impl fmt::Display for OrderData {
@@ -334,9 +339,13 @@ impl Symbol {
     }
     #[inline]
     pub fn min_funds_decimal(&self) -> Result<Decimal> {
-        let Some(min_funds) = &self.min_funds else {
-            anyhow::bail!("min_funds is None for symbol {:?}", &self)
+        let min_funds = match &self.min_funds {
+            Some(min_funds) => min_funds,
+            None => {
+                anyhow::bail!("min_funds is None for symbol {:?}", &self)
+            }
         };
+
         Ok(Decimal::from_str(min_funds)
             .map_err(|e| anyhow::anyhow!(e))
             .with_context(|| format!("Fail parse decimal:{}", min_funds))?)
@@ -357,7 +366,9 @@ impl Currencies {
 
         Ok(Decimal::from_str(&format!("1e-{}", self.precision))
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal: {}", self.precision))?)
+            .with_context(|| {
+                format!("Failed to parse decimal from precision: {}", self.precision)
+            })?)
     }
 }
 
@@ -633,5 +644,41 @@ impl fmt::Display for AdvancedOrders {
             self.type_,
             self.error
         )
+    }
+}
+
+#[cfg(test)]
+mod full_precision_tests {
+    use super::*;
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_all_valid_precisions() {
+        let test_cases = vec![
+            (0, dec!(1)),
+            (1, dec!(0.1)),
+            (2, dec!(0.01)),
+            (3, dec!(0.001)),
+            (4, dec!(0.0001)),
+            (8, dec!(0.00000001)),
+            (18, dec!(0.000000000000000001)),
+        ];
+
+        for (precision, expected) in test_cases {
+            let currencies = Currencies { precision };
+            let result = currencies.precision_decimal().unwrap();
+            assert_eq!(result, expected, "Failed at precision {}", precision);
+        }
+    }
+
+    #[test]
+    fn test_error_messages() {
+        let currencies = Currencies { precision: -5 };
+        let err = currencies.precision_decimal().unwrap_err();
+
+        let msg = err.to_string();
+        assert!(msg.contains("Precision cannot be negative"));
+        assert!(msg.contains("-5"));
     }
 }

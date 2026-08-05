@@ -295,12 +295,15 @@ impl KuCoinClient {
 static KUCLIENT: OnceLock<Result<KuCoinClient>> = OnceLock::new();
 
 pub fn serialize_body(body: Option<serde_json::Value>) -> Result<String> {
-    let Some(clear_value) = body else {
-        return Ok(String::new());
+    let body = match body {
+        Some(body) => body,
+        None => {
+            return Ok(String::new());
+        }
     };
 
-    Ok(serde_json::to_string(&clear_value)
-        .with_context(|| format!("Failed to deserialize body '{}'", clear_value))?)
+    Ok(serde_json::to_string(&body)
+        .with_context(|| format!("Failed to deserialize body '{}'", body))?)
 }
 pub fn build_query_string(query_params: Map<&str, &str, 8>) -> Result<String> {
     if query_params.is_empty() {
@@ -371,10 +374,18 @@ pub async fn api_v1_bullet_private_post() -> Result<String> {
         )
     };
 
-    let Some(server) = ws else { anyhow::bail!("") };
+    let server = match ws {
+        Some(ws) => ws,
+        None => {
+            anyhow::bail!("")
+        }
+    };
 
-    let Some(instance) = server.instance_servers.first() else {
-        anyhow::bail!("No instance servers in bullet response{:?}", server)
+    let instance = match server.instance_servers.first() {
+        Some(instance) => instance,
+        None => {
+            anyhow::bail!("No instance servers in bullet response{:?}", server)
+        }
     };
 
     Ok(format!("{}?token={}", instance.endpoint, server.token))
