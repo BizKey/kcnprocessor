@@ -202,8 +202,6 @@ pub async fn transfer_in_account(
 }
 
 pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
-    sleep(AUTO_CLEAN_DELAY).await;
-
     let mut passed = true;
     for account in get_all_accounts_data().await?.accounts.iter() {
         let token_liability = account.liability_decimal()?;
@@ -420,6 +418,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             passed = false;
         }
     }
+    sleep(AUTO_CLEAN_DELAY).await;
     Ok(passed)
 }
 
