@@ -264,7 +264,6 @@ async fn main() -> Result<()> {
     if !init_order_execute {
         let pool_init_orders = pool.clone();
         tokio::spawn(async move {
-            sleep(config::INIT_ORDER_DELAY).await;
             info!("Initializing start orders...");
             match create_init_orders(&pool_init_orders).await {
                 Ok(_) => {
@@ -273,12 +272,12 @@ async fn main() -> Result<()> {
                 Err(e) => {
                     error!("{:#}", e);
                 }
-            }
+            };
+            sleep(config::INIT_ORDER_DELAY).await;
         });
     }
 
     loop {
-        sleep(config::RECONNECT_DELAY).await;
         // Position/Orders/Balance/AdvancedOrders WS
         let event_ws_url = match api_v1_bullet_private_post().await {
             Ok(event_ws_url) => event_ws_url,
