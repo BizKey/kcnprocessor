@@ -250,172 +250,177 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             continue;
         }
 
-        let trade_symbol = format!("{}-USDT", &account.currency);
-        let symbol_info = fetch_symbol_info_by_symbol(pool, &trade_symbol).await?;
-        let symbol_info = match symbol_info {
-            Some(symbol_info) => {
-                info!("Get symbol info:{}", &account.currency);
-                symbol_info
-            }
-            None => {
-                anyhow::bail!("Symbol info not found for {}", &account.currency)
-            }
-        };
-
-        if token_liability > Decimal::ZERO {
-            if token_available > Decimal::ZERO {
-                if token_available >= token_liability {
-                    // full repay
-                    let size = &format_assert_decimal(token_liability, precision_decimal)?;
-                    match repay_account(&account.currency, size).await {
-                        Ok(_) => {
-                            info!("Repay {} size {}", &account.currency, size);
-                        }
-                        Err(e) => {
-                            error!("{:#}", e);
-                            anyhow::bail!(e);
-                        }
-                    };
-                } else if token_available > Decimal::ZERO {
-                    // particional repay
-                    let size = &format_assert_decimal(token_available, precision_decimal)?;
-                    match repay_account(&account.currency, size).await {
-                        Ok(_) => {
-                            info!("Repay {} size {}", &account.currency, size);
-                        }
-                        Err(e) => {
-                            error!("{:#}", e);
-                            anyhow::bail!(e);
-                        }
-                    };
-                };
-            } else {
-                // need buy tokens
-                let quote_increment = symbol_info.quote_increment_decimal()?;
-                let base_min_size = symbol_info.base_min_size_decimal()?;
-                let min_funds = symbol_info.min_funds_decimal()?;
-
-                let best_ask_token_price = match get_token_price(&trade_symbol).await {
-                    Ok(best_ask_token_price) => {
-                        info!(
-                            "Get token price:{} {:?}",
-                            &trade_symbol, best_ask_token_price
-                        );
-                        best_ask_token_price
-                    }
-                    Err(e) => {
-                        error!("{:#}", e);
-                        anyhow::bail!(e);
-                    }
-                };
-
-                let best_ask_token_price = best_ask_token_price.best_ask_decimal()?;
-
-                let token_funds = best_ask_token_price * token_liability;
-                let min_funds_by_size = best_ask_token_price * base_min_size;
-
-                let size = format_assert_decimal(
-                    token_funds.max(min_funds_by_size).max(min_funds),
-                    quote_increment,
-                )?;
-
-                match make_hf_funds_margin_order(
-                    pool,
-                    &Uuid::new_v4().to_string(),
-                    "buy",
-                    &trade_symbol,
-                    &size,
-                    "market",
-                    false,
-                    false,
-                )
-                .await
-                {
-                    Ok(_) => {
-                        info!("Buy by market {} on size {}", &trade_symbol, size);
-                    }
-                    Err(e) => {
-                        error!("{:#}", e);
-                        anyhow::bail!(e);
-                    }
-                };
-            }
-            passed = false;
-        } else if token_available > Decimal::ZERO {
-            let base_min_size = symbol_info.base_min_size_decimal()?;
-            let quote_min_size = symbol_info.quote_min_size_decimal()?;
-            let base_increment = symbol_info.base_increment_decimal()?;
-
-            let best_bid_token_price = match get_token_price(&trade_symbol).await {
-                Ok(best_bid_token_price) => {
-                    info!(
-                        "Get token price:{} {:?}",
-                        &trade_symbol, best_bid_token_price
-                    );
-                    best_bid_token_price
+        if token_liability > Decimal::ZERO || token_available > Decimal::ZERO {
+            let trade_symbol = format!("{}-USDT", &account.currency);
+            let symbol_info = fetch_symbol_info_by_symbol(pool, &trade_symbol).await?;
+            let symbol_info = match symbol_info {
+                Some(symbol_info) => {
+                    info!("Get symbol info:{}", &account.currency);
+                    symbol_info
                 }
-                Err(e) => {
-                    error!("{:#}", e);
-                    anyhow::bail!(e);
+                None => {
+                    anyhow::bail!("Symbol info not found for {}", &account.currency)
                 }
             };
+            if token_liability > Decimal::ZERO {
+                if token_available > Decimal::ZERO {
+                    if token_available >= token_liability {
+                        // full repay
+                        let size = &format_assert_decimal(token_liability, precision_decimal)?;
+                        match repay_account(&account.currency, size).await {
+                            Ok(_) => {
+                                info!("Repay {} size {}", &account.currency, size);
+                            }
+                            Err(e) => {
+                                error!("{:#}", e);
+                                anyhow::bail!(e);
+                            }
+                        };
+                    } else if token_available > Decimal::ZERO {
+                        // particional repay
+                        let size = &format_assert_decimal(token_available, precision_decimal)?;
+                        match repay_account(&account.currency, size).await {
+                            Ok(_) => {
+                                info!("Repay {} size {}", &account.currency, size);
+                            }
+                            Err(e) => {
+                                error!("{:#}", e);
+                                anyhow::bail!(e);
+                            }
+                        };
+                    };
+                } else {
+                    // need buy tokens
+                    let quote_increment = symbol_info.quote_increment_decimal()?;
+                    let base_min_size = symbol_info.base_min_size_decimal()?;
+                    let min_funds = symbol_info.min_funds_decimal()?;
 
-            let best_bid_token_price = best_bid_token_price.best_bid_decimal()?;
+                    let best_ask_token_price = match get_token_price(&trade_symbol).await {
+                        Ok(best_ask_token_price) => {
+                            info!(
+                                "Get token price:{} {:?}",
+                                &trade_symbol, best_ask_token_price
+                            );
+                            best_ask_token_price
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
 
-            let token_funds = best_bid_token_price * token_available;
+                    let best_ask_token_price = best_ask_token_price.best_ask_decimal()?;
 
-            if token_available >= base_min_size && token_funds >= quote_min_size {
-                // sell less
-                let size = format_assert_decimal(token_available, base_increment)?;
-                match make_hf_size_margin_order(
-                    pool,
-                    &Uuid::new_v4().to_string(),
-                    "sell",
-                    &trade_symbol,
-                    &size,
-                    "market",
-                    false,
-                    false,
-                )
-                .await
-                {
-                    Ok(_) => {
-                        info!("Sell by market {} on size {}", &trade_symbol, size);
-                    }
-                    Err(e) => {
-                        error!("{:#}", e);
-                        anyhow::bail!(e);
-                    }
-                };
-            } else {
-                // transfer from margin
-                let amount = format_assert_decimal(token_available, precision_decimal)?;
-                let type_ = "INTERNAL";
-                let from_account_type = "MARGIN";
-                let to_account_type = "TRADE";
+                    let token_funds = best_ask_token_price * token_liability;
+                    let min_funds_by_size = best_ask_token_price * base_min_size;
 
-                match transfer_in_account(
-                    &account.currency,
-                    &amount,
-                    type_,
-                    from_account_type,
-                    to_account_type,
-                )
-                .await
-                {
-                    Ok(_) => {
+                    let size = format_assert_decimal(
+                        token_funds.max(min_funds_by_size).max(min_funds),
+                        quote_increment,
+                    )?;
+
+                    match make_hf_funds_margin_order(
+                        pool,
+                        &Uuid::new_v4().to_string(),
+                        "buy",
+                        &trade_symbol,
+                        &size,
+                        "market",
+                        false,
+                        false,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            info!("Buy by market {} on size {}", &trade_symbol, size);
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
+                }
+                passed = false;
+            } else if token_available > Decimal::ZERO {
+                let base_min_size = symbol_info.base_min_size_decimal()?;
+                let quote_min_size = symbol_info.quote_min_size_decimal()?;
+                let base_increment = symbol_info.base_increment_decimal()?;
+
+                let best_bid_token_price = match get_token_price(&trade_symbol).await {
+                    Ok(best_bid_token_price) => {
                         info!(
-                            "Success transfer {} {} {} {} {}",
-                            &account.currency, amount, type_, from_account_type, to_account_type
-                        )
+                            "Get token price:{} {:?}",
+                            &trade_symbol, best_bid_token_price
+                        );
+                        best_bid_token_price
                     }
                     Err(e) => {
                         error!("{:#}", e);
                         anyhow::bail!(e);
                     }
                 };
+
+                let best_bid_token_price = best_bid_token_price.best_bid_decimal()?;
+
+                let token_funds = best_bid_token_price * token_available;
+
+                if token_available >= base_min_size && token_funds >= quote_min_size {
+                    // sell less
+                    let size = format_assert_decimal(token_available, base_increment)?;
+                    match make_hf_size_margin_order(
+                        pool,
+                        &Uuid::new_v4().to_string(),
+                        "sell",
+                        &trade_symbol,
+                        &size,
+                        "market",
+                        false,
+                        false,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            info!("Sell by market {} on size {}", &trade_symbol, size);
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
+                } else {
+                    // transfer from margin
+                    let amount = format_assert_decimal(token_available, precision_decimal)?;
+                    let type_ = "INTERNAL";
+                    let from_account_type = "MARGIN";
+                    let to_account_type = "TRADE";
+
+                    match transfer_in_account(
+                        &account.currency,
+                        &amount,
+                        type_,
+                        from_account_type,
+                        to_account_type,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            info!(
+                                "Success transfer {} {} {} {} {}",
+                                &account.currency,
+                                amount,
+                                type_,
+                                from_account_type,
+                                to_account_type
+                            )
+                        }
+                        Err(e) => {
+                            error!("{:#}", e);
+                            anyhow::bail!(e);
+                        }
+                    };
+                }
+                passed = false;
             }
-            passed = false;
         }
     }
     sleep(AUTO_CLEAN_DELAY).await;
