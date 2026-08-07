@@ -296,13 +296,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                     let min_funds = symbol_info.min_funds_decimal()?;
 
                     let best_ask_token_price = match get_token_price(&trade_symbol).await {
-                        Ok(best_ask_token_price) => {
-                            info!(
-                                "Get token price:{} {:?}",
-                                &trade_symbol, best_ask_token_price
-                            );
-                            best_ask_token_price
-                        }
+                        Ok(best_ask_token_price) => best_ask_token_price,
                         Err(e) => {
                             error!("{:#}", e);
                             anyhow::bail!(e);
@@ -310,6 +304,11 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                     };
 
                     let best_ask_token_price = best_ask_token_price.best_ask_decimal()?;
+
+                    info!(
+                        "Get token ask price:{} {:?}",
+                        &trade_symbol, best_ask_token_price
+                    );
 
                     let token_funds = best_ask_token_price * token_liability;
                     let min_funds_by_size = best_ask_token_price * base_min_size;
@@ -347,13 +346,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 let base_increment = symbol_info.base_increment_decimal()?;
 
                 let best_bid_token_price = match get_token_price(&trade_symbol).await {
-                    Ok(best_bid_token_price) => {
-                        info!(
-                            "Get token price:{} {:?}",
-                            &trade_symbol, best_bid_token_price
-                        );
-                        best_bid_token_price
-                    }
+                    Ok(best_bid_token_price) => best_bid_token_price,
                     Err(e) => {
                         error!("{:#}", e);
                         anyhow::bail!(e);
@@ -361,6 +354,11 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 };
 
                 let best_bid_token_price = best_bid_token_price.best_bid_decimal()?;
+
+                info!(
+                    "Get token bid price:{} {:?}",
+                    &trade_symbol, best_bid_token_price
+                );
 
                 let token_funds = best_bid_token_price * token_available;
 
