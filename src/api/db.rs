@@ -630,7 +630,7 @@ pub async fn update_bot_entry_client_oid_by_id(
 pub async fn get_bot_by_client_oid(pool: &sqlx::PgPool, client_oid: &str) -> Result<Option<Bot>> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
-        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+        SELECT id, entry_client_oid, entry_price, exit_tp_price, exit_tp_order_id, exit_tp_client_oid, exit_sl_price, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
         WHERE exchange = $1 AND (entry_client_oid = $2 OR exit_tp_client_oid = $2 OR exit_sl_client_oid = $2)
         LIMIT 1;
@@ -650,7 +650,7 @@ pub async fn get_bot_by_exit_sl_client_oid(
 ) -> Result<Option<Bot>> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
-        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+        SELECT id, entry_client_oid, entry_price, exit_tp_price, exit_tp_order_id, exit_tp_client_oid, exit_sl_price, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
         WHERE exchange = $1 AND exit_sl_client_oid = $2
         LIMIT 1;
@@ -670,7 +670,7 @@ pub async fn get_bot_by_exit_tp_client_oid(
 ) -> Result<Option<Bot>> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
-        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+        SELECT id, entry_client_oid, entry_price, exit_tp_price, exit_tp_order_id, exit_tp_client_oid, exit_sl_price, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
         WHERE exchange = $1 AND exit_tp_client_oid = $2
         LIMIT 1;
@@ -690,7 +690,7 @@ pub async fn get_bot_by_entry_client_oid(
 ) -> Result<Option<Bot>> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
-        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+        SELECT id, entry_client_oid, entry_price, exit_tp_price, exit_tp_order_id, exit_tp_client_oid, exit_sl_price, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
         WHERE exchange = $1 AND entry_client_oid = $2
         LIMIT 1;
