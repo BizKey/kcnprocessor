@@ -207,50 +207,50 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
         let token_liability = account.liability_decimal()?;
         let token_available = account.available_decimal()?;
 
-        let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
-        let currency_info = match currency_info {
-            Some(currency_info) => {
-                info!("Get currency info:{}", &account.currency);
-                currency_info
-            }
-            None => anyhow::bail!("Currency info not found for {}", account.currency),
-        };
-
-        let precision_decimal = currency_info.precision_decimal()?;
-
-        if account.currency == "USDT" {
-            if token_liability > Decimal::ZERO {
-                if token_available >= token_liability {
-                    // full repay
-                    let size = &format_assert_decimal(token_liability, precision_decimal)?;
-                    match repay_account(&account.currency, size).await {
-                        Ok(_) => {
-                            info!("Repay {} size {}", &account.currency, size);
-                        }
-                        Err(e) => {
-                            error!("{:#}", e);
-                            anyhow::bail!(e);
-                        }
-                    };
-                } else if token_available > Decimal::ZERO {
-                    // particial repay
-                    let size = &format_assert_decimal(token_available, precision_decimal)?;
-                    match repay_account(&account.currency, size).await {
-                        Ok(_) => {
-                            info!("Repay {} size {}", &account.currency, size);
-                        }
-                        Err(e) => {
-                            error!("{:#}", e);
-                            anyhow::bail!(e);
-                        }
-                    };
-                };
-                passed = false;
-            };
-            continue;
-        }
-
         if token_liability > Decimal::ZERO || token_available > Decimal::ZERO {
+            let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
+            let currency_info = match currency_info {
+                Some(currency_info) => {
+                    info!("Get currency info:{}", &account.currency);
+                    currency_info
+                }
+                None => anyhow::bail!("Currency info not found for {}", account.currency),
+            };
+
+            let precision_decimal = currency_info.precision_decimal()?;
+
+            if account.currency == "USDT" {
+                if token_liability > Decimal::ZERO {
+                    if token_available >= token_liability {
+                        // full repay
+                        let size = &format_assert_decimal(token_liability, precision_decimal)?;
+                        match repay_account(&account.currency, size).await {
+                            Ok(_) => {
+                                info!("Repay {} size {}", &account.currency, size);
+                            }
+                            Err(e) => {
+                                error!("{:#}", e);
+                                anyhow::bail!(e);
+                            }
+                        };
+                    } else if token_available > Decimal::ZERO {
+                        // particial repay
+                        let size = &format_assert_decimal(token_available, precision_decimal)?;
+                        match repay_account(&account.currency, size).await {
+                            Ok(_) => {
+                                info!("Repay {} size {}", &account.currency, size);
+                            }
+                            Err(e) => {
+                                error!("{:#}", e);
+                                anyhow::bail!(e);
+                            }
+                        };
+                    };
+                    passed = false;
+                };
+                continue;
+            }
+
             let trade_symbol = format!("{}-USDT", &account.currency);
             let symbol_info = fetch_symbol_info_by_symbol(pool, &trade_symbol).await?;
             let symbol_info = match symbol_info {
