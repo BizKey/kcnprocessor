@@ -588,9 +588,12 @@ pub struct Bot {
     pub id: i32,
     balance: String,
     pub entry_client_oid: Option<String>,
+    pub entry_price: Option<String>,
     pub exit_tp_order_id: Option<String>,
+    pub exit_tp_price: Option<String>,
     pub exit_tp_client_oid: Option<String>,
     pub exit_sl_order_id: Option<String>,
+    pub exit_sl_price: Option<String>,
     pub exit_sl_client_oid: Option<String>,
 }
 
