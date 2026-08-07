@@ -133,7 +133,7 @@ fn init_tracing(pool: sqlx::PgPool) {
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
-    let init_order_execute = false;
+    let init_order_execute = true;
 
     let database_url = get_env("DATABASE_URL")?;
     let init_balance_per_bot = get_env("INIT_BALANCE_PER_BOT")?;
