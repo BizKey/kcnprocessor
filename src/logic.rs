@@ -225,9 +225,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                         // full repay
                         let size = &format_assert_decimal(token_liability, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
-                            Ok(_) => {
-                                info!("Repay {} size {}", &account.currency, size);
-                            }
+                            Ok(_) => {}
                             Err(e) => {
                                 error!("{:#}", e);
                                 anyhow::bail!(e);
@@ -237,9 +235,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                         // particial repay
                         let size = &format_assert_decimal(token_available, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
-                            Ok(_) => {
-                                info!("Repay {} size {}", &account.currency, size);
-                            }
+                            Ok(_) => {}
                             Err(e) => {
                                 error!("{:#}", e);
                                 anyhow::bail!(e);
@@ -268,9 +264,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                         // full repay
                         let size = &format_assert_decimal(token_liability, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
-                            Ok(_) => {
-                                info!("Repay {} size {}", &account.currency, size);
-                            }
+                            Ok(_) => {}
                             Err(e) => {
                                 error!("{:#}", e);
                                 anyhow::bail!(e);
@@ -280,9 +274,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                         // particional repay
                         let size = &format_assert_decimal(token_available, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
-                            Ok(_) => {
-                                info!("Repay {} size {}", &account.currency, size);
-                            }
+                            Ok(_) => {}
                             Err(e) => {
                                 error!("{:#}", e);
                                 anyhow::bail!(e);
