@@ -569,9 +569,12 @@ pub async fn wipe_bots_info(pool: &sqlx::PgPool, balance: &str) -> Result<()> {
     sqlx::query(
         r#"
         UPDATE bots
-        SET entry_client_oid = NULL,
+        SET entry_price = NULL,
+            entry_client_oid = NULL,
+            exit_tp_price = NULL,
             exit_tp_order_id = NULL,
             exit_tp_client_oid = NULL,
+            exit_sl_price = NULL,
             exit_sl_order_id = NULL,
             exit_sl_client_oid = NULL,
             balance = $1,
@@ -705,7 +708,7 @@ pub async fn get_bot_by_entry_client_oid(
 pub async fn get_all_bots_for_trade(pool: &sqlx::PgPool) -> Result<Vec<Bot>> {
     Ok(sqlx::query_as::<_, Bot>(
         r#"
-        SELECT id, entry_client_oid, exit_tp_order_id, exit_tp_client_oid, exit_sl_order_id, exit_sl_client_oid, balance
+        SELECT id, entry_client_oid, entry_price, exit_tp_price, exit_tp_order_id, exit_tp_client_oid, exit_sl_price, exit_sl_order_id, exit_sl_client_oid, balance
         FROM bots
         WHERE exchange = $1;
         "#,

@@ -1536,19 +1536,18 @@ pub async fn make_random_trade(
                 let base_increment = symbol_info.base_increment_decimal()?;
 
                 let mut query_params: Map<&str, &str, 8> = Map::new();
-
                 query_params.insert("symbol", &tradeable_symbol);
 
-                let token_price_obj =
+                let token_price =
                     api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
-                let token_price_obj = match token_price_obj {
-                    Some(token_price_obj) => token_price_obj,
+                let token_price = match token_price {
+                    Some(token_price) => token_price,
                     None => {
                         anyhow::bail!("")
                     }
                 };
 
-                let token_price = token_price_obj.price_decimal()?;
+                let token_price = token_price.price_decimal()?;
 
                 let token_size = balance_funds / token_price;
                 let size = format_assert_decimal(token_size, base_increment)
