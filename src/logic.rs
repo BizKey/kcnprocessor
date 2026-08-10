@@ -1114,8 +1114,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
         let token_available = asset_info.available_decimal()?;
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
-            let currency_info = fetch_currency_info_by_symbol(pool, &asset).await?;
-            let currency_info = match currency_info {
+            let currency_info = match fetch_currency_info_by_symbol(pool, &asset).await? {
                 Some(currency_info) => currency_info,
                 None => {
                     anyhow::bail!("Currency info not found for {}", asset)
@@ -1173,11 +1172,9 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
 }
 
 pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Result<()> {
-    info!("{}", order);
     if order.error.is_none() {
         return Ok(());
     }
-
     error!("Got error on stop order : {}", order);
 
     const MAX_RETRIES: u32 = 1000;

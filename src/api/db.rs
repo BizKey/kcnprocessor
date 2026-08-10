@@ -583,8 +583,8 @@ pub async fn wipe_bots_info(pool: &sqlx::PgPool, balance: &str) -> Result<()> {
         WHERE exchange = $2;
         "#,
     )
-    .bind(config::EXCHANGE)
     .bind(balance)
+    .bind(config::EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
