@@ -8,6 +8,7 @@ mod constants;
 mod logic;
 use crate::constants::*;
 mod tracing_layer;
+mod websocket;
 
 use crate::api::db::wipe_bots_info;
 use crate::api::requests::{
@@ -17,12 +18,12 @@ use crate::api::requests::{
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
 use crate::tracing_layer::DbErrorLayer;
+use crate::websocket::run_websocket_loop;
 use anyhow::Result;
 use bytes::Bytes;
 use dotenvy::dotenv;
 use futures_util::{SinkExt, StreamExt};
 use micromap::Map;
-
 use std::sync::mpsc::{Sender, channel};
 
 use tracing::{debug, error, info};
@@ -196,139 +197,5 @@ async fn main() -> Result<()> {
             sleep(INIT_ORDER_DELAY).await;
         });
     }
-
-    loop {
-        // Position/Orders/Balance/AdvancedOrders WS
-        let event_ws_url = match api_v1_bullet_private_post().await {
-            Ok(event_ws_url) => event_ws_url,
-            Err(e) => {
-                error!("{:#}", e);
-                continue;
-            }
-        };
-
-        let (stream, _) = match connect_async(event_ws_url).await {
-            Ok(stream) => stream,
-            Err(e) => {
-                error!("{:#}", e);
-                continue;
-            }
-        };
-
-        let (mut event_ws_write, mut event_ws_read) = stream.split();
-
-        // subscribtions
-        let topics = vec![
-            ("subscribe_orders", "/spotMarket/tradeOrdersV2"),
-            ("subscribe_stop_orders", "/spotMarket/advancedOrders"),
-            ("subscribe_balance", "/account/balance"),
-            ("subscribe_position", "/margin/position"),
-        ];
-
-        for (id, topic) in topics {
-            if let Err(e) = event_ws_write
-                .send(Message::text(
-                    serde_json::json!({
-                        "id": id,
-                        "type": "subscribe",
-                        "topic": topic,
-                        "response": true,
-                        "privateChannel": true
-                    })
-                    .to_string(),
-                ))
-                .await
-            {
-                error!("Failed to subscribe to topic {}: {}", topic, e);
-                anyhow::bail!("Failed to subscribe to topic {}: {}", topic, e);
-            }
-            info!("Subscribed to: {}", topic);
-        }
-
-        info!("Subscribed and listening for messages...");
-
-        let event_ping_interval = interval(PING_INTERVAL);
-        tokio::pin!(event_ping_interval);
-
-        loop {
-            tokio::select! {
-                // Events
-                _ = event_ping_interval.tick() => {
-                   match event_ws_write.send(Message::Ping(Bytes::new())).await {
-                        Ok(_) => {
-                            debug!("Ping sent");
-                        },
-                        Err(e) =>  {
-                            error!("Fail send Ping to WebSocket:{}", e);
-                            break
-                        }
-                    };
-                }
-
-                event = event_ws_read.next() => {
-
-                    let event = match event {
-                        Some(event) => event,
-                        None => {
-                            error!("WebSocket event is None, connection closed");
-                            break
-                        }
-                    };
-
-                    let event = match event {
-                        Ok(e) => e,
-                        Err(e) => {
-                            error!("WebSocket read error: {}", e);
-                            break;
-                        }
-                    };
-
-                    match event {
-                        Message::Text(text) => {
-                            match tx_in.send(Bytes::from(text)).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    error!("Failed to send message to handler: {}", e);
-                                    break;
-                                }
-                            }
-                        }
-                        Message::Binary(data) => {
-                            debug!("Received binary message, size: {} bytes", data.len());
-                            match tx_in.send(Bytes::from(data)).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    error!("Failed to send binary message to handler: {}", e);
-                                    break;
-                                }
-                            }
-                        }
-                        Message::Ping(_) => {
-                            debug!("Received Ping, auto-reply with Pong");
-                        }
-                        Message::Pong(_) => {
-                            debug!("Received Pong");
-                        }
-                        Message::Close(frame) => {
-                            match frame {
-                                Some(frame) => {
-                                    error!("Connection closed by server: code={}, reason={}", frame.code, frame.reason);
-                                },
-                                None => {
-                                    error!("Connection closed by server");
-                                }
-                            };
-                            break
-                        }
-                        Message::Frame(_) => {
-                            debug!("Received raw frame");
-                        }
-                    }
-                }
-            }
-        }
-
-        error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
-        sleep(RECONNECT_DELAY).await;
-    }
+    run_websocket_loop(pool).await
 }
