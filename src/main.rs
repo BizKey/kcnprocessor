@@ -4,8 +4,10 @@ mod api {
     pub mod requests;
     pub mod tools;
 }
-mod config;
+mod constants;
 mod logic;
+use crate::constants::*;
+
 use crate::api::db::{insert_db_error, wipe_bots_info};
 use crate::api::requests::{
     api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
@@ -237,7 +239,7 @@ async fn main() -> Result<()> {
                 info!("Success cancel stop order:{}", st_order)
             }
         }
-        sleep(config::DELETE_STOP_ORDER_DELAY).await;
+        sleep(DELETE_STOP_ORDER_DELAY).await;
     }
 
     // repay all liability assets and sell
@@ -273,7 +275,7 @@ async fn main() -> Result<()> {
                     error!("{:#}", e);
                 }
             };
-            sleep(config::INIT_ORDER_DELAY).await;
+            sleep(INIT_ORDER_DELAY).await;
         });
     }
 
@@ -327,7 +329,7 @@ async fn main() -> Result<()> {
 
         info!("Subscribed and listening for messages...");
 
-        let event_ping_interval = interval(config::PING_INTERVAL);
+        let event_ping_interval = interval(PING_INTERVAL);
         tokio::pin!(event_ping_interval);
 
         loop {
@@ -408,10 +410,7 @@ async fn main() -> Result<()> {
             }
         }
 
-        error!(
-            "Reconnecting in {} seconds...",
-            config::RECONNECT_DELAY.as_secs()
-        );
-        sleep(config::RECONNECT_DELAY).await;
+        error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
+        sleep(RECONNECT_DELAY).await;
     }
 }

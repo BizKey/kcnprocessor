@@ -1,6 +1,6 @@
 use crate::{
     api::models::{BalanceData, BalanceRelationContext, Bot, Currencies, OrderData, Symbol},
-    config,
+    constants::EXCHANGE,
 };
 use anyhow::{Context, Result};
 use sqlx::PgPool;
@@ -22,7 +22,7 @@ const INSERT_DB_BALANCE: &str = r#"
     "#;
 pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<()> {
     sqlx::query(INSERT_DB_ERROR)
-        .bind(config::EXCHANGE)
+        .bind(EXCHANGE)
         .bind(msg)
         .execute(pool)
         .await
@@ -31,17 +31,11 @@ pub async fn insert_db_error(pool: &sqlx::PgPool, msg: &str) -> Result<()> {
 }
 pub async fn insert_db_event(pool: &sqlx::PgPool, msg: &serde_json::Value) -> Result<()> {
     sqlx::query(INSERT_DB_EVENT)
-        .bind(config::EXCHANGE)
+        .bind(EXCHANGE)
         .bind(msg)
         .execute(pool)
         .await
-        .with_context(|| {
-            format!(
-                "Fail insert into events msg:{} exchange:{}",
-                msg,
-                config::EXCHANGE
-            )
-        })?;
+        .with_context(|| format!("Fail insert into events msg:{} exchange:{}", msg, EXCHANGE))?;
     Ok(())
 }
 pub async fn insert_db_msgsend(
@@ -59,7 +53,7 @@ pub async fn insert_db_msgsend(
     args_order_id: Option<&str>,
 ) -> Result<()> {
     sqlx::query(INSERT_DB_MSGSEND)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(args_symbol)
     .bind(args_side)
     .bind(args_size)
@@ -87,7 +81,7 @@ pub async fn insert_db_msgsend(
                 args_auto_repay,
                 args_client_oid,
                 args_order_id,
-                config::EXCHANGE
+                EXCHANGE
             )
     })?;
     Ok(())
@@ -102,7 +96,7 @@ pub async fn insert_db_balance(pool: &sqlx::PgPool, balance: BalanceData) -> Res
         },
     };
     sqlx::query(INSERT_DB_BALANCE)
-        .bind(config::EXCHANGE)
+        .bind(EXCHANGE)
         .bind(&balance.account_id)
         .bind(&balance.available)
         .bind(&balance.available_change)
@@ -121,9 +115,7 @@ pub async fn insert_db_balance(pool: &sqlx::PgPool, balance: BalanceData) -> Res
         .with_context(|| {
             format!(
                 "Fail insert into balance balance:{:?} relation_context:{:?} exchange:{}",
-                balance,
-                relation_context,
-                config::EXCHANGE
+                balance, relation_context, EXCHANGE
             )
         })?;
     Ok(())
@@ -135,7 +127,7 @@ pub async fn insert_db_orderevent(pool: &sqlx::PgPool, order: OrderData) -> Resu
             INSERT INTO orderevent (exchange, status, type_, symbol, side, order_type, fee_type, liquidity, price, order_id, client_oid, trade_id, origin_size, size, filled_size, match_size, match_price, canceled_size, old_size, remain_size, remain_funds, order_time, ts)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23);
             "#)
-        .bind(config::EXCHANGE)
+        .bind(EXCHANGE)
         .bind(&order.status)
         .bind(&order.type_)
         .bind(&order.symbol)
@@ -161,7 +153,7 @@ pub async fn insert_db_orderevent(pool: &sqlx::PgPool, order: OrderData) -> Resu
         .execute(pool)
         .await
         .with_context(||{
-            format!("Fail insert into orderevent status:{} type_:{} symbol:{} side:{} order_type:{} fee_type:{:?} liquidity:{:?} price:{:?} order_id:{} client_oid:{:?} trade_id:{:?} origin_size:{:?} size:{:?} filled_size:{:?} match_size:{:?} match_price:{:?} canceled_size:{:?} old_size:{:?} remain_size:{:?} remain_funds:{:?} order_time:{} ts:{} exchange:{}", order.status, order.type_,order.symbol, order.side,order.order_type, order.fee_type, order.liquidity, order.price, order.order_id, order.client_oid, order.trade_id,order.origin_size, order.size, order.filled_size, order.match_size, order.match_price, order.canceled_size, order.old_size, order.remain_size, order.remain_funds,order.order_time,  order.ts,config::EXCHANGE)
+            format!("Fail insert into orderevent status:{} type_:{} symbol:{} side:{} order_type:{} fee_type:{:?} liquidity:{:?} price:{:?} order_id:{} client_oid:{:?} trade_id:{:?} origin_size:{:?} size:{:?} filled_size:{:?} match_size:{:?} match_price:{:?} canceled_size:{:?} old_size:{:?} remain_size:{:?} remain_funds:{:?} order_time:{} ts:{} exchange:{}", order.status, order.type_,order.symbol, order.side,order.order_type, order.fee_type, order.liquidity, order.price, order.order_id, order.client_oid, order.trade_id,order.origin_size, order.size, order.filled_size, order.match_size, order.match_price, order.canceled_size, order.old_size, order.remain_size, order.remain_funds,order.order_time,  order.ts, EXCHANGE)
         })?;
     Ok(())
 }
@@ -177,10 +169,10 @@ pub async fn delete_exit_sl_id_bot_by_client_oid(
         "#,
     )
     .bind(exit_sl_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
-    .with_context(||{ format!("Fail update bot exit_sl_client_oid:NULL and exit_sl_order_id:NULL by exit_sl_client_oid:{} exchange:{}", exit_sl_client_oid, config::EXCHANGE)})?;
+    .with_context(||{ format!("Fail update bot exit_sl_client_oid:NULL and exit_sl_order_id:NULL by exit_sl_client_oid:{} exchange:{}", exit_sl_client_oid, EXCHANGE)})?;
     Ok(())
 }
 pub async fn fetch_currency_info_by_symbol(
@@ -194,15 +186,14 @@ pub async fn fetch_currency_info_by_symbol(
         WHERE exchange = $1 AND currency = $2;
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(currency)
     .fetch_optional(pool)
     .await
     .with_context(|| {
         format!(
             "Fail get currency by currency:{} exchange:{}",
-            currency,
-            config::EXCHANGE,
+            currency, EXCHANGE,
         )
     })?)
 }
@@ -214,12 +205,12 @@ pub async fn fetch_symbol_info_by_symbol(pool: &PgPool, symbol: &str) -> Result<
         WHERE exchange = $1 AND symbol = $2;
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(symbol)
     .fetch_optional(pool)
     .await
     .with_context(|| {
-        format!("Fail get symbol by symbol:{} exchange:{}", symbol, config::EXCHANGE)
+        format!("Fail get symbol by symbol:{} exchange:{}", symbol, EXCHANGE)
     })?)
 }
 pub async fn delete_symbol_bot_by_exit_sl_client_oid(
@@ -234,14 +225,13 @@ pub async fn delete_symbol_bot_by_exit_sl_client_oid(
         "#,
     )
     .bind(exit_sl_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update bot symbol:NULL by exit_sl_client_oid:{} exchange:{}",
-            exit_sl_client_oid,
-            config::EXCHANGE,
+            exit_sl_client_oid, EXCHANGE,
         )
     })?;
     Ok(())
@@ -258,11 +248,11 @@ pub async fn delete_exit_tp_id_bot_by_client_oid(
         "#,
     )
     .bind(exit_tp_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
-        format!("Fail update exit_tp_client_oid:NULL and exit_tp_order_id:NULL for bot by exit_tp_client_oid:{} exchange:{}", exit_tp_client_oid, config::EXCHANGE)
+        format!("Fail update exit_tp_client_oid:NULL and exit_tp_order_id:NULL for bot by exit_tp_client_oid:{} exchange:{}", exit_tp_client_oid, EXCHANGE)
     })?;
     Ok(())
 }
@@ -278,11 +268,11 @@ pub async fn get_total_match_value_by_client_oid(
         "#,
     )
     .bind(client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .fetch_one(pool)
     .await
     .with_context(|| {
-        format!("Fail get total match value by client_oid:{} exchange:{}", client_oid, config::EXCHANGE)
+        format!("Fail get total match value by client_oid:{} exchange:{}", client_oid, EXCHANGE)
     })?;
 
     Ok(row
@@ -290,9 +280,7 @@ pub async fn get_total_match_value_by_client_oid(
         .with_context(|| {
             format!(
                 "Fail get total_match_value by client_oid:{} exchange:{} from:{:?}",
-                client_oid,
-                config::EXCHANGE,
-                row,
+                client_oid, EXCHANGE, row,
             )
         })?)
 }
@@ -308,15 +296,13 @@ pub async fn set_null_entry_client_oid_by_entry_client_oid(
         "#,
     )
     .bind(entry_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update entry_client_oid:{} for bot by entry_client_oid:{} exchange:{}",
-            entry_client_oid,
-            entry_client_oid,
-            config::EXCHANGE,
+            entry_client_oid, entry_client_oid, EXCHANGE,
         )
     })?;
     Ok(())
@@ -336,15 +322,13 @@ pub async fn update_exit_sl_client_oid_bot_by_exit_sl_order_id(
     )
     .bind(exit_sl_client_oid)
     .bind(exit_sl_order_id)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update exit_sl_client_oid:{} for bot by exit_sl_order_id:{} exchange:{}",
-            exit_sl_client_oid,
-            exit_sl_order_id,
-            config::EXCHANGE,
+            exit_sl_client_oid, exit_sl_order_id, EXCHANGE,
         )
     })?;
     Ok(())
@@ -363,15 +347,13 @@ pub async fn update_exit_tp_client_oid_bot_by_exit_tp_order_id(
     )
     .bind(exit_tp_client_oid)
     .bind(exit_tp_order_id)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update exit_tp_client_oid:{} for bot by exit_tp_order_id:{} exchange:{}",
-            exit_tp_client_oid,
-            exit_tp_order_id,
-            config::EXCHANGE,
+            exit_tp_client_oid, exit_tp_order_id, EXCHANGE,
         )
     })?;
     Ok(())
@@ -390,15 +372,13 @@ pub async fn update_exit_tp_client_oid_bot_by_entry_client_oid(
     )
     .bind(exit_tp_client_oid)
     .bind(entry_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update exit_tp_client_oid:{} by entry_client_oid:{} and exchange:{}",
-            exit_tp_client_oid,
-            entry_client_oid,
-            config::EXCHANGE,
+            exit_tp_client_oid, entry_client_oid, EXCHANGE,
         )
     })?;
     Ok(())
@@ -417,15 +397,13 @@ pub async fn update_exit_tp_order_id_bot_by_exit_tp_client_oid(
     )
     .bind(exit_tp_order_id)
     .bind(exit_tp_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update exit_tp_order_id:{} by exit_tp_client_oid:{} and exchange:{}",
-            exit_tp_order_id,
-            exit_tp_client_oid,
-            config::EXCHANGE,
+            exit_tp_order_id, exit_tp_client_oid, EXCHANGE,
         )
     })?;
     Ok(())
@@ -444,15 +422,13 @@ pub async fn update_exit_sl_order_id_bot_by_exit_sl_client_oid(
     )
     .bind(exit_sl_order_id)
     .bind(exit_sl_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update exit_sl_order_id:{} bot by exit_sl_client_oid:{} and exchange:{}",
-            exit_sl_order_id,
-            exit_sl_client_oid,
-            config::EXCHANGE,
+            exit_sl_order_id, exit_sl_client_oid, EXCHANGE,
         )
     })?;
     Ok(())
@@ -471,15 +447,13 @@ pub async fn update_exit_sl_client_oid_bot_by_entry_client_oid(
     )
     .bind(exit_sl_client_oid)
     .bind(entry_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update exit_sl_client_oid:{} by entry_client_oid:{} exchange:{}",
-            exit_sl_client_oid,
-            entry_client_oid,
-            config::EXCHANGE,
+            exit_sl_client_oid, entry_client_oid, EXCHANGE,
         )
     })?;
     Ok(())
@@ -498,15 +472,13 @@ pub async fn update_balance_bot_by_exit_tp_client_oid(
     )
     .bind(balance)
     .bind(exit_tp_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update balance to:{} by exit_tp_client_oid:{} exchange:{}",
-            balance,
-            exit_tp_client_oid,
-            config::EXCHANGE,
+            balance, exit_tp_client_oid, EXCHANGE,
         )
     })?;
     Ok(())
@@ -525,15 +497,13 @@ pub async fn update_bot_balance_by_entry_client_oid(
     )
     .bind(balance)
     .bind(entry_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update balance bot to:{} by entry_client_oid:{} exchange:{}",
-            balance,
-            entry_client_oid,
-            config::EXCHANGE,
+            balance, entry_client_oid, EXCHANGE,
         )
     })?;
     Ok(())
@@ -552,15 +522,13 @@ pub async fn update_balance_bot_by_exit_sl_client_oid(
     )
     .bind(balance)
     .bind(exit_sl_client_oid)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update balance:{} and symbol:NULL bot by exit_sl_client_oid:{} exchange:{}",
-            balance,
-            exit_sl_client_oid,
-            config::EXCHANGE
+            balance, exit_sl_client_oid, EXCHANGE
         )
     })?;
     Ok(())
@@ -584,14 +552,14 @@ pub async fn wipe_bots_info(pool: &sqlx::PgPool, balance: &str) -> Result<()> {
         "#,
     )
     .bind(balance)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update entry_client_oid:NULL, exit_tp_order_id:NULL, exit_tp_client_oid:NULL, exit_sl_order_id:NULL, exit_sl_client_oid:NULL, balance:{}, symbol:NULL, exchange:{}",
             balance,
-            config::EXCHANGE,
+            EXCHANGE,
         )
     })?;
     Ok(())
@@ -611,17 +579,14 @@ pub async fn update_bot_entry_client_oid_by_id(
     )
     .bind(entry_client_oid)
     .bind(symbol)
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(id)
     .execute(pool)
     .await
     .with_context(|| {
         format!(
             "Fail update entry_client_oid:{:?} and symbol:{:?} by id:{} exchange:{}",
-            entry_client_oid,
-            symbol,
-            id,
-            config::EXCHANGE,
+            entry_client_oid, symbol, id, EXCHANGE,
         )
     })?;
     Ok(())
@@ -636,12 +601,12 @@ pub async fn get_bot_by_client_oid(pool: &sqlx::PgPool, client_oid: &str) -> Res
         LIMIT 1;
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(client_oid)
     .fetch_optional(pool)
     .await
     .with_context(|| {
-        format!("Fail get bot by exit_sl_client_oid:{} exchange:{}", client_oid, config::EXCHANGE)
+        format!("Fail get bot by exit_sl_client_oid:{} exchange:{}", client_oid, EXCHANGE)
     })?)
 }
 pub async fn get_bot_by_exit_sl_client_oid(
@@ -656,12 +621,12 @@ pub async fn get_bot_by_exit_sl_client_oid(
         LIMIT 1;
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(exit_sl_client_oid)
     .fetch_optional(pool)
     .await
     .with_context(|| {
-        format!("Fail get bot by exit_sl_client_oid:{} exchange:{}", exit_sl_client_oid, config::EXCHANGE)
+        format!("Fail get bot by exit_sl_client_oid:{} exchange:{}", exit_sl_client_oid, EXCHANGE)
     })?)
 }
 pub async fn get_bot_by_exit_tp_client_oid(
@@ -676,12 +641,12 @@ pub async fn get_bot_by_exit_tp_client_oid(
         LIMIT 1;
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(exit_tp_client_oid)
     .fetch_optional(pool)
     .await
     .with_context(|| {
-        format!("Fail get bot by exit_tp_client_oid:{} exchange:{}", exit_tp_client_oid, config::EXCHANGE)
+        format!("Fail get bot by exit_tp_client_oid:{} exchange:{}", exit_tp_client_oid, EXCHANGE)
     })?)
 }
 pub async fn get_bot_by_entry_client_oid(
@@ -696,12 +661,12 @@ pub async fn get_bot_by_entry_client_oid(
         LIMIT 1;
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(entry_client_oid)
     .fetch_optional(pool)
     .await
     .with_context(|| {
-        format!("Fail get bot by entry_client_oid:{} exchange:{}", entry_client_oid, config::EXCHANGE)
+        format!("Fail get bot by entry_client_oid:{} exchange:{}", entry_client_oid, EXCHANGE)
     })?)
 }
 
@@ -713,11 +678,11 @@ pub async fn get_all_bots_for_trade(pool: &sqlx::PgPool) -> Result<Vec<Bot>> {
         WHERE exchange = $1;
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .fetch_all(pool)
     .await
     .with_context(|| {
-        format!("Fail get bots by exchange:{}", config::EXCHANGE)
+        format!("Fail get bots by exchange:{}", EXCHANGE)
     })?)
 }
 
@@ -744,10 +709,10 @@ pub async fn get_random_symbol(pool: &sqlx::PgPool) -> Result<Option<String>> {
         LIMIT 1;
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .fetch_optional(pool)
     .await
-    .with_context(|| format!("Fail get random symbol by exchange:{}", config::EXCHANGE,))?)
+    .with_context(|| format!("Fail get random symbol by exchange:{}", EXCHANGE,))?)
 }
 
 pub async fn upsert_position_ratio(
@@ -770,7 +735,7 @@ pub async fn upsert_position_ratio(
             updated_at = NOW();
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(debt_ratio)
     .bind(total_asset)
     .bind(margin_coefficient_total_asset)
@@ -784,7 +749,7 @@ pub async fn upsert_position_ratio(
             total_asset,
             margin_coefficient_total_asset,
             total_debt,
-            config::EXCHANGE,
+            EXCHANGE,
         )
     })?;
     Ok(())
@@ -804,7 +769,7 @@ pub async fn upsert_position_debt(
         DO UPDATE SET debt_value = EXCLUDED.debt_value, updated_at = NOW();
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(debt_symbol)
     .bind(debt_value)
     .execute(pool)
@@ -812,9 +777,7 @@ pub async fn upsert_position_debt(
     .with_context(|| {
         format!(
             "Fail insert debt_symbol:{} debt_value:{} exchange:{} into positiondebt",
-            debt_symbol,
-            debt_value,
-            config::EXCHANGE,
+            debt_symbol, debt_value, EXCHANGE,
         )
     })?;
     Ok(())
@@ -840,7 +803,7 @@ pub async fn upsert_position_asset(
             updated_at = NOW();
         "#,
     )
-    .bind(config::EXCHANGE)
+    .bind(EXCHANGE)
     .bind(asset_symbol)
     .bind(asset_total)
     .bind(asset_available)
@@ -854,7 +817,7 @@ pub async fn upsert_position_asset(
             asset_total,
             asset_available,
             asset_hold,
-            config::EXCHANGE,
+            EXCHANGE,
         )
     })?;
     Ok(())
