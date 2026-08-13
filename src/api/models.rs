@@ -32,7 +32,7 @@ pub struct AckData {
     pub id: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BalanceRelationContext {
     pub symbol: Option<String>,
     #[serde(rename = "orderId")]
@@ -40,7 +40,7 @@ pub struct BalanceRelationContext {
     #[serde(rename = "tradeId")]
     pub trade_id: Option<String>,
 }
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BalanceData {
     #[serde(rename = "accountId")]
     pub account_id: String,
@@ -354,7 +354,7 @@ impl Symbol {
 
 #[derive(Debug, Deserialize, sqlx::FromRow)]
 pub struct Currencies {
-    precision: i16,
+    pub precision: i16,
 }
 
 impl Currencies {

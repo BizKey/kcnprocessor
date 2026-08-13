@@ -8,13 +8,15 @@ mod constants;
 mod logic;
 use crate::constants::*;
 mod cleanup;
+mod core;
+mod infrastructure;
 mod tracing_layer;
 mod websocket;
 
-use crate::api::db::wipe_bots_info;
-
 use crate::api::tools::get_env;
 use crate::cleanup::{cancel_all_stop_orders, clean_account};
+use crate::core::traits::Repository;
+use crate::infrastructure::postgres_repository::PostgresRepository;
 use crate::logic::create_init_orders;
 use crate::tracing_layer::DbErrorLayer;
 use crate::websocket::run_websocket_loop;
@@ -65,8 +67,10 @@ async fn main() -> Result<()> {
 
     init_tracing(pool.clone());
 
+    let repository = PostgresRepository::new(pool.clone());
+
     // clear orders ids for bots
-    match wipe_bots_info(&pool, &init_balance_per_bot).await {
+    match repository.clear_bots(&init_balance_per_bot).await {
         Ok(_) => {
             info!("wipe_bots_info");
         }
