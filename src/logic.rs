@@ -1,17 +1,12 @@
 use crate::api::db::{
     delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid,
-    delete_symbol_bot_by_exit_sl_client_oid, fetch_currency_info_by_symbol,
-    fetch_symbol_info_by_symbol, get_bot_by_client_oid, get_random_symbol,
-    get_total_match_value_by_client_oid, insert_db_balance, insert_db_event, insert_db_msgsend,
-    insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid,
-    update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid,
-    update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
-    update_exit_sl_client_oid_bot_by_exit_sl_order_id,
+    delete_symbol_bot_by_exit_sl_client_oid, 
+     insert_db_balance, insert_db_event, insert_db_msgsend,
+    set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
+    update_exit_sl_client_oid_bot_by_entry_client_oid,
     update_exit_sl_order_id_bot_by_exit_sl_client_oid,
     update_exit_tp_client_oid_bot_by_entry_client_oid,
-    update_exit_tp_client_oid_bot_by_exit_tp_order_id,
-    update_exit_tp_order_id_bot_by_exit_tp_client_oid, upsert_position_asset, upsert_position_debt,
-    upsert_position_ratio,
+    update_exit_tp_order_id_bot_by_exit_tp_client_oid,
 };
 use crate::api::models::{
     AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot,
@@ -212,8 +207,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
         let token_available = account.available_decimal()?;
 
         if token_liability > Decimal::ZERO || token_available > Decimal::ZERO {
-            let currency_info = symbol_repo.get_currency_info(&account.currency).await?;
-            let currency_info = match currency_info {
+            let currency_info = match symbol_repo.get_currency_info(&account.currency).await? {
                 Some(currency_info) => {
                     info!("Get currency info:{}", &account.currency);
                     currency_info
@@ -252,8 +246,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             }
 
             let trade_symbol = format!("{}-USDT", &account.currency);
-            let symbol_info = symbol_repo.get_currency_info(&trade_symbol).await?;
-            let symbol_info = match symbol_info {
+            let symbol_info = match symbol_repo.get_symbol_info(&trade_symbol).await? {
                 Some(symbol_info) => {
                     info!("Get symbol info:{}", &account.currency);
                     symbol_info
@@ -585,8 +578,7 @@ pub async fn process_bot_by_entry_client_oid(
     let order_repo = OrderRepository::new(pool.clone());
     let symbol_repo = SymbolRepository::new(pool.clone());
 
-    let symbol_info = symbol_repo.get_symbol_info(&order.symbol).await?;
-    let symbol_info = match symbol_info {
+    let symbol_info = match symbol_repo.get_symbol_info(&order.symbol).await? {
         Some(symbol_info) => symbol_info,
         None => {
             anyhow::bail!("Symbol info not found for {}", order.symbol)
@@ -597,10 +589,10 @@ pub async fn process_bot_by_entry_client_oid(
     let quote_increment = symbol_info.quote_increment_decimal()?;
     let filled_size = order.filled_size_decimal()?;
 
-    let return_balance = order_repo
+    let return_balance = match order_repo
         .get_total_match_value_by_client_oid(client_oid)
-        .await?;
-    let return_balance = match return_balance {
+        .await?
+    {
         Some(return_balance) => return_balance,
         None => {
             error!("No records found or error occurred");
@@ -662,11 +654,13 @@ pub async fn process_bot_by_entry_client_oid(
         info!("Stop loss order:{}", msg_sl_order);
 
         // add exit_tp_client_oid by entry_id
-        update_exit_tp_client_oid_bot_by_entry_client_oid(pool, client_oid, &exit_tp_client_oid)
+        bot_repo
+            .update_exit_tp_client_oid_by_entry_client_oid(client_oid, &exit_tp_client_oid)
             .await?;
 
         // add exit_sl_client_oid by entry_id
-        update_exit_sl_client_oid_bot_by_entry_client_oid(pool, client_oid, &exit_sl_client_oid)
+        bot_repo
+            .update_exit_sl_client_oid_by_entry_client_oid(client_oid, &exit_sl_client_oid)
             .await?;
 
         let msg_tp_order2 = serialize_body(Some(msg_tp_order))?;
@@ -1035,9 +1029,8 @@ pub async fn process_bot_by_entry_client_oid(
     }
 
     // delete entry_id from db
-    set_null_entry_client_oid_by_entry_client_oid(pool, client_oid)
-        .await
-        .map(|_| Ok(()))?
+    bot_repo.clear_entry_client_oid(client_oid).await?;
+    Ok(())
 }
 
 pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<()> {
@@ -1097,6 +1090,7 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result
 
 pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<()> {
     let position_repo = PositionRepository::new(pool.clone());
+    let symbol_repo = SymbolRepository::new(pool.clone());
 
     for (asset, token_liability) in position.debt_pairs()? {
         let asset_info = match position.asset_list.get(&asset) {
@@ -1110,7 +1104,7 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
         let token_available = asset_info.available_decimal()?;
 
         if token_liability > Decimal::ZERO && token_available > Decimal::ZERO {
-            let currency_info = match fetch_currency_info_by_symbol(pool, &asset).await? {
+            let currency_info = match symbol_repo.get_currency_info(&asset).await? {
                 Some(currency_info) => currency_info,
                 None => {
                     anyhow::bail!("Currency info not found for {}", asset)
@@ -1166,6 +1160,8 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
     }
     error!("Got error on stop order : {}", order);
 
+    let bot_repo = BotRepository::new(pool.clone());
+
     const MAX_RETRIES: u32 = 1000;
     let mut attempt = 0;
 
@@ -1187,12 +1183,9 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
         let order_result = match stop_ref.as_str() {
             "loss" => {
                 // need find sl
-                match update_exit_sl_client_oid_bot_by_exit_sl_order_id(
-                    pool,
-                    order_id_ref,
-                    &new_exit_client_oid,
-                )
-                .await
+                match bot_repo
+                    .update_exit_sl_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
+                    .await
                 {
                     Ok(_) => match side_ref.as_str() {
                         "buy" => {
@@ -1258,12 +1251,9 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
             }
             "entry" => {
                 // need find tp
-                match update_exit_tp_client_oid_bot_by_exit_tp_order_id(
-                    pool,
-                    order_id_ref,
-                    &new_exit_client_oid,
-                )
-                .await
+                match bot_repo
+                    .update_exit_tp_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
+                    .await
                 {
                     Ok(_) => match side_ref.as_str() {
                         "buy" => match funds_clone {
@@ -1473,9 +1463,7 @@ pub async fn make_random_trade(
         sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
-        let tradeable_symbol = symbol_repo.get_random_symbol().await?;
-
-        let tradeable_symbol = match tradeable_symbol {
+        let tradeable_symbol = match symbol_repo.get_random_symbol().await? {
             Some(tradeable_symbol) => tradeable_symbol,
             None => {
                 error!("Failed get_random_symbol:");
@@ -1483,9 +1471,7 @@ pub async fn make_random_trade(
             }
         };
 
-        let symbol_info = fetch_symbol_info_by_symbol(pool, &tradeable_symbol).await?;
-
-        let symbol_info = match symbol_info {
+        let symbol_info = match symbol_repo.get_symbol_info(&tradeable_symbol).await? {
             Some(symbol_info) => symbol_info,
             None => {
                 error!("Symbol info not found for {}", tradeable_symbol);
@@ -1495,20 +1481,13 @@ pub async fn make_random_trade(
 
         let entry_client_oid = Uuid::new_v4().to_string();
 
-        match update_bot_entry_client_oid_by_id(
-            pool,
-            Some(&tradeable_symbol),
-            Some(&entry_client_oid),
-            trade_bot_id,
-        )
-        .await
-        {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{:#}", e);
-                continue;
-            }
-        }
+        bot_repo
+            .update_entry_client_oid_by_id(
+                Some(&tradeable_symbol),
+                Some(&entry_client_oid),
+                trade_bot_id,
+            )
+            .await?;
 
         let order_result = match get_random_side() {
             "sell" => {
@@ -1518,13 +1497,14 @@ pub async fn make_random_trade(
                 query_params.insert("symbol", &tradeable_symbol);
 
                 let token_price =
-                    api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
-                let token_price = match token_price {
-                    Some(token_price) => token_price,
-                    None => {
-                        anyhow::bail!("")
-                    }
-                };
+                    match api_v1_market_orderbook_level1_get(&build_query_string(query_params)?)
+                        .await?
+                    {
+                        Some(token_price) => token_price,
+                        None => {
+                            anyhow::bail!("")
+                        }
+                    };
 
                 let token_price = token_price.price_decimal()?;
 
@@ -1576,7 +1556,9 @@ pub async fn make_random_trade(
                 return Ok(());
             }
             Err(e) => {
-                update_bot_entry_client_oid_by_id(pool, None, None, trade_bot_id).await?;
+                bot_repo
+                    .update_entry_client_oid_by_id(None, None, trade_bot_id)
+                    .await?;
 
                 error!(
                     "❌ Order failed (attempt {}/{}): {} {}",
