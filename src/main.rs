@@ -7,14 +7,16 @@ mod api {
 mod constants;
 mod logic;
 use crate::constants::*;
+mod tracing_layer;
 
-use crate::api::db::{insert_db_error, wipe_bots_info};
+use crate::api::db::wipe_bots_info;
 use crate::api::requests::{
     api_v1_bullet_private_post, api_v3_hf_margin_stop_order_cancel_by_id_delete,
     api_v3_hf_margin_stop_orders_get, build_query_string,
 };
 use crate::api::tools::get_env;
 use crate::logic::{auto_clean_account, create_init_orders, spawn_process_kcn_msg};
+use crate::tracing_layer::DbErrorLayer;
 use anyhow::Result;
 use bytes::Bytes;
 use dotenvy::dotenv;
@@ -22,98 +24,14 @@ use futures_util::{SinkExt, StreamExt};
 use micromap::Map;
 
 use std::sync::mpsc::{Sender, channel};
-use std::thread;
-use tracing::{
-    Event,
-    field::{Field, Visit},
-    subscriber::Subscriber,
-};
+
 use tracing::{debug, error, info};
-use tracing_subscriber::{
-    filter::EnvFilter,
-    layer::{Context as layer_Context, Layer, SubscriberExt},
-    registry::LookupSpan,
-    util::SubscriberInitExt,
-};
+use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use sqlx::postgres::PgPoolOptions;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-
-struct MessageVisitor {
-    message: String,
-}
-
-impl MessageVisitor {
-    fn new() -> Self {
-        Self {
-            message: String::new(),
-        }
-    }
-}
-
-impl Visit for MessageVisitor {
-    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        if field.name() == "message" {
-            self.message = format!("{:?}", value).trim_matches('"').to_string();
-        }
-    }
-
-    fn record_str(&mut self, field: &Field, value: &str) {
-        if field.name() == "message" {
-            self.message = value.to_string();
-        }
-    }
-}
-
-pub struct DbErrorLayer {
-    sender: Sender<String>,
-}
-
-impl DbErrorLayer {
-    pub fn new(pool: sqlx::PgPool) -> Self {
-        let (sender, receiver) = channel::<String>();
-
-        thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
-            rt.block_on(async move {
-                while let Ok(msg) = receiver.recv() {
-                    if let Err(e) = insert_db_error(&pool, &msg).await {
-                        eprintln!("Failed to save error to DB: {e}");
-                    }
-                }
-                eprintln!("DbErrorLayer: receiver closed, worker thread exiting");
-            });
-        });
-
-        Self { sender }
-    }
-}
-
-impl<S> Layer<S> for DbErrorLayer
-where
-    S: Subscriber + for<'a> LookupSpan<'a>,
-{
-    fn on_event(&self, event: &Event<'_>, _ctx: layer_Context<'_, S>) {
-        if *event.metadata().level() != tracing::Level::ERROR {
-            return;
-        }
-
-        let mut visitor = MessageVisitor::new();
-        event.record(&mut visitor);
-
-        let msg = if visitor.message.is_empty() {
-            event.metadata().name().to_string()
-        } else {
-            visitor.message
-        };
-
-        if let Err(e) = self.sender.send(format!("{:?}", msg)) {
-            eprintln!("DbErrorLayer: failed to queue error: {e}");
-        }
-    }
-}
 
 fn init_tracing(pool: sqlx::PgPool) {
     let fmt_layer = tracing_subscriber::fmt::layer()
