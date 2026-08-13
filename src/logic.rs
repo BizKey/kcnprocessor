@@ -1,12 +1,11 @@
 use crate::api::db::{
     delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid,
     delete_symbol_bot_by_exit_sl_client_oid, fetch_currency_info_by_symbol,
-    fetch_symbol_info_by_symbol, get_all_bots_for_trade, get_bot_by_client_oid, get_random_symbol,
+    fetch_symbol_info_by_symbol, get_bot_by_client_oid, get_random_symbol,
     get_total_match_value_by_client_oid, insert_db_balance, insert_db_event, insert_db_msgsend,
     insert_db_orderevent, set_null_entry_client_oid_by_entry_client_oid,
     update_balance_bot_by_exit_sl_client_oid, update_balance_bot_by_exit_tp_client_oid,
-    update_bot_balance_by_entry_client_oid, update_bot_entry_client_oid_by_id,
-    update_exit_sl_client_oid_bot_by_entry_client_oid,
+    update_bot_entry_client_oid_by_id, update_exit_sl_client_oid_bot_by_entry_client_oid,
     update_exit_sl_client_oid_bot_by_exit_sl_order_id,
     update_exit_sl_order_id_bot_by_exit_sl_client_oid,
     update_exit_tp_client_oid_bot_by_entry_client_oid,
@@ -18,6 +17,7 @@ use crate::api::models::{
     AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot,
     KuCoinMessage, MakeOrderResData, MarginAccountData, OrderData, PositionData,
 };
+use crate::api::repository::{BotRepository, OrderRepository, SymbolRepository};
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
     api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
@@ -88,7 +88,9 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
 }
 
 pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
-    let trade_bots = match get_all_bots_for_trade(pool).await {
+    let bot_repo = BotRepository::new(pool.clone());
+
+    let trade_bots = match bot_repo.get_all().await {
         Ok(trade_bots) => trade_bots,
         Err(e) => {
             error!("{:#}", e);
@@ -202,13 +204,15 @@ pub async fn transfer_in_account(
 }
 
 pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
+    let symbol_repo = SymbolRepository::new(pool.clone());
+
     let mut passed = true;
     for account in get_all_accounts_data().await?.accounts.iter() {
         let token_liability = account.liability_decimal()?;
         let token_available = account.available_decimal()?;
 
         if token_liability > Decimal::ZERO || token_available > Decimal::ZERO {
-            let currency_info = fetch_currency_info_by_symbol(pool, &account.currency).await?;
+            let currency_info = symbol_repo.get_currency_info(&account.currency).await?;
             let currency_info = match currency_info {
                 Some(currency_info) => {
                     info!("Get currency info:{}", &account.currency);
@@ -248,7 +252,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             }
 
             let trade_symbol = format!("{}-USDT", &account.currency);
-            let symbol_info = fetch_symbol_info_by_symbol(pool, &trade_symbol).await?;
+            let symbol_info = symbol_repo.get_currency_info(&trade_symbol).await?;
             let symbol_info = match symbol_info {
                 Some(symbol_info) => {
                     info!("Get symbol info:{}", &account.currency);
@@ -423,23 +427,15 @@ pub async fn process_bot_by_exit_sl_client_oid(
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
-    match delete_exit_sl_id_bot_by_client_oid(pool, client_oid).await {
-        Err(e) => {
-            error!("{:#}", e);
-            return Err(e);
-        }
-        Ok(_) => {}
-    };
+    let bot_repo = BotRepository::new(pool.clone());
+    let order_repo = OrderRepository::new(pool.clone());
+    bot_repo.clear_exit_sl_by_client_oid(client_oid).await?;
     match &bot.exit_tp_client_oid {
         Some(exit_tp_client_oid) => {
             // clear exit_tp_client_oid in bots by entry_id
-            match delete_exit_tp_id_bot_by_client_oid(pool, exit_tp_client_oid).await {
-                Ok(_) => {}
-                Err(e) => {
-                    error!("{:#}", e);
-                    return Err(e);
-                }
-            }
+            bot_repo
+                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
+                .await?;
             let mut query_params: Map<&str, &str, 8> = Map::new();
 
             query_params.insert("clientOid", exit_tp_client_oid);
@@ -461,13 +457,9 @@ pub async fn process_bot_by_exit_sl_client_oid(
         None => {}
     }
 
-    let return_balance = match get_total_match_value_by_client_oid(pool, client_oid).await {
-        Ok(return_balance) => return_balance,
-        Err(e) => {
-            error!("{:#}", e);
-            return Err(e);
-        }
-    };
+    let return_balance = order_repo
+        .get_total_match_value_by_client_oid(client_oid)
+        .await?;
     let return_balance = match return_balance {
         Some(return_balance) => return_balance,
         None => {
@@ -503,12 +495,12 @@ pub async fn process_bot_by_exit_sl_client_oid(
         // create new random order
         make_random_trade(pool, new_balance, bot.id).await?;
     } else if order.side == "sell" {
-        update_balance_bot_by_exit_sl_client_oid(
-            pool,
-            client_oid,
-            &format!("{:.4}", return_balance),
-        )
-        .await?;
+        bot_repo
+            .update_balance_and_clear_symbol_by_exit_sl(
+                client_oid,
+                &format!("{:.4}", return_balance),
+            )
+            .await?;
 
         // create new random order
         make_random_trade(pool, return_balance, bot.id).await?;
@@ -522,12 +514,17 @@ pub async fn process_bot_by_exit_tp_client_oid(
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
-    delete_exit_tp_id_bot_by_client_oid(pool, client_oid).await?;
+    let bot_repo = BotRepository::new(pool.clone());
+    let order_repo = OrderRepository::new(pool.clone());
+
+    bot_repo.clear_exit_tp_by_client_oid(client_oid).await?;
 
     match &bot.exit_sl_client_oid {
         Some(exit_sl_client_oid) => {
             // clear exit_sl_client_oid in bots by id !!
-            delete_exit_sl_id_bot_by_client_oid(pool, exit_sl_client_oid).await?;
+            bot_repo
+                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
+                .await?;
             let mut query_params: Map<&str, &str, 8> = Map::new();
 
             query_params.insert("clientOid", exit_sl_client_oid);
@@ -541,7 +538,9 @@ pub async fn process_bot_by_exit_tp_client_oid(
         }
         None => {}
     }
-    let return_balance = get_total_match_value_by_client_oid(pool, client_oid).await?;
+    let return_balance = order_repo
+        .get_total_match_value_by_client_oid(client_oid)
+        .await?;
 
     let return_balance = match return_balance {
         Some(return_balance) => return_balance,
@@ -555,29 +554,21 @@ pub async fn process_bot_by_exit_tp_client_oid(
 
     if order.side == "buy" {
         let old_balance = bot.balance_decimal()?;
-
         let new_balance = old_balance + old_balance - return_balance;
-        match update_balance_bot_by_exit_tp_client_oid(
-            pool,
-            client_oid,
-            &format!("{:.4}", new_balance),
-        )
-        .await
-        {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{:#}", e);
-            }
-        }
+
+        bot_repo
+            .update_balance_and_clear_symbol_by_exit_tp(client_oid, &format!("{:.4}", new_balance))
+            .await?;
+
         // create new random order
         make_random_trade(pool, new_balance, bot.id).await?;
     } else if order.side == "sell" {
-        update_balance_bot_by_exit_tp_client_oid(
-            pool,
-            client_oid,
-            &format!("{:.4}", return_balance),
-        )
-        .await?;
+        bot_repo
+            .update_balance_and_clear_symbol_by_exit_tp(
+                client_oid,
+                &format!("{:.4}", return_balance),
+            )
+            .await?;
 
         // create new random order
         make_random_trade(pool, return_balance, bot.id).await?;
@@ -590,7 +581,11 @@ pub async fn process_bot_by_entry_client_oid(
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
-    let symbol_info = fetch_symbol_info_by_symbol(pool, &order.symbol).await?;
+    let bot_repo = BotRepository::new(pool.clone());
+    let order_repo = OrderRepository::new(pool.clone());
+    let symbol_repo = SymbolRepository::new(pool.clone());
+
+    let symbol_info = symbol_repo.get_symbol_info(&order.symbol).await?;
     let symbol_info = match symbol_info {
         Some(symbol_info) => symbol_info,
         None => {
@@ -599,12 +594,12 @@ pub async fn process_bot_by_entry_client_oid(
     };
 
     let price_increment = symbol_info.price_increment_decimal()?;
-
     let quote_increment = symbol_info.quote_increment_decimal()?;
-
     let filled_size = order.filled_size_decimal()?;
 
-    let return_balance = get_total_match_value_by_client_oid(pool, client_oid).await?;
+    let return_balance = order_repo
+        .get_total_match_value_by_client_oid(client_oid)
+        .await?;
     let return_balance = match return_balance {
         Some(return_balance) => return_balance,
         None => {
@@ -615,12 +610,12 @@ pub async fn process_bot_by_entry_client_oid(
 
     let new_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
-    update_bot_balance_by_entry_client_oid(pool, client_oid, &format!("{:.4}", new_balance))
+    bot_repo
+        .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
         .await?;
 
     if order.side == "buy" {
         let tp_buy = tp_buy_percent()?;
-
         let sl_buy = sl_buy_percent()?;
 
         let match_price = new_balance / filled_size;
@@ -1053,7 +1048,8 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<()> {
         }
     };
 
-    let bot = get_bot_by_client_oid(pool, client_oid).await?;
+    let bot_repo = BotRepository::new(pool.clone());
+    let bot = bot_repo.get_by_client_oid(client_oid).await?;
     let bot = match bot {
         Some(bot) => bot,
         None => {
@@ -1084,7 +1080,8 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<()> {
 }
 
 pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result<()> {
-    insert_db_orderevent(pool, order.clone()).await?;
+    let order_repo = OrderRepository::new(pool.clone());
+    order_repo.save_order_event(order.clone()).await?;
 
     info!("{}", order);
 
@@ -1092,16 +1089,15 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result
         && (order.remain_size == Some("0".to_string())
             || order.remain_funds == Some("0".to_string()))
     {
-        match trade_order_event(pool, &order).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
+        trade_order_event(pool, &order).await?;
     } else {
         Ok(())
     }
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<()> {
+    let position_repo = PositionRepository::new(pool.clone());
+
     for (asset, token_liability) in position.debt_pairs()? {
         let asset_info = match position.asset_list.get(&asset) {
             Some(asset_info) => asset_info,
@@ -1138,34 +1134,27 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
         }
     }
 
-    match upsert_position_ratio(
-        pool,
-        position.debt_ratio,
-        position.total_asset,
-        &position.margin_coefficient_total_asset,
-        &position.total_debt,
-    )
-    .await
-    {
-        Ok(_) => {}
-        Err(e) => {
-            error!("{:#}", e);
-            return Err(e);
-        }
-    };
+    position_repo
+        .upsert_position_ratio(
+            position.debt_ratio,
+            position.total_asset,
+            &position.margin_coefficient_total_asset,
+            &position.total_debt,
+        )
+        .await?;
 
     for (symbol, amount) in &position.debt_list {
-        upsert_position_debt(pool, symbol, amount).await?;
+        position_repo.upsert_position_debt(symbol, amount).await?;
     }
     for (symbol, symbol_info) in &position.asset_list {
-        upsert_position_asset(
-            pool,
-            symbol,
-            &symbol_info.total,
-            &symbol_info.available,
-            &symbol_info.hold,
-        )
-        .await?
+        position_repo
+            .upsert_position_asset(
+                symbol,
+                &symbol_info.total,
+                &symbol_info.available,
+                &symbol_info.hold,
+            )
+            .await?;
     }
 
     Ok(())
@@ -1471,6 +1460,9 @@ pub async fn make_random_trade(
     balance_funds: Decimal,
     trade_bot_id: i32,
 ) -> Result<()> {
+    let bot_repo = BotRepository::new(pool.clone());
+    let symbol_repo = SymbolRepository::new(pool.clone());
+
     const MAX_RETRIES: u32 = 10;
     let mut attempt = 0;
 
@@ -1481,7 +1473,7 @@ pub async fn make_random_trade(
         sleep(Duration::from_millis(RETRY_DELAY_BASE * attempt as u64)).await;
         attempt += 1;
 
-        let tradeable_symbol = get_random_symbol(pool).await?;
+        let tradeable_symbol = symbol_repo.get_random_symbol().await?;
 
         let tradeable_symbol = match tradeable_symbol {
             Some(tradeable_symbol) => tradeable_symbol,

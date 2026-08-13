@@ -1,4 +1,4 @@
-use crate::api::db::insert_db_error;
+use crate::api::repository::ErrorRepository;
 use sqlx::PgPool;
 use std::sync::mpsc::{Sender, channel};
 use std::thread;
@@ -49,8 +49,9 @@ impl DbErrorLayer {
         thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
             rt.block_on(async move {
+                let error_repo = ErrorRepository::new(pool);
                 while let Ok(msg) = receiver.recv() {
-                    if let Err(e) = insert_db_error(&pool, &msg).await {
+                    if let Err(e) = error_repo.save_error(&msg).await {
                         eprintln!("Failed to save error to DB: {e}");
                     }
                 }
