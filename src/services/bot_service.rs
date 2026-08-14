@@ -20,20 +20,17 @@ impl BotService {
     }
     
     pub async fn process_entry_order(&self, client_oid: &str, order: &OrderData) -> Result<()> {
-        // Логика обработки entry ордера
-        // ... 
+        
         Ok(())
     }
     
     pub async fn process_exit_tp_order(&self, bot: Bot, client_oid: &str, order: &OrderData) -> Result<()> {
-        // Логика обработки TP ордера
-        // ...
+        
         Ok(())
     }
     
     pub async fn process_exit_sl_order(&self, bot: Bot, client_oid: &str, order: &OrderData) -> Result<()> {
-        // Логика обработки SL ордера
-        // ...
+        
         Ok(())
     }
 }

@@ -12,7 +12,6 @@ impl BalanceRepository {
         Self { pool }
     }
 
-    /// Сохранить событие баланса
     pub async fn save_balance_event(&self, balance: BalanceData) -> Result<()> {
         let relation_context: &BalanceRelationContext = match &balance.relation_context {
             Some(ctx) => ctx,

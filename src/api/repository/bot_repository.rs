@@ -3,7 +3,7 @@ use crate::constants::EXCHANGE;
 use anyhow::{Context, Result};
 use sqlx::PgPool;
 
-/// Репозиторий для работы с ботами
+
 pub struct BotRepository {
     pool: PgPool,
 }
@@ -13,7 +13,6 @@ impl BotRepository {
         Self { pool }
     }
 
-    /// Получить бота по client_oid (entry, exit_tp или exit_sl)
     pub async fn get_by_client_oid(&self, client_oid: &str) -> Result<Option<Bot>> {
         Ok(sqlx::query_as::<_, Bot>(
             r#"
@@ -41,7 +40,6 @@ impl BotRepository {
         })?)
     }
 
-    /// Получить бота по entry_client_oid
     pub async fn get_by_entry_client_oid(&self, entry_client_oid: &str) -> Result<Option<Bot>> {
         Ok(sqlx::query_as::<_, Bot>(
             r#"
@@ -65,7 +63,6 @@ impl BotRepository {
         })?)
     }
 
-    /// Получить бота по exit_tp_client_oid
     pub async fn get_by_exit_tp_client_oid(&self, exit_tp_client_oid: &str) -> Result<Option<Bot>> {
         Ok(sqlx::query_as::<_, Bot>(
             r#"
@@ -89,7 +86,6 @@ impl BotRepository {
         })?)
     }
 
-    /// Получить бота по exit_sl_client_oid
     pub async fn get_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<Option<Bot>> {
         Ok(sqlx::query_as::<_, Bot>(
             r#"
@@ -113,7 +109,6 @@ impl BotRepository {
         })?)
     }
 
-    /// Получить всех ботов
     pub async fn get_all(&self) -> Result<Vec<Bot>> {
         Ok(sqlx::query_as::<_, Bot>(
             r#"
@@ -130,7 +125,6 @@ impl BotRepository {
         .with_context(|| format!("Fail get bots by exchange:{}", EXCHANGE))?)
     }
 
-    /// Обновить entry_client_oid и symbol для бота по id
     pub async fn update_entry_client_oid_by_id(
         &self,
         symbol: Option<&str>,
@@ -159,7 +153,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить exit_tp_client_oid по entry_client_oid
     pub async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
@@ -186,7 +179,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить exit_sl_client_oid по entry_client_oid
     pub async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
@@ -213,7 +205,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить exit_tp_order_id по exit_tp_client_oid
     pub async fn update_exit_tp_order_id_by_client_oid(
         &self,
         exit_tp_order_id: &str,
@@ -240,7 +231,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить exit_sl_order_id по exit_sl_client_oid
     pub async fn update_exit_sl_order_id_by_client_oid(
         &self,
         exit_sl_order_id: &str,
@@ -267,7 +257,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить exit_tp_client_oid по exit_tp_order_id
     pub async fn update_exit_tp_client_oid_by_order_id(
         &self,
         exit_tp_order_id: &str,
@@ -294,7 +283,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить exit_sl_client_oid по exit_sl_order_id
     pub async fn update_exit_sl_client_oid_by_order_id(
         &self,
         exit_sl_order_id: &str,
@@ -321,7 +309,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Сбросить entry_client_oid в NULL
     pub async fn clear_entry_client_oid(&self, entry_client_oid: &str) -> Result<()> {
         sqlx::query(
             r#"
@@ -343,7 +330,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Сбросить exit_tp_client_oid и exit_tp_order_id в NULL
     pub async fn clear_exit_tp_by_client_oid(&self, exit_tp_client_oid: &str) -> Result<()> {
         sqlx::query(
             r#"
@@ -365,7 +351,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Сбросить exit_sl_client_oid и exit_sl_order_id в NULL
     pub async fn clear_exit_sl_by_client_oid(&self, exit_sl_client_oid: &str) -> Result<()> {
         sqlx::query(
             r#"
@@ -387,7 +372,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить баланс бота по entry_client_oid
     pub async fn update_balance_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
@@ -414,7 +398,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить баланс и сбросить symbol по exit_tp_client_oid
     pub async fn update_balance_and_clear_symbol_by_exit_tp(
         &self,
         exit_tp_client_oid: &str,
@@ -441,7 +424,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Обновить баланс и сбросить symbol по exit_sl_client_oid
     pub async fn update_balance_and_clear_symbol_by_exit_sl(
         &self,
         exit_sl_client_oid: &str,
@@ -468,7 +450,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Сбросить все данные ботов (для инициализации)
     pub async fn clear_all_bots(&self, balance: &str) -> Result<()> {
         sqlx::query(
             r#"
@@ -500,7 +481,6 @@ impl BotRepository {
         Ok(())
     }
 
-    /// Сбросить symbol по exit_sl_client_oid
     pub async fn clear_symbol_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<()> {
         sqlx::query(
             r#"

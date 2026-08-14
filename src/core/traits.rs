@@ -5,7 +5,6 @@ use serde_json;
 
 use crate::api::models::{BalanceData, Bot, OrderData, Symbol};
 
-// Временная структура для совместимости
 #[derive(Debug, Clone)]
 pub struct Currency {
     pub precision: i16,

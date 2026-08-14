@@ -19,7 +19,6 @@ pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {
         tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, rx_in).await });
 
     loop {
-        // Position/Orders/Balance/AdvancedOrders WS
         let event_ws_url = match api_v1_bullet_private_post().await {
             Ok(event_ws_url) => event_ws_url,
             Err(e) => {
@@ -38,7 +37,7 @@ pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {
 
         let (mut event_ws_write, mut event_ws_read) = stream.split();
 
-        // subscriptions
+        
         let topics = vec![
             ("subscribe_orders", "/spotMarket/tradeOrdersV2"),
             ("subscribe_stop_orders", "/spotMarket/advancedOrders"),
@@ -73,7 +72,7 @@ pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {
 
         loop {
             tokio::select! {
-                // Events
+                
                 _ = event_ping_interval.tick() => {
                    match event_ws_write.send(Message::Ping(Bytes::new())).await {
                         Ok(_) => {

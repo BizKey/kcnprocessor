@@ -11,7 +11,6 @@ impl PositionRepository {
         Self { pool }
     }
 
-    /// Обновить коэффициент позиции
     pub async fn upsert_position_ratio(
         &self,
         debt_ratio: f64,
@@ -51,7 +50,6 @@ impl PositionRepository {
         Ok(())
     }
 
-    /// Обновить долг по позиции
     pub async fn upsert_position_debt(&self, debt_symbol: &str, debt_value: &str) -> Result<()> {
         sqlx::query(
             r#"
@@ -75,7 +73,6 @@ impl PositionRepository {
         Ok(())
     }
 
-    /// Обновить активы по позиции
     pub async fn upsert_position_asset(
         &self,
         asset_symbol: &str,

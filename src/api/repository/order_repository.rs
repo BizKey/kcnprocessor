@@ -13,7 +13,6 @@ impl OrderRepository {
         Self { pool }
     }
 
-    /// Сохранить событие ордера
     pub async fn save_order_event(&self, order: OrderData) -> Result<()> {
         sqlx::query(
             r#"
@@ -58,7 +57,6 @@ impl OrderRepository {
         Ok(())
     }
 
-    /// Получить суммарную стоимость исполненных ордеров по client_oid
     pub async fn get_total_match_value_by_client_oid(
         &self,
         client_oid: &str,

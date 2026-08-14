@@ -33,22 +33,22 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 fn tp_buy_percent() -> Result<Decimal> {
-    // +7%
+    
     Ok(Decimal::from_str("1.07").map_err(|e| anyhow::anyhow!(e))?)
 }
 
 fn sl_buy_percent() -> Result<Decimal> {
-    // -5%
+    
     Ok(Decimal::from_str("0.95").map_err(|e| anyhow::anyhow!(e))?)
 }
 
 fn tp_sell_percent() -> Result<Decimal> {
-    // -7%
+    
     Ok(Decimal::from_str("0.93").map_err(|e| anyhow::anyhow!(e))?)
 }
 
 fn sl_sell_percent() -> Result<Decimal> {
-    // +5%
+    
     Ok(Decimal::from_str("1.05").map_err(|e| anyhow::anyhow!(e))?)
 }
 
@@ -220,7 +220,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             if account.currency == "USDT" {
                 if token_liability > Decimal::ZERO {
                     if token_available >= token_liability {
-                        // full repay
+                        
                         let size = &format_assert_decimal(token_liability, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
                             Ok(_) => {}
@@ -230,7 +230,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                             }
                         };
                     } else if token_available > Decimal::ZERO {
-                        // particial repay
+                        
                         let size = &format_assert_decimal(token_available, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
                             Ok(_) => {}
@@ -258,7 +258,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             if token_liability > Decimal::ZERO {
                 if token_available > Decimal::ZERO {
                     if token_available >= token_liability {
-                        // full repay
+                        
                         let size = &format_assert_decimal(token_liability, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
                             Ok(_) => {}
@@ -268,7 +268,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                             }
                         };
                     } else if token_available > Decimal::ZERO {
-                        // particional repay
+                        
                         let size = &format_assert_decimal(token_available, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
                             Ok(_) => {}
@@ -279,7 +279,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                         };
                     };
                 } else {
-                    // need buy tokens
+                    
                     let quote_increment = symbol_info.quote_increment_decimal()?;
                     let base_min_size = symbol_info.base_min_size_decimal()?;
                     let min_funds = symbol_info.min_funds_decimal()?;
@@ -352,7 +352,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 let token_funds = best_bid_token_price * token_available;
 
                 if token_available >= base_min_size && token_funds >= quote_min_size {
-                    // sell less
+                    
                     let size = format_assert_decimal(token_available, base_increment)?;
                     match make_hf_size_margin_order(
                         pool,
@@ -375,7 +375,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                         }
                     };
                 } else {
-                    // transfer from margin
+                    
                     let amount = format_assert_decimal(token_available, precision_decimal)?;
                     let type_ = "INTERNAL";
                     let from_account_type = "MARGIN";
@@ -425,7 +425,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
     bot_repo.clear_exit_sl_by_client_oid(client_oid).await?;
     match &bot.exit_tp_client_oid {
         Some(exit_tp_client_oid) => {
-            // clear exit_tp_client_oid in bots by entry_id
+            
             bot_repo
                 .clear_exit_tp_by_client_oid(exit_tp_client_oid)
                 .await?;
@@ -485,7 +485,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
                 return Err(e);
             }
         }
-        // create new random order
+        
         make_random_trade(pool, new_balance, bot.id).await?;
     } else if order.side == "sell" {
         bot_repo
@@ -495,7 +495,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             )
             .await?;
 
-        // create new random order
+        
         make_random_trade(pool, return_balance, bot.id).await?;
     };
     Ok(())
@@ -514,7 +514,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
 
     match &bot.exit_sl_client_oid {
         Some(exit_sl_client_oid) => {
-            // clear exit_sl_client_oid in bots by id !!
+            
             bot_repo
                 .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
@@ -553,7 +553,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
             .update_balance_and_clear_symbol_by_exit_tp(client_oid, &format!("{:.4}", new_balance))
             .await?;
 
-        // create new random order
+        
         make_random_trade(pool, new_balance, bot.id).await?;
     } else if order.side == "sell" {
         bot_repo
@@ -563,7 +563,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
             )
             .await?;
 
-        // create new random order
+        
         make_random_trade(pool, return_balance, bot.id).await?;
     };
     Ok(())
@@ -611,13 +611,12 @@ pub async fn process_bot_by_entry_client_oid(
         let sl_buy = sl_buy_percent()?;
 
         let match_price = new_balance / filled_size;
-        let trigger_tp_price = match_price * tp_buy; // price + 7%
-        let trigger_sl_price = match_price * sl_buy; // price - 5%
+        let trigger_tp_price = match_price * tp_buy; 
+        let trigger_sl_price = match_price * sl_buy; 
 
         let exit_tp_client_oid = Uuid::new_v4().to_string();
         let exit_sl_client_oid = Uuid::new_v4().to_string();
 
-        // tp order
         let stop_price_tp = format_assert_decimal(trigger_tp_price, price_increment)?;
 
         let msg_tp_order = serde_json::json!({
@@ -633,7 +632,6 @@ pub async fn process_bot_by_entry_client_oid(
             "size": &order.filled_size,
             "timeInForce": "GTC",
         });
-        // sl order
         let stop_price_sl = format_assert_decimal(trigger_sl_price, price_increment)?;
 
         let msg_sl_order = serde_json::json!({
@@ -653,12 +651,10 @@ pub async fn process_bot_by_entry_client_oid(
         info!("Stop profit order:{}", msg_tp_order);
         info!("Stop loss order:{}", msg_sl_order);
 
-        // add exit_tp_client_oid by entry_id
         bot_repo
             .update_exit_tp_client_oid_by_entry_client_oid(client_oid, &exit_tp_client_oid)
             .await?;
 
-        // add exit_sl_client_oid by entry_id
         bot_repo
             .update_exit_sl_client_oid_by_entry_client_oid(client_oid, &exit_sl_client_oid)
             .await?;
@@ -799,8 +795,8 @@ pub async fn process_bot_by_entry_client_oid(
         };
 
         let match_price = new_balance / filled_size;
-        let trigger_tp_price = match_price * tp_sell; // price - 7%
-        let trigger_sl_price = match_price * sl_sell; // price + 5%
+        let trigger_tp_price = match_price * tp_sell; 
+        let trigger_sl_price = match_price * sl_sell; 
 
         let funds_tp = trigger_tp_price * filled_size;
         let funds_sl = trigger_sl_price * filled_size;
@@ -831,7 +827,7 @@ pub async fn process_bot_by_entry_client_oid(
             "symbol": order.symbol,
             "type": "market",
             "stop": "loss",
-            "stopPrice": stop_price_tp, // price - 7%
+            "stopPrice": stop_price_tp, 
             "isIsolated": false,
             "autoBorrow": true,
             "autoRepay": false,
@@ -857,7 +853,7 @@ pub async fn process_bot_by_entry_client_oid(
             "symbol": order.symbol,
             "type": "market",
             "stop": "entry",
-            "stopPrice": stop_price_sl, // price + 5%
+            "stopPrice": stop_price_sl, 
             "isIsolated": false,
             "autoBorrow": true,
             "autoRepay": false,
@@ -868,7 +864,6 @@ pub async fn process_bot_by_entry_client_oid(
         info!("Stop profit order:{}", msg_tp_order);
         info!("Stop loss order:{}", msg_sl_order);
 
-        // add exit_tp_client_oid by entry_id
         match update_exit_tp_client_oid_bot_by_entry_client_oid(
             pool,
             client_oid,
@@ -882,7 +877,6 @@ pub async fn process_bot_by_entry_client_oid(
                 return Err(e);
             }
         }
-        // add exit_sl_client_oid by entry_id
         match update_exit_sl_client_oid_bot_by_entry_client_oid(
             pool,
             client_oid,
@@ -1028,7 +1022,6 @@ pub async fn process_bot_by_entry_client_oid(
         }
     }
 
-    // delete entry_id from db
     bot_repo.clear_entry_client_oid(client_oid).await?;
     Ok(())
 }
@@ -1182,7 +1175,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
 
         let order_result = match stop_ref.as_str() {
             "loss" => {
-                // need find sl
+                
                 match bot_repo
                     .update_exit_sl_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
                     .await
@@ -1250,7 +1243,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                 }
             }
             "entry" => {
-                // need find tp
                 match bot_repo
                     .update_exit_tp_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
                     .await
@@ -1608,7 +1600,7 @@ pub async fn make_hf_funds_margin_order(
     auto_borrow: bool,
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
-    // only for buy orders
+    
     let args_time_in_force = "GTC";
 
     insert_db_msgsend(
@@ -1662,7 +1654,7 @@ pub async fn make_hf_size_margin_order(
     auto_borrow: bool,
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
-    // only for sell orders
+    
     let args_time_in_force = "GTC";
 
     insert_db_msgsend(
@@ -1710,14 +1702,13 @@ mod tests {
 
     #[test]
     fn test_format_assert_decimal_real_data() {
-        // Increment = 1000 (precision 0)
+
         let inc_1000 = Decimal::from_str("1000").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("1234.56").unwrap(), inc_1000).unwrap(),
             "1000".to_string()
         );
 
-        // Increment = 100 (precision 0)
         let inc_100 = Decimal::from_str("100").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_100).unwrap(),
@@ -1732,7 +1723,6 @@ mod tests {
             "200".to_string()
         );
 
-        // Increment = 50 (precision 0)
         let inc_50 = Decimal::from_str("50").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_50).unwrap(),
@@ -1747,7 +1737,6 @@ mod tests {
             "150".to_string()
         );
 
-        // Increment = 10 (precision 0)
         let inc_10 = Decimal::from_str("10").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_10).unwrap(),
@@ -1758,7 +1747,7 @@ mod tests {
             "120".to_string()
         );
 
-        // Increment = 1 (precision 0)
+
         let inc_1 = Decimal::from_str("1").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1).unwrap(),
@@ -1769,7 +1758,6 @@ mod tests {
             "100".to_string()
         );
 
-        // Increment = 0.1 (precision 1)
         let inc_1 = Decimal::from_str("0.1").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1).unwrap(),
@@ -1780,7 +1768,6 @@ mod tests {
             "99.9".to_string()
         );
 
-        // Increment = 0.01 (precision 2)
         let inc_2 = Decimal::from_str("0.01").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_2).unwrap(),
@@ -1791,35 +1778,34 @@ mod tests {
             "99.99".to_string()
         );
 
-        // Increment = 0.001 (precision 3)
         let inc_3 = Decimal::from_str("0.001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.4567").unwrap(), inc_3).unwrap(),
             "123.456".to_string()
         );
 
-        // Increment = 0.0001 (precision 4)
+
         let inc_4 = Decimal::from_str("0.0001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_4).unwrap(),
             "123.4567".to_string()
         );
 
-        // Increment = 0.0001 (precision 5)
+
         let inc_5 = Decimal::from_str("0.00001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_5).unwrap(),
             "123.45678".to_string()
         );
 
-        // Increment = 0.000001 (precision 6)
+
         let inc_6 = Decimal::from_str("0.000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456789").unwrap(), inc_6).unwrap(),
             "123.456789".to_string()
         );
 
-        // Increment = 0.0000001 (precision 7)
+
         let inc_7 = Decimal::from_str("0.0000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.4567891").unwrap(), inc_7).unwrap(),
@@ -1830,14 +1816,14 @@ mod tests {
             "123.4567891".to_string()
         );
 
-        // Increment = 0.00000001 (precision 8)
+
         let inc_8 = Decimal::from_str("0.00000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("0.123456789").unwrap(), inc_8).unwrap(),
             "0.12345678".to_string()
         );
 
-        // Increment = 0.000000001 (precision 9)
+
         let inc_9 = Decimal::from_str("0.000000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("0.00000000123").unwrap(), inc_9).unwrap(),

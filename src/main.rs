@@ -70,7 +70,6 @@ async fn main() -> Result<()> {
 
     let repository = PostgresRepository::new(pool.clone());
 
-    // clear orders ids for bots
     match repository.clear_bots(&init_balance_per_bot).await {
         Ok(_) => {
             info!("wipe_bots_info");
@@ -85,7 +84,6 @@ async fn main() -> Result<()> {
         error!("Failed to cancel stop orders: {:#}", e);
     }
 
-    // repay all liability assets and sell
     if let Err(e) = clean_account(&pool).await {
         error!("Failed to clean account: {:#}", e);
     }

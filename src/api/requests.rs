@@ -69,7 +69,7 @@ impl KuCoinClient {
     }
 
     async fn api_v1_bullet_private_post(&self) -> Result<String> {
-        // https://www.kucoin.com/docs-new/websocket-api/base-info/get-private-token-spot-margin
+        
         Ok(read_response(
             self.make_request(
                 Method::POST,
@@ -87,7 +87,7 @@ impl KuCoinClient {
         &self,
         query_string: &str,
     ) -> Result<String> {
-        // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
+        
         Ok(read_response(
             self.make_request(
                 Method::DELETE,
@@ -104,7 +104,7 @@ impl KuCoinClient {
         &self,
         query_string: &str,
     ) -> Result<String> {
-        // https://www.kucoin.com/docs-new/rest/margin-trading/orders/cancel-stop-order-by-clientoid
+        
         Ok(read_response(
             self.make_request(
                 Method::DELETE,
@@ -119,7 +119,7 @@ impl KuCoinClient {
     }
 
     async fn api_v3_margin_accounts_get(&self, query_params: &str) -> Result<String> {
-        // https://www.kucoin.com/docs-new/rest/account-info/account-funding/get-account-cross-margin
+        
         Ok(read_response(
             self.make_request(
                 Method::GET,
@@ -731,7 +731,7 @@ mod tests {
         let to_sign = format!("{}{}{}", timestamp, method, endpoint);
         let signature = client.generate_signature(to_sign.as_bytes()).unwrap();
 
-        // Так как оба вызова идентичны, подписи должны совпадать
+        
         let to_sign2 = format!("{}{}{}", timestamp, method, endpoint);
         let signature2 = client.generate_signature(to_sign2.as_bytes()).unwrap();
 
@@ -807,8 +807,6 @@ mod tests {
 
     #[test]
     fn test_get_client_initialization() {
-        // Этот тест требует установленных переменных окружения
-        // Поэтому пропускаем, если их нет
         if env::var("KUCOIN_BASE_URL").is_err()
             || env::var("KUCOIN_KEY").is_err()
             || env::var("KUCOIN_SECRET").is_err()

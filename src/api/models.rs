@@ -88,7 +88,7 @@ pub struct PositionData {
     #[serde(rename = "assetList")]
     pub asset_list: HashMap<String, AssetInfo>,
     #[serde(rename = "debtList")]
-    pub debt_list: HashMap<String, String>, // ключ: актив, значение: строка долга
+    pub debt_list: HashMap<String, String>,
     pub timestamp: i64,
 }
 
@@ -110,16 +110,16 @@ impl PositionData {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OrderData {
-    pub status: String, // new open match done
+    pub status: String, 
     #[serde(rename = "type")]
-    pub type_: String, // open match update filled canceled received
-    pub symbol: String, // BTC-USDT ETH-USDT KCS-USDT
-    pub side: String,   // buy sell
+    pub type_: String, 
+    pub symbol: String,
+    pub side: String,  
     #[serde(rename = "orderType")]
-    pub order_type: String, // limit market
+    pub order_type: String,
     #[serde(rename = "feeType")]
-    pub fee_type: Option<String>, // takerFee makerFee
-    pub liquidity: Option<String>, // taker maker
+    pub fee_type: Option<String>, 
+    pub liquidity: Option<String>,
     pub price: Option<String>,
     #[serde(rename = "orderId")]
     pub order_id: String,
@@ -143,9 +143,9 @@ pub struct OrderData {
     #[serde(rename = "oldSize")]
     pub old_size: Option<String>,
     #[serde(rename = "remainSize")]
-    pub remain_size: Option<String>, // only on limit order
+    pub remain_size: Option<String>,
     #[serde(rename = "remainFunds")]
-    pub remain_funds: Option<String>, // only on market order
+    pub remain_funds: Option<String>,
     #[serde(rename = "orderTime")]
     pub order_time: i64,
     pub ts: i64,
