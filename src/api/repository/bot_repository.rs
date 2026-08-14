@@ -3,7 +3,6 @@ use crate::constants::EXCHANGE;
 use anyhow::{Context, Result};
 use sqlx::PgPool;
 
-
 pub struct BotRepository {
     pool: PgPool,
 }

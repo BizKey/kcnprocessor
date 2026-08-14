@@ -12,7 +12,6 @@ impl SymbolRepository {
         Self { pool }
     }
 
-    
     pub async fn get_random_symbol(&self) -> Result<Option<String>> {
         Ok(sqlx::query_scalar::<_, String>(
             r#"
@@ -42,7 +41,6 @@ impl SymbolRepository {
         .with_context(|| format!("Fail get random symbol by exchange:{}", EXCHANGE))?)
     }
 
-    
     pub async fn get_symbol_info(&self, symbol: &str) -> Result<Option<Symbol>> {
         Ok(sqlx::query_as::<_, Symbol>(
             r#"
@@ -59,7 +57,6 @@ impl SymbolRepository {
         .with_context(|| format!("Fail get symbol by symbol:{} exchange:{}", symbol, EXCHANGE))?)
     }
 
-    
     pub async fn get_currency_info(&self, currency: &str) -> Result<Option<Currencies>> {
         Ok(sqlx::query_as::<_, Currencies>(
             r#"

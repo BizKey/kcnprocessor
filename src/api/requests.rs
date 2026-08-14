@@ -69,7 +69,6 @@ impl KuCoinClient {
     }
 
     async fn api_v1_bullet_private_post(&self) -> Result<String> {
-        
         Ok(read_response(
             self.make_request(
                 Method::POST,
@@ -87,7 +86,6 @@ impl KuCoinClient {
         &self,
         query_string: &str,
     ) -> Result<String> {
-        
         Ok(read_response(
             self.make_request(
                 Method::DELETE,
@@ -104,7 +102,6 @@ impl KuCoinClient {
         &self,
         query_string: &str,
     ) -> Result<String> {
-        
         Ok(read_response(
             self.make_request(
                 Method::DELETE,
@@ -119,7 +116,6 @@ impl KuCoinClient {
     }
 
     async fn api_v3_margin_accounts_get(&self, query_params: &str) -> Result<String> {
-        
         Ok(read_response(
             self.make_request(
                 Method::GET,
@@ -731,7 +727,6 @@ mod tests {
         let to_sign = format!("{}{}{}", timestamp, method, endpoint);
         let signature = client.generate_signature(to_sign.as_bytes()).unwrap();
 
-        
         let to_sign2 = format!("{}{}{}", timestamp, method, endpoint);
         let signature2 = client.generate_signature(to_sign2.as_bytes()).unwrap();
 

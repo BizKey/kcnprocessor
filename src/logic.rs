@@ -1,7 +1,6 @@
 use crate::api::db::{
     delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid,
-    delete_symbol_bot_by_exit_sl_client_oid, 
-     insert_db_balance, insert_db_event, insert_db_msgsend,
+    delete_symbol_bot_by_exit_sl_client_oid, insert_db_balance, insert_db_event, insert_db_msgsend,
     set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
     update_exit_sl_client_oid_bot_by_entry_client_oid,
     update_exit_sl_order_id_bot_by_exit_sl_client_oid,
@@ -33,22 +32,18 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 fn tp_buy_percent() -> Result<Decimal> {
-    
     Ok(Decimal::from_str("1.07").map_err(|e| anyhow::anyhow!(e))?)
 }
 
 fn sl_buy_percent() -> Result<Decimal> {
-    
     Ok(Decimal::from_str("0.95").map_err(|e| anyhow::anyhow!(e))?)
 }
 
 fn tp_sell_percent() -> Result<Decimal> {
-    
     Ok(Decimal::from_str("0.93").map_err(|e| anyhow::anyhow!(e))?)
 }
 
 fn sl_sell_percent() -> Result<Decimal> {
-    
     Ok(Decimal::from_str("1.05").map_err(|e| anyhow::anyhow!(e))?)
 }
 
@@ -220,7 +215,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             if account.currency == "USDT" {
                 if token_liability > Decimal::ZERO {
                     if token_available >= token_liability {
-                        
                         let size = &format_assert_decimal(token_liability, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
                             Ok(_) => {}
@@ -230,7 +224,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                             }
                         };
                     } else if token_available > Decimal::ZERO {
-                        
                         let size = &format_assert_decimal(token_available, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
                             Ok(_) => {}
@@ -258,7 +251,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
             if token_liability > Decimal::ZERO {
                 if token_available > Decimal::ZERO {
                     if token_available >= token_liability {
-                        
                         let size = &format_assert_decimal(token_liability, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
                             Ok(_) => {}
@@ -268,7 +260,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                             }
                         };
                     } else if token_available > Decimal::ZERO {
-                        
                         let size = &format_assert_decimal(token_available, precision_decimal)?;
                         match repay_account(&account.currency, size).await {
                             Ok(_) => {}
@@ -279,7 +270,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                         };
                     };
                 } else {
-                    
                     let quote_increment = symbol_info.quote_increment_decimal()?;
                     let base_min_size = symbol_info.base_min_size_decimal()?;
                     let min_funds = symbol_info.min_funds_decimal()?;
@@ -352,7 +342,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 let token_funds = best_bid_token_price * token_available;
 
                 if token_available >= base_min_size && token_funds >= quote_min_size {
-                    
                     let size = format_assert_decimal(token_available, base_increment)?;
                     match make_hf_size_margin_order(
                         pool,
@@ -375,7 +364,6 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                         }
                     };
                 } else {
-                    
                     let amount = format_assert_decimal(token_available, precision_decimal)?;
                     let type_ = "INTERNAL";
                     let from_account_type = "MARGIN";
@@ -425,7 +413,6 @@ pub async fn process_bot_by_exit_sl_client_oid(
     bot_repo.clear_exit_sl_by_client_oid(client_oid).await?;
     match &bot.exit_tp_client_oid {
         Some(exit_tp_client_oid) => {
-            
             bot_repo
                 .clear_exit_tp_by_client_oid(exit_tp_client_oid)
                 .await?;
@@ -485,7 +472,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
                 return Err(e);
             }
         }
-        
+
         make_random_trade(pool, new_balance, bot.id).await?;
     } else if order.side == "sell" {
         bot_repo
@@ -495,7 +482,6 @@ pub async fn process_bot_by_exit_sl_client_oid(
             )
             .await?;
 
-        
         make_random_trade(pool, return_balance, bot.id).await?;
     };
     Ok(())
@@ -514,7 +500,6 @@ pub async fn process_bot_by_exit_tp_client_oid(
 
     match &bot.exit_sl_client_oid {
         Some(exit_sl_client_oid) => {
-            
             bot_repo
                 .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
@@ -553,7 +538,6 @@ pub async fn process_bot_by_exit_tp_client_oid(
             .update_balance_and_clear_symbol_by_exit_tp(client_oid, &format!("{:.4}", new_balance))
             .await?;
 
-        
         make_random_trade(pool, new_balance, bot.id).await?;
     } else if order.side == "sell" {
         bot_repo
@@ -563,7 +547,6 @@ pub async fn process_bot_by_exit_tp_client_oid(
             )
             .await?;
 
-        
         make_random_trade(pool, return_balance, bot.id).await?;
     };
     Ok(())
@@ -611,8 +594,8 @@ pub async fn process_bot_by_entry_client_oid(
         let sl_buy = sl_buy_percent()?;
 
         let match_price = new_balance / filled_size;
-        let trigger_tp_price = match_price * tp_buy; 
-        let trigger_sl_price = match_price * sl_buy; 
+        let trigger_tp_price = match_price * tp_buy;
+        let trigger_sl_price = match_price * sl_buy;
 
         let exit_tp_client_oid = Uuid::new_v4().to_string();
         let exit_sl_client_oid = Uuid::new_v4().to_string();
@@ -795,8 +778,8 @@ pub async fn process_bot_by_entry_client_oid(
         };
 
         let match_price = new_balance / filled_size;
-        let trigger_tp_price = match_price * tp_sell; 
-        let trigger_sl_price = match_price * sl_sell; 
+        let trigger_tp_price = match_price * tp_sell;
+        let trigger_sl_price = match_price * sl_sell;
 
         let funds_tp = trigger_tp_price * filled_size;
         let funds_sl = trigger_sl_price * filled_size;
@@ -827,7 +810,7 @@ pub async fn process_bot_by_entry_client_oid(
             "symbol": order.symbol,
             "type": "market",
             "stop": "loss",
-            "stopPrice": stop_price_tp, 
+            "stopPrice": stop_price_tp,
             "isIsolated": false,
             "autoBorrow": true,
             "autoRepay": false,
@@ -853,7 +836,7 @@ pub async fn process_bot_by_entry_client_oid(
             "symbol": order.symbol,
             "type": "market",
             "stop": "entry",
-            "stopPrice": stop_price_sl, 
+            "stopPrice": stop_price_sl,
             "isIsolated": false,
             "autoBorrow": true,
             "autoRepay": false,
@@ -1175,7 +1158,6 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
 
         let order_result = match stop_ref.as_str() {
             "loss" => {
-                
                 match bot_repo
                     .update_exit_sl_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
                     .await
@@ -1600,7 +1582,6 @@ pub async fn make_hf_funds_margin_order(
     auto_borrow: bool,
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
-    
     let args_time_in_force = "GTC";
 
     insert_db_msgsend(
@@ -1654,7 +1635,6 @@ pub async fn make_hf_size_margin_order(
     auto_borrow: bool,
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
-    
     let args_time_in_force = "GTC";
 
     insert_db_msgsend(
@@ -1702,7 +1682,6 @@ mod tests {
 
     #[test]
     fn test_format_assert_decimal_real_data() {
-
         let inc_1000 = Decimal::from_str("1000").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("1234.56").unwrap(), inc_1000).unwrap(),
@@ -1747,7 +1726,6 @@ mod tests {
             "120".to_string()
         );
 
-
         let inc_1 = Decimal::from_str("1").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1).unwrap(),
@@ -1784,13 +1762,11 @@ mod tests {
             "123.456".to_string()
         );
 
-
         let inc_4 = Decimal::from_str("0.0001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_4).unwrap(),
             "123.4567".to_string()
         );
-
 
         let inc_5 = Decimal::from_str("0.00001").unwrap();
         assert_eq!(
@@ -1798,13 +1774,11 @@ mod tests {
             "123.45678".to_string()
         );
 
-
         let inc_6 = Decimal::from_str("0.000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("123.456789").unwrap(), inc_6).unwrap(),
             "123.456789".to_string()
         );
-
 
         let inc_7 = Decimal::from_str("0.0000001").unwrap();
         assert_eq!(
@@ -1816,13 +1790,11 @@ mod tests {
             "123.4567891".to_string()
         );
 
-
         let inc_8 = Decimal::from_str("0.00000001").unwrap();
         assert_eq!(
             format_assert_decimal(Decimal::from_str("0.123456789").unwrap(), inc_8).unwrap(),
             "0.12345678".to_string()
         );
-
 
         let inc_9 = Decimal::from_str("0.000000001").unwrap();
         assert_eq!(

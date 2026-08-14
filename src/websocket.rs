@@ -37,7 +37,6 @@ pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {
 
         let (mut event_ws_write, mut event_ws_read) = stream.split();
 
-        
         let topics = vec![
             ("subscribe_orders", "/spotMarket/tradeOrdersV2"),
             ("subscribe_stop_orders", "/spotMarket/advancedOrders"),
@@ -72,7 +71,7 @@ pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {
 
         loop {
             tokio::select! {
-                
+
                 _ = event_ping_interval.tick() => {
                    match event_ws_write.send(Message::Ping(Bytes::new())).await {
                         Ok(_) => {

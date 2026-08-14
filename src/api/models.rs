@@ -110,15 +110,15 @@ impl PositionData {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OrderData {
-    pub status: String, 
+    pub status: String,
     #[serde(rename = "type")]
-    pub type_: String, 
+    pub type_: String,
     pub symbol: String,
-    pub side: String,  
+    pub side: String,
     #[serde(rename = "orderType")]
     pub order_type: String,
     #[serde(rename = "feeType")]
-    pub fee_type: Option<String>, 
+    pub fee_type: Option<String>,
     pub liquidity: Option<String>,
     pub price: Option<String>,
     #[serde(rename = "orderId")]
