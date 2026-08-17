@@ -11,7 +11,9 @@ use crate::api::models::{
     AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot,
     KuCoinMessage, MakeOrderResData, MarginAccountData, OrderData, PositionData,
 };
-use crate::api::repository::{BotRepository, OrderRepository, SymbolRepository};
+use crate::api::repository::{
+    BotRepository, OrderRepository, PositionRepository, SymbolRepository,
+};
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
     api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
@@ -1058,10 +1060,9 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result
         && (order.remain_size == Some("0".to_string())
             || order.remain_funds == Some("0".to_string()))
     {
-        trade_order_event(pool, &order).await?;
-    } else {
-        Ok(())
+        trade_order_event(pool, &order).await?
     }
+    Ok(())
 }
 
 pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<()> {
