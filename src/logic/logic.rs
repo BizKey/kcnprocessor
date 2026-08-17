@@ -3,8 +3,8 @@ use crate::api::models::{
     KuCoinMessage, MakeOrderResData, MarginAccountData, OrderData, PositionData,
 };
 use crate::api::repository::{
-    BalanceRepository, BotRepository, ErrorRepository, EventRepository, MessageRepository,
-    OrderRepository, PositionRepository, SymbolRepository,
+    BalanceRepository, BotRepository, EventRepository, MessageRepository, OrderRepository,
+    PositionRepository, SymbolRepository,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,

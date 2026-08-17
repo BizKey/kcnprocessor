@@ -8,7 +8,7 @@ use tracing::{debug, error, info};
 
 use crate::api::requests::api_v1_bullet_private_post;
 use crate::constants::*;
-use crate::logic::spawn_process_kcn_msg;
+use crate::logic::logic::spawn_process_kcn_msg;
 use sqlx::PgPool;
 
 pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {

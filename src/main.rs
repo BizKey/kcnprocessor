@@ -17,7 +17,7 @@ use crate::api::tools::get_env;
 use crate::cleanup::{cancel_all_stop_orders, clean_account};
 use crate::core::traits::Repository;
 use crate::infrastructure::postgres_repository::PostgresRepository;
-use crate::logic::create_init_orders;
+use crate::logic::logic::create_init_orders;
 use crate::tracing_layer::DbErrorLayer;
 use crate::websocket::run_websocket_loop;
 use anyhow::Result;
