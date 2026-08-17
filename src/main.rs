@@ -9,15 +9,14 @@ mod logic;
 use crate::constants::*;
 mod core;
 mod infrastructure;
-mod tracing_layer;
 
 use crate::api::tools::get_env;
 use crate::core::traits::Repository;
 use crate::infrastructure::postgres_repository::PostgresRepository;
 
+use crate::infrastructure::tracing_layer::DbErrorLayer;
 use crate::infrastructure::websocket::run_websocket_loop;
 use crate::logic::{cancel_all_stop_orders, clean_account, create_init_orders};
-use crate::tracing_layer::DbErrorLayer;
 use anyhow::Result;
 
 use dotenvy::dotenv;
