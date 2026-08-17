@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use sqlx::PgPool;
 use sqlx::Row;
 
+#[derive(Clone)]
 pub struct OrderRepository {
     pool: PgPool,
 }

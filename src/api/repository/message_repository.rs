@@ -2,6 +2,7 @@ use crate::constants::EXCHANGE;
 use anyhow::{Context, Result};
 use sqlx::PgPool;
 
+#[derive(Clone)]
 pub struct MessageRepository {
     pool: PgPool,
 }

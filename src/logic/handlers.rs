@@ -9,6 +9,7 @@ use crate::api::requests::{
     api_v3_hf_margin_stop_orders_get, api_v3_margin_accounts_get, api_v3_margin_repay_post,
     build_query_string, serialize_body,
 };
+use crate::core::repository_traits::*;
 use anyhow::Result;
 use micromap::Map;
 use sqlx::PgPool;
@@ -39,9 +40,11 @@ use tokio::time::Duration;
 
 use uuid::Uuid;
 
-pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
-    let bot_repo = BotRepository::new(pool.clone());
-
+pub async fn create_init_orders(
+    bot_repo: &impl BotRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
+) -> Result<()> {
     let trade_bots = match bot_repo.get_all().await {
         Ok(trade_bots) => trade_bots,
         Err(e) => {
@@ -59,7 +62,15 @@ pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
                 continue;
             }
         };
-        match make_random_trade(pool, token_funds, trade_bot.id).await {
+        match make_random_trade(
+            bot_repo,
+            symbol_repo,
+            message_repo,
+            token_funds,
+            trade_bot.id,
+        )
+        .await
+        {
             Ok(_) => {}
             Err(e) => {
                 error!("{:#}", e);
@@ -155,9 +166,13 @@ pub async fn transfer_in_account(
     Ok(())
 }
 
-pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
-    let symbol_repo = SymbolRepository::new(pool.clone());
-
+pub async fn auto_clean_account(
+    _bot_repo: &impl BotRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    _order_repo: &impl OrderRepositoryTrait,
+    _balance_repo: &impl BalanceRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
+) -> Result<bool> {
     let mut passed = true;
     for account in get_all_accounts_data().await?.accounts.iter() {
         let token_liability = account.liability_decimal()?;
@@ -260,7 +275,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                     )?;
 
                     match make_hf_funds_margin_order(
-                        pool,
+                        message_repo,
                         &Uuid::new_v4().to_string(),
                         "buy",
                         &trade_symbol,
@@ -306,7 +321,7 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
                 if token_available >= base_min_size && token_funds >= quote_min_size {
                     let size = format_assert_decimal(token_available, base_increment)?;
                     match make_hf_size_margin_order(
-                        pool,
+                        message_repo,
                         &Uuid::new_v4().to_string(),
                         "sell",
                         &trade_symbol,
@@ -365,14 +380,16 @@ pub async fn auto_clean_account(pool: &PgPool) -> Result<bool> {
 }
 
 pub async fn process_bot_by_exit_sl_client_oid(
-    pool: &PgPool,
+    bot_repo: &impl BotRepositoryTrait,
+    order_repo: &impl OrderRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
-    let bot_repo = BotRepository::new(pool.clone());
-    let order_repo = OrderRepository::new(pool.clone());
     bot_repo.clear_exit_sl_by_client_oid(client_oid).await?;
+
     match &bot.exit_tp_client_oid {
         Some(exit_tp_client_oid) => {
             bot_repo
@@ -421,7 +438,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             }
         };
         let new_balance = old_balance + old_balance - return_balance;
-        let bot_repo = BotRepository::new(pool.clone());
+
         match bot_repo
             .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
             .await
@@ -433,7 +450,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             }
         }
 
-        make_random_trade(pool, new_balance, bot.id).await?;
+        make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
     } else if order.side == "sell" {
         bot_repo
             .update_balance_and_clear_symbol_by_exit_sl(
@@ -442,20 +459,20 @@ pub async fn process_bot_by_exit_sl_client_oid(
             )
             .await?;
 
-        make_random_trade(pool, return_balance, bot.id).await?;
+        make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
     };
     Ok(())
 }
 
 pub async fn process_bot_by_exit_tp_client_oid(
-    pool: &PgPool,
+    bot_repo: &impl BotRepositoryTrait,
+    order_repo: &impl OrderRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
-    let bot_repo = BotRepository::new(pool.clone());
-    let order_repo = OrderRepository::new(pool.clone());
-
     bot_repo.clear_exit_tp_by_client_oid(client_oid).await?;
 
     match &bot.exit_sl_client_oid {
@@ -498,7 +515,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
             .update_balance_and_clear_symbol_by_exit_tp(client_oid, &format!("{:.4}", new_balance))
             .await?;
 
-        make_random_trade(pool, new_balance, bot.id).await?;
+        make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
     } else if order.side == "sell" {
         bot_repo
             .update_balance_and_clear_symbol_by_exit_tp(
@@ -507,20 +524,18 @@ pub async fn process_bot_by_exit_tp_client_oid(
             )
             .await?;
 
-        make_random_trade(pool, return_balance, bot.id).await?;
+        make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
     };
     Ok(())
 }
 
 pub async fn process_bot_by_entry_client_oid(
-    pool: &PgPool,
+    bot_repo: &impl BotRepositoryTrait,
+    order_repo: &impl OrderRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
-    let bot_repo = BotRepository::new(pool.clone());
-    let order_repo = OrderRepository::new(pool.clone());
-    let symbol_repo = SymbolRepository::new(pool.clone());
-
     let symbol_info = match symbol_repo.get_symbol_info(&order.symbol).await? {
         Some(symbol_info) => symbol_info,
         None => {
@@ -616,7 +631,6 @@ pub async fn process_bot_by_entry_client_oid(
             (Ok(tp_resp), Ok(sl_resp)) => {
                 match tp_resp {
                     Some(response_data) => {
-                        let bot_repo = BotRepository::new(pool.clone());
                         match bot_repo
                             .update_exit_tp_order_id_by_client_oid(
                                 &response_data.order_id,
@@ -636,7 +650,6 @@ pub async fn process_bot_by_entry_client_oid(
 
                 match sl_resp {
                     Some(response_data) => {
-                        let bot_repo = BotRepository::new(pool.clone());
                         bot_repo
                             .update_exit_sl_order_id_by_client_oid(
                                 &response_data.order_id,
@@ -666,7 +679,6 @@ pub async fn process_bot_by_entry_client_oid(
                     }
                     None => {}
                 }
-                let bot_repo = BotRepository::new(pool.clone());
 
                 match bot_repo
                     .clear_exit_sl_by_client_oid(&exit_sl_client_oid)
@@ -708,8 +720,6 @@ pub async fn process_bot_by_entry_client_oid(
                     None => {}
                 }
 
-                let bot_repo = BotRepository::new(pool.clone());
-
                 bot_repo
                     .clear_exit_tp_by_client_oid(&exit_tp_client_oid)
                     .await?;
@@ -724,8 +734,6 @@ pub async fn process_bot_by_entry_client_oid(
             (Err(tp_err), Err(sl_err)) => {
                 error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
                 {}
-
-                let bot_repo = BotRepository::new(pool.clone());
 
                 bot_repo
                     .clear_exit_sl_by_client_oid(&exit_sl_client_oid)
@@ -823,7 +831,6 @@ pub async fn process_bot_by_entry_client_oid(
         info!("Stop profit order:{}", msg_tp_order);
         info!("Stop loss order:{}", msg_sl_order);
 
-        let bot_repo = BotRepository::new(pool.clone());
         match bot_repo
             .update_exit_tp_order_id_by_client_oid(client_oid, &exit_tp_client_oid)
             .await
@@ -834,7 +841,6 @@ pub async fn process_bot_by_entry_client_oid(
                 return Err(e);
             }
         }
-        let bot_repo = BotRepository::new(pool.clone());
         match bot_repo.clear_exit_sl_by_client_oid(client_oid).await {
             Ok(_) => {}
             Err(e) => {
@@ -866,7 +872,6 @@ pub async fn process_bot_by_entry_client_oid(
             (Ok(tp_resp), Ok(sl_resp)) => {
                 match tp_resp {
                     Some(response_data) => {
-                        let bot_repo = BotRepository::new(pool.clone());
                         match bot_repo
                             .update_exit_tp_order_id_by_client_oid(
                                 &response_data.order_id,
@@ -886,8 +891,6 @@ pub async fn process_bot_by_entry_client_oid(
 
                 match sl_resp {
                     Some(response_data) => {
-                        let bot_repo = BotRepository::new(pool.clone());
-
                         match bot_repo
                             .update_exit_sl_order_id_by_client_oid(
                                 &response_data.order_id,
@@ -931,8 +934,6 @@ pub async fn process_bot_by_entry_client_oid(
                     None => {}
                 }
 
-                let bot_repo = BotRepository::new(pool.clone());
-
                 match bot_repo
                     .clear_exit_sl_by_client_oid(&exit_sl_client_oid)
                     .await
@@ -960,7 +961,6 @@ pub async fn process_bot_by_entry_client_oid(
                     .await
                     {
                         Ok(_) => {
-                            let bot_repo = BotRepository::new(pool.clone());
                             bot_repo
                                 .clear_exit_tp_by_client_oid(&exit_tp_client_oid)
                                 .await?;
@@ -980,8 +980,6 @@ pub async fn process_bot_by_entry_client_oid(
 
                 {}
 
-                let bot_repo = BotRepository::new(pool.clone());
-
                 bot_repo
                     .clear_exit_sl_by_client_oid(&exit_sl_client_oid)
                     .await?;
@@ -997,7 +995,13 @@ pub async fn process_bot_by_entry_client_oid(
     Ok(())
 }
 
-pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<()> {
+pub async fn trade_order_event(
+    bot_repo: &impl BotRepositoryTrait,
+    order_repo: &impl OrderRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
+    order: &OrderData,
+) -> Result<()> {
     let client_oid = match &order.client_oid {
         Some(client_oid) => client_oid,
         None => {
@@ -1005,7 +1009,6 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<()> {
         }
     };
 
-    let bot_repo = BotRepository::new(pool.clone());
     let bot = bot_repo.get_by_client_oid(client_oid).await?;
     let bot = match bot {
         Some(bot) => bot,
@@ -1016,28 +1019,45 @@ pub async fn trade_order_event(pool: &PgPool, order: &OrderData) -> Result<()> {
 
     match client_oid.as_str() {
         s if Some(s.to_string()) == bot.entry_client_oid => {
-            process_bot_by_entry_client_oid(pool, client_oid, order)
+            process_bot_by_entry_client_oid(bot_repo, order_repo, symbol_repo, client_oid, order)
                 .await
                 .map(|_| Ok(()))?
         }
-        s if Some(s.to_string()) == bot.exit_tp_client_oid => {
-            process_bot_by_exit_tp_client_oid(pool, bot, client_oid, order)
-                .await
-                .map(|_| Ok(()))?
-        }
-        s if Some(s.to_string()) == bot.exit_sl_client_oid => {
-            process_bot_by_exit_sl_client_oid(pool, bot, client_oid, order)
-                .await
-                .map(|_| Ok(()))?
-        }
+        s if Some(s.to_string()) == bot.exit_tp_client_oid => process_bot_by_exit_tp_client_oid(
+            bot_repo,
+            order_repo,
+            symbol_repo,
+            message_repo,
+            bot,
+            client_oid,
+            order,
+        )
+        .await
+        .map(|_| Ok(()))?,
+        s if Some(s.to_string()) == bot.exit_sl_client_oid => process_bot_by_exit_sl_client_oid(
+            bot_repo,
+            order_repo,
+            symbol_repo,
+            message_repo,
+            bot,
+            client_oid,
+            order,
+        )
+        .await
+        .map(|_| Ok(()))?,
         _ => {
             anyhow::bail!("don't find client_oid in:{}", order)
         }
     }
 }
 
-pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result<()> {
-    let order_repo = OrderRepository::new(pool.clone());
+pub async fn handle_trade_order_event(
+    bot_repo: &impl BotRepositoryTrait,
+    order_repo: &impl OrderRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
+    order: OrderData,
+) -> Result<()> {
     order_repo.save_order_event(order.clone()).await?;
 
     info!("{}", order);
@@ -1046,15 +1066,16 @@ pub async fn handle_trade_order_event(order: OrderData, pool: &PgPool) -> Result
         && (order.remain_size == Some("0".to_string())
             || order.remain_funds == Some("0".to_string()))
     {
-        trade_order_event(pool, &order).await?
+        trade_order_event(bot_repo, order_repo, symbol_repo, message_repo, &order).await?
     }
     Ok(())
 }
 
-pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Result<()> {
-    let position_repo = PositionRepository::new(pool.clone());
-    let symbol_repo = SymbolRepository::new(pool.clone());
-
+pub async fn handle_position_event(
+    position: PositionData,
+    position_repo: &impl PositionRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+) -> Result<()> {
     for (asset, token_liability) in position.debt_pairs()? {
         let asset_info = match position.asset_list.get(&asset) {
             Some(asset_info) => asset_info,
@@ -1117,13 +1138,17 @@ pub async fn handle_position_event(position: PositionData, pool: &PgPool) -> Res
     Ok(())
 }
 
-pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Result<()> {
+pub async fn handle_advanced_orders(
+    order: AdvancedOrders,
+    bot_repo: &impl BotRepositoryTrait,
+    order_repo: &impl OrderRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
+) -> Result<()> {
     if order.error.is_none() {
         return Ok(());
     }
     error!("Got error on stop order : {}", order);
-
-    let bot_repo = BotRepository::new(pool.clone());
 
     const MAX_RETRIES: u32 = 1000;
     let mut attempt = 0;
@@ -1164,7 +1189,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                             };
 
                             make_hf_funds_margin_order(
-                                pool,
+                                message_repo,
                                 &new_exit_client_oid,
                                 side_ref,
                                 symbol_ref,
@@ -1189,7 +1214,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                             };
 
                             make_hf_size_margin_order(
-                                pool,
+                                message_repo,
                                 &new_exit_client_oid,
                                 side_ref,
                                 symbol_ref,
@@ -1220,7 +1245,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                         "buy" => match funds_clone {
                             Some(funds) => {
                                 make_hf_funds_margin_order(
-                                    pool,
+                                    message_repo,
                                     &new_exit_client_oid,
                                     side_ref,
                                     symbol_ref,
@@ -1243,7 +1268,7 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
                         "sell" => match size_clone {
                             Some(size) => {
                                 make_hf_size_margin_order(
-                                    pool,
+                                    message_repo,
                                     &new_exit_client_oid,
                                     side_ref,
                                     symbol_ref,
@@ -1301,12 +1326,20 @@ pub async fn handle_advanced_orders(order: AdvancedOrders, pool: &PgPool) -> Res
     }
 }
 
-pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
+pub async fn process_kcn_msg(
+    bot_repo: &impl BotRepositoryTrait,
+    order_repo: &impl OrderRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    balance_repo: &impl BalanceRepositoryTrait,
+    position_repo: &impl PositionRepositoryTrait,
+    event_repo: &impl EventRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
+    msg: &str,
+) -> Result<()> {
     let data = match serde_json::from_str::<KuCoinMessage>(msg)? {
         KuCoinMessage::Message(data) => data,
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => {
-                let event_repo = EventRepository::new(pool.clone());
                 event_repo.save_event(&data).await?;
                 return Ok(());
             }
@@ -1320,16 +1353,13 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
             }
         },
         KuCoinMessage::Ack(data) => match serde_json::to_value(&data) {
-            Ok(data) => {
-                let event_repo = EventRepository::new(pool.clone());
-                match event_repo.save_event(&data).await {
-                    Ok(_) => return Ok(()),
-                    Err(e) => {
-                        error!("{:#}", e);
-                        return Err(e);
-                    }
+            Ok(data) => match event_repo.save_event(&data).await {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    error!("{:#}", e);
+                    return Err(e);
                 }
-            }
+            },
 
             Err(e) => {
                 anyhow::bail!(
@@ -1356,7 +1386,6 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
                     anyhow::bail!(e);
                 }
             };
-            let balance_repo = BalanceRepository::new(pool.clone());
             match balance_repo.save_balance_event(data).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
@@ -1371,7 +1400,9 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
                     anyhow::bail!(e);
                 }
             };
-            match handle_trade_order_event(data, pool).await {
+            match handle_trade_order_event(bot_repo, order_repo, symbol_repo, message_repo, data)
+                .await
+            {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     anyhow::bail!(e);
@@ -1385,7 +1416,9 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
                     anyhow::bail!(e);
                 }
             };
-            match handle_advanced_orders(data, pool).await {
+            match handle_advanced_orders(data, bot_repo, order_repo, symbol_repo, message_repo)
+                .await
+            {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     anyhow::bail!(e);
@@ -1399,7 +1432,7 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
                     anyhow::bail!(e);
                 }
             };
-            match handle_position_event(data, pool).await {
+            match handle_position_event(data, position_repo, symbol_repo).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     anyhow::bail!(e);
@@ -1413,13 +1446,12 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
 }
 
 pub async fn make_random_trade(
-    pool: &PgPool,
+    bot_repo: &impl BotRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
     balance_funds: Decimal,
     trade_bot_id: i32,
 ) -> Result<()> {
-    let bot_repo = BotRepository::new(pool.clone());
-    let symbol_repo = SymbolRepository::new(pool.clone());
-
     const MAX_RETRIES: u32 = 10;
     let mut attempt = 0;
 
@@ -1480,7 +1512,7 @@ pub async fn make_random_trade(
                     .with_context(|| format!("Fail parse:{} {}", token_size, base_increment,))?;
 
                 make_hf_size_margin_order(
-                    pool,
+                    message_repo,
                     &entry_client_oid,
                     "sell",
                     &tradeable_symbol,
@@ -1498,7 +1530,7 @@ pub async fn make_random_trade(
                     .with_context(|| format!("Fail parse:{} {}", balance_funds, quote_increment))?;
 
                 make_hf_funds_margin_order(
-                    pool,
+                    message_repo,
                     &entry_client_oid,
                     "buy",
                     &tradeable_symbol,
@@ -1538,7 +1570,16 @@ pub async fn make_random_trade(
     }
 }
 
-pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::Receiver<Bytes>) {
+pub async fn spawn_process_kcn_msg(
+    mut rx_in: tokio::sync::mpsc::Receiver<Bytes>,
+    bot_repo: impl BotRepositoryTrait + Clone + 'static,
+    order_repo: impl OrderRepositoryTrait + Clone + 'static,
+    symbol_repo: impl SymbolRepositoryTrait + Clone + 'static,
+    balance_repo: impl BalanceRepositoryTrait + Clone + 'static,
+    position_repo: impl PositionRepositoryTrait + Clone + 'static,
+    event_repo: impl EventRepositoryTrait + Clone + 'static,
+    message_repo: impl MessageRepositoryTrait + Clone + 'static,
+) {
     loop {
         let msg = match rx_in.recv().await {
             Some(msg) => msg,
@@ -1556,17 +1597,25 @@ pub async fn spawn_process_kcn_msg(pool: &PgPool, mut rx_in: tokio::sync::mpsc::
             }
         };
 
-        match process_kcn_msg(pool, &text).await {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{:#}", e)
-            }
-        };
+        if let Err(e) = process_kcn_msg(
+            &bot_repo,
+            &order_repo,
+            &symbol_repo,
+            &balance_repo,
+            &position_repo,
+            &event_repo,
+            &message_repo,
+            &text,
+        )
+        .await
+        {
+            error!("{:#}", e);
+        }
     }
 }
 
 pub async fn make_hf_funds_margin_order(
-    pool: &PgPool,
+    message_repo: &impl MessageRepositoryTrait,
     client_oid: &str,
     side: &str,
     symbol: &str,
@@ -1576,8 +1625,6 @@ pub async fn make_hf_funds_margin_order(
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
     let args_time_in_force = "GTC";
-
-    let message_repo = MessageRepository::new(pool.clone());
 
     message_repo
         .save_order_message(
@@ -1621,7 +1668,7 @@ pub async fn make_hf_funds_margin_order(
 }
 
 pub async fn make_hf_size_margin_order(
-    pool: &PgPool,
+    message_repo: &impl MessageRepositoryTrait,
     client_oid: &str,
     side: &str,
     symbol: &str,
@@ -1631,8 +1678,6 @@ pub async fn make_hf_size_margin_order(
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
     let args_time_in_force = "GTC";
-
-    let message_repo = MessageRepository::new(pool.clone());
 
     message_repo
         .save_order_message(
@@ -1755,9 +1800,24 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
     Ok(())
 }
 
-pub async fn clean_account(pool: &PgPool) -> Result<()> {
+pub async fn clean_account(
+    bot_repo: &impl BotRepositoryTrait,
+    symbol_repo: &impl SymbolRepositoryTrait,
+    _position_repo: &impl PositionRepositoryTrait,
+    order_repo: &impl OrderRepositoryTrait,
+    balance_repo: &impl BalanceRepositoryTrait,
+    message_repo: &impl MessageRepositoryTrait,
+) -> Result<()> {
     loop {
-        let is_completed = match auto_clean_account(pool).await {
+        let is_completed = match auto_clean_account(
+            bot_repo,
+            symbol_repo,
+            order_repo,
+            balance_repo,
+            message_repo,
+        )
+        .await
+        {
             Ok(is_completed) => is_completed,
             Err(e) => {
                 error!("{:#}", e);

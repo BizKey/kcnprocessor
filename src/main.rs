@@ -5,28 +5,23 @@ mod api {
     pub mod tools;
 }
 mod constants;
-mod logic;
-use crate::constants::*;
 mod core;
 mod infrastructure;
+mod logic;
 
 use crate::api::tools::get_env;
-use crate::core::traits::Repository;
+use crate::core::repository_traits::*;
 use crate::infrastructure::postgres_repository::PostgresRepository;
-
 use crate::infrastructure::tracing_layer::DbErrorLayer;
 use crate::infrastructure::websocket::run_websocket_loop;
-use crate::logic::{cancel_all_stop_orders, clean_account, create_init_orders};
+use crate::logic::{cancel_all_stop_orders, clean_account};
+
 use anyhow::Result;
-
 use dotenvy::dotenv;
-
+use sqlx::postgres::PgPoolOptions;
+use tokio::time::Duration;
 use tracing::{error, info};
 use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-
-use sqlx::postgres::PgPoolOptions;
-
-use tokio::time::{Duration, sleep};
 
 fn init_tracing(pool: sqlx::PgPool) {
     let fmt_layer = tracing_subscriber::fmt::layer()
@@ -35,7 +30,6 @@ fn init_tracing(pool: sqlx::PgPool) {
         .with_thread_ids(true);
 
     let filter_layer = EnvFilter::from_default_env();
-
     let db_layer = DbErrorLayer::new(pool);
 
     tracing_subscriber::registry()
@@ -48,7 +42,6 @@ fn init_tracing(pool: sqlx::PgPool) {
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
-    let init_order_execute = true;
 
     let database_url = get_env("DATABASE_URL")?;
     let init_balance_per_bot = get_env("INIT_BALANCE_PER_BOT")?;
@@ -64,40 +57,56 @@ async fn main() -> Result<()> {
 
     init_tracing(pool.clone());
 
-    let repository = PostgresRepository::new(pool.clone());
+    let repo = PostgresRepository::new(pool.clone());
 
-    match repository.clear_bots(&init_balance_per_bot).await {
-        Ok(_) => {
-            info!("wipe_bots_info");
-        }
+    let bot_repo = repo.bot;
+    let order_repo = repo.order;
+    let symbol_repo = repo.symbol;
+    let position_repo = repo.position;
+    let balance_repo = repo.balance;
+    let event_repo = repo.event;
+    let error_repo = repo.error;
+    let message_repo = repo.message;
+
+    // Очищаем ботов
+    match bot_repo.clear_all_bots(&init_balance_per_bot).await {
+        Ok(_) => info!("All bots cleared"),
         Err(e) => {
             error!("{:#}", e);
             anyhow::bail!(e);
         }
     }
 
+    // Отменяем стоп-ордера
     if let Err(e) = cancel_all_stop_orders().await {
         error!("Failed to cancel stop orders: {:#}", e);
     }
 
-    if let Err(e) = clean_account(&pool).await {
+    // Очищаем аккаунт
+    if let Err(e) = clean_account(
+        &bot_repo,
+        &symbol_repo,
+        &position_repo,
+        &order_repo,
+        &balance_repo,
+        &message_repo,
+    )
+    .await
+    {
         error!("Failed to clean account: {:#}", e);
     }
 
-    if !init_order_execute {
-        let pool_init_orders = pool.clone();
-        tokio::spawn(async move {
-            info!("Initializing start orders...");
-            match create_init_orders(&pool_init_orders).await {
-                Ok(_) => {
-                    info!("Success create new init orders")
-                }
-                Err(e) => {
-                    error!("{:#}", e);
-                }
-            };
-            sleep(INIT_ORDER_DELAY).await;
-        });
-    }
-    run_websocket_loop(pool).await
+    // Запускаем WebSocket
+    run_websocket_loop(
+        pool,
+        bot_repo,
+        order_repo,
+        symbol_repo,
+        balance_repo,
+        position_repo,
+        event_repo,
+        error_repo,
+        message_repo,
+    )
+    .await
 }

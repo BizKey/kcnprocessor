@@ -8,15 +8,46 @@ use tracing::{debug, error, info};
 
 use crate::api::requests::api_v1_bullet_private_post;
 use crate::constants::*;
+use crate::core::repository_traits::*;
 use crate::logic::handlers::spawn_process_kcn_msg;
-use sqlx::PgPool;
 
-pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {
+pub async fn run_websocket_loop<B, O, S, Bal, P, E, ErrRepo, M>(
+    _pool: sqlx::PgPool,
+    bot_repo: B,
+    order_repo: O,
+    symbol_repo: S,
+    balance_repo: Bal,
+    position_repo: P,
+    event_repo: E,
+    _error_repo: ErrRepo,
+    message_repo: M,
+) -> Result<()>
+where
+    B: BotRepositoryTrait + Clone + Send + Sync + 'static,
+    O: OrderRepositoryTrait + Clone + Send + Sync + 'static,
+    S: SymbolRepositoryTrait + Clone + Send + Sync + 'static,
+    Bal: BalanceRepositoryTrait + Clone + Send + Sync + 'static,
+    P: PositionRepositoryTrait + Clone + Send + Sync + 'static,
+    E: EventRepositoryTrait + Clone + Send + Sync + 'static,
+    ErrRepo: ErrorRepositoryTrait + Clone + Send + Sync + 'static,
+    M: MessageRepositoryTrait + Clone + Send + Sync + 'static,
+{
     let (tx_in, rx_in) = mpsc::channel::<Bytes>(8192);
 
-    let pool_process = pool.clone();
-    let _spawn_process_kcn_msg_point =
-        tokio::spawn(async move { spawn_process_kcn_msg(&pool_process, rx_in).await });
+    // Запускаем обработчик сообщений с клонированными репозиториями
+    tokio::spawn(async move {
+        spawn_process_kcn_msg(
+            rx_in,
+            bot_repo.clone(),
+            order_repo.clone(),
+            symbol_repo.clone(),
+            balance_repo.clone(),
+            position_repo.clone(),
+            event_repo.clone(),
+            message_repo.clone(),
+        )
+        .await;
+    });
 
     loop {
         let event_ws_url = match api_v1_bullet_private_post().await {
@@ -71,26 +102,22 @@ pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {
 
         loop {
             tokio::select! {
-
                 _ = event_ping_interval.tick() => {
                    match event_ws_write.send(Message::Ping(Bytes::new())).await {
-                        Ok(_) => {
-                            debug!("Ping sent");
-                        },
-                        Err(e) =>  {
+                        Ok(_) => debug!("Ping sent"),
+                        Err(e) => {
                             error!("Fail send Ping to WebSocket:{}", e);
-                            break
+                            break;
                         }
                     };
                 }
 
                 event = event_ws_read.next() => {
-
                     let event = match event {
                         Some(event) => event,
                         None => {
                             error!("WebSocket event is None, connection closed");
-                            break
+                            break;
                         }
                     };
 
@@ -104,44 +131,28 @@ pub async fn run_websocket_loop(pool: PgPool) -> Result<()> {
 
                     match event {
                         Message::Text(text) => {
-                            match tx_in.send(Bytes::from(text)).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    error!("Failed to send message to handler: {}", e);
-                                    break;
-                                }
+                            if let Err(e) = tx_in.send(Bytes::from(text)).await {
+                                error!("Failed to send message to handler: {}", e);
+                                break;
                             }
                         }
                         Message::Binary(data) => {
                             debug!("Received binary message, size: {} bytes", data.len());
-                            match tx_in.send(Bytes::from(data)).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    error!("Failed to send binary message to handler: {}", e);
-                                    break;
-                                }
+                            if let Err(e) = tx_in.send(Bytes::from(data)).await {
+                                error!("Failed to send binary message to handler: {}", e);
+                                break;
                             }
                         }
-                        Message::Ping(_) => {
-                            debug!("Received Ping, auto-reply with Pong");
-                        }
-                        Message::Pong(_) => {
-                            debug!("Received Pong");
-                        }
+                        Message::Ping(_) => debug!("Received Ping, auto-reply with Pong"),
+                        Message::Pong(_) => debug!("Received Pong"),
                         Message::Close(frame) => {
                             match frame {
-                                Some(frame) => {
-                                    error!("Connection closed by server: code={}, reason={}", frame.code, frame.reason);
-                                },
-                                None => {
-                                    error!("Connection closed by server");
-                                }
+                                Some(frame) => error!("Connection closed by server: code={}, reason={}", frame.code, frame.reason),
+                                None => error!("Connection closed by server"),
                             };
-                            break
+                            break;
                         }
-                        Message::Frame(_) => {
-                            debug!("Received raw frame");
-                        }
+                        Message::Frame(_) => debug!("Received raw frame"),
                     }
                 }
             }

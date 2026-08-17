@@ -9,97 +9,292 @@ use crate::api::repository::{
     BalanceRepository, BotRepository, ErrorRepository, EventRepository, MessageRepository,
     OrderRepository, PositionRepository, SymbolRepository,
 };
-use crate::core::traits::*;
+use crate::core::repository_traits::*;
 
-pub struct PostgresRepository {
-    pool: PgPool,
+#[derive(Clone)]
+pub struct PostgresBotRepository {
     bot_repo: BotRepository,
-    order_repo: OrderRepository,
-    balance_repo: BalanceRepository,
-    position_repo: PositionRepository,
-    symbol_repo: SymbolRepository,
-    error_repo: ErrorRepository,
-    event_repo: EventRepository,
-    message_repo: MessageRepository,
 }
 
-impl PostgresRepository {
+impl PostgresBotRepository {
     pub fn new(pool: PgPool) -> Self {
-        let bot_repo = BotRepository::new(pool.clone());
-        let order_repo = OrderRepository::new(pool.clone());
-        let balance_repo = BalanceRepository::new(pool.clone());
-        let position_repo = PositionRepository::new(pool.clone());
-        let symbol_repo = SymbolRepository::new(pool.clone());
-        let error_repo = ErrorRepository::new(pool.clone());
-        let event_repo = EventRepository::new(pool.clone());
-        let message_repo = MessageRepository::new(pool.clone());
-
         Self {
-            pool,
-            bot_repo,
-            order_repo,
-            balance_repo,
-            position_repo,
-            symbol_repo,
-            error_repo,
-            event_repo,
-            message_repo,
+            bot_repo: BotRepository::new(pool),
         }
     }
 }
 
 #[async_trait]
-impl Repository for PostgresRepository {
-    fn get_pool(&self) -> &PgPool {
-        &self.pool
+impl BotRepositoryTrait for PostgresBotRepository {
+    async fn get_by_client_oid(&self, client_oid: &str) -> Result<Option<Bot>> {
+        self.bot_repo.get_by_client_oid(client_oid).await
     }
 
-    async fn save_error(&self, msg: &str) -> Result<()> {
-        self.error_repo.save_error(msg).await
+    async fn get_by_entry_client_oid(&self, entry_client_oid: &str) -> Result<Option<Bot>> {
+        self.bot_repo
+            .get_by_entry_client_oid(entry_client_oid)
+            .await
     }
 
-    async fn save_event(&self, event: &serde_json::Value) -> Result<()> {
-        self.event_repo.save_event(event).await
+    async fn get_by_exit_tp_client_oid(&self, exit_tp_client_oid: &str) -> Result<Option<Bot>> {
+        self.bot_repo
+            .get_by_exit_tp_client_oid(exit_tp_client_oid)
+            .await
     }
 
-    async fn save_order(&self, order: &OrderData) -> Result<()> {
-        self.order_repo.save_order_event(order.clone()).await
+    async fn get_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<Option<Bot>> {
+        self.bot_repo
+            .get_by_exit_sl_client_oid(exit_sl_client_oid)
+            .await
     }
 
-    async fn save_balance(&self, balance: &BalanceData) -> Result<()> {
-        self.balance_repo.save_balance_event(balance.clone()).await
+    async fn get_all(&self) -> Result<Vec<Bot>> {
+        self.bot_repo.get_all().await
     }
 
-    async fn save_order_message(&self, msg: &OrderMessage) -> Result<()> {
-        let size_str = msg.size.map(|s| s.to_string());
-        let funds_str = msg.funds.map(|s| s.to_string());
-        let price_str = msg.price.map(|s| s.to_string());
+    async fn update_entry_client_oid_by_id(
+        &self,
+        symbol: Option<&str>,
+        entry_client_oid: Option<&str>,
+        id: i32,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_entry_client_oid_by_id(symbol, entry_client_oid, id)
+            .await
+    }
 
-        self.message_repo
-            .save_order_message(
-                Some(&msg.symbol),
-                Some(&msg.side),
-                size_str.as_deref(),
-                funds_str.as_deref(),
-                price_str.as_deref(),
-                Some(&msg.time_in_force),
-                Some(&msg.order_type),
-                Some(&msg.auto_borrow),
-                Some(&msg.auto_repay),
-                msg.client_oid.as_deref(),
-                msg.order_id.as_deref(),
+    async fn update_exit_tp_client_oid_by_entry_client_oid(
+        &self,
+        entry_client_oid: &str,
+        exit_tp_client_oid: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_exit_tp_client_oid_by_entry_client_oid(entry_client_oid, exit_tp_client_oid)
+            .await
+    }
+
+    async fn update_exit_sl_client_oid_by_entry_client_oid(
+        &self,
+        entry_client_oid: &str,
+        exit_sl_client_oid: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_exit_sl_client_oid_by_entry_client_oid(entry_client_oid, exit_sl_client_oid)
+            .await
+    }
+
+    async fn update_exit_tp_order_id_by_client_oid(
+        &self,
+        exit_tp_order_id: &str,
+        exit_tp_client_oid: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_exit_tp_order_id_by_client_oid(exit_tp_order_id, exit_tp_client_oid)
+            .await
+    }
+
+    async fn update_exit_sl_order_id_by_client_oid(
+        &self,
+        exit_sl_order_id: &str,
+        exit_sl_client_oid: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_exit_sl_order_id_by_client_oid(exit_sl_order_id, exit_sl_client_oid)
+            .await
+    }
+
+    async fn update_exit_tp_client_oid_by_order_id(
+        &self,
+        exit_tp_order_id: &str,
+        exit_tp_client_oid: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_exit_tp_client_oid_by_order_id(exit_tp_order_id, exit_tp_client_oid)
+            .await
+    }
+
+    async fn update_exit_sl_client_oid_by_order_id(
+        &self,
+        exit_sl_order_id: &str,
+        exit_sl_client_oid: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_exit_sl_client_oid_by_order_id(exit_sl_order_id, exit_sl_client_oid)
+            .await
+    }
+
+    async fn clear_entry_client_oid(&self, entry_client_oid: &str) -> Result<()> {
+        self.bot_repo.clear_entry_client_oid(entry_client_oid).await
+    }
+
+    async fn clear_exit_tp_by_client_oid(&self, exit_tp_client_oid: &str) -> Result<()> {
+        self.bot_repo
+            .clear_exit_tp_by_client_oid(exit_tp_client_oid)
+            .await
+    }
+
+    async fn clear_exit_sl_by_client_oid(&self, exit_sl_client_oid: &str) -> Result<()> {
+        self.bot_repo
+            .clear_exit_sl_by_client_oid(exit_sl_client_oid)
+            .await
+    }
+
+    async fn update_balance_by_entry_client_oid(
+        &self,
+        entry_client_oid: &str,
+        balance: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_balance_by_entry_client_oid(entry_client_oid, balance)
+            .await
+    }
+
+    async fn update_balance_and_clear_symbol_by_exit_tp(
+        &self,
+        exit_tp_client_oid: &str,
+        balance: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_balance_and_clear_symbol_by_exit_tp(exit_tp_client_oid, balance)
+            .await
+    }
+
+    async fn update_balance_and_clear_symbol_by_exit_sl(
+        &self,
+        exit_sl_client_oid: &str,
+        balance: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_balance_and_clear_symbol_by_exit_sl(exit_sl_client_oid, balance)
+            .await
+    }
+
+    async fn clear_all_bots(&self, balance: &str) -> Result<()> {
+        self.bot_repo.clear_all_bots(balance).await
+    }
+
+    async fn clear_symbol_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<()> {
+        self.bot_repo
+            .clear_symbol_by_exit_sl_client_oid(exit_sl_client_oid)
+            .await
+    }
+}
+
+#[derive(Clone)]
+pub struct PostgresOrderRepository {
+    order_repo: OrderRepository,
+}
+
+impl PostgresOrderRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            order_repo: OrderRepository::new(pool),
+        }
+    }
+}
+
+#[async_trait]
+impl OrderRepositoryTrait for PostgresOrderRepository {
+    async fn save_order_event(&self, order: OrderData) -> Result<()> {
+        self.order_repo.save_order_event(order).await
+    }
+
+    async fn get_total_match_value_by_client_oid(
+        &self,
+        client_oid: &str,
+    ) -> Result<Option<String>> {
+        self.order_repo
+            .get_total_match_value_by_client_oid(client_oid)
+            .await
+    }
+}
+
+#[derive(Clone)]
+pub struct PostgresBalanceRepository {
+    balance_repo: BalanceRepository,
+}
+
+impl PostgresBalanceRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            balance_repo: BalanceRepository::new(pool),
+        }
+    }
+}
+
+#[async_trait]
+impl BalanceRepositoryTrait for PostgresBalanceRepository {
+    async fn save_balance_event(&self, balance: BalanceData) -> Result<()> {
+        self.balance_repo.save_balance_event(balance).await
+    }
+}
+
+#[derive(Clone)]
+pub struct PostgresPositionRepository {
+    position_repo: PositionRepository,
+}
+
+impl PostgresPositionRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            position_repo: PositionRepository::new(pool),
+        }
+    }
+}
+
+#[async_trait]
+impl PositionRepositoryTrait for PostgresPositionRepository {
+    async fn upsert_position_ratio(
+        &self,
+        debt_ratio: f64,
+        total_asset: f64,
+        margin_coefficient_total_asset: &str,
+        total_debt: &str,
+    ) -> Result<()> {
+        self.position_repo
+            .upsert_position_ratio(
+                debt_ratio,
+                total_asset,
+                margin_coefficient_total_asset,
+                total_debt,
             )
             .await
     }
 
-    async fn get_bot_by_client_oid(&self, client_oid: &str) -> Result<Option<Bot>> {
-        self.bot_repo.get_by_client_oid(client_oid).await
+    async fn upsert_position_debt(&self, debt_symbol: &str, debt_value: &str) -> Result<()> {
+        self.position_repo
+            .upsert_position_debt(debt_symbol, debt_value)
+            .await
     }
 
-    async fn get_all_bots(&self) -> Result<Vec<Bot>> {
-        self.bot_repo.get_all().await
+    async fn upsert_position_asset(
+        &self,
+        asset_symbol: &str,
+        asset_total: &str,
+        asset_available: &str,
+        asset_hold: &str,
+    ) -> Result<()> {
+        self.position_repo
+            .upsert_position_asset(asset_symbol, asset_total, asset_available, asset_hold)
+            .await
     }
+}
 
+#[derive(Clone)]
+pub struct PostgresSymbolRepository {
+    symbol_repo: SymbolRepository,
+}
+
+impl PostgresSymbolRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            symbol_repo: SymbolRepository::new(pool),
+        }
+    }
+}
+
+#[async_trait]
+impl SymbolRepositoryTrait for PostgresSymbolRepository {
     async fn get_random_symbol(&self) -> Result<Option<String>> {
         self.symbol_repo.get_random_symbol().await
     }
@@ -108,95 +303,121 @@ impl Repository for PostgresRepository {
         self.symbol_repo.get_symbol_info(symbol).await
     }
 
-    async fn get_currency_info(&self, currency: &str) -> Result<Option<Currency>> {
-        let currencies = self.symbol_repo.get_currency_info(currency).await?;
-        Ok(currencies.map(|c| Currency {
-            precision: c.precision,
-        }))
+    async fn get_currency_info(&self, currency: &str) -> Result<Option<Currencies>> {
+        self.symbol_repo.get_currency_info(currency).await
     }
+}
 
-    async fn get_total_match_value(&self, client_oid: &str) -> Result<Option<Decimal>> {
-        let value = self
-            .order_repo
-            .get_total_match_value_by_client_oid(client_oid)
-            .await?;
-        match value {
-            Some(s) => {
-                let decimal = Decimal::from_str(&s).map_err(|e| anyhow::anyhow!(e))?;
-                Ok(Some(decimal))
-            }
-            None => Ok(None),
+#[derive(Clone)]
+pub struct PostgresErrorRepository {
+    error_repo: ErrorRepository,
+}
+
+impl PostgresErrorRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            error_repo: ErrorRepository::new(pool),
         }
     }
+}
 
-    async fn update_bot(&self, bot_update: BotUpdate) -> Result<()> {
-        let entry_client_oid = bot_update.entry_client_oid.clone();
-        let symbol = bot_update.symbol.clone();
-
-        if let (Some(entry_client_oid_val), Some(symbol_val)) = (entry_client_oid.clone(), symbol) {
-            self.bot_repo
-                .update_entry_client_oid_by_id(
-                    Some(&symbol_val),
-                    Some(&entry_client_oid_val),
-                    bot_update.bot_id,
-                )
-                .await?;
-        }
-
-        if let (Some(entry_client_oid_val), Some(exit_tp_client_oid)) =
-            (entry_client_oid.clone(), bot_update.exit_tp_client_oid)
-        {
-            self.bot_repo
-                .update_exit_tp_client_oid_by_entry_client_oid(
-                    &entry_client_oid_val,
-                    &exit_tp_client_oid,
-                )
-                .await?;
-        }
-
-        if let (Some(entry_client_oid_val), Some(exit_sl_client_oid)) =
-            (entry_client_oid, bot_update.exit_sl_client_oid)
-        {
-            self.bot_repo
-                .update_exit_sl_client_oid_by_entry_client_oid(
-                    &entry_client_oid_val,
-                    &exit_sl_client_oid,
-                )
-                .await?;
-        }
-
-        Ok(())
+#[async_trait]
+impl ErrorRepositoryTrait for PostgresErrorRepository {
+    async fn save_error(&self, msg: &str) -> Result<()> {
+        self.error_repo.save_error(msg).await
     }
+}
 
-    async fn update_position_ratio(&self, ratio: PositionRatio) -> Result<()> {
-        self.position_repo
-            .upsert_position_ratio(
-                ratio.debt_ratio,
-                ratio.total_asset,
-                &ratio.margin_coefficient_total_asset.to_string(),
-                &ratio.total_debt.to_string(),
+#[derive(Clone)]
+pub struct PostgresEventRepository {
+    event_repo: EventRepository,
+}
+
+impl PostgresEventRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            event_repo: EventRepository::new(pool),
+        }
+    }
+}
+
+#[async_trait]
+impl EventRepositoryTrait for PostgresEventRepository {
+    async fn save_event(&self, event: &serde_json::Value) -> Result<()> {
+        self.event_repo.save_event(event).await
+    }
+}
+
+#[derive(Clone)]
+pub struct PostgresMessageRepository {
+    message_repo: MessageRepository,
+}
+
+impl PostgresMessageRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            message_repo: MessageRepository::new(pool),
+        }
+    }
+}
+
+#[async_trait]
+impl MessageRepositoryTrait for PostgresMessageRepository {
+    async fn save_order_message(
+        &self,
+        args_symbol: Option<&str>,
+        args_side: Option<&str>,
+        args_size: Option<&str>,
+        args_funds: Option<&str>,
+        args_price: Option<&str>,
+        args_time_in_force: Option<&str>,
+        args_type: Option<&str>,
+        args_auto_borrow: Option<&bool>,
+        args_auto_repay: Option<&bool>,
+        args_client_oid: Option<&str>,
+        args_order_id: Option<&str>,
+    ) -> Result<()> {
+        self.message_repo
+            .save_order_message(
+                args_symbol,
+                args_side,
+                args_size,
+                args_funds,
+                args_price,
+                args_time_in_force,
+                args_type,
+                args_auto_borrow,
+                args_auto_repay,
+                args_client_oid,
+                args_order_id,
             )
             .await
     }
+}
 
-    async fn update_position_asset(&self, asset: PositionAsset) -> Result<()> {
-        self.position_repo
-            .upsert_position_asset(
-                &asset.symbol,
-                &asset.total.to_string(),
-                &asset.available.to_string(),
-                &asset.hold.to_string(),
-            )
-            .await
-    }
+#[derive(Clone)]
+pub struct PostgresRepository {
+    pub bot: PostgresBotRepository,
+    pub order: PostgresOrderRepository,
+    pub balance: PostgresBalanceRepository,
+    pub position: PostgresPositionRepository,
+    pub symbol: PostgresSymbolRepository,
+    pub error: PostgresErrorRepository,
+    pub event: PostgresEventRepository,
+    pub message: PostgresMessageRepository,
+}
 
-    async fn update_position_debt(&self, debt: PositionDebt) -> Result<()> {
-        self.position_repo
-            .upsert_position_debt(&debt.symbol, &debt.value.to_string())
-            .await
-    }
-
-    async fn clear_bots(&self, balance: &str) -> Result<()> {
-        self.bot_repo.clear_all_bots(balance).await
+impl PostgresRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            bot: PostgresBotRepository::new(pool.clone()),
+            order: PostgresOrderRepository::new(pool.clone()),
+            balance: PostgresBalanceRepository::new(pool.clone()),
+            position: PostgresPositionRepository::new(pool.clone()),
+            symbol: PostgresSymbolRepository::new(pool.clone()),
+            error: PostgresErrorRepository::new(pool.clone()),
+            event: PostgresEventRepository::new(pool.clone()),
+            message: PostgresMessageRepository::new(pool.clone()),
+        }
     }
 }
