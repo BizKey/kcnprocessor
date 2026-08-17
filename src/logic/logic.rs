@@ -12,6 +12,10 @@ use crate::api::requests::{
     api_v3_hf_margin_stop_order_post, api_v3_margin_accounts_get, api_v3_margin_repay_post,
     build_query_string, serialize_body,
 };
+use crate::logic::utils::{
+    AUTO_CLEAN_DELAY, BOT_INIT_DELAY, RETRY_DELAY_BASE, format_assert_decimal, get_random_side,
+    sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
+};
 use anyhow::{Context, Result};
 use bytes::Bytes;
 use micromap::Map;
@@ -24,52 +28,6 @@ use std::str::FromStr;
 use tokio::time::{Duration, sleep};
 use tracing::{error, info};
 use uuid::Uuid;
-
-fn tp_buy_percent() -> Result<Decimal> {
-    Ok(Decimal::from_str("1.07").map_err(|e| anyhow::anyhow!(e))?)
-}
-
-fn sl_buy_percent() -> Result<Decimal> {
-    Ok(Decimal::from_str("0.95").map_err(|e| anyhow::anyhow!(e))?)
-}
-
-fn tp_sell_percent() -> Result<Decimal> {
-    Ok(Decimal::from_str("0.93").map_err(|e| anyhow::anyhow!(e))?)
-}
-
-fn sl_sell_percent() -> Result<Decimal> {
-    Ok(Decimal::from_str("1.05").map_err(|e| anyhow::anyhow!(e))?)
-}
-
-fn get_random_side() -> &'static str {
-    if fastrand::bool() { "buy" } else { "sell" }
-}
-
-const RETRY_DELAY_BASE: u64 = 500;
-const BOT_INIT_DELAY: Duration = Duration::from_secs(5);
-const AUTO_CLEAN_DELAY: Duration = Duration::from_secs(5);
-
-pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String> {
-    let precision = increment.scale() as usize;
-
-    if precision == 0 {
-        let size_int = size
-            .floor()
-            .to_i64()
-            .with_context(|| format!("Fail convert size:{}", size))?;
-        let increment_int = increment
-            .to_i64()
-            .with_context(|| format!("Fail convert increment:{}", increment))?;
-
-        let rounded_down = (size_int / increment_int) * increment_int;
-        return Ok(rounded_down.to_string());
-    }
-
-    let factor = Decimal::from(10_u64.pow(precision as u32));
-    let result = (size * factor).floor() / factor;
-
-    Ok(result.normalize().to_string())
-}
 
 pub async fn create_init_orders(pool: &PgPool) -> Result<()> {
     let bot_repo = BotRepository::new(pool.clone());
@@ -1701,134 +1659,4 @@ pub async fn make_hf_size_margin_order(
         }
     };
     Ok(data)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rust_decimal::Decimal;
-    use rust_decimal::prelude::*;
-
-    #[test]
-    fn test_format_assert_decimal_real_data() {
-        let inc_1000 = Decimal::from_str("1000").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("1234.56").unwrap(), inc_1000).unwrap(),
-            "1000".to_string()
-        );
-
-        let inc_100 = Decimal::from_str("100").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_100).unwrap(),
-            "100".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("199").unwrap(), inc_100).unwrap(),
-            "100".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("200").unwrap(), inc_100).unwrap(),
-            "200".to_string()
-        );
-
-        let inc_50 = Decimal::from_str("50").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_50).unwrap(),
-            "100".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("149").unwrap(), inc_50).unwrap(),
-            "100".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("150").unwrap(), inc_50).unwrap(),
-            "150".to_string()
-        );
-
-        let inc_10 = Decimal::from_str("10").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_10).unwrap(),
-            "120".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("125").unwrap(), inc_10).unwrap(),
-            "120".to_string()
-        );
-
-        let inc_1 = Decimal::from_str("1").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1).unwrap(),
-            "123".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("100").unwrap(), inc_1).unwrap(),
-            "100".to_string()
-        );
-
-        let inc_1 = Decimal::from_str("0.1").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_1).unwrap(),
-            "123.4".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("99.999").unwrap(), inc_1).unwrap(),
-            "99.9".to_string()
-        );
-
-        let inc_2 = Decimal::from_str("0.01").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.456").unwrap(), inc_2).unwrap(),
-            "123.45".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("99.999").unwrap(), inc_2).unwrap(),
-            "99.99".to_string()
-        );
-
-        let inc_3 = Decimal::from_str("0.001").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.4567").unwrap(), inc_3).unwrap(),
-            "123.456".to_string()
-        );
-
-        let inc_4 = Decimal::from_str("0.0001").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_4).unwrap(),
-            "123.4567".to_string()
-        );
-
-        let inc_5 = Decimal::from_str("0.00001").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.45678").unwrap(), inc_5).unwrap(),
-            "123.45678".to_string()
-        );
-
-        let inc_6 = Decimal::from_str("0.000001").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.456789").unwrap(), inc_6).unwrap(),
-            "123.456789".to_string()
-        );
-
-        let inc_7 = Decimal::from_str("0.0000001").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.4567891").unwrap(), inc_7).unwrap(),
-            "123.4567891".to_string()
-        );
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("123.456789123121").unwrap(), inc_7).unwrap(),
-            "123.4567891".to_string()
-        );
-
-        let inc_8 = Decimal::from_str("0.00000001").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("0.123456789").unwrap(), inc_8).unwrap(),
-            "0.12345678".to_string()
-        );
-
-        let inc_9 = Decimal::from_str("0.000000001").unwrap();
-        assert_eq!(
-            format_assert_decimal(Decimal::from_str("0.00000000123").unwrap(), inc_9).unwrap(),
-            "0.000000001".to_string()
-        );
-    }
 }
