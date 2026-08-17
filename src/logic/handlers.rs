@@ -1,3 +1,7 @@
+use super::utils::{
+    AUTO_CLEAN_DELAY, BOT_INIT_DELAY, RETRY_DELAY_BASE, format_assert_decimal, get_random_side,
+    sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
+};
 use crate::api::models::{
     AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot,
     KuCoinMessage, MakeOrderResData, MarginAccountData, OrderData, PositionData,
@@ -11,10 +15,6 @@ use crate::api::requests::{
     api_v3_hf_margin_order_post, api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
     api_v3_hf_margin_stop_order_post, api_v3_margin_accounts_get, api_v3_margin_repay_post,
     build_query_string, serialize_body,
-};
-use crate::logic::utils::{
-    AUTO_CLEAN_DELAY, BOT_INIT_DELAY, RETRY_DELAY_BASE, format_assert_decimal, get_random_side,
-    sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
 };
 use anyhow::{Context, Result};
 use bytes::Bytes;

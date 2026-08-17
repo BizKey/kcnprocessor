@@ -9,7 +9,7 @@ use crate::api::requests::{
     build_query_string,
 };
 use crate::constants::DELETE_STOP_ORDER_DELAY;
-use crate::logic::logic::auto_clean_account;
+use crate::logic::handlers::auto_clean_account;
 
 pub async fn cancel_all_stop_orders() -> Result<()> {
     loop {
