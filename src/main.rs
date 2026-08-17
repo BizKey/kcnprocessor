@@ -7,17 +7,16 @@ mod api {
 mod constants;
 mod logic;
 use crate::constants::*;
-mod cleanup;
 mod core;
 mod infrastructure;
 mod tracing_layer;
 mod websocket;
 
 use crate::api::tools::get_env;
-use crate::cleanup::{cancel_all_stop_orders, clean_account};
 use crate::core::traits::Repository;
 use crate::infrastructure::postgres_repository::PostgresRepository;
-use crate::logic::handlers::create_init_orders;
+
+use crate::logic::{cancel_all_stop_orders, clean_account, create_init_orders};
 use crate::tracing_layer::DbErrorLayer;
 use crate::websocket::run_websocket_loop;
 use anyhow::Result;
