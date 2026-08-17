@@ -1,18 +1,10 @@
-use crate::api::db::{
-    delete_exit_sl_id_bot_by_client_oid, delete_exit_tp_id_bot_by_client_oid,
-    delete_symbol_bot_by_exit_sl_client_oid, insert_db_balance, insert_db_event, insert_db_msgsend,
-    set_null_entry_client_oid_by_entry_client_oid, update_balance_bot_by_exit_sl_client_oid,
-    update_exit_sl_client_oid_bot_by_entry_client_oid,
-    update_exit_sl_order_id_bot_by_exit_sl_client_oid,
-    update_exit_tp_client_oid_bot_by_entry_client_oid,
-    update_exit_tp_order_id_bot_by_exit_tp_client_oid,
-};
 use crate::api::models::{
     AdvancedOrders, ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, BalanceData, Bot,
     KuCoinMessage, MakeOrderResData, MarginAccountData, OrderData, PositionData,
 };
 use crate::api::repository::{
-    BotRepository, OrderRepository, PositionRepository, SymbolRepository,
+    BalanceRepository, BotRepository, ErrorRepository, EventRepository, MessageRepository,
+    OrderRepository, PositionRepository, SymbolRepository,
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
@@ -461,12 +453,10 @@ pub async fn process_bot_by_exit_sl_client_oid(
             }
         };
         let new_balance = old_balance + old_balance - return_balance;
-        match update_balance_bot_by_exit_sl_client_oid(
-            pool,
-            client_oid,
-            &format!("{:.4}", new_balance),
-        )
-        .await
+        let bot_repo = BotRepository::new(pool.clone());
+        match bot_repo
+            .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
+            .await
         {
             Ok(_) => {}
             Err(e) => {
@@ -657,30 +647,34 @@ pub async fn process_bot_by_entry_client_oid(
         match (&tp_res, &sl_res) {
             (Ok(tp_resp), Ok(sl_resp)) => {
                 match tp_resp {
-                    Some(response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(
-                        pool,
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(e) => {
-                            error!("{:#}", e);
-                            return Err(e);
+                    Some(response_data) => {
+                        let bot_repo = BotRepository::new(pool.clone());
+                        match bot_repo
+                            .update_exit_tp_order_id_by_client_oid(
+                                &response_data.order_id,
+                                &response_data.client_oid,
+                            )
+                            .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("{:#}", e);
+                                return Err(e);
+                            }
                         }
-                    },
+                    }
                     None => {}
                 }
 
                 match sl_resp {
                     Some(response_data) => {
-                        update_exit_sl_order_id_bot_by_exit_sl_client_oid(
-                            pool,
-                            &response_data.order_id,
-                            &response_data.client_oid,
-                        )
-                        .await?
+                        let bot_repo = BotRepository::new(pool.clone());
+                        bot_repo
+                            .update_exit_sl_order_id_by_client_oid(
+                                &response_data.order_id,
+                                &response_data.client_oid,
+                            )
+                            .await?;
                     }
                     None => {}
                 }
@@ -704,8 +698,12 @@ pub async fn process_bot_by_entry_client_oid(
                     }
                     None => {}
                 }
+                let bot_repo = BotRepository::new(pool.clone());
 
-                match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
+                match bot_repo
+                    .clear_exit_sl_by_client_oid(&exit_sl_client_oid)
+                    .await
+                {
                     Ok(_) => {}
                     Err(e) => {
                         error!("{:#}", e);
@@ -742,7 +740,11 @@ pub async fn process_bot_by_entry_client_oid(
                     None => {}
                 }
 
-                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await?;
+                let bot_repo = BotRepository::new(pool.clone());
+
+                bot_repo
+                    .clear_exit_tp_by_client_oid(&exit_tp_client_oid)
+                    .await?;
 
                 error!(
                     "Failed add SL order: {}. TP was cancelled for symmetry.",
@@ -755,11 +757,15 @@ pub async fn process_bot_by_entry_client_oid(
                 error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
                 {}
 
-                delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid).await?;
+                let bot_repo = BotRepository::new(pool.clone());
 
-                delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await?;
-
-                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await?;
+                bot_repo
+                    .clear_exit_sl_by_client_oid(&exit_sl_client_oid)
+                    .await?;
+                bot_repo
+                    .clear_exit_tp_by_client_oid(&exit_tp_client_oid)
+                    .await?;
+                bot_repo.clear_entry_client_oid(&exit_tp_client_oid).await?;
             }
         }
     } else if order.side == "sell" {
@@ -849,12 +855,10 @@ pub async fn process_bot_by_entry_client_oid(
         info!("Stop profit order:{}", msg_tp_order);
         info!("Stop loss order:{}", msg_sl_order);
 
-        match update_exit_tp_client_oid_bot_by_entry_client_oid(
-            pool,
-            client_oid,
-            &exit_tp_client_oid,
-        )
-        .await
+        let bot_repo = BotRepository::new(pool.clone());
+        match bot_repo
+            .update_exit_tp_order_id_by_client_oid(client_oid, &exit_tp_client_oid)
+            .await
         {
             Ok(_) => {}
             Err(e) => {
@@ -862,13 +866,8 @@ pub async fn process_bot_by_entry_client_oid(
                 return Err(e);
             }
         }
-        match update_exit_sl_client_oid_bot_by_entry_client_oid(
-            pool,
-            client_oid,
-            &exit_sl_client_oid,
-        )
-        .await
-        {
+        let bot_repo = BotRepository::new(pool.clone());
+        match bot_repo.clear_exit_sl_by_client_oid(client_oid).await {
             Ok(_) => {}
             Err(e) => {
                 error!("{:#}", e);
@@ -898,36 +897,43 @@ pub async fn process_bot_by_entry_client_oid(
         match (&tp_res, &sl_res) {
             (Ok(tp_resp), Ok(sl_resp)) => {
                 match tp_resp {
-                    Some(response_data) => match update_exit_tp_order_id_bot_by_exit_tp_client_oid(
-                        pool,
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(e) => {
-                            error!("{:#}", e);
-                            return Err(e);
+                    Some(response_data) => {
+                        let bot_repo = BotRepository::new(pool.clone());
+                        match bot_repo
+                            .update_exit_tp_order_id_by_client_oid(
+                                &response_data.order_id,
+                                &response_data.client_oid,
+                            )
+                            .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("{:#}", e);
+                                return Err(e);
+                            }
                         }
-                    },
+                    }
                     None => {}
                 }
 
                 match sl_resp {
-                    Some(response_data) => match update_exit_sl_order_id_bot_by_exit_sl_client_oid(
-                        pool,
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(e) => {
-                            error!("{:#}", e);
-                            return Err(e);
+                    Some(response_data) => {
+                        let bot_repo = BotRepository::new(pool.clone());
+
+                        match bot_repo
+                            .update_exit_sl_order_id_by_client_oid(
+                                &response_data.order_id,
+                                &response_data.client_oid,
+                            )
+                            .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("{:#}", e);
+                                return Err(e);
+                            }
                         }
-                    },
+                    }
                     None => {}
                 }
 
@@ -957,7 +963,12 @@ pub async fn process_bot_by_entry_client_oid(
                     None => {}
                 }
 
-                match delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await {
+                let bot_repo = BotRepository::new(pool.clone());
+
+                match bot_repo
+                    .clear_exit_sl_by_client_oid(&exit_sl_client_oid)
+                    .await
+                {
                     Ok(_) => {}
                     Err(e) => {
                         error!("{:#}", e);
@@ -981,7 +992,10 @@ pub async fn process_bot_by_entry_client_oid(
                     .await
                     {
                         Ok(_) => {
-                            delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await?;
+                            let bot_repo = BotRepository::new(pool.clone());
+                            bot_repo
+                                .clear_exit_tp_by_client_oid(&exit_tp_client_oid)
+                                .await?;
 
                             {}
                         }
@@ -998,11 +1012,15 @@ pub async fn process_bot_by_entry_client_oid(
 
                 {}
 
-                delete_symbol_bot_by_exit_sl_client_oid(pool, &exit_sl_client_oid).await?;
+                let bot_repo = BotRepository::new(pool.clone());
 
-                delete_exit_sl_id_bot_by_client_oid(pool, &exit_sl_client_oid).await?;
-
-                delete_exit_tp_id_bot_by_client_oid(pool, &exit_tp_client_oid).await?;
+                bot_repo
+                    .clear_exit_sl_by_client_oid(&exit_sl_client_oid)
+                    .await?;
+                bot_repo
+                    .clear_exit_tp_by_client_oid(&exit_tp_client_oid)
+                    .await?;
+                bot_repo.clear_entry_client_oid(&exit_tp_client_oid).await?;
             }
         }
     }
@@ -1320,7 +1338,8 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
         KuCoinMessage::Message(data) => data,
         KuCoinMessage::Welcome(data) => match serde_json::to_value(&data) {
             Ok(data) => {
-                insert_db_event(pool, &data).await?;
+                let event_repo = EventRepository::new(pool.clone());
+                event_repo.save_event(&data).await?;
                 return Ok(());
             }
             Err(e) => {
@@ -1333,13 +1352,17 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
             }
         },
         KuCoinMessage::Ack(data) => match serde_json::to_value(&data) {
-            Ok(data) => match insert_db_event(pool, &data).await {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    error!("{:#}", e);
-                    return Err(e);
+            Ok(data) => {
+                let event_repo = EventRepository::new(pool.clone());
+                match event_repo.save_event(&data).await {
+                    Ok(_) => return Ok(()),
+                    Err(e) => {
+                        error!("{:#}", e);
+                        return Err(e);
+                    }
                 }
-            },
+            }
+
             Err(e) => {
                 anyhow::bail!(
                     "Failed to serialize request '{:?}' as {}: {}",
@@ -1365,7 +1388,8 @@ pub async fn process_kcn_msg(pool: &PgPool, msg: &str) -> Result<()> {
                     anyhow::bail!(e);
                 }
             };
-            match insert_db_balance(pool, data).await {
+            let balance_repo = BalanceRepository::new(pool.clone());
+            match balance_repo.save_balance_event(data).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     anyhow::bail!(e);
@@ -1585,21 +1609,23 @@ pub async fn make_hf_funds_margin_order(
 ) -> Result<MakeOrderResData> {
     let args_time_in_force = "GTC";
 
-    insert_db_msgsend(
-        pool,
-        Some(symbol),
-        Some(side),
-        None,
-        Some(&funds),
-        None,
-        Some(args_time_in_force),
-        Some(type_),
-        Some(&auto_borrow),
-        Some(&auto_repay),
-        Some(client_oid),
-        None,
-    )
-    .await?;
+    let message_repo = MessageRepository::new(pool.clone());
+
+    message_repo
+        .save_order_message(
+            Some(symbol),
+            Some(side),
+            None,
+            Some(&funds),
+            None,
+            Some(args_time_in_force),
+            Some(type_),
+            Some(&auto_borrow),
+            Some(&auto_repay),
+            Some(client_oid),
+            None,
+        )
+        .await?;
 
     let msg = serde_json::json!({
         "clientOid": client_oid,
@@ -1638,21 +1664,23 @@ pub async fn make_hf_size_margin_order(
 ) -> Result<MakeOrderResData> {
     let args_time_in_force = "GTC";
 
-    insert_db_msgsend(
-        pool,
-        Some(symbol),
-        Some(side),
-        Some(size),
-        None,
-        None,
-        Some(args_time_in_force),
-        Some(type_),
-        Some(&auto_borrow),
-        Some(&auto_repay),
-        Some(client_oid),
-        None,
-    )
-    .await?;
+    let message_repo = MessageRepository::new(pool.clone());
+
+    message_repo
+        .save_order_message(
+            Some(symbol),
+            Some(side),
+            Some(size),
+            None,
+            None,
+            Some(args_time_in_force),
+            Some(type_),
+            Some(&auto_borrow),
+            Some(&auto_repay),
+            Some(client_oid),
+            None,
+        )
+        .await?;
 
     let body_str = serialize_body(Some(serde_json::json!({
         "clientOid": client_oid,
