@@ -83,16 +83,7 @@ async fn main() -> Result<()> {
     }
 
     // Очищаем аккаунт
-    if let Err(e) = clean_account(
-        &bot_repo,
-        &symbol_repo,
-        &position_repo,
-        &order_repo,
-        &balance_repo,
-        &message_repo,
-    )
-    .await
-    {
+    if let Err(e) = clean_account(&symbol_repo, &message_repo).await {
         error!("Failed to clean account: {:#}", e);
     }
 
