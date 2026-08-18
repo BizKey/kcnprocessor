@@ -1,3 +1,4 @@
+use crate::api::utils::{BodySerializer, QueryBuilder};
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
 use serde_json;
@@ -7,10 +8,7 @@ use uuid::Uuid;
 
 use super::utils::{RETRY_DELAY_BASE, format_assert_decimal, get_random_side};
 use crate::api::models::MakeOrderResData;
-use crate::api::requests::{
-    api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post, build_query_string,
-    serialize_body,
-};
+use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
 use crate::core::repository_traits::*;
 
 /// Создание рыночного ордера с указанием суммы (funds)
@@ -54,7 +52,7 @@ pub async fn make_hf_funds_margin_order(
     });
     info!("{}", msg);
 
-    let body_str = serialize_body(Some(msg))?;
+    let body_str = BodySerializer::serialize(Some(msg))?;
     let data = api_v3_hf_margin_order_post(&body_str).await?;
     let data = match data {
         Some(data) => data,
@@ -93,7 +91,7 @@ pub async fn make_hf_size_margin_order(
         )
         .await?;
 
-    let body_str = serialize_body(Some(serde_json::json!({
+    let body_str = BodySerializer::serialize(Some(serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
@@ -167,7 +165,7 @@ pub async fn make_random_trade(
                 query_params.insert("symbol", tradeable_symbol.as_str());
 
                 let token_price =
-                    match api_v1_market_orderbook_level1_get(&build_query_string(query_params)?)
+                    match api_v1_market_orderbook_level1_get(&QueryBuilder::build(query_params)?)
                         .await?
                     {
                         Some(token_price) => token_price,

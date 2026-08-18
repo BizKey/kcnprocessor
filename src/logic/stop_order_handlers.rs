@@ -1,3 +1,4 @@
+use crate::api::utils::{BodySerializer, QueryBuilder};
 use anyhow::Result;
 use micromap::Map;
 use tokio::time::sleep;
@@ -8,7 +9,6 @@ use super::utils::RETRY_DELAY_BASE;
 use crate::api::models::AdvancedOrders;
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get,
-    build_query_string,
 };
 use crate::constants::DELETE_STOP_ORDER_DELAY;
 use crate::core::repository_traits::*;
@@ -20,7 +20,7 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
         let mut query_params = Map::new();
         query_params.insert("pageSize", "10");
 
-        let query_params = build_query_string(query_params)?;
+        let query_params = QueryBuilder::build(query_params)?;
         let open_stop_orders = match api_v3_hf_margin_stop_orders_get(&query_params).await? {
             Some(orders) => orders,
             None => {
@@ -39,7 +39,7 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
 
             let mut query_params = Map::new();
             query_params.insert("orderId", stop_order.id.as_str());
-            let query_params = build_query_string(query_params)?;
+            let query_params = QueryBuilder::build(query_params)?;
 
             let canceled_stop_order =
                 match api_v3_hf_margin_stop_order_cancel_by_id_delete(&query_params).await? {

@@ -1,3 +1,4 @@
+use crate::api::utils::{BodySerializer, QueryBuilder};
 use anyhow::Result;
 use micromap::Map;
 use rust_decimal::Decimal;
@@ -12,7 +13,7 @@ use crate::api::models::{
 };
 use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
-    api_v3_margin_accounts_get, api_v3_margin_repay_post, build_query_string, serialize_body,
+    api_v3_margin_accounts_get, api_v3_margin_repay_post,
 };
 use crate::core::repository_traits::*;
 
@@ -22,13 +23,13 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
     query_params.insert("quoteCurrency", "USDT");
     query_params.insert("queryType", "MARGIN");
 
-    Ok(api_v3_margin_accounts_get(&build_query_string(query_params)?).await?)
+    Ok(api_v3_margin_accounts_get(&QueryBuilder::build(query_params)?).await?)
 }
 
 /// Репай (погашение) задолженности
 pub async fn repay_account(currency: &str, size: &str) -> Result<Option<ApiV3MarginRepayResData>> {
     info!("Repay {} liability:{}", size, currency);
-    let body_str = serialize_body(Some(serde_json::json!({
+    let body_str = BodySerializer::serialize(Some(serde_json::json!({
         "currency": currency,
         "size": size,
         "isIsolated": false,
@@ -44,7 +45,7 @@ pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookL
     query_params.insert("symbol", trade_symbol);
 
     let token_price =
-        api_v1_market_orderbook_level1_get(&build_query_string(query_params)?).await?;
+        api_v1_market_orderbook_level1_get(&QueryBuilder::build(query_params)?).await?;
     match token_price {
         Some(token_price) => Ok(token_price),
         None => anyhow::bail!("Fail get token_price"),
@@ -59,7 +60,7 @@ pub async fn transfer_in_account(
     from_account_type: &str,
     to_account_type: &str,
 ) -> Result<()> {
-    let body_str = serialize_body(Some(serde_json::json!({
+    let body_str = BodySerializer::serialize(Some(serde_json::json!({
         "currency": currency,
         "clientOid": Uuid::new_v4().to_string(),
         "amount": amount,

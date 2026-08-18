@@ -1,10 +1,13 @@
 // src/main.rs
 
 mod api {
+    pub mod auth;
+    pub mod client;
     pub mod models;
     pub mod repository;
     pub mod requests;
     pub mod tools;
+    pub mod utils;
 }
 mod constants;
 mod core;

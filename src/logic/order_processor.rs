@@ -1,3 +1,4 @@
+use crate::api::utils::{BodySerializer, QueryBuilder};
 use anyhow::Result;
 use micromap::Map;
 use rust_decimal::Decimal;
@@ -12,8 +13,8 @@ use super::utils::{
 use crate::api::models::{Bot, OrderData};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
-    build_query_string, serialize_body,
 };
+
 use crate::core::repository_traits::*;
 
 /// Обработка entry ордера бота
@@ -137,8 +138,8 @@ async fn process_buy_entry(
         .update_exit_sl_client_oid_by_entry_client_oid(client_oid, &exit_sl_client_oid)
         .await?;
 
-    let tp_body = serialize_body(Some(msg_tp_order))?;
-    let sl_body = serialize_body(Some(msg_sl_order))?;
+    let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;
+    let sl_body = BodySerializer::serialize(Some(msg_sl_order))?;
     let tp_fut = api_v3_hf_margin_stop_order_post(&tp_body);
     let sl_fut = api_v3_hf_margin_stop_order_post(&sl_body);
 
@@ -219,8 +220,8 @@ async fn process_sell_entry(
         .await?;
     bot_repo.clear_exit_sl_by_client_oid(client_oid).await?;
 
-    let tp_body = serialize_body(Some(msg_tp_order))?;
-    let sl_body = serialize_body(Some(msg_sl_order))?;
+    let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;
+    let sl_body = BodySerializer::serialize(Some(msg_sl_order))?;
     let tp_fut = api_v3_hf_margin_stop_order_post(&tp_body);
     let sl_fut = api_v3_hf_margin_stop_order_post(&sl_body);
 
@@ -275,7 +276,7 @@ async fn handle_stop_order_results_buy(
             if let Some(response_data) = sl_resp {
                 let mut query_params = Map::new();
                 query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(
+                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
                     query_params,
                 )?)
                 .await?;
@@ -292,7 +293,7 @@ async fn handle_stop_order_results_buy(
             if let Some(response_data) = tp_resp {
                 let mut query_params = Map::new();
                 query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(
+                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
                     query_params,
                 )?)
                 .await?;
@@ -355,7 +356,7 @@ async fn handle_stop_order_results_sell(
             if let Some(response_data) = sl_resp {
                 let mut query_params = Map::new();
                 query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(
+                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
                     query_params,
                 )?)
                 .await?;
@@ -372,7 +373,7 @@ async fn handle_stop_order_results_sell(
             if let Some(response_data) = tp_resp {
                 let mut query_params = Map::new();
                 query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(
+                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
                     query_params,
                 )?)
                 .await?;
@@ -418,8 +419,10 @@ pub async fn process_bot_by_exit_tp_client_oid(
 
         let mut query_params = Map::new();
         query_params.insert("clientOid", exit_sl_client_oid.as_str());
-        api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(query_params)?)
-            .await?;
+        api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
+            query_params,
+        )?)
+        .await?;
         info!("Successfully cancel stop order :{}", exit_sl_client_oid);
     }
 
@@ -473,8 +476,10 @@ pub async fn process_bot_by_exit_sl_client_oid(
             .await?;
         let mut query_params = Map::new();
         query_params.insert("clientOid", exit_tp_client_oid.as_str());
-        api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&build_query_string(query_params)?)
-            .await?;
+        api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
+            query_params,
+        )?)
+        .await?;
         info!("Successfully cancel stop order :{}", exit_tp_client_oid);
     }
 
