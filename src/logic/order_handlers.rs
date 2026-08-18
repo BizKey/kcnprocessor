@@ -15,7 +15,7 @@ use crate::core::repository_traits::*;
 
 /// Создание рыночного ордера с указанием суммы (funds)
 pub async fn make_hf_funds_margin_order(
-    message_repo: &impl MessageRepositoryTrait,
+    message_repo: &impl MessageCommand,
     client_oid: &str,
     side: &str,
     symbol: &str,
@@ -66,7 +66,7 @@ pub async fn make_hf_funds_margin_order(
 
 /// Создание рыночного ордера с указанием размера (size)
 pub async fn make_hf_size_margin_order(
-    message_repo: &impl MessageRepositoryTrait,
+    message_repo: &impl MessageCommand,
     client_oid: &str,
     side: &str,
     symbol: &str,
@@ -114,9 +114,9 @@ pub async fn make_hf_size_margin_order(
 
 /// Создание случайной сделки для бота
 pub async fn make_random_trade(
-    bot_repo: &impl BotRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
+    symbol_repo: &impl SymbolQuery,
+    message_repo: &impl MessageCommand,
     balance_funds: Decimal,
     trade_bot_id: i32,
 ) -> Result<()> {
@@ -235,9 +235,9 @@ pub async fn make_random_trade(
 
 /// Создание начальных ордеров для всех ботов
 pub async fn create_init_orders(
-    bot_repo: &impl BotRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
+    symbol_repo: &impl SymbolQuery,
+    message_repo: &impl MessageCommand,
 ) -> Result<()> {
     let trade_bots = bot_repo.get_all().await?;
 

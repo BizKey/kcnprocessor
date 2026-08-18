@@ -12,8 +12,8 @@ use crate::core::repository_traits::*;
 /// Обработка событий позиции
 pub async fn handle_position_event(
     position: PositionData,
-    position_repo: &impl PositionRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
+    position_repo: &impl PositionCommand,
+    symbol_repo: &impl SymbolQuery,
 ) -> Result<()> {
     // Репайм задолженности
     for (asset, liability) in position.debt_pairs()? {
@@ -73,13 +73,13 @@ pub async fn handle_position_event(
 
 /// Основная обработка сообщений WebSocket
 pub async fn process_kcn_msg(
-    bot_repo: &impl BotRepositoryTrait,
-    order_repo: &impl OrderRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
-    balance_repo: &impl BalanceRepositoryTrait,
-    position_repo: &impl PositionRepositoryTrait,
-    event_repo: &impl EventRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
+    order_repo: &(impl OrderQuery + OrderCommand),
+    symbol_repo: &impl SymbolQuery,
+    balance_repo: &impl BalanceCommand,
+    position_repo: &impl PositionCommand,
+    event_repo: &impl EventCommand,
+    message_repo: &impl MessageCommand,
     msg: &str,
 ) -> Result<()> {
     let data = match serde_json::from_str::<KuCoinMessage>(msg)? {
@@ -126,13 +126,13 @@ pub async fn process_kcn_msg(
 /// Запуск обработчика сообщений в отдельном потоке
 pub async fn spawn_process_kcn_msg(
     mut rx_in: tokio::sync::mpsc::Receiver<Bytes>,
-    bot_repo: impl BotRepositoryTrait + Clone + 'static,
-    order_repo: impl OrderRepositoryTrait + Clone + 'static,
-    symbol_repo: impl SymbolRepositoryTrait + Clone + 'static,
-    balance_repo: impl BalanceRepositoryTrait + Clone + 'static,
-    position_repo: impl PositionRepositoryTrait + Clone + 'static,
-    event_repo: impl EventRepositoryTrait + Clone + 'static,
-    message_repo: impl MessageRepositoryTrait + Clone + 'static,
+    bot_repo: impl BotRepositoryFull + Clone + 'static,
+    order_repo: impl OrderRepositoryFull + Clone + 'static,
+    symbol_repo: impl SymbolRepositoryFull + Clone + 'static,
+    balance_repo: impl BalanceCommand + Clone + 'static,
+    position_repo: impl PositionCommand + Clone + 'static,
+    event_repo: impl EventCommand + Clone + 'static,
+    message_repo: impl MessageCommand + Clone + 'static,
 ) {
     loop {
         let msg = match rx_in.recv().await {
@@ -170,10 +170,10 @@ pub async fn spawn_process_kcn_msg(
 
 /// Обработка события торгового ордера
 pub async fn handle_trade_order_event(
-    bot_repo: &impl BotRepositoryTrait,
-    order_repo: &impl OrderRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
+    order_repo: &(impl OrderQuery + OrderCommand),
+    symbol_repo: &impl SymbolQuery,
+    message_repo: &impl MessageCommand,
     order: OrderData,
 ) -> Result<()> {
     order_repo.save_order_event(order.clone()).await?;

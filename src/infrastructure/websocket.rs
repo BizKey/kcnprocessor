@@ -1,3 +1,5 @@
+// src/infrastructure/websocket.rs
+
 use anyhow::Result;
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -23,14 +25,14 @@ pub async fn run_websocket_loop<B, O, S, Bal, P, E, ErrRepo, M>(
     message_repo: M,
 ) -> Result<()>
 where
-    B: BotRepositoryTrait + Clone + Send + Sync + 'static,
-    O: OrderRepositoryTrait + Clone + Send + Sync + 'static,
-    S: SymbolRepositoryTrait + Clone + Send + Sync + 'static,
-    Bal: BalanceRepositoryTrait + Clone + Send + Sync + 'static,
-    P: PositionRepositoryTrait + Clone + Send + Sync + 'static,
-    E: EventRepositoryTrait + Clone + Send + Sync + 'static,
-    ErrRepo: ErrorRepositoryTrait + Clone + Send + Sync + 'static,
-    M: MessageRepositoryTrait + Clone + Send + Sync + 'static,
+    B: BotRepositoryFull + Clone + Send + Sync + 'static,
+    O: OrderRepositoryFull + Clone + Send + Sync + 'static,
+    S: SymbolRepositoryFull + Clone + Send + Sync + 'static,
+    Bal: BalanceRepositoryFull + Clone + Send + Sync + 'static,
+    P: PositionRepositoryFull + Clone + Send + Sync + 'static,
+    E: EventRepositoryFull + Clone + Send + Sync + 'static,
+    ErrRepo: ErrorRepositoryFull + Clone + Send + Sync + 'static,
+    M: MessageRepositoryFull + Clone + Send + Sync + 'static,
 {
     let (tx_in, rx_in) = mpsc::channel::<Bytes>(8192);
 

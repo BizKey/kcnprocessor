@@ -81,8 +81,8 @@ pub async fn transfer_in_account(
 
 /// Автоматическая очистка аккаунта
 pub async fn auto_clean_account(
-    symbol_repo: &impl SymbolRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    symbol_repo: &impl SymbolQuery,
+    message_repo: &impl MessageCommand,
 ) -> Result<bool> {
     let mut passed = true;
     let accounts = get_all_accounts_data().await?.accounts;
@@ -157,7 +157,7 @@ async fn handle_usdt_account(
 
 /// Обработка не-USDT аккаунта
 async fn handle_non_usdt_account(
-    message_repo: &impl MessageRepositoryTrait,
+    message_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     liability: Decimal,
@@ -195,7 +195,7 @@ async fn handle_non_usdt_account(
 
 /// Обработка задолженности
 async fn handle_liability(
-    message_repo: &impl MessageRepositoryTrait,
+    message_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     liability: Decimal,
@@ -247,7 +247,7 @@ async fn handle_liability(
 
 /// Обработка доступных средств
 async fn handle_available(
-    message_repo: &impl MessageRepositoryTrait,
+    message_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     available: Decimal,
@@ -290,8 +290,8 @@ async fn handle_available(
 
 /// Полная очистка аккаунта
 pub async fn clean_account(
-    symbol_repo: &impl SymbolRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    symbol_repo: &impl SymbolQuery,
+    message_repo: &impl MessageCommand,
 ) -> Result<()> {
     loop {
         let is_completed = auto_clean_account(symbol_repo, message_repo).await?;

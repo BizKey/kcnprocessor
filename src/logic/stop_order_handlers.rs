@@ -63,9 +63,8 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
 /// Обработка событий стоп-ордеров (повторная отправка при ошибке)
 pub async fn handle_advanced_orders(
     order: AdvancedOrders,
-    bot_repo: &impl BotRepositoryTrait,
-
-    message_repo: &impl MessageRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
+    message_repo: &impl MessageCommand,
 ) -> Result<()> {
     if order.error.is_none() {
         return Ok(());

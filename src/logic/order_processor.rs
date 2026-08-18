@@ -18,9 +18,9 @@ use crate::core::repository_traits::*;
 
 /// Обработка entry ордера бота
 pub async fn process_bot_by_entry_client_oid(
-    bot_repo: &impl BotRepositoryTrait,
-    order_repo: &impl OrderRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
+    order_repo: &(impl OrderQuery + OrderCommand),
+    symbol_repo: &impl SymbolQuery,
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
@@ -63,11 +63,8 @@ pub async fn process_bot_by_entry_client_oid(
     } else if order.side == "sell" {
         process_sell_entry(
             bot_repo,
-            order_repo,
-            symbol_repo,
             client_oid,
             order,
-            &symbol_info,
             new_balance,
             filled_size,
             price_increment,
@@ -82,11 +79,9 @@ pub async fn process_bot_by_entry_client_oid(
 
 /// Обработка buy entry ордера
 async fn process_buy_entry(
-    bot_repo: &impl BotRepositoryTrait,
-
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     client_oid: &str,
     order: &OrderData,
-
     new_balance: Decimal,
     filled_size: Decimal,
     price_increment: Decimal,
@@ -164,12 +159,9 @@ async fn process_buy_entry(
 
 /// Обработка sell entry ордера
 async fn process_sell_entry(
-    bot_repo: &impl BotRepositoryTrait,
-    _order_repo: &impl OrderRepositoryTrait,
-    _symbol_repo: &impl SymbolRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     client_oid: &str,
     order: &OrderData,
-    _symbol_info: &crate::api::models::Symbol,
     new_balance: Decimal,
     filled_size: Decimal,
     price_increment: Decimal,
@@ -249,7 +241,7 @@ async fn process_sell_entry(
 
 /// Обработка результатов создания стоп-ордеров для buy
 async fn handle_stop_order_results_buy(
-    bot_repo: &impl BotRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     tp_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
     sl_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
     exit_tp_client_oid: &str,
@@ -329,7 +321,7 @@ async fn handle_stop_order_results_buy(
 
 /// Обработка результатов создания стоп-ордеров для sell
 async fn handle_stop_order_results_sell(
-    bot_repo: &impl BotRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     tp_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
     sl_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
     exit_tp_client_oid: &str,
@@ -409,10 +401,10 @@ async fn handle_stop_order_results_sell(
 
 /// Обработка exit TP ордера
 pub async fn process_bot_by_exit_tp_client_oid(
-    bot_repo: &impl BotRepositoryTrait,
-    order_repo: &impl OrderRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
+    order_repo: &(impl OrderQuery + OrderCommand),
+    symbol_repo: &impl SymbolQuery,
+    message_repo: &impl MessageCommand,
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
@@ -465,10 +457,10 @@ pub async fn process_bot_by_exit_tp_client_oid(
 
 /// Обработка exit SL ордера
 pub async fn process_bot_by_exit_sl_client_oid(
-    bot_repo: &impl BotRepositoryTrait,
-    order_repo: &impl OrderRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
+    order_repo: &(impl OrderQuery + OrderCommand),
+    symbol_repo: &impl SymbolQuery,
+    message_repo: &impl MessageCommand,
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
@@ -520,10 +512,10 @@ pub async fn process_bot_by_exit_sl_client_oid(
 
 /// Обработка события торгового ордера
 pub async fn trade_order_event(
-    bot_repo: &impl BotRepositoryTrait,
-    order_repo: &impl OrderRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
-    message_repo: &impl MessageRepositoryTrait,
+    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
+    order_repo: &(impl OrderQuery + OrderCommand),
+    symbol_repo: &impl SymbolQuery,
+    message_repo: &impl MessageCommand,
     order: &OrderData,
 ) -> Result<()> {
     let client_oid = match &order.client_oid {
