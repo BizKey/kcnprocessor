@@ -1,6 +1,5 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use rust_decimal::Decimal;
 
 use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
 

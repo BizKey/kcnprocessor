@@ -1,10 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use micromap::Map;
 use rust_decimal::Decimal;
-use rust_decimal::prelude::*;
-use std::str::FromStr;
 use tokio::time::sleep;
-use tracing::{error, info};
+use tracing::info;
 use uuid::Uuid;
 
 use super::order_handlers::{make_hf_funds_margin_order, make_hf_size_margin_order};

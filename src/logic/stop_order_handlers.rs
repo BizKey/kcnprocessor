@@ -7,7 +7,6 @@ use super::order_handlers::{make_hf_funds_margin_order, make_hf_size_margin_orde
 use super::utils::RETRY_DELAY_BASE;
 use crate::api::models::AdvancedOrders;
 use crate::api::requests::{
-    api_v3_hf_margin_stop_order_cancel_by_client_oid_delete,
     api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get,
     build_query_string,
 };

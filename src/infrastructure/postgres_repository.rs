@@ -1,7 +1,5 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use rust_decimal::Decimal;
-use rust_decimal::prelude::*;
 use sqlx::PgPool;
 
 use crate::api::models::*;

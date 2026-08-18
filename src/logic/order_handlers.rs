@@ -1,21 +1,15 @@
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::*;
 use serde_json;
-use std::str::FromStr;
 use tokio::time::sleep;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use super::utils::{
-    RETRY_DELAY_BASE, format_assert_decimal, get_random_side, sl_buy_percent, sl_sell_percent,
-    tp_buy_percent, tp_sell_percent,
-};
-use crate::api::models::{AdvancedOrders, MakeOrderResData, OrderData};
+use super::utils::{RETRY_DELAY_BASE, format_assert_decimal, get_random_side};
+use crate::api::models::MakeOrderResData;
 use crate::api::requests::{
-    api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post,
-    api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
-    build_query_string, serialize_body,
+    api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post, build_query_string,
+    serialize_body,
 };
 use crate::core::repository_traits::*;
 

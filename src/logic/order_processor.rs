@@ -1,20 +1,15 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use micromap::Map;
 use rust_decimal::Decimal;
-use rust_decimal::prelude::*;
 use std::str::FromStr;
-use tokio::time::sleep;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use super::order_handlers::{
-    make_hf_funds_margin_order, make_hf_size_margin_order, make_random_trade,
-};
+use super::order_handlers::make_random_trade;
 use super::utils::{
-    RETRY_DELAY_BASE, format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent,
-    tp_sell_percent,
+    format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
 };
-use crate::api::models::{AdvancedOrders, Bot, OrderData};
+use crate::api::models::{Bot, OrderData};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
     build_query_string, serialize_body,
@@ -170,11 +165,11 @@ async fn process_buy_entry(
 /// Обработка sell entry ордера
 async fn process_sell_entry(
     bot_repo: &impl BotRepositoryTrait,
-    order_repo: &impl OrderRepositoryTrait,
-    symbol_repo: &impl SymbolRepositoryTrait,
+    _order_repo: &impl OrderRepositoryTrait,
+    _symbol_repo: &impl SymbolRepositoryTrait,
     client_oid: &str,
     order: &OrderData,
-    symbol_info: &crate::api::models::Symbol,
+    _symbol_info: &crate::api::models::Symbol,
     new_balance: Decimal,
     filled_size: Decimal,
     price_increment: Decimal,
