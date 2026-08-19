@@ -1,5 +1,3 @@
-// src/api/requests/margin.rs
-
 use crate::api::client::KuCoinEndpoints;
 use crate::api::models::{
     ApiV3MarginRepayRes, ApiV3MarginRepayResData, MarginAccount, MarginAccountData,

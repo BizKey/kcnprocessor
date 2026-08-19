@@ -1,5 +1,3 @@
-// src/api/requests/order.rs
-
 use crate::api::client::KuCoinEndpoints;
 use crate::api::models::{
     ApiV3AccountsUniversalTransferRes, ApiV3AccountsUniversalTransferResData,

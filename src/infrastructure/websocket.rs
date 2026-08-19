@@ -1,4 +1,10 @@
-// src/infrastructure/websocket.rs
+use crate::api::requests::api_v1_bullet_private_post;
+use crate::constants::{PING_INTERVAL, RECONNECT_DELAY};
+use crate::core::repository_traits::{
+    BalanceRepositoryFull, BotRepositoryFull, EventRepositoryFull, MessageRepositoryFull,
+    OrderRepositoryFull, PositionRepositoryFull, SymbolRepositoryFull,
+};
+use crate::logic::handlers::spawn_process_kcn_msg;
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -7,14 +13,6 @@ use tokio::sync::mpsc;
 use tokio::time::{interval, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info};
-
-use crate::api::requests::api_v1_bullet_private_post;
-use crate::constants::{PING_INTERVAL, RECONNECT_DELAY};
-use crate::core::repository_traits::{
-    BalanceRepositoryFull, BotRepositoryFull, EventRepositoryFull, MessageRepositoryFull,
-    OrderRepositoryFull, PositionRepositoryFull, SymbolRepositoryFull,
-};
-use crate::logic::handlers::spawn_process_kcn_msg;
 
 pub async fn run_websocket_loop<B, O, S, Bal, P, E, M>(
     bot_repo: B,

@@ -118,7 +118,7 @@ pub async fn handle_advanced_orders(
                 &new_exit_client_oid,
                 order.side,
                 &order.symbol,
-                OrderAmount::Size(funds),
+                OrderAmount::Funds(funds),
                 OrderType::Market,
                 true,
                 false,
