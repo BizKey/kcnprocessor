@@ -9,8 +9,7 @@ use crate::api::models::{
     ApiV3HfMarginStopOrdersResData, ApiV3MarginRepayResData, MakeOrderResData,
     MakeStopOrderResData, MarginAccountData,
 };
-use crate::api::tools::get_env;
-use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::api::utils::get_env;
 
 // Re-export для обратной совместимости
 

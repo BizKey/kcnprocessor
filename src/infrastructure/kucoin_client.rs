@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::api::requests::api_v1_bullet_private_post;
-use crate::api::tools::get_env;
+use crate::api::utils::get_env;
 use crate::core::traits::KuCoinClient;
 
 pub struct KuCoinRestClient {

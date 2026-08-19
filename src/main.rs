@@ -6,7 +6,6 @@ mod api {
     pub mod models;
     pub mod repository;
     pub mod requests;
-    pub mod tools;
     pub mod utils;
 }
 mod constants;
@@ -14,7 +13,7 @@ mod core;
 mod infrastructure;
 mod logic;
 
-use crate::api::tools::get_env;
+use crate::api::utils::get_env;
 use crate::core::repository_traits::*;
 use crate::infrastructure::postgres_repository::PostgresRepository;
 use crate::infrastructure::tracing_layer::DbErrorLayer;
