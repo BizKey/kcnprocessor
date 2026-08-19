@@ -73,154 +73,138 @@ pub async fn handle_advanced_orders(
     }
     error!("Got error on stop order : {}", order);
 
-    const MAX_RETRIES: u32 = 1000;
-    let mut attempt = 0;
+    let order_id_ref = &order.order_id;
+    let stop_ref = &order.stop;
+    let side_ref = &order.side;
+    let symbol_ref = &order.symbol;
+    let funds_clone = order.funds.clone();
+    let size_clone = order.size.clone();
+    let new_exit_client_oid = Uuid::new_v4().to_string();
 
-    loop {
-        sleep(tokio::time::Duration::from_millis(
-            RETRY_DELAY_BASE * attempt as u64,
-        ))
-        .await;
-        if attempt >= MAX_RETRIES {
-            break Ok(());
+    let order_result = match stop_ref.as_str() {
+        "loss" => {
+            match bot_repo
+                .update_exit_sl_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
+                .await
+            {
+                Ok(_) => match side_ref.as_str() {
+                    "buy" => {
+                        let funds = match funds_clone {
+                            Some(funds) => funds,
+                            None => anyhow::bail!("Fail parse funds"),
+                        };
+                        make_hf_funds_margin_order(
+                            message_repo,
+                            &new_exit_client_oid,
+                            side_ref,
+                            symbol_ref,
+                            &funds,
+                            "market",
+                            true,
+                            false,
+                        )
+                        .await
+                    }
+                    "sell" => {
+                        let size = match size_clone {
+                            Some(size) => size,
+                            None => anyhow::bail!("Fail parse size"),
+                        };
+                        make_hf_size_margin_order(
+                            message_repo,
+                            &new_exit_client_oid,
+                            side_ref,
+                            symbol_ref,
+                            &size,
+                            "market",
+                            true,
+                            false,
+                        )
+                        .await
+                    }
+                    _ => {
+                        error!("Fail match side_clone:{}", side_ref);
+                        anyhow::bail!("Fail match side_clone:{}", side_ref)
+                    }
+                },
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!("{:#}", e)
+                }
+            }
         }
-        attempt += 1;
-
-        let order_id_ref = &order.order_id;
-        let stop_ref = &order.stop;
-        let side_ref = &order.side;
-        let symbol_ref = &order.symbol;
-        let funds_clone = order.funds.clone();
-        let size_clone = order.size.clone();
-        let new_exit_client_oid = Uuid::new_v4().to_string();
-
-        let order_result = match stop_ref.as_str() {
-            "loss" => {
-                match bot_repo
-                    .update_exit_sl_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
-                    .await
-                {
-                    Ok(_) => match side_ref.as_str() {
-                        "buy" => {
-                            let funds = match funds_clone {
-                                Some(funds) => funds,
-                                None => anyhow::bail!("Fail parse funds"),
-                            };
-                            make_hf_funds_margin_order(
-                                message_repo,
-                                &new_exit_client_oid,
-                                side_ref,
-                                symbol_ref,
-                                &funds,
-                                "market",
-                                true,
-                                false,
-                            )
-                            .await
-                        }
-                        "sell" => {
-                            let size = match size_clone {
-                                Some(size) => size,
-                                None => anyhow::bail!("Fail parse size"),
-                            };
-                            make_hf_size_margin_order(
-                                message_repo,
-                                &new_exit_client_oid,
-                                side_ref,
-                                symbol_ref,
-                                &size,
-                                "market",
-                                true,
-                                false,
-                            )
-                            .await
-                        }
-                        _ => {
-                            error!("Fail match side_clone:{}", side_ref);
-                            continue;
-                        }
-                    },
-                    Err(e) => {
-                        error!("{:#}", e);
-                        continue;
+        "entry" => {
+            match bot_repo
+                .update_exit_tp_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
+                .await
+            {
+                Ok(_) => match side_ref.as_str() {
+                    "buy" => {
+                        let funds = match funds_clone {
+                            Some(funds) => funds,
+                            None => anyhow::bail!("Fail parse funds"),
+                        };
+                        make_hf_funds_margin_order(
+                            message_repo,
+                            &new_exit_client_oid,
+                            side_ref,
+                            symbol_ref,
+                            &funds,
+                            "market",
+                            true,
+                            false,
+                        )
+                        .await
                     }
+                    "sell" => {
+                        let size = match size_clone {
+                            Some(size) => size,
+                            None => anyhow::bail!("Fail parse size"),
+                        };
+                        make_hf_size_margin_order(
+                            message_repo,
+                            &new_exit_client_oid,
+                            side_ref,
+                            symbol_ref,
+                            &size,
+                            "market",
+                            true,
+                            false,
+                        )
+                        .await
+                    }
+                    _ => {
+                        error!("Fail match side_clone:{}", side_ref);
+                        anyhow::bail!("Fail match side_clone:{}", side_ref)
+                    }
+                },
+                Err(e) => {
+                    error!("{:#}", e);
+                    anyhow::bail!("{:#}", e)
                 }
             }
-            "entry" => {
-                match bot_repo
-                    .update_exit_tp_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
-                    .await
-                {
-                    Ok(_) => match side_ref.as_str() {
-                        "buy" => {
-                            let funds = match funds_clone {
-                                Some(funds) => funds,
-                                None => anyhow::bail!("Fail parse funds"),
-                            };
-                            make_hf_funds_margin_order(
-                                message_repo,
-                                &new_exit_client_oid,
-                                side_ref,
-                                symbol_ref,
-                                &funds,
-                                "market",
-                                true,
-                                false,
-                            )
-                            .await
-                        }
-                        "sell" => {
-                            let size = match size_clone {
-                                Some(size) => size,
-                                None => anyhow::bail!("Fail parse size"),
-                            };
-                            make_hf_size_margin_order(
-                                message_repo,
-                                &new_exit_client_oid,
-                                side_ref,
-                                symbol_ref,
-                                &size,
-                                "market",
-                                true,
-                                false,
-                            )
-                            .await
-                        }
-                        _ => {
-                            error!("Fail match side_clone:{}", side_ref);
-                            continue;
-                        }
-                    },
-                    Err(e) => {
-                        error!("{:#}", e);
-                        continue;
-                    }
-                }
-            }
-            _ => {
-                error!("Fail match stop_clone:{}", stop_ref);
-                continue;
-            }
-        };
+        }
+        _ => {
+            error!("Fail match stop_clone:{}", stop_ref);
+            anyhow::bail!("Fail match stop_clone:{}", stop_ref)
+        }
+    };
 
-        match order_result {
-            Ok(_) => {
-                info!(
-                    "✅ Order re-placed: {} {} (attempt {}/{})",
-                    order_id_ref, new_exit_client_oid, attempt, MAX_RETRIES
-                );
-                break Ok(());
-            }
-            Err(e) => {
-                anyhow::bail!(
-                    "❌ Order failed: {} {} (attempt {}/{}) {}",
-                    order_id_ref,
-                    new_exit_client_oid,
-                    attempt,
-                    MAX_RETRIES,
-                    e
-                )
-            }
+    match order_result {
+        Ok(_) => {
+            info!(
+                "✅ Order re-placed: {} {}",
+                order_id_ref, new_exit_client_oid,
+            );
+        }
+        Err(e) => {
+            anyhow::bail!(
+                "❌ Order failed: {} {} {}",
+                order_id_ref,
+                new_exit_client_oid,
+                e
+            )
         }
     }
+    Ok(())
 }
