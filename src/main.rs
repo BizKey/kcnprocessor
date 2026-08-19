@@ -94,9 +94,9 @@ async fn main() -> Result<()> {
         if let Err(e) =
             create_init_orders(&bot_repo_clone, &symbol_repo_clone, &message_repo_clone).await
         {
-            error!("❌ Background initialization failed: {:#}", e);
+            error!("Background initialization failed: {:#}", e);
         } else {
-            info!("✅ Background initialization completed successfully!");
+            info!("Background initialization completed successfully!");
         }
     });
 

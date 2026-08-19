@@ -11,14 +11,15 @@ pub async fn margin_accounts_get(
     let response_string: String = client.margin_accounts_get(query_params).await?;
     let response = serde_json::from_str::<MarginAccount>(&response_string)?;
 
-    match response.code.as_str() {
-        "200000" => Ok(response.data),
-        _ => anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+    if response.code.as_str() == "200000" {
+        Ok(response.data)
+    } else {
+        anyhow::bail!(
+            "KuCoin API error /api/v3/hf/margin/order: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data
-        ),
+        )
     }
 }
 
@@ -33,10 +34,10 @@ pub async fn margin_repay_post(
         Ok(response.data)
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v3/margin/repay: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
-            response.data
+            response.data,
         )
     }
 }
