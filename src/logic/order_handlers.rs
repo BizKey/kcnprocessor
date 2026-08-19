@@ -53,8 +53,7 @@ pub async fn make_hf_funds_margin_order(
     info!("{}", msg);
 
     let body_str = BodySerializer::serialize(Some(msg))?;
-    let data = api_v3_hf_margin_order_post(&body_str).await?;
-    let data = match data {
+    let data = match api_v3_hf_margin_order_post(&body_str).await? {
         Some(data) => data,
         None => anyhow::bail!("No data returned from API"),
     };

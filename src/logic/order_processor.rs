@@ -476,6 +476,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             .await?;
         let mut query_params = Map::new();
         query_params.insert("clientOid", exit_tp_client_oid.as_str());
+
         api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
             query_params,
         )?)
@@ -483,10 +484,10 @@ pub async fn process_bot_by_exit_sl_client_oid(
         info!("Successfully cancel stop order :{}", exit_tp_client_oid);
     }
 
-    let return_balance = order_repo
+    let return_balance = match order_repo
         .get_total_match_value_by_client_oid(client_oid)
-        .await?;
-    let return_balance = match return_balance {
+        .await?
+    {
         Some(return_balance) => {
             Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?
         }

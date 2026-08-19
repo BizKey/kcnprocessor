@@ -70,7 +70,6 @@ async fn main() -> Result<()> {
     let position_repo = repo.position;
     let balance_repo = repo.balance;
     let event_repo = repo.event;
-    let error_repo = repo.error;
     let message_repo = repo.message;
 
     // Очищаем ботов
@@ -94,14 +93,12 @@ async fn main() -> Result<()> {
 
     // Запускаем WebSocket
     run_websocket_loop(
-        pool,
         bot_repo,
         order_repo,
         symbol_repo,
         balance_repo,
         position_repo,
         event_repo,
-        error_repo,
         message_repo,
     )
     .await

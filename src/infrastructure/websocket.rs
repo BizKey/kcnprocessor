@@ -13,15 +13,13 @@ use crate::constants::*;
 use crate::core::repository_traits::*;
 use crate::logic::handlers::spawn_process_kcn_msg;
 
-pub async fn run_websocket_loop<B, O, S, Bal, P, E, ErrRepo, M>(
-    _pool: sqlx::PgPool,
+pub async fn run_websocket_loop<B, O, S, Bal, P, E, M>(
     bot_repo: B,
     order_repo: O,
     symbol_repo: S,
     balance_repo: Bal,
     position_repo: P,
     event_repo: E,
-    _error_repo: ErrRepo,
     message_repo: M,
 ) -> Result<()>
 where
@@ -31,7 +29,6 @@ where
     Bal: BalanceRepositoryFull + Clone + Send + Sync + 'static,
     P: PositionRepositoryFull + Clone + Send + Sync + 'static,
     E: EventRepositoryFull + Clone + Send + Sync + 'static,
-    ErrRepo: ErrorRepositoryFull + Clone + Send + Sync + 'static,
     M: MessageRepositoryFull + Clone + Send + Sync + 'static,
 {
     let (tx_in, rx_in) = mpsc::channel::<Bytes>(8192);
@@ -124,7 +121,7 @@ where
                     };
 
                     let event = match event {
-                        Ok(e) => e,
+                        Ok(event) => event,
                         Err(e) => {
                             error!("WebSocket read error: {}", e);
                             break;
@@ -140,7 +137,7 @@ where
                         }
                         Message::Binary(data) => {
                             debug!("Received binary message, size: {} bytes", data.len());
-                            if let Err(e) = tx_in.send(Bytes::from(data)).await {
+                            if let Err(e) = tx_in.send(data).await {
                                 error!("Failed to send binary message to handler: {}", e);
                                 break;
                             }

@@ -1,4 +1,4 @@
-use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::api::utils::QueryBuilder;
 use anyhow::Result;
 use micromap::Map;
 use tokio::time::sleep;
@@ -39,6 +39,7 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
 
             let mut query_params = Map::new();
             query_params.insert("orderId", stop_order.id.as_str());
+
             let query_params = QueryBuilder::build(query_params)?;
 
             let canceled_stop_order =

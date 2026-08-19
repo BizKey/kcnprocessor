@@ -86,9 +86,8 @@ pub async fn auto_clean_account(
     message_repo: &impl MessageCommand,
 ) -> Result<bool> {
     let mut passed = true;
-    let accounts = get_all_accounts_data().await?.accounts;
 
-    for account in accounts.iter() {
+    for account in get_all_accounts_data().await?.accounts.iter() {
         let token_liability = account.liability_decimal()?;
         let token_available = account.available_decimal()?;
 
@@ -97,7 +96,7 @@ pub async fn auto_clean_account(
         }
 
         let currency_info = match symbol_repo.get_currency_info(&account.currency).await? {
-            Some(info) => info,
+            Some(currency_info) => currency_info,
             None => anyhow::bail!("Currency info not found for {}", account.currency),
         };
         let precision_decimal = currency_info.precision_decimal()?;
@@ -115,7 +114,7 @@ pub async fn auto_clean_account(
 
         let trade_symbol = format!("{}-USDT", &account.currency);
         let symbol_info = match symbol_repo.get_symbol_info(&trade_symbol).await? {
-            Some(info) => info,
+            Some(symbol_info) => symbol_info,
             None => anyhow::bail!("Symbol info not found for {}", &account.currency),
         };
 
@@ -295,8 +294,7 @@ pub async fn clean_account(
     message_repo: &impl MessageCommand,
 ) -> Result<()> {
     loop {
-        let is_completed = auto_clean_account(symbol_repo, message_repo).await?;
-        if is_completed {
+        if auto_clean_account(symbol_repo, message_repo).await? {
             info!("auto_clean_account success");
             break;
         }
