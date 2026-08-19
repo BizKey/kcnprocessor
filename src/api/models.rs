@@ -7,6 +7,50 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
+pub enum OrderEventType {
+    Match,
+    Canceled,
+    Open,
+    Filled,
+    Partial,
+    #[serde(other)]
+    Unknown,
+}
+
+impl OrderEventType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderEventType::Match => "match",
+            OrderEventType::Canceled => "canceled",
+            OrderEventType::Open => "open",
+            OrderEventType::Filled => "filled",
+            OrderEventType::Partial => "partial",
+            OrderEventType::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for OrderEventType {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "match" => OrderEventType::Match,
+            "canceled" => OrderEventType::Canceled,
+            "open" => OrderEventType::Open,
+            "filled" => OrderEventType::Filled,
+            "partial" => OrderEventType::Partial,
+            _ => OrderEventType::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for OrderEventType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum OrderSide {
     Buy,
     Sell,
@@ -183,9 +227,9 @@ impl PositionData {
 pub struct OrderData {
     pub status: String,
     #[serde(rename = "type")]
-    pub type_: String,
+    pub type_: OrderEventType,
     pub symbol: String,
-    pub side: String,
+    pub side: OrderSide,
     #[serde(rename = "orderType")]
     pub order_type: String,
     #[serde(rename = "feeType")]

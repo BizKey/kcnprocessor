@@ -12,7 +12,7 @@ use crate::logic::utils::{
     format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
 };
 
-use crate::api::models::{Bot, OrderData};
+use crate::api::models::{Bot, OrderData, OrderSide};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
 };
@@ -53,27 +53,31 @@ pub async fn process_bot_by_entry_client_oid(
         .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
         .await?;
 
-    if order.side == "buy" {
-        process_buy_entry(
-            bot_repo,
-            client_oid,
-            order,
-            new_balance,
-            filled_size,
-            price_increment,
-        )
-        .await?;
-    } else if order.side == "sell" {
-        process_sell_entry(
-            bot_repo,
-            client_oid,
-            order,
-            new_balance,
-            filled_size,
-            price_increment,
-            quote_increment,
-        )
-        .await?;
+    match order.side {
+        OrderSide::Buy => {
+            process_buy_entry(
+                bot_repo,
+                client_oid,
+                order,
+                new_balance,
+                filled_size,
+                price_increment,
+            )
+            .await?;
+        }
+        OrderSide::Sell => {
+            process_sell_entry(
+                bot_repo,
+                client_oid,
+                order,
+                new_balance,
+                filled_size,
+                price_increment,
+                quote_increment,
+            )
+            .await?;
+        }
+        OrderSide::Unknown => {}
     }
 
     bot_repo.clear_entry_client_oid(client_oid).await?;
@@ -441,21 +445,28 @@ pub async fn process_bot_by_exit_tp_client_oid(
         }
     };
 
-    if order.side == "buy" {
-        let old_balance = bot.balance_decimal()?;
-        let new_balance = old_balance + old_balance - return_balance;
-        bot_repo
-            .update_balance_and_clear_symbol_by_exit_tp(client_oid, &format!("{:.4}", new_balance))
-            .await?;
-        make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
-    } else if order.side == "sell" {
-        bot_repo
-            .update_balance_and_clear_symbol_by_exit_tp(
-                client_oid,
-                &format!("{:.4}", return_balance),
-            )
-            .await?;
-        make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
+    match order.side {
+        OrderSide::Buy => {
+            let old_balance = bot.balance_decimal()?;
+            let new_balance = old_balance + old_balance - return_balance;
+            bot_repo
+                .update_balance_and_clear_symbol_by_exit_tp(
+                    client_oid,
+                    &format!("{:.4}", new_balance),
+                )
+                .await?;
+            make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
+        }
+        OrderSide::Sell => {
+            bot_repo
+                .update_balance_and_clear_symbol_by_exit_tp(
+                    client_oid,
+                    &format!("{:.4}", return_balance),
+                )
+                .await?;
+            make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
+        }
+        OrderSide::Unknown => {}
     }
     Ok(())
 }
@@ -499,22 +510,27 @@ pub async fn process_bot_by_exit_sl_client_oid(
         }
     };
 
-    if order.side == "buy" {
-        let old_balance = bot.balance_decimal()?;
-        let new_balance = old_balance + old_balance - return_balance;
-        bot_repo
-            .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
-            .await?;
-        make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
-    } else if order.side == "sell" {
-        bot_repo
-            .update_balance_and_clear_symbol_by_exit_sl(
-                client_oid,
-                &format!("{:.4}", return_balance),
-            )
-            .await?;
-        make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
+    match order.side {
+        OrderSide::Buy => {
+            let old_balance = bot.balance_decimal()?;
+            let new_balance = old_balance + old_balance - return_balance;
+            bot_repo
+                .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
+                .await?;
+            make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
+        }
+        OrderSide::Sell => {
+            bot_repo
+                .update_balance_and_clear_symbol_by_exit_sl(
+                    client_oid,
+                    &format!("{:.4}", return_balance),
+                )
+                .await?;
+            make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
+        }
+        OrderSide::Unknown => {}
     }
+
     Ok(())
 }
 

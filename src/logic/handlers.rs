@@ -1,9 +1,11 @@
+use crate::api::models::OrderEventType;
 use crate::logic::account_handlers::repay_account;
 use crate::logic::order_processor::trade_order_event;
 use crate::logic::stop_order_handlers::handle_advanced_orders;
 use crate::logic::utils::format_assert_decimal;
 use anyhow::Result;
 use bytes::Bytes;
+use rust_decimal::Decimal;
 use serde_json;
 use tracing::{error, info};
 
@@ -28,8 +30,7 @@ pub async fn handle_position_event(
 
         let token_available = asset_info.available_decimal()?;
 
-        if liability > rust_decimal::Decimal::ZERO && token_available > rust_decimal::Decimal::ZERO
-        {
+        if liability > Decimal::ZERO && token_available > Decimal::ZERO {
             let currency_info = match symbol_repo.get_currency_info(&asset).await? {
                 Some(currency_info) => currency_info,
                 None => anyhow::bail!("Currency info not found for {}", asset),
@@ -177,7 +178,7 @@ pub async fn handle_trade_order_event(
     order_repo.save_order_event(order.clone()).await?;
     info!("{}", order);
 
-    if (order.type_ == "match" || order.type_ == "canceled")
+    if (order.type_ == OrderEventType::Match || order.type_ == OrderEventType::Canceled)
         && (order.remain_size == Some("0".to_string())
             || order.remain_funds == Some("0".to_string()))
     {

@@ -3,7 +3,7 @@ use crate::api::models::OrderSide;
 use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
 use crate::api::utils::{BodySerializer, QueryBuilder};
 use crate::core::repository_traits::*;
-use crate::logic::utils::{RETRY_DELAY_BASE, format_assert_decimal, get_next_side};
+use crate::logic::utils::{format_assert_decimal, get_next_side};
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
 use serde_json;
