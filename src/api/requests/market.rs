@@ -1,5 +1,3 @@
-// src/api/requests/market.rs
-
 use crate::api::client::KuCoinEndpoints;
 use crate::api::models::{ApiV1MarketOrderbookLevel1Res, ApiV1MarketOrderbookLevel1ResData};
 use anyhow::Result;

@@ -150,7 +150,7 @@ pub async fn make_random_trade(
                 &entry_client_oid,
                 OrderSide::Buy,
                 &tradeable_symbol,
-                OrderAmount::Size(funds.clone()),
+                OrderAmount::Funds(funds.clone()),
                 OrderType::Market,
                 true,
                 false,

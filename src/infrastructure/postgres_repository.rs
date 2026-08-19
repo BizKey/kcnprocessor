@@ -1,5 +1,3 @@
-// src/infrastructure/postgres_repository.rs
-
 use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
 use crate::api::repository::{
     BalanceRepository, BotRepository, ErrorRepository, EventRepository, MessageRepository,
