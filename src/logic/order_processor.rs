@@ -1,23 +1,22 @@
+use crate::api::models::{Bot, OrderData, OrderSide, OrderType, StopType};
+use crate::api::requests::{
+    api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
+};
 use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::core::repository_traits::{
+    BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand,
+    OrderCommand, OrderQuery, SymbolQuery,
+};
+use crate::logic::order_handlers::make_random_trade;
+use crate::logic::utils::{
+    format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
+};
 use anyhow::Result;
 use micromap::Map;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use tracing::{error, info};
 use uuid::Uuid;
-
-use crate::logic::order_handlers::make_random_trade;
-
-use crate::logic::utils::{
-    format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
-};
-
-use crate::api::models::{Bot, OrderData, OrderSide, OrderType, StopType};
-use crate::api::requests::{
-    api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
-};
-
-use crate::core::repository_traits::*;
 
 /// Обработка entry ордера бота
 pub async fn process_bot_by_entry_client_oid(

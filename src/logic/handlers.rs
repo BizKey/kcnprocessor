@@ -1,4 +1,11 @@
-use crate::api::models::OrderEventType;
+use crate::api::models::{
+    AdvancedOrders, BalanceData, KuCoinMessage, OrderData, OrderEventType, PositionData,
+};
+use crate::core::repository_traits::{
+    BalanceCommand, BotEntryUpdate, BotManagement, BotQuery, BotRepositoryFull, BotSlUpdate,
+    BotTpUpdate, EventCommand, MessageCommand, OrderCommand, OrderQuery, OrderRepositoryFull,
+    PositionCommand, SymbolQuery, SymbolRepositoryFull,
+};
 use crate::logic::account_handlers::repay_account;
 use crate::logic::order_processor::trade_order_event;
 use crate::logic::stop_order_handlers::handle_advanced_orders;
@@ -8,10 +15,6 @@ use bytes::Bytes;
 use rust_decimal::Decimal;
 use serde_json;
 use tracing::{error, info};
-
-use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, OrderData, PositionData};
-use crate::core::repository_traits::*;
-
 /// Обработка событий позиции
 pub async fn handle_position_event(
     position: PositionData,

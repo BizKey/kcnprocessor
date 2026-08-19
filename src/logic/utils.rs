@@ -1,7 +1,7 @@
 use crate::logic::order_side_counter::ORDER_SIDE_COUNTER;
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::*;
+use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
 
 use crate::api::models::OrderSide;

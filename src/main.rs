@@ -5,7 +5,7 @@ mod infrastructure;
 mod logic;
 
 use crate::api::utils::get_env;
-use crate::core::repository_traits::*;
+use crate::core::repository_traits::BotManagement;
 use crate::infrastructure::postgres_repository::PostgresRepository;
 use crate::infrastructure::tracing_layer::DbErrorLayer;
 use crate::infrastructure::websocket::run_websocket_loop;

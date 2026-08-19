@@ -1,8 +1,15 @@
 // src/infrastructure/postgres_repository.rs
 
-use crate::api::models::*;
-use crate::api::repository::*;
-use crate::core::repository_traits::*;
+use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
+use crate::api::repository::{
+    BalanceRepository, BotRepository, ErrorRepository, EventRepository, MessageRepository,
+    OrderRepository, PositionRepository, SymbolRepository,
+};
+use crate::core::repository_traits::{
+    BalanceCommand, BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate,
+    ErrorCommand, EventCommand, MessageCommand, OrderCommand, OrderQuery, PositionCommand,
+    SymbolQuery,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::PgPool;

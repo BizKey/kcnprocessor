@@ -1,8 +1,7 @@
 use crate::api::models::OrderData;
 use crate::constants::EXCHANGE;
 use anyhow::{Context, Result};
-use sqlx::PgPool;
-use sqlx::Row;
+use sqlx::{PgPool, Row};
 
 #[derive(Clone)]
 pub struct OrderRepository {

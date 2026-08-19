@@ -1,12 +1,10 @@
-use crate::api::models::OrderAmount;
-use crate::api::models::OrderType;
 use crate::api::utils::QueryBuilder;
 use anyhow::Result;
 use micromap::Map;
 use tokio::time::sleep;
 use tracing::{error, info};
 
-use crate::api::models::{AdvancedOrders, OrderSide, StopType};
+use crate::api::models::{AdvancedOrders, OrderAmount, OrderSide, OrderType, StopType};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get,
 };

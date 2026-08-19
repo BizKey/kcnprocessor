@@ -1,6 +1,3 @@
-use anyhow::Result;
-use std::sync::OnceLock;
-
 use crate::api::auth::AuthCredentials;
 use crate::api::client::{HttpClient, KuCoinEndpoints};
 use crate::api::models::{
@@ -10,7 +7,8 @@ use crate::api::models::{
     MakeStopOrderResData, MarginAccountData,
 };
 use crate::api::utils::get_env;
-
+use anyhow::Result;
+use std::sync::OnceLock;
 // Re-export для обратной совместимости
 
 // Модули

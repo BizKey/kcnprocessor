@@ -1,7 +1,6 @@
+use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
 use anyhow::Result;
 use async_trait::async_trait;
-
-use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
 
 #[async_trait]
 pub trait BotQuery: Send + Sync {
