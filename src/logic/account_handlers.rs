@@ -1,4 +1,5 @@
 use crate::api::models::OrderSide;
+use crate::api::models::OrderType;
 use crate::api::models::{
     ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, MarginAccountData,
 };
@@ -233,7 +234,7 @@ async fn handle_liability(
             OrderSide::Buy,
             trade_symbol,
             &size,
-            "market",
+            OrderType::Market,
             false,
             false,
         )
@@ -272,7 +273,7 @@ async fn handle_available(
             OrderSide::Sell,
             trade_symbol,
             &size,
-            "market",
+            OrderType::Market,
             false,
             false,
         )

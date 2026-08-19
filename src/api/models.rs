@@ -7,6 +7,44 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
+pub enum OrderType {
+    Market,
+    Limit,
+    Stop,
+    #[serde(other)]
+    Unknown,
+}
+
+impl OrderType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderType::Market => "market",
+            OrderType::Limit => "limit",
+            OrderType::Stop => "stop",
+            OrderType::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for OrderType {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "market" => OrderType::Market,
+            "limit" => OrderType::Limit,
+            "stop" => OrderType::Stop,
+            _ => OrderType::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for OrderType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum OrderEventType {
     Match,
     Canceled,

@@ -1,5 +1,6 @@
 use crate::api::models::MakeOrderResData;
 use crate::api::models::OrderSide;
+use crate::api::models::OrderType;
 use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
 use crate::api::utils::{BodySerializer, QueryBuilder};
 use crate::core::repository_traits::*;
@@ -7,6 +8,7 @@ use crate::logic::utils::{format_assert_decimal, get_next_side};
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
 use serde_json;
+
 use tokio::time::sleep;
 use tracing::{error, info};
 use uuid::Uuid;
@@ -18,11 +20,12 @@ pub async fn make_hf_funds_margin_order(
     side: OrderSide,
     symbol: &str,
     funds: &str,
-    type_: &'static str,
+    order_type: OrderType,
     auto_borrow: bool,
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
     let args_time_in_force = "GTC";
+    let order_type_str = order_type.as_str();
 
     message_repo
         .save_order_message(
@@ -32,7 +35,7 @@ pub async fn make_hf_funds_margin_order(
             Some(&funds),
             None,
             Some(args_time_in_force),
-            Some(type_),
+            Some(order_type_str),
             Some(&auto_borrow),
             Some(&auto_repay),
             Some(client_oid),
@@ -44,7 +47,7 @@ pub async fn make_hf_funds_margin_order(
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
-        "type": type_,
+        "type": order_type_str,
         "autoBorrow": auto_borrow,
         "autoRepay": auto_repay,
         "timeInForce": args_time_in_force,
@@ -68,11 +71,12 @@ pub async fn make_hf_size_margin_order(
     side: OrderSide,
     symbol: &str,
     size: &str,
-    type_: &'static str,
+    order_type: OrderType,
     auto_borrow: bool,
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
     let args_time_in_force = "GTC";
+    let order_type_str = order_type.as_str();
 
     message_repo
         .save_order_message(
@@ -82,7 +86,7 @@ pub async fn make_hf_size_margin_order(
             None,
             None,
             Some(args_time_in_force),
-            Some(type_),
+            Some(order_type_str),
             Some(&auto_borrow),
             Some(&auto_repay),
             Some(client_oid),
@@ -94,7 +98,7 @@ pub async fn make_hf_size_margin_order(
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
-        "type": type_,
+        "type": order_type_str,
         "autoBorrow": auto_borrow,
         "autoRepay": auto_repay,
         "timeInForce": args_time_in_force,
@@ -164,7 +168,7 @@ pub async fn make_random_trade(
                 OrderSide::Sell,
                 &tradeable_symbol,
                 &size,
-                "market",
+                OrderType::Market,
                 true,
                 false,
             )
@@ -181,7 +185,7 @@ pub async fn make_random_trade(
                 OrderSide::Buy,
                 &tradeable_symbol,
                 &funds,
-                "market",
+                OrderType::Market,
                 true,
                 false,
             )
