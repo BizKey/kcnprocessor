@@ -11,15 +11,6 @@ pub enum OrderAmount {
     Funds(String),
 }
 
-impl OrderAmount {
-    pub fn as_json_value(&self) -> serde_json::Value {
-        match self {
-            OrderAmount::Size(size) => serde_json::json!({ "size": size }),
-            OrderAmount::Funds(funds) => serde_json::json!({ "funds": funds }),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OrderType {
@@ -284,7 +275,7 @@ pub struct OrderData {
     pub symbol: String,
     pub side: OrderSide,
     #[serde(rename = "orderType")]
-    pub order_type: String,
+    pub order_type: OrderType,
     #[serde(rename = "feeType")]
     pub fee_type: Option<String>,
     pub liquidity: Option<String>,

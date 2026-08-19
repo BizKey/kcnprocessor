@@ -137,10 +137,18 @@ async fn process_buy_entry(
     info!("Stop loss order:{}", msg_sl_order);
 
     bot_repo
-        .update_exit_tp_client_oid_by_entry_client_oid(client_oid, &exit_tp_client_oid)
+        .update_exit_tp_client_oid_by_entry_client_oid(
+            client_oid,
+            &order.symbol,
+            &exit_tp_client_oid,
+        )
         .await?;
     bot_repo
-        .update_exit_sl_client_oid_by_entry_client_oid(client_oid, &exit_sl_client_oid)
+        .update_exit_sl_client_oid_by_entry_client_oid(
+            client_oid,
+            &order.symbol,
+            &exit_sl_client_oid,
+        )
         .await?;
 
     let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;

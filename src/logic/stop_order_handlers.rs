@@ -11,7 +11,6 @@ use crate::api::requests::{
 use crate::constants::DELETE_STOP_ORDER_DELAY;
 use crate::core::repository_traits::*;
 use crate::logic::order_handlers::make_hf_margin_order;
-use crate::logic::utils::RETRY_DELAY_BASE;
 use uuid::Uuid;
 
 /// Отмена всех стоп-ордеров
@@ -28,6 +27,8 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
                 continue;
             }
         };
+
+        info!("Stop orders:{:.?}", open_stop_orders);
 
         if open_stop_orders.total_num == 0 {
             info!("All stop orders closed");

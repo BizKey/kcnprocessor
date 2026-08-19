@@ -33,7 +33,7 @@ impl OrderRepository {
         .bind(&order.type_.as_str())
         .bind(&order.symbol)
         .bind(&order.side.as_str())
-        .bind(&order.order_type)
+        .bind(&order.order_type.as_str())
         .bind(&order.fee_type)
         .bind(&order.liquidity)
         .bind(&order.price)
