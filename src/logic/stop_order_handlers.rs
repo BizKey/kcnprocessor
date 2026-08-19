@@ -74,9 +74,6 @@ pub async fn handle_advanced_orders(
     error!("Got error on stop order : {}", order);
 
     let order_id_ref = &order.order_id;
-    let symbol_ref = &order.symbol;
-    let funds_clone = order.funds.clone();
-    let size_clone = order.size.clone();
     let new_exit_client_oid = Uuid::new_v4().to_string();
 
     match order.stop {
@@ -112,7 +109,7 @@ pub async fn handle_advanced_orders(
 
     let order_result = match order.side {
         OrderSide::Buy => {
-            let funds = match funds_clone {
+            let funds = match order.funds {
                 Some(funds) => funds,
                 None => anyhow::bail!("Fail parse funds"),
             };
@@ -120,8 +117,8 @@ pub async fn handle_advanced_orders(
                 message_repo,
                 &new_exit_client_oid,
                 order.side,
-                symbol_ref,
-                OrderAmount::Size(funds.clone()),
+                &order.symbol,
+                OrderAmount::Size(funds),
                 OrderType::Market,
                 true,
                 false,
@@ -129,7 +126,7 @@ pub async fn handle_advanced_orders(
             .await
         }
         OrderSide::Sell => {
-            let size = match size_clone {
+            let size = match order.size {
                 Some(size) => size,
                 None => anyhow::bail!("Fail parse size"),
             };
@@ -137,8 +134,8 @@ pub async fn handle_advanced_orders(
                 message_repo,
                 &new_exit_client_oid,
                 order.side,
-                symbol_ref,
-                OrderAmount::Size(size.clone()),
+                &order.symbol,
+                OrderAmount::Size(size),
                 OrderType::Market,
                 true,
                 false,
