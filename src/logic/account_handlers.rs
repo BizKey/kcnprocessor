@@ -23,7 +23,7 @@ pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
     query_params.insert("quoteCurrency", "USDT");
     query_params.insert("queryType", "MARGIN");
 
-    Ok(api_v3_margin_accounts_get(&QueryBuilder::build(query_params)?).await?)
+    api_v3_margin_accounts_get(&QueryBuilder::build(query_params)?).await
 }
 
 /// Репай (погашение) задолженности
@@ -36,7 +36,7 @@ pub async fn repay_account(currency: &str, size: &str) -> Result<Option<ApiV3Mar
         "isHf": true
     })))?;
 
-    Ok(api_v3_margin_repay_post(&body_str).await?)
+    api_v3_margin_repay_post(&body_str).await
 }
 
 /// Получение цены токена
@@ -110,10 +110,10 @@ pub async fn auto_clean_account(
             continue;
         }
 
-        let trade_symbol = format!("{}-USDT", &account.currency);
+        let trade_symbol = format!("{}-USDT", account.currency);
         let symbol_info = match symbol_repo.get_symbol_info(&trade_symbol).await? {
             Some(symbol_info) => symbol_info,
-            None => anyhow::bail!("Symbol info not found for {}", &account.currency),
+            None => anyhow::bail!("Symbol info not found for {}", account.currency),
         };
 
         passed = handle_non_usdt_account(

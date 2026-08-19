@@ -34,22 +34,22 @@ pub fn get_next_side() -> OrderSide {
 
 /// Процент для TP при покупке
 pub fn tp_buy_percent() -> Result<Decimal> {
-    Ok(Decimal::from_str("1.07").map_err(|e| anyhow::anyhow!(e))?)
+    Decimal::from_str("1.07").map_err(|e| anyhow::anyhow!(e))
 }
 
 /// Процент для SL при покупке
 pub fn sl_buy_percent() -> Result<Decimal> {
-    Ok(Decimal::from_str("0.95").map_err(|e| anyhow::anyhow!(e))?)
+    Decimal::from_str("0.95").map_err(|e| anyhow::anyhow!(e))
 }
 
 /// Процент для TP при продаже
 pub fn tp_sell_percent() -> Result<Decimal> {
-    Ok(Decimal::from_str("0.93").map_err(|e| anyhow::anyhow!(e))?)
+    Decimal::from_str("0.93").map_err(|e| anyhow::anyhow!(e))
 }
 
 /// Процент для SL при продаже
 pub fn sl_sell_percent() -> Result<Decimal> {
-    Ok(Decimal::from_str("1.05").map_err(|e| anyhow::anyhow!(e))?)
+    Decimal::from_str("1.05").map_err(|e| anyhow::anyhow!(e))
 }
 
 pub const RETRY_DELAY_BASE: u64 = 500;

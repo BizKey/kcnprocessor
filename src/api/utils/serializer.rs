@@ -10,7 +10,6 @@ impl BodySerializer {
             None => return Ok(String::new()),
         };
 
-        Ok(serde_json::to_string(&body)
-            .with_context(|| format!("Failed to serialize body '{}'", body))?)
+        serde_json::to_string(&body).with_context(|| format!("Failed to serialize body '{}'", body))
     }
 }

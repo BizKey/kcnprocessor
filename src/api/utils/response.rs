@@ -23,7 +23,7 @@ impl ResponseHandler {
         type_name: &str,
     ) -> Result<T> {
         let body = Self::read_response(response).await?;
-        Ok(serde_json::from_str(&body)
-            .with_context(|| format!("Failed to deserialize response as {}", type_name))?)
+        serde_json::from_str(&body)
+            .with_context(|| format!("Failed to deserialize response as {}", type_name))
     }
 }

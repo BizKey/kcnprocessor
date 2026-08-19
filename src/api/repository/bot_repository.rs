@@ -14,7 +14,7 @@ impl BotRepository {
     }
 
     pub async fn get_by_client_oid(&self, client_oid: &str) -> Result<Option<Bot>> {
-        Ok(sqlx::query_as::<_, Bot>(
+        sqlx::query_as::<_, Bot>(
             r#"
             SELECT id, entry_client_oid, entry_price, exit_tp_price, 
                    exit_tp_order_id, exit_tp_client_oid, exit_sl_price, 
@@ -37,11 +37,11 @@ impl BotRepository {
                 "Fail get bot by client_oid:{} exchange:{}",
                 client_oid, EXCHANGE
             )
-        })?)
+        })
     }
 
     pub async fn get_by_entry_client_oid(&self, entry_client_oid: &str) -> Result<Option<Bot>> {
-        Ok(sqlx::query_as::<_, Bot>(
+        sqlx::query_as::<_, Bot>(
             r#"
             SELECT id, entry_client_oid, entry_price, exit_tp_price, 
                    exit_tp_order_id, exit_tp_client_oid, exit_sl_price, 
@@ -60,11 +60,11 @@ impl BotRepository {
                 "Fail get bot by entry_client_oid:{} exchange:{}",
                 entry_client_oid, EXCHANGE
             )
-        })?)
+        })
     }
 
     pub async fn get_by_exit_tp_client_oid(&self, exit_tp_client_oid: &str) -> Result<Option<Bot>> {
-        Ok(sqlx::query_as::<_, Bot>(
+        sqlx::query_as::<_, Bot>(
             r#"
             SELECT id, entry_client_oid, entry_price, exit_tp_price, 
                    exit_tp_order_id, exit_tp_client_oid, exit_sl_price, 
@@ -83,11 +83,11 @@ impl BotRepository {
                 "Fail get bot by exit_tp_client_oid:{} exchange:{}",
                 exit_tp_client_oid, EXCHANGE
             )
-        })?)
+        })
     }
 
     pub async fn get_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<Option<Bot>> {
-        Ok(sqlx::query_as::<_, Bot>(
+        sqlx::query_as::<_, Bot>(
             r#"
             SELECT id, entry_client_oid, entry_price, exit_tp_price, 
                    exit_tp_order_id, exit_tp_client_oid, exit_sl_price, 
@@ -106,11 +106,11 @@ impl BotRepository {
                 "Fail get bot by exit_sl_client_oid:{} exchange:{}",
                 exit_sl_client_oid, EXCHANGE
             )
-        })?)
+        })
     }
 
     pub async fn get_all(&self) -> Result<Vec<Bot>> {
-        Ok(sqlx::query_as::<_, Bot>(
+        sqlx::query_as::<_, Bot>(
             r#"
             SELECT id, entry_client_oid, entry_price, exit_tp_price, 
                    exit_tp_order_id, exit_tp_client_oid, exit_sl_price, 
@@ -122,7 +122,7 @@ impl BotRepository {
         .bind(EXCHANGE)
         .fetch_all(&self.pool)
         .await
-        .with_context(|| format!("Fail get bots by exchange:{}", EXCHANGE))?)
+        .with_context(|| format!("Fail get bots by exchange:{}", EXCHANGE))
     }
 
     pub async fn update_entry_client_oid_by_id(
