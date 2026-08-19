@@ -4,7 +4,7 @@ use micromap::Map;
 use tokio::time::sleep;
 use tracing::{error, info};
 
-use crate::api::models::AdvancedOrders;
+use crate::api::models::{AdvancedOrders, StopType};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get,
 };
@@ -74,15 +74,14 @@ pub async fn handle_advanced_orders(
     error!("Got error on stop order : {}", order);
 
     let order_id_ref = &order.order_id;
-    let stop_ref = &order.stop;
     let side_ref = &order.side;
     let symbol_ref = &order.symbol;
     let funds_clone = order.funds.clone();
     let size_clone = order.size.clone();
     let new_exit_client_oid = Uuid::new_v4().to_string();
 
-    let order_result = match stop_ref.as_str() {
-        "loss" => {
+    let order_result = match order.stop {
+        StopType::Loss => {
             match bot_repo
                 .update_exit_sl_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
                 .await
@@ -133,7 +132,7 @@ pub async fn handle_advanced_orders(
                 }
             }
         }
-        "entry" => {
+        StopType::Entry => {
             match bot_repo
                 .update_exit_tp_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
                 .await
@@ -184,9 +183,9 @@ pub async fn handle_advanced_orders(
                 }
             }
         }
-        _ => {
-            error!("Fail match stop_clone:{}", stop_ref);
-            anyhow::bail!("Fail match stop_clone:{}", stop_ref)
+        StopType::Unknown => {
+            error!("Fail match stop_clone:{}", order.stop);
+            anyhow::bail!("Fail match stop_clone:{}", order.stop)
         }
     };
 

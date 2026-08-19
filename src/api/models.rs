@@ -4,6 +4,42 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StopType {
+    Loss,
+    Entry,
+    #[serde(other)]
+    Unknown,
+}
+
+impl StopType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            StopType::Loss => "loss",
+            StopType::Entry => "entry",
+            StopType::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for StopType {
+    fn from(s: &str) -> Self {
+        match s {
+            "loss" => StopType::Loss,
+            "entry" => StopType::Entry,
+            _ => StopType::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for StopType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
     pub endpoint: String,
@@ -617,7 +653,7 @@ pub struct AdvancedOrders {
     #[serde(rename = "orderType")]
     pub order_type: String,
     pub side: String,
-    pub stop: String,
+    pub stop: StopType,
     #[serde(rename = "stopPrice")]
     pub stop_price: String,
     pub symbol: String,

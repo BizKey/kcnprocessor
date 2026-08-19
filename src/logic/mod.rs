@@ -10,6 +10,4 @@ pub mod utils;
 // Re-export для обратной совместимости
 pub use account_handlers::clean_account;
 pub use order_handlers::create_init_orders;
-pub use order_side::OrderSide;
-pub use order_side_counter::ORDER_SIDE_COUNTER;
 pub use stop_order_handlers::cancel_all_stop_orders;
