@@ -4,7 +4,7 @@ use micromap::Map;
 use tokio::time::sleep;
 use tracing::{error, info};
 
-use crate::api::models::{AdvancedOrders, StopType};
+use crate::api::models::{AdvancedOrders, OrderSide, StopType};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get,
 };
@@ -74,7 +74,6 @@ pub async fn handle_advanced_orders(
     error!("Got error on stop order : {}", order);
 
     let order_id_ref = &order.order_id;
-    let side_ref = &order.side;
     let symbol_ref = &order.symbol;
     let funds_clone = order.funds.clone();
     let size_clone = order.size.clone();
@@ -86,8 +85,8 @@ pub async fn handle_advanced_orders(
                 .update_exit_sl_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
                 .await
             {
-                Ok(_) => match side_ref.as_str() {
-                    "buy" => {
+                Ok(_) => match order.side {
+                    OrderSide::Buy => {
                         let funds = match funds_clone {
                             Some(funds) => funds,
                             None => anyhow::bail!("Fail parse funds"),
@@ -95,7 +94,7 @@ pub async fn handle_advanced_orders(
                         make_hf_funds_margin_order(
                             message_repo,
                             &new_exit_client_oid,
-                            side_ref,
+                            "buy",
                             symbol_ref,
                             &funds,
                             "market",
@@ -104,7 +103,7 @@ pub async fn handle_advanced_orders(
                         )
                         .await
                     }
-                    "sell" => {
+                    OrderSide::Sell => {
                         let size = match size_clone {
                             Some(size) => size,
                             None => anyhow::bail!("Fail parse size"),
@@ -112,7 +111,7 @@ pub async fn handle_advanced_orders(
                         make_hf_size_margin_order(
                             message_repo,
                             &new_exit_client_oid,
-                            side_ref,
+                            "sell",
                             symbol_ref,
                             &size,
                             "market",
@@ -121,9 +120,9 @@ pub async fn handle_advanced_orders(
                         )
                         .await
                     }
-                    _ => {
-                        error!("Fail match side_clone:{}", side_ref);
-                        anyhow::bail!("Fail match side_clone:{}", side_ref)
+                    OrderSide::Unknown => {
+                        error!("Fail match side_clone:{}", order.side);
+                        anyhow::bail!("Fail match side_clone:{}", order.side)
                     }
                 },
                 Err(e) => {
@@ -137,8 +136,8 @@ pub async fn handle_advanced_orders(
                 .update_exit_tp_client_oid_by_order_id(order_id_ref, &new_exit_client_oid)
                 .await
             {
-                Ok(_) => match side_ref.as_str() {
-                    "buy" => {
+                Ok(_) => match order.side {
+                    OrderSide::Buy => {
                         let funds = match funds_clone {
                             Some(funds) => funds,
                             None => anyhow::bail!("Fail parse funds"),
@@ -146,7 +145,7 @@ pub async fn handle_advanced_orders(
                         make_hf_funds_margin_order(
                             message_repo,
                             &new_exit_client_oid,
-                            side_ref,
+                            "buy",
                             symbol_ref,
                             &funds,
                             "market",
@@ -155,7 +154,7 @@ pub async fn handle_advanced_orders(
                         )
                         .await
                     }
-                    "sell" => {
+                    OrderSide::Sell => {
                         let size = match size_clone {
                             Some(size) => size,
                             None => anyhow::bail!("Fail parse size"),
@@ -163,7 +162,7 @@ pub async fn handle_advanced_orders(
                         make_hf_size_margin_order(
                             message_repo,
                             &new_exit_client_oid,
-                            side_ref,
+                            "sell",
                             symbol_ref,
                             &size,
                             "market",
@@ -172,9 +171,9 @@ pub async fn handle_advanced_orders(
                         )
                         .await
                     }
-                    _ => {
-                        error!("Fail match side_clone:{}", side_ref);
-                        anyhow::bail!("Fail match side_clone:{}", side_ref)
+                    OrderSide::Unknown => {
+                        error!("Fail match side_clone:{}", order.side);
+                        anyhow::bail!("Fail match side_clone:{}", order.side)
                     }
                 },
                 Err(e) => {

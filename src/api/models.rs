@@ -7,6 +7,41 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
+pub enum OrderSide {
+    Buy,
+    Sell,
+    #[serde(other)]
+    Unknown,
+}
+
+impl OrderSide {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderSide::Buy => "buy",
+            OrderSide::Sell => "sell",
+            OrderSide::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for OrderSide {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "buy" => OrderSide::Buy,
+            "sell" => OrderSide::Sell,
+            _ => OrderSide::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for OrderSide {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum StopType {
     Loss,
     Entry,
@@ -652,7 +687,7 @@ pub struct AdvancedOrders {
     pub order_id: String,
     #[serde(rename = "orderType")]
     pub order_type: String,
-    pub side: String,
+    pub side: OrderSide,
     pub stop: StopType,
     #[serde(rename = "stopPrice")]
     pub stop_price: String,
