@@ -1,4 +1,4 @@
-use crate::logic::order_side::OrderSide;
+use crate::api::models::OrderSide;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 /// Глобальный счетчик для чередования сторон ордеров

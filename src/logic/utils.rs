@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use std::str::FromStr;
 
-use crate::logic::order_side::OrderSide;
+use crate::api::models::OrderSide;
 
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String> {
     let precision = increment.scale() as usize;

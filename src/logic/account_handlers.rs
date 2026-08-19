@@ -1,3 +1,4 @@
+use crate::api::models::OrderSide;
 use crate::api::models::{
     ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, MarginAccountData,
 };
@@ -229,7 +230,7 @@ async fn handle_liability(
         make_hf_funds_margin_order(
             message_repo,
             &Uuid::new_v4().to_string(),
-            "buy",
+            OrderSide::Buy,
             trade_symbol,
             &size,
             "market",
@@ -268,7 +269,7 @@ async fn handle_available(
         make_hf_size_margin_order(
             message_repo,
             &Uuid::new_v4().to_string(),
-            "sell",
+            OrderSide::Sell,
             trade_symbol,
             &size,
             "market",

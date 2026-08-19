@@ -1,8 +1,8 @@
 use crate::api::models::MakeOrderResData;
+use crate::api::models::OrderSide;
 use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
 use crate::api::utils::{BodySerializer, QueryBuilder};
 use crate::core::repository_traits::*;
-use crate::logic::order_side::OrderSide;
 use crate::logic::utils::{RETRY_DELAY_BASE, format_assert_decimal, get_next_side};
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
@@ -15,7 +15,7 @@ use uuid::Uuid;
 pub async fn make_hf_funds_margin_order(
     message_repo: &impl MessageCommand,
     client_oid: &str,
-    side: &str,
+    side: OrderSide,
     symbol: &str,
     funds: &str,
     type_: &'static str,
@@ -27,7 +27,7 @@ pub async fn make_hf_funds_margin_order(
     message_repo
         .save_order_message(
             Some(symbol),
-            Some(side),
+            Some(side.as_str()),
             None,
             Some(&funds),
             None,
@@ -65,7 +65,7 @@ pub async fn make_hf_funds_margin_order(
 pub async fn make_hf_size_margin_order(
     message_repo: &impl MessageCommand,
     client_oid: &str,
-    side: &str,
+    side: OrderSide,
     symbol: &str,
     size: &str,
     type_: &'static str,
@@ -77,7 +77,7 @@ pub async fn make_hf_size_margin_order(
     message_repo
         .save_order_message(
             Some(symbol),
-            Some(side),
+            Some(side.as_str()),
             Some(size),
             None,
             None,
@@ -161,7 +161,7 @@ pub async fn make_random_trade(
             make_hf_size_margin_order(
                 message_repo,
                 &entry_client_oid,
-                "sell",
+                OrderSide::Sell,
                 &tradeable_symbol,
                 &size,
                 "market",
@@ -178,7 +178,7 @@ pub async fn make_random_trade(
             make_hf_funds_margin_order(
                 message_repo,
                 &entry_client_oid,
-                "buy",
+                OrderSide::Buy,
                 &tradeable_symbol,
                 &funds,
                 "market",
@@ -186,6 +186,10 @@ pub async fn make_random_trade(
                 false,
             )
             .await
+        }
+        OrderSide::Unknown => {
+            error!("get_next_side is Unknown");
+            anyhow::bail!("get_next_side is Unknown")
         }
     };
 

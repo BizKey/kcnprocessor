@@ -94,7 +94,7 @@ pub async fn handle_advanced_orders(
                         make_hf_funds_margin_order(
                             message_repo,
                             &new_exit_client_oid,
-                            "buy",
+                            order.side,
                             symbol_ref,
                             &funds,
                             "market",
@@ -111,7 +111,7 @@ pub async fn handle_advanced_orders(
                         make_hf_size_margin_order(
                             message_repo,
                             &new_exit_client_oid,
-                            "sell",
+                            OrderSide::Sell,
                             symbol_ref,
                             &size,
                             "market",
@@ -145,7 +145,7 @@ pub async fn handle_advanced_orders(
                         make_hf_funds_margin_order(
                             message_repo,
                             &new_exit_client_oid,
-                            "buy",
+                            order.side,
                             symbol_ref,
                             &funds,
                             "market",
@@ -162,7 +162,7 @@ pub async fn handle_advanced_orders(
                         make_hf_size_margin_order(
                             message_repo,
                             &new_exit_client_oid,
-                            "sell",
+                            OrderSide::Sell,
                             symbol_ref,
                             &size,
                             "market",
