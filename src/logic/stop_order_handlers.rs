@@ -36,7 +36,7 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
         }
 
         for stop_order in open_stop_orders.items {
-            info!("Stop order:{}", stop_order);
+            info!("Stop order:{:.?}", stop_order);
 
             let mut query_params = Map::new();
             query_params.insert("orderId", stop_order.id.as_str());
