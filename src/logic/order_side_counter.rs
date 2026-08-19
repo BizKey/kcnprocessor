@@ -17,7 +17,7 @@ impl OrderSideCounter {
     /// Возвращает следующую сторону (чередует buy/sell)
     pub fn next_side(&self) -> OrderSide {
         let current = self.counter.fetch_add(1, Ordering::Relaxed);
-        if current % 2 == 0 {
+        if current.is_multiple_of(2) {
             OrderSide::Buy
         } else {
             OrderSide::Sell

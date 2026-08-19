@@ -424,9 +424,9 @@ impl ApiV1MarketOrderbookLevel1ResData {
     }
     #[inline]
     pub fn best_ask_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.best_ask)
+        Decimal::from_str(&self.best_ask)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_ask))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.best_ask))
     }
     #[inline]
     pub fn best_ask_size_decimal(&self) -> Result<Decimal> {
