@@ -10,7 +10,7 @@ pub async fn bullet_private_post(client: &KuCoinEndpoints) -> Result<String> {
         response.data
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v1/bullet-private: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data

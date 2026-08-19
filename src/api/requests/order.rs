@@ -19,7 +19,7 @@ pub async fn hf_margin_order_post(
         Ok(response.data)
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v3/hf/margin/order: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data
@@ -38,7 +38,7 @@ pub async fn hf_margin_stop_order_post(
         Ok(response.data)
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v3/hf/margin/stop-order: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data
@@ -57,7 +57,7 @@ pub async fn hf_margin_stop_orders_get(
         Ok(response.data)
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v3/hf/margin/stop-orders: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data
@@ -78,7 +78,7 @@ pub async fn hf_margin_stop_order_cancel_by_id_delete(
         Ok(response.data)
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v3/hf/margin/stop-order/cancel-by-id: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data
@@ -100,7 +100,7 @@ pub async fn hf_margin_stop_order_cancel_by_client_oid_delete(
         Ok(response.data)
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v3/hf/margin/stop-order/cancel-by-clientOid: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data
@@ -119,7 +119,7 @@ pub async fn accounts_universal_transfer_post(
         Ok(response.data)
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v3/accounts/universal-transfer: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data

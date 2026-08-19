@@ -15,6 +15,7 @@ use bytes::Bytes;
 use rust_decimal::Decimal;
 use serde_json;
 use tracing::{error, info};
+
 /// Обработка событий позиции
 pub async fn handle_position_event(
     position: PositionData,

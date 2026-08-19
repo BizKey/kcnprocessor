@@ -13,7 +13,7 @@ pub async fn market_orderbook_level1_get(
         Ok(response.data)
     } else {
         anyhow::bail!(
-            "KuCoin API error: code={}, msg={:?}, data={:?}",
+            "KuCoin API error /api/v1/market/orderbook/level1: code={}, msg={:?}, data={:?}",
             response.code,
             response.msg,
             response.data

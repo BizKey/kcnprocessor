@@ -166,13 +166,13 @@ pub async fn make_random_trade(
     match order_result {
         Ok(res) => {
             info!(
-                "✅ Order placed client_oid:{} order_id:{} entry_client_oid:{} trade_bot_id:{}",
+                "Order placed client_oid:{} order_id:{} entry_client_oid:{} trade_bot_id:{}",
                 res.client_oid, res.order_id, entry_client_oid, trade_bot_id,
             );
             Ok(())
         }
         Err(e) => {
-            error!("❌ Order failed: {} {:.?}", tradeable_symbol, e);
+            error!("Order failed: {} {:.?}", tradeable_symbol, e);
             Err(e)
         }
     }

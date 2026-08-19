@@ -273,7 +273,7 @@ async fn handle_stop_order_results_buy(
                     .await?;
             }
             info!(
-                "✅ Both stop orders created: TP={}, SL={}",
+                "Both stop orders created: TP={}, SL={}",
                 exit_tp_client_oid, exit_sl_client_oid
             );
         }
@@ -353,7 +353,7 @@ async fn handle_stop_order_results_sell(
                     .await?;
             }
             info!(
-                "✅ Both stop orders created: TP={}, SL={}",
+                "Both stop orders created: TP={}, SL={}",
                 exit_tp_client_oid, exit_sl_client_oid
             );
         }

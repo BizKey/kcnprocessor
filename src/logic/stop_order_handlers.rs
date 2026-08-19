@@ -150,14 +150,11 @@ pub async fn handle_advanced_orders(
 
     match order_result {
         Ok(_) => {
-            info!(
-                "✅ Order re-placed: {} {}",
-                order_id_ref, new_exit_client_oid,
-            );
+            info!("Order re-placed: {} {}", order_id_ref, new_exit_client_oid,);
         }
         Err(e) => {
             anyhow::bail!(
-                "❌ Order failed: {} {} {}",
+                "Order failed: {} {} {}",
                 order_id_ref,
                 new_exit_client_oid,
                 e
