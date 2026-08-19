@@ -12,7 +12,7 @@ use crate::logic::utils::{
     format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
 };
 
-use crate::api::models::{Bot, OrderData, OrderSide};
+use crate::api::models::{Bot, OrderData, OrderSide, OrderType, StopType};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
 };
@@ -109,8 +109,8 @@ async fn process_buy_entry(
         "clientOid": exit_tp_client_oid,
         "side": "sell",
         "symbol": order.symbol,
-        "type": "market",
-        "stop": "entry",
+        "type": OrderType::Market,
+        "stop": StopType::Entry,
         "stopPrice": stop_price_tp,
         "isIsolated": false,
         "autoBorrow": true,
@@ -124,7 +124,7 @@ async fn process_buy_entry(
         "clientOid": exit_sl_client_oid,
         "side": "sell",
         "symbol": order.symbol,
-        "type": "market",
+        "type": OrderType::Market,
         "stop": "loss",
         "stopPrice": stop_price_sl,
         "isIsolated": false,
@@ -190,9 +190,9 @@ async fn process_sell_entry(
     let funds_tp_str = format_assert_decimal(funds_tp, quote_increment)?;
     let msg_tp_order = serde_json::json!({
         "clientOid": exit_tp_client_oid,
-        "side": "buy",
+        "side": OrderSide::Buy,
         "symbol": order.symbol,
-        "type": "market",
+        "type": OrderType::Market,
         "stop": "loss",
         "stopPrice": stop_price_tp,
         "isIsolated": false,
@@ -206,10 +206,10 @@ async fn process_sell_entry(
 
     let msg_sl_order = serde_json::json!({
         "clientOid": exit_sl_client_oid,
-        "side": "buy",
+        "side": OrderSide::Buy,
         "symbol": order.symbol,
-        "type": "market",
-        "stop": "entry",
+        "type": OrderType::Market,
+        "stop": StopType::Entry,
         "stopPrice": stop_price_sl,
         "isIsolated": false,
         "autoBorrow": true,
