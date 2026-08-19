@@ -154,16 +154,18 @@ impl BotRepository {
     pub async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
+        symbol: &str,
         exit_tp_client_oid: &str,
     ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET exit_tp_client_oid = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE entry_client_oid = $2 AND exchange = $3;
+            SET exit_tp_client_oid = $1, symbol = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $3 AND exchange = $4;
             "#,
         )
         .bind(exit_tp_client_oid)
+        .bind(symbol)
         .bind(entry_client_oid)
         .bind(EXCHANGE)
         .execute(&self.pool)
@@ -180,16 +182,18 @@ impl BotRepository {
     pub async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
+        symbol: &str,
         exit_sl_client_oid: &str,
     ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET exit_sl_client_oid = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE entry_client_oid = $2 AND exchange = $3;
+            SET exit_sl_client_oid = $1, symbol = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $3 AND exchange = $4;
             "#,
         )
         .bind(exit_sl_client_oid)
+        .bind(symbol)
         .bind(entry_client_oid)
         .bind(EXCHANGE)
         .execute(&self.pool)

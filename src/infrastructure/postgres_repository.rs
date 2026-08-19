@@ -88,10 +88,15 @@ impl BotTpUpdate for PostgresBotRepository {
     async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
+        symbol: &str,
         exit_tp_client_oid: &str,
     ) -> Result<()> {
         self.bot_repo
-            .update_exit_tp_client_oid_by_entry_client_oid(entry_client_oid, exit_tp_client_oid)
+            .update_exit_tp_client_oid_by_entry_client_oid(
+                entry_client_oid,
+                symbol,
+                exit_tp_client_oid,
+            )
             .await
     }
 
@@ -137,10 +142,15 @@ impl BotSlUpdate for PostgresBotRepository {
     async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
+        symbol: &str,
         exit_sl_client_oid: &str,
     ) -> Result<()> {
         self.bot_repo
-            .update_exit_sl_client_oid_by_entry_client_oid(entry_client_oid, exit_sl_client_oid)
+            .update_exit_sl_client_oid_by_entry_client_oid(
+                entry_client_oid,
+                symbol,
+                exit_sl_client_oid,
+            )
             .await
     }
 
@@ -512,10 +522,15 @@ impl BotTpUpdate for PostgresRepository {
     async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
+        symbol: &str,
         exit_tp_client_oid: &str,
     ) -> Result<()> {
         self.bot
-            .update_exit_tp_client_oid_by_entry_client_oid(entry_client_oid, exit_tp_client_oid)
+            .update_exit_tp_client_oid_by_entry_client_oid(
+                entry_client_oid,
+                symbol,
+                exit_tp_client_oid,
+            )
             .await
     }
 
@@ -561,10 +576,15 @@ impl BotSlUpdate for PostgresRepository {
     async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
+        symbol: &str,
         exit_sl_client_oid: &str,
     ) -> Result<()> {
         self.bot
-            .update_exit_sl_client_oid_by_entry_client_oid(entry_client_oid, exit_sl_client_oid)
+            .update_exit_sl_client_oid_by_entry_client_oid(
+                entry_client_oid,
+                symbol,
+                exit_sl_client_oid,
+            )
             .await
     }
 
