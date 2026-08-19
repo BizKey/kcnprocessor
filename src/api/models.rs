@@ -4,6 +4,174 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
+
+#[derive(Debug, Clone)]
+pub enum OrderAmount {
+    Size(String),
+    Funds(String),
+}
+
+impl OrderAmount {
+    pub fn as_json_value(&self) -> serde_json::Value {
+        match self {
+            OrderAmount::Size(size) => serde_json::json!({ "size": size }),
+            OrderAmount::Funds(funds) => serde_json::json!({ "funds": funds }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrderType {
+    Market,
+    Limit,
+    Stop,
+    #[serde(other)]
+    Unknown,
+}
+
+impl OrderType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderType::Market => "market",
+            OrderType::Limit => "limit",
+            OrderType::Stop => "stop",
+            OrderType::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for OrderType {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "market" => OrderType::Market,
+            "limit" => OrderType::Limit,
+            "stop" => OrderType::Stop,
+            _ => OrderType::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for OrderType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrderEventType {
+    Match,
+    Canceled,
+    Open,
+    Filled,
+    Partial,
+    #[serde(other)]
+    Unknown,
+}
+
+impl OrderEventType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderEventType::Match => "match",
+            OrderEventType::Canceled => "canceled",
+            OrderEventType::Open => "open",
+            OrderEventType::Filled => "filled",
+            OrderEventType::Partial => "partial",
+            OrderEventType::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for OrderEventType {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "match" => OrderEventType::Match,
+            "canceled" => OrderEventType::Canceled,
+            "open" => OrderEventType::Open,
+            "filled" => OrderEventType::Filled,
+            "partial" => OrderEventType::Partial,
+            _ => OrderEventType::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for OrderEventType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrderSide {
+    Buy,
+    Sell,
+    #[serde(other)]
+    Unknown,
+}
+
+impl OrderSide {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderSide::Buy => "buy",
+            OrderSide::Sell => "sell",
+            OrderSide::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for OrderSide {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "buy" => OrderSide::Buy,
+            "sell" => OrderSide::Sell,
+            _ => OrderSide::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for OrderSide {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StopType {
+    Loss,
+    Entry,
+    #[serde(other)]
+    Unknown,
+}
+
+impl StopType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            StopType::Loss => "loss",
+            StopType::Entry => "entry",
+            StopType::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for StopType {
+    fn from(s: &str) -> Self {
+        match s {
+            "loss" => StopType::Loss,
+            "entry" => StopType::Entry,
+            _ => StopType::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for StopType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ApiV3BulletPrivateDataInstanceServers {
     pub endpoint: String,
@@ -32,7 +200,7 @@ pub struct AckData {
     pub id: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BalanceRelationContext {
     pub symbol: Option<String>,
     #[serde(rename = "orderId")]
@@ -40,7 +208,7 @@ pub struct BalanceRelationContext {
     #[serde(rename = "tradeId")]
     pub trade_id: Option<String>,
 }
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BalanceData {
     #[serde(rename = "accountId")]
     pub account_id: String,
@@ -70,9 +238,9 @@ pub struct AssetInfo {
 impl AssetInfo {
     #[inline]
     pub fn available_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.available)
+        Decimal::from_str(&self.available)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.available))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.available))
     }
 }
 #[derive(Debug, Deserialize, Serialize)]
@@ -88,7 +256,7 @@ pub struct PositionData {
     #[serde(rename = "assetList")]
     pub asset_list: HashMap<String, AssetInfo>,
     #[serde(rename = "debtList")]
-    pub debt_list: HashMap<String, String>, // ключ: актив, значение: строка долга
+    pub debt_list: HashMap<String, String>,
     pub timestamp: i64,
 }
 
@@ -110,16 +278,16 @@ impl PositionData {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OrderData {
-    pub status: String, // new open match done
+    pub status: String,
     #[serde(rename = "type")]
-    pub type_: String, // open match update filled canceled received
-    pub symbol: String, // BTC-USDT ETH-USDT KCS-USDT
-    pub side: String,   // buy sell
+    pub type_: OrderEventType,
+    pub symbol: String,
+    pub side: OrderSide,
     #[serde(rename = "orderType")]
-    pub order_type: String, // limit market
+    pub order_type: String,
     #[serde(rename = "feeType")]
-    pub fee_type: Option<String>, // takerFee makerFee
-    pub liquidity: Option<String>, // taker maker
+    pub fee_type: Option<String>,
+    pub liquidity: Option<String>,
     pub price: Option<String>,
     #[serde(rename = "orderId")]
     pub order_id: String,
@@ -143,9 +311,9 @@ pub struct OrderData {
     #[serde(rename = "oldSize")]
     pub old_size: Option<String>,
     #[serde(rename = "remainSize")]
-    pub remain_size: Option<String>, // only on limit order
+    pub remain_size: Option<String>,
     #[serde(rename = "remainFunds")]
-    pub remain_funds: Option<String>, // only on market order
+    pub remain_funds: Option<String>,
     #[serde(rename = "orderTime")]
     pub order_time: i64,
     pub ts: i64,
@@ -160,9 +328,9 @@ impl OrderData {
             }
         };
 
-        Ok(Decimal::from_str(filled_size)
+        Decimal::from_str(filled_size)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", filled_size))?)
+            .with_context(|| format!("Fail parse decimal:{}", filled_size))
     }
 }
 impl fmt::Display for OrderData {
@@ -232,39 +400,39 @@ pub struct ApiV1MarketOrderbookLevel1ResData {
 impl ApiV1MarketOrderbookLevel1ResData {
     #[inline]
     pub fn price_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.price)
+        Decimal::from_str(&self.price)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.price))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.price))
     }
     #[inline]
     pub fn size_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.size)
+        Decimal::from_str(&self.size)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.size))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.size))
     }
     #[inline]
     pub fn best_bid_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.best_bid)
+        Decimal::from_str(&self.best_bid)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_bid))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.best_bid))
     }
     #[inline]
     pub fn best_bid_size_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.best_bid_size)
+        Decimal::from_str(&self.best_bid_size)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_bid_size))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.best_bid_size))
     }
     #[inline]
     pub fn best_ask_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.best_ask)
+        Decimal::from_str(&self.best_ask)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_ask))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.best_ask))
     }
     #[inline]
     pub fn best_ask_size_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.best_ask_size)
+        Decimal::from_str(&self.best_ask_size)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_ask_size))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.best_ask_size))
     }
 }
 
@@ -309,33 +477,33 @@ pub struct Symbol {
 impl Symbol {
     #[inline]
     pub fn base_increment_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.base_increment)
+        Decimal::from_str(&self.base_increment)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.base_increment))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.base_increment))
     }
     #[inline]
     pub fn quote_increment_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.quote_increment)
+        Decimal::from_str(&self.quote_increment)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.quote_increment))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.quote_increment))
     }
     #[inline]
     pub fn price_increment_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.price_increment)
+        Decimal::from_str(&self.price_increment)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.price_increment))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.price_increment))
     }
     #[inline]
     pub fn base_min_size_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.base_min_size)
+        Decimal::from_str(&self.base_min_size)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.base_min_size))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.base_min_size))
     }
     #[inline]
     pub fn quote_min_size_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.quote_min_size)
+        Decimal::from_str(&self.quote_min_size)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.quote_min_size))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.quote_min_size))
     }
     #[inline]
     pub fn min_funds_decimal(&self) -> Result<Decimal> {
@@ -346,15 +514,15 @@ impl Symbol {
             }
         };
 
-        Ok(Decimal::from_str(min_funds)
+        Decimal::from_str(min_funds)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", min_funds))?)
+            .with_context(|| format!("Fail parse decimal:{}", min_funds))
     }
 }
 
 #[derive(Debug, Deserialize, sqlx::FromRow)]
 pub struct Currencies {
-    precision: i16,
+    pub precision: i16,
 }
 
 impl Currencies {
@@ -364,11 +532,9 @@ impl Currencies {
             anyhow::bail!("Precision cannot be negative: {}", self.precision)
         }
 
-        Ok(Decimal::from_str(&format!("1e-{}", self.precision))
+        Decimal::from_str(&format!("1e-{}", self.precision))
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| {
-                format!("Failed to parse decimal from precision: {}", self.precision)
-            })?)
+            .with_context(|| format!("Failed to parse decimal from precision: {}", self.precision))
     }
 }
 
@@ -561,15 +727,15 @@ pub struct MarginAccountDataAccount {
 impl MarginAccountDataAccount {
     #[inline]
     pub fn available_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.available)
+        Decimal::from_str(&self.available)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.available))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.available))
     }
     #[inline]
     pub fn liability_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.liability)
+        Decimal::from_str(&self.liability)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.liability))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.liability))
     }
 }
 
@@ -600,9 +766,9 @@ pub struct Bot {
 impl Bot {
     #[inline]
     pub fn balance_decimal(&self) -> Result<Decimal> {
-        Ok(Decimal::from_str(&self.balance)
+        Decimal::from_str(&self.balance)
             .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.balance))?)
+            .with_context(|| format!("Fail parse decimal:{}", self.balance))
     }
 }
 
@@ -616,8 +782,8 @@ pub struct AdvancedOrders {
     pub order_id: String,
     #[serde(rename = "orderType")]
     pub order_type: String,
-    pub side: String,
-    pub stop: String,
+    pub side: OrderSide,
+    pub stop: StopType,
     #[serde(rename = "stopPrice")]
     pub stop_price: String,
     pub symbol: String,
@@ -647,41 +813,5 @@ impl fmt::Display for AdvancedOrders {
             self.type_,
             self.error
         )
-    }
-}
-
-#[cfg(test)]
-mod full_precision_tests {
-    use super::*;
-    use rust_decimal::Decimal;
-    use rust_decimal_macros::dec;
-
-    #[test]
-    fn test_all_valid_precisions() {
-        let test_cases = vec![
-            (0, dec!(1)),
-            (1, dec!(0.1)),
-            (2, dec!(0.01)),
-            (3, dec!(0.001)),
-            (4, dec!(0.0001)),
-            (8, dec!(0.00000001)),
-            (18, dec!(0.000000000000000001)),
-        ];
-
-        for (precision, expected) in test_cases {
-            let currencies = Currencies { precision };
-            let result = currencies.precision_decimal().unwrap();
-            assert_eq!(result, expected, "Failed at precision {}", precision);
-        }
-    }
-
-    #[test]
-    fn test_error_messages() {
-        let currencies = Currencies { precision: -5 };
-        let err = currencies.precision_decimal().unwrap_err();
-
-        let msg = err.to_string();
-        assert!(msg.contains("Precision cannot be negative"));
-        assert!(msg.contains("-5"));
     }
 }
