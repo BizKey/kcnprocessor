@@ -1,13 +1,3 @@
-use crate::api::utils::{BodySerializer, QueryBuilder};
-use anyhow::Result;
-use micromap::Map;
-use rust_decimal::Decimal;
-use tokio::time::sleep;
-use tracing::info;
-use uuid::Uuid;
-
-use super::order_handlers::{make_hf_funds_margin_order, make_hf_size_margin_order};
-use super::utils::{AUTO_CLEAN_DELAY, format_assert_decimal};
 use crate::api::models::{
     ApiV1MarketOrderbookLevel1ResData, ApiV3MarginRepayResData, MarginAccountData,
 };
@@ -15,7 +5,16 @@ use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
     api_v3_margin_accounts_get, api_v3_margin_repay_post,
 };
+use crate::api::utils::{BodySerializer, QueryBuilder};
 use crate::core::repository_traits::*;
+use crate::logic::order_handlers::{make_hf_funds_margin_order, make_hf_size_margin_order};
+use crate::logic::utils::{AUTO_CLEAN_DELAY, format_assert_decimal};
+use anyhow::Result;
+use micromap::Map;
+use rust_decimal::Decimal;
+use tokio::time::sleep;
+use tracing::info;
+use uuid::Uuid;
 
 /// Получение данных всех аккаунтов
 pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
@@ -44,9 +43,7 @@ pub async fn get_token_price(trade_symbol: &str) -> Result<ApiV1MarketOrderbookL
     let mut query_params = Map::new();
     query_params.insert("symbol", trade_symbol);
 
-    let token_price =
-        api_v1_market_orderbook_level1_get(&QueryBuilder::build(query_params)?).await?;
-    match token_price {
+    match api_v1_market_orderbook_level1_get(&QueryBuilder::build(query_params)?).await? {
         Some(token_price) => Ok(token_price),
         None => anyhow::bail!("Fail get token_price"),
     }

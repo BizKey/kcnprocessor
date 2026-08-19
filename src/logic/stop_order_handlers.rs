@@ -4,14 +4,14 @@ use micromap::Map;
 use tokio::time::sleep;
 use tracing::{error, info};
 
-use super::order_handlers::{make_hf_funds_margin_order, make_hf_size_margin_order};
-use super::utils::RETRY_DELAY_BASE;
 use crate::api::models::AdvancedOrders;
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get,
 };
 use crate::constants::DELETE_STOP_ORDER_DELAY;
 use crate::core::repository_traits::*;
+use crate::logic::order_handlers::{make_hf_funds_margin_order, make_hf_size_margin_order};
+use crate::logic::utils::RETRY_DELAY_BASE;
 use uuid::Uuid;
 
 /// Отмена всех стоп-ордеров
@@ -68,6 +68,7 @@ pub async fn handle_advanced_orders(
     message_repo: &impl MessageCommand,
 ) -> Result<()> {
     if order.error.is_none() {
+        info!("{}", order);
         return Ok(());
     }
     error!("Got error on stop order : {}", order);

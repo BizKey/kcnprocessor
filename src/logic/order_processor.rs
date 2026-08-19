@@ -6,10 +6,12 @@ use std::str::FromStr;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use super::order_handlers::make_random_trade;
-use super::utils::{
+use crate::logic::order_handlers::make_random_trade;
+
+use crate::logic::utils::{
     format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
 };
+
 use crate::api::models::{Bot, OrderData};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,

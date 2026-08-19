@@ -1,11 +1,12 @@
+use crate::logic::account_handlers::repay_account;
+use crate::logic::order_processor::trade_order_event;
+use crate::logic::stop_order_handlers::handle_advanced_orders;
+use crate::logic::utils::format_assert_decimal;
 use anyhow::Result;
 use bytes::Bytes;
 use serde_json;
 use tracing::{error, info};
 
-use super::account_handlers::repay_account;
-use super::order_processor::trade_order_event;
-use super::stop_order_handlers::handle_advanced_orders;
 use crate::api::models::{AdvancedOrders, BalanceData, KuCoinMessage, OrderData, PositionData};
 use crate::core::repository_traits::*;
 
@@ -30,15 +31,12 @@ pub async fn handle_position_event(
         if liability > rust_decimal::Decimal::ZERO && token_available > rust_decimal::Decimal::ZERO
         {
             let currency_info = match symbol_repo.get_currency_info(&asset).await? {
-                Some(info) => info,
+                Some(currency_info) => currency_info,
                 None => anyhow::bail!("Currency info not found for {}", asset),
             };
 
             let precision_decimal = currency_info.precision_decimal()?;
-            let size = super::utils::format_assert_decimal(
-                liability.min(token_available),
-                precision_decimal,
-            )?;
+            let size = format_assert_decimal(liability.min(token_available), precision_decimal)?;
             repay_account(&asset, &size).await?;
             info!("Repay {} size {}", &asset, size);
         }

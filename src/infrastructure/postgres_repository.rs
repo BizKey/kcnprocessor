@@ -55,12 +55,11 @@ impl BotQuery for PostgresBotRepository {
 impl BotEntryUpdate for PostgresBotRepository {
     async fn update_entry_client_oid_by_id(
         &self,
-        symbol: Option<&str>,
         entry_client_oid: Option<&str>,
         id: i32,
     ) -> Result<()> {
         self.bot_repo
-            .update_entry_client_oid_by_id(symbol, entry_client_oid, id)
+            .update_entry_client_oid_by_id(entry_client_oid, id)
             .await
     }
 
@@ -480,12 +479,11 @@ impl BotQuery for PostgresRepository {
 impl BotEntryUpdate for PostgresRepository {
     async fn update_entry_client_oid_by_id(
         &self,
-        symbol: Option<&str>,
         entry_client_oid: Option<&str>,
         id: i32,
     ) -> Result<()> {
         self.bot
-            .update_entry_client_oid_by_id(symbol, entry_client_oid, id)
+            .update_entry_client_oid_by_id(entry_client_oid, id)
             .await
     }
 

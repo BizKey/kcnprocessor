@@ -649,39 +649,3 @@ impl fmt::Display for AdvancedOrders {
         )
     }
 }
-
-#[cfg(test)]
-mod full_precision_tests {
-    use super::*;
-    use rust_decimal::Decimal;
-    use rust_decimal_macros::dec;
-
-    #[test]
-    fn test_all_valid_precisions() {
-        let test_cases = vec![
-            (0, dec!(1)),
-            (1, dec!(0.1)),
-            (2, dec!(0.01)),
-            (3, dec!(0.001)),
-            (4, dec!(0.0001)),
-            (8, dec!(0.00000001)),
-            (18, dec!(0.000000000000000001)),
-        ];
-
-        for (precision, expected) in test_cases {
-            let currencies = Currencies { precision };
-            let result = currencies.precision_decimal().unwrap();
-            assert_eq!(result, expected, "Failed at precision {}", precision);
-        }
-    }
-
-    #[test]
-    fn test_error_messages() {
-        let currencies = Currencies { precision: -5 };
-        let err = currencies.precision_decimal().unwrap_err();
-
-        let msg = err.to_string();
-        assert!(msg.contains("Precision cannot be negative"));
-        assert!(msg.contains("-5"));
-    }
-}

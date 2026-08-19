@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use reqwest::Method;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::signature::SignatureGenerator;
+use crate::api::auth::signature::SignatureGenerator;
 
 pub struct AuthCredentials {
     pub api_key: String,

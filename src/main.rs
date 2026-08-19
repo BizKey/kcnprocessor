@@ -9,7 +9,7 @@ use crate::core::repository_traits::*;
 use crate::infrastructure::postgres_repository::PostgresRepository;
 use crate::infrastructure::tracing_layer::DbErrorLayer;
 use crate::infrastructure::websocket::run_websocket_loop;
-use crate::logic::{cancel_all_stop_orders, clean_account};
+use crate::logic::{cancel_all_stop_orders, clean_account, create_init_orders};
 
 use anyhow::Result;
 use dotenvy::dotenv;
@@ -80,6 +80,25 @@ async fn main() -> Result<()> {
     if let Err(e) = clean_account(&symbol_repo, &message_repo).await {
         error!("Failed to clean account: {:#}", e);
     }
+
+    let bot_repo_clone = bot_repo.clone();
+    let symbol_repo_clone = symbol_repo.clone();
+    let message_repo_clone = message_repo.clone();
+
+    // Запускаем инициализацию в фоновом режиме
+    tokio::spawn(async move {
+        info!("Starting background initialization of bots...");
+        // Даем WebSocket время подключиться
+        tokio::time::sleep(Duration::from_secs(20)).await;
+
+        if let Err(e) =
+            create_init_orders(&bot_repo_clone, &symbol_repo_clone, &message_repo_clone).await
+        {
+            error!("❌ Background initialization failed: {:#}", e);
+        } else {
+            info!("✅ Background initialization completed successfully!");
+        }
+    });
 
     // Запускаем WebSocket
     run_websocket_loop(

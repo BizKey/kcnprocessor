@@ -127,27 +127,25 @@ impl BotRepository {
 
     pub async fn update_entry_client_oid_by_id(
         &self,
-        symbol: Option<&str>,
         entry_client_oid: Option<&str>,
         id: i32,
     ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET entry_client_oid = $1, symbol = $2
-            WHERE exchange = $3 AND id = $4;
+            SET entry_client_oid = $1
+            WHERE exchange = $2 AND id = $3;
             "#,
         )
         .bind(entry_client_oid)
-        .bind(symbol)
         .bind(EXCHANGE)
         .bind(id)
         .execute(&self.pool)
         .await
         .with_context(|| {
             format!(
-                "Fail update entry_client_oid:{:?} and symbol:{:?} by id:{} exchange:{}",
-                entry_client_oid, symbol, id, EXCHANGE,
+                "Fail update entry_client_oid:{:?} by id:{} exchange:{}",
+                entry_client_oid, id, EXCHANGE,
             )
         })?;
         Ok(())

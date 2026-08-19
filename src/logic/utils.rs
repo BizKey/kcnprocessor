@@ -1,7 +1,10 @@
+use crate::logic::order_side_counter::ORDER_SIDE_COUNTER;
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use std::str::FromStr;
+
+use crate::logic::order_side::OrderSide;
 
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String> {
     let precision = increment.scale() as usize;
@@ -25,9 +28,8 @@ pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String
     Ok(result.normalize().to_string())
 }
 
-/// Возвращает случайную сторону ордера
-pub fn get_random_side() -> &'static str {
-    if fastrand::bool() { "buy" } else { "sell" }
+pub fn get_next_side() -> OrderSide {
+    ORDER_SIDE_COUNTER.next_side()
 }
 
 /// Процент для TP при покупке

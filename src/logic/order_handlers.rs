@@ -1,15 +1,15 @@
+use crate::api::models::MakeOrderResData;
+use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
 use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::core::repository_traits::*;
+use crate::logic::order_side::OrderSide;
+use crate::logic::utils::{RETRY_DELAY_BASE, format_assert_decimal, get_next_side};
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
 use serde_json;
 use tokio::time::sleep;
 use tracing::{error, info};
 use uuid::Uuid;
-
-use super::utils::{RETRY_DELAY_BASE, format_assert_decimal, get_random_side};
-use crate::api::models::MakeOrderResData;
-use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
-use crate::core::repository_traits::*;
 
 /// Создание рыночного ордера с указанием суммы (funds)
 pub async fn make_hf_funds_margin_order(
@@ -101,8 +101,7 @@ pub async fn make_hf_size_margin_order(
         "size": size
     })))?;
 
-    let data = api_v3_hf_margin_order_post(&body_str).await?;
-    let data = match data {
+    let data = match api_v3_hf_margin_order_post(&body_str).await? {
         Some(data) => data,
         None => anyhow::bail!("No data returned from API"),
     };
@@ -117,115 +116,87 @@ pub async fn make_random_trade(
     balance_funds: Decimal,
     trade_bot_id: i32,
 ) -> Result<()> {
-    const MAX_RETRIES: u32 = 10;
-    let mut attempt = 0;
+    let tradeable_symbol = match symbol_repo.get_random_symbol().await? {
+        Some(tradeable_symbol) => tradeable_symbol,
+        None => {
+            error!("Failed get_random_symbol");
+            anyhow::bail!("Failed get_random_symbol")
+        }
+    };
 
-    loop {
-        if attempt >= MAX_RETRIES {
+    let symbol_info = match symbol_repo.get_symbol_info(&tradeable_symbol).await? {
+        Some(symbol_info) => symbol_info,
+        None => {
+            error!("Symbol info not found for {}", tradeable_symbol);
+            anyhow::bail!("Symbol info not found for {}", tradeable_symbol)
+        }
+    };
+
+    let entry_client_oid = Uuid::new_v4().to_string();
+
+    bot_repo
+        .update_entry_client_oid_by_id(Some(&entry_client_oid), trade_bot_id)
+        .await?;
+
+    let order_result = match get_next_side() {
+        OrderSide::Sell => {
+            let base_increment = symbol_info.base_increment_decimal()?;
+
+            let mut query_params = micromap::Map::new();
+            query_params.insert("symbol", tradeable_symbol.as_str());
+
+            let token_price =
+                match api_v1_market_orderbook_level1_get(&QueryBuilder::build(query_params)?)
+                    .await?
+                {
+                    Some(token_price) => token_price,
+                    None => anyhow::bail!("No price data"),
+                };
+
+            let token_price = token_price.price_decimal()?;
+            let token_size = balance_funds / token_price;
+            let size = format_assert_decimal(token_size, base_increment)
+                .with_context(|| format!("Fail parse:{} {}", token_size, base_increment))?;
+
+            make_hf_size_margin_order(
+                message_repo,
+                &entry_client_oid,
+                "sell",
+                &tradeable_symbol,
+                &size,
+                "market",
+                true,
+                false,
+            )
+            .await
+        }
+        OrderSide::Buy => {
+            let quote_increment = symbol_info.quote_increment_decimal()?;
+            let funds = format_assert_decimal(balance_funds, quote_increment)
+                .with_context(|| format!("Fail parse:{} {}", balance_funds, quote_increment))?;
+
+            make_hf_funds_margin_order(
+                message_repo,
+                &entry_client_oid,
+                "buy",
+                &tradeable_symbol,
+                &funds,
+                "market",
+                true,
+                false,
+            )
+            .await
+        }
+    };
+
+    match order_result {
+        Ok(_) => {
+            info!("✅ Order placed: {} {}", entry_client_oid, trade_bot_id);
             return Ok(());
         }
-        sleep(tokio::time::Duration::from_millis(
-            RETRY_DELAY_BASE * attempt as u64,
-        ))
-        .await;
-        attempt += 1;
-
-        let tradeable_symbol = match symbol_repo.get_random_symbol().await? {
-            Some(tradeable_symbol) => tradeable_symbol,
-            None => {
-                error!("Failed get_random_symbol:");
-                continue;
-            }
-        };
-
-        let symbol_info = match symbol_repo.get_symbol_info(&tradeable_symbol).await? {
-            Some(symbol_info) => symbol_info,
-            None => {
-                error!("Symbol info not found for {}", tradeable_symbol);
-                continue;
-            }
-        };
-
-        let entry_client_oid = Uuid::new_v4().to_string();
-
-        bot_repo
-            .update_entry_client_oid_by_id(
-                Some(&tradeable_symbol),
-                Some(&entry_client_oid),
-                trade_bot_id,
-            )
-            .await?;
-
-        let order_result = match get_random_side() {
-            "sell" => {
-                let base_increment = symbol_info.base_increment_decimal()?;
-
-                let mut query_params = micromap::Map::new();
-                query_params.insert("symbol", tradeable_symbol.as_str());
-
-                let token_price =
-                    match api_v1_market_orderbook_level1_get(&QueryBuilder::build(query_params)?)
-                        .await?
-                    {
-                        Some(token_price) => token_price,
-                        None => anyhow::bail!("No price data"),
-                    };
-
-                let token_price = token_price.price_decimal()?;
-                let token_size = balance_funds / token_price;
-                let size = format_assert_decimal(token_size, base_increment)
-                    .with_context(|| format!("Fail parse:{} {}", token_size, base_increment))?;
-
-                make_hf_size_margin_order(
-                    message_repo,
-                    &entry_client_oid,
-                    "sell",
-                    &tradeable_symbol,
-                    &size,
-                    "market",
-                    true,
-                    false,
-                )
-                .await
-            }
-            "buy" => {
-                let quote_increment = symbol_info.quote_increment_decimal()?;
-                let funds = format_assert_decimal(balance_funds, quote_increment)
-                    .with_context(|| format!("Fail parse:{} {}", balance_funds, quote_increment))?;
-
-                make_hf_funds_margin_order(
-                    message_repo,
-                    &entry_client_oid,
-                    "buy",
-                    &tradeable_symbol,
-                    &funds,
-                    "market",
-                    true,
-                    false,
-                )
-                .await
-            }
-            _ => continue,
-        };
-
-        match order_result {
-            Ok(_) => {
-                info!(
-                    "✅ Order placed: {} {} (attempt {}/{})",
-                    entry_client_oid, trade_bot_id, attempt, MAX_RETRIES
-                );
-                return Ok(());
-            }
-            Err(e) => {
-                bot_repo
-                    .update_entry_client_oid_by_id(None, None, trade_bot_id)
-                    .await?;
-                error!(
-                    "❌ Order failed (attempt {}/{}): {} {}",
-                    attempt, MAX_RETRIES, tradeable_symbol, e
-                );
-                continue;
-            }
+        Err(e) => {
+            error!("❌ Order failed: {} {:.?}", tradeable_symbol, e);
+            Err(e)
         }
     }
 }
@@ -236,24 +207,18 @@ pub async fn create_init_orders(
     symbol_repo: &impl SymbolQuery,
     message_repo: &impl MessageCommand,
 ) -> Result<()> {
-    let trade_bots = bot_repo.get_all().await?;
-
-    for trade_bot in trade_bots.iter() {
+    for trade_bot in bot_repo.get_all().await?.iter() {
         sleep(crate::constants::INIT_ORDER_DELAY).await;
-        let token_funds = trade_bot.balance_decimal()?;
-        match make_random_trade(
+        if let Err(e) = make_random_trade(
             bot_repo,
             symbol_repo,
             message_repo,
-            token_funds,
+            trade_bot.balance_decimal()?,
             trade_bot.id,
         )
         .await
         {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{:#}", e);
-            }
+            error!("{:#}", e);
         }
     }
     info!("All bots initialized!");

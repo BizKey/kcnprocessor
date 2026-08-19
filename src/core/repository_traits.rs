@@ -16,7 +16,6 @@ pub trait BotQuery: Send + Sync {
 pub trait BotEntryUpdate: Send + Sync {
     async fn update_entry_client_oid_by_id(
         &self,
-        symbol: Option<&str>,
         entry_client_oid: Option<&str>,
         id: i32,
     ) -> Result<()>;
@@ -244,41 +243,6 @@ pub trait PositionRepositoryTrait: Send + Sync {
         asset_total: &str,
         asset_available: &str,
         asset_hold: &str,
-    ) -> Result<()>;
-}
-
-#[async_trait]
-pub trait SymbolRepositoryTrait: Send + Sync {
-    async fn get_random_symbol(&self) -> Result<Option<String>>;
-    async fn get_symbol_info(&self, symbol: &str) -> Result<Option<Symbol>>;
-    async fn get_currency_info(&self, currency: &str) -> Result<Option<Currencies>>;
-}
-
-#[async_trait]
-pub trait ErrorRepositoryTrait: Send + Sync {
-    async fn save_error(&self, msg: &str) -> Result<()>;
-}
-
-#[async_trait]
-pub trait EventRepositoryTrait: Send + Sync {
-    async fn save_event(&self, event: &serde_json::Value) -> Result<()>;
-}
-
-#[async_trait]
-pub trait MessageRepositoryTrait: Send + Sync {
-    async fn save_order_message(
-        &self,
-        args_symbol: Option<&str>,
-        args_side: Option<&str>,
-        args_size: Option<&str>,
-        args_funds: Option<&str>,
-        args_price: Option<&str>,
-        args_time_in_force: Option<&str>,
-        args_type: Option<&str>,
-        args_auto_borrow: Option<&bool>,
-        args_auto_repay: Option<&bool>,
-        args_client_oid: Option<&str>,
-        args_order_id: Option<&str>,
     ) -> Result<()>;
 }
 
