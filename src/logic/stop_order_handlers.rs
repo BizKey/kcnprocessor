@@ -1,3 +1,4 @@
+use crate::api::models::OrderAmount;
 use crate::api::models::OrderType;
 use crate::api::utils::QueryBuilder;
 use anyhow::Result;
@@ -11,7 +12,7 @@ use crate::api::requests::{
 };
 use crate::constants::DELETE_STOP_ORDER_DELAY;
 use crate::core::repository_traits::*;
-use crate::logic::order_handlers::{make_hf_funds_margin_order, make_hf_size_margin_order};
+use crate::logic::order_handlers::make_hf_margin_order;
 use crate::logic::utils::RETRY_DELAY_BASE;
 use uuid::Uuid;
 
@@ -117,12 +118,12 @@ pub async fn handle_advanced_orders(
                 Some(funds) => funds,
                 None => anyhow::bail!("Fail parse funds"),
             };
-            make_hf_funds_margin_order(
+            make_hf_margin_order(
                 message_repo,
                 &new_exit_client_oid,
                 order.side,
                 symbol_ref,
-                &funds,
+                OrderAmount::Size(funds.clone()),
                 OrderType::Market,
                 true,
                 false,
@@ -134,12 +135,12 @@ pub async fn handle_advanced_orders(
                 Some(size) => size,
                 None => anyhow::bail!("Fail parse size"),
             };
-            make_hf_size_margin_order(
+            make_hf_margin_order(
                 message_repo,
                 &new_exit_client_oid,
                 order.side,
                 symbol_ref,
-                &size,
+                OrderAmount::Size(size.clone()),
                 OrderType::Market,
                 true,
                 false,

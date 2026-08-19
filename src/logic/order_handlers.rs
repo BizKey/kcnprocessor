@@ -1,4 +1,5 @@
 use crate::api::models::MakeOrderResData;
+use crate::api::models::OrderAmount;
 use crate::api::models::OrderSide;
 use crate::api::models::OrderType;
 use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
@@ -14,12 +15,12 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 /// Создание рыночного ордера с указанием суммы (funds)
-pub async fn make_hf_funds_margin_order(
+pub async fn make_hf_margin_order(
     message_repo: &impl MessageCommand,
     client_oid: &str,
     side: OrderSide,
     symbol: &str,
-    funds: &str,
+    amount: OrderAmount,
     order_type: OrderType,
     auto_borrow: bool,
     auto_repay: bool,
@@ -27,12 +28,17 @@ pub async fn make_hf_funds_margin_order(
     let args_time_in_force = "GTC";
     let order_type_str = order_type.as_str();
 
+    let (size, funds) = match &amount {
+        OrderAmount::Size(s) => (Some(s.as_str()), None),
+        OrderAmount::Funds(f) => (None, Some(f.as_str())),
+    };
+
     message_repo
         .save_order_message(
             Some(symbol),
             Some(side.as_str()),
-            None,
-            Some(&funds),
+            size,
+            funds,
             None,
             Some(args_time_in_force),
             Some(order_type_str),
@@ -43,7 +49,7 @@ pub async fn make_hf_funds_margin_order(
         )
         .await?;
 
-    let msg = serde_json::json!({
+    let mut msg = serde_json::json!({
         "clientOid": client_oid,
         "symbol": symbol,
         "side": side,
@@ -51,8 +57,17 @@ pub async fn make_hf_funds_margin_order(
         "autoBorrow": auto_borrow,
         "autoRepay": auto_repay,
         "timeInForce": args_time_in_force,
-        "funds": funds
     });
+
+    match amount {
+        OrderAmount::Size(size) => {
+            msg["size"] = serde_json::Value::String(size);
+        }
+        OrderAmount::Funds(funds) => {
+            msg["funds"] = serde_json::Value::String(funds);
+        }
+    }
+
     info!("{}", msg);
 
     let body_str = BodySerializer::serialize(Some(msg))?;
@@ -61,54 +76,6 @@ pub async fn make_hf_funds_margin_order(
         None => anyhow::bail!("No data returned from API"),
     };
 
-    Ok(data)
-}
-
-/// Создание рыночного ордера с указанием размера (size)
-pub async fn make_hf_size_margin_order(
-    message_repo: &impl MessageCommand,
-    client_oid: &str,
-    side: OrderSide,
-    symbol: &str,
-    size: &str,
-    order_type: OrderType,
-    auto_borrow: bool,
-    auto_repay: bool,
-) -> Result<MakeOrderResData> {
-    let args_time_in_force = "GTC";
-    let order_type_str = order_type.as_str();
-
-    message_repo
-        .save_order_message(
-            Some(symbol),
-            Some(side.as_str()),
-            Some(size),
-            None,
-            None,
-            Some(args_time_in_force),
-            Some(order_type_str),
-            Some(&auto_borrow),
-            Some(&auto_repay),
-            Some(client_oid),
-            None,
-        )
-        .await?;
-
-    let body_str = BodySerializer::serialize(Some(serde_json::json!({
-        "clientOid": client_oid,
-        "symbol": symbol,
-        "side": side,
-        "type": order_type_str,
-        "autoBorrow": auto_borrow,
-        "autoRepay": auto_repay,
-        "timeInForce": args_time_in_force,
-        "size": size
-    })))?;
-
-    let data = match api_v3_hf_margin_order_post(&body_str).await? {
-        Some(data) => data,
-        None => anyhow::bail!("No data returned from API"),
-    };
     Ok(data)
 }
 
@@ -162,12 +129,12 @@ pub async fn make_random_trade(
             let size = format_assert_decimal(token_size, base_increment)
                 .with_context(|| format!("Fail parse:{} {}", token_size, base_increment))?;
 
-            make_hf_size_margin_order(
+            make_hf_margin_order(
                 message_repo,
                 &entry_client_oid,
                 OrderSide::Sell,
                 &tradeable_symbol,
-                &size,
+                OrderAmount::Size(size.clone()),
                 OrderType::Market,
                 true,
                 false,
@@ -179,12 +146,12 @@ pub async fn make_random_trade(
             let funds = format_assert_decimal(balance_funds, quote_increment)
                 .with_context(|| format!("Fail parse:{} {}", balance_funds, quote_increment))?;
 
-            make_hf_funds_margin_order(
+            make_hf_margin_order(
                 message_repo,
                 &entry_client_oid,
                 OrderSide::Buy,
                 &tradeable_symbol,
-                &funds,
+                OrderAmount::Size(funds.clone()),
                 OrderType::Market,
                 true,
                 false,

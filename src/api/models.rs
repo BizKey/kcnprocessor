@@ -5,6 +5,21 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
+#[derive(Debug, Clone)]
+pub enum OrderAmount {
+    Size(String),
+    Funds(String),
+}
+
+impl OrderAmount {
+    pub fn as_json_value(&self) -> serde_json::Value {
+        match self {
+            OrderAmount::Size(size) => serde_json::json!({ "size": size }),
+            OrderAmount::Funds(funds) => serde_json::json!({ "funds": funds }),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OrderType {

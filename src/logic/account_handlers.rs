@@ -1,3 +1,4 @@
+use crate::api::models::OrderAmount;
 use crate::api::models::OrderSide;
 use crate::api::models::OrderType;
 use crate::api::models::{
@@ -9,7 +10,7 @@ use crate::api::requests::{
 };
 use crate::api::utils::{BodySerializer, QueryBuilder};
 use crate::core::repository_traits::*;
-use crate::logic::order_handlers::{make_hf_funds_margin_order, make_hf_size_margin_order};
+use crate::logic::order_handlers::make_hf_margin_order;
 use crate::logic::utils::{AUTO_CLEAN_DELAY, format_assert_decimal};
 use anyhow::Result;
 use micromap::Map;
@@ -228,12 +229,12 @@ async fn handle_liability(
             quote_increment,
         )?;
 
-        make_hf_funds_margin_order(
+        make_hf_margin_order(
             message_repo,
             &Uuid::new_v4().to_string(),
             OrderSide::Buy,
             trade_symbol,
-            &size,
+            OrderAmount::Size(size.clone()),
             OrderType::Market,
             false,
             false,
@@ -267,12 +268,12 @@ async fn handle_available(
 
     if available >= base_min_size && token_funds >= quote_min_size {
         let size = format_assert_decimal(available, base_increment)?;
-        make_hf_size_margin_order(
+        make_hf_margin_order(
             message_repo,
             &Uuid::new_v4().to_string(),
             OrderSide::Sell,
             trade_symbol,
-            &size,
+            OrderAmount::Size(size.clone()),
             OrderType::Market,
             false,
             false,
