@@ -34,7 +34,7 @@ pub async fn process_bot_by_entry_client_oid(
     };
 
     let price_increment = symbol_info.price_increment_decimal()?;
-    let quote_increment = symbol_info.quote_increment_decimal()?;
+
     let filled_size = order.filled_size_decimal()?;
 
     let return_balance = match order_repo
@@ -61,6 +61,7 @@ pub async fn process_bot_by_entry_client_oid(
 
     match order.side {
         OrderSide::Buy => {
+            let base_increment = symbol_info.base_increment_decimal()?;
             process_buy_entry(
                 bot_repo,
                 client_oid,
@@ -68,10 +69,12 @@ pub async fn process_bot_by_entry_client_oid(
                 match_price,
                 filled_size,
                 price_increment,
+                base_increment,
             )
             .await?;
         }
         OrderSide::Sell => {
+            let quote_increment = symbol_info.quote_increment_decimal()?;
             process_sell_entry(
                 bot_repo,
                 client_oid,
@@ -98,11 +101,13 @@ async fn process_buy_entry(
     match_price: Decimal,
     filled_size: Decimal,
     price_increment: Decimal,
+    base_increment: Decimal,
 ) -> Result<()> {
     let tp_buy = tp_buy_percent()?;
     let trigger_tp_price = match_price * tp_buy;
     let exit_tp_client_oid = Uuid::new_v4().to_string();
     let stop_price_tp = format_assert_decimal(trigger_tp_price, price_increment)?;
+    let size_tp_str = format_assert_decimal(filled_size, base_increment)?;
 
     let msg_tp_order = serde_json::json!({
         "clientOid": exit_tp_client_oid,
@@ -114,7 +119,7 @@ async fn process_buy_entry(
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
-        "size": order.filled_size,
+        "size": size_tp_str,
         "timeInForce": "GTC",
     });
 
@@ -206,8 +211,8 @@ async fn process_sell_entry(
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
-        "timeInForce": "GTC",
         "funds": funds_tp_str,
+        "timeInForce": "GTC",
     });
 
     info!("Stop profit order:{}", msg_tp_order);
@@ -236,8 +241,8 @@ async fn process_sell_entry(
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
-        "timeInForce": "GTC",
         "funds": funds_sl_str,
+        "timeInForce": "GTC",
     });
 
     info!("Stop loss order:{}", msg_sl_order);
