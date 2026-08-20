@@ -290,38 +290,81 @@ async fn handle_stop_order_results_buy(
     exit_sl_client_oid: &str,
     client_oid: &str,
 ) -> Result<()> {
-    match (&tp_res, &sl_res) {
-        (Ok(tp_resp), Ok(sl_resp)) => {
-            if let Some(response_data) = tp_resp {
-                bot_repo
-                    .update_exit_tp_order_id_by_client_oid(
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await?;
-            }
-            if let Some(response_data) = sl_resp {
-                bot_repo
-                    .update_exit_sl_order_id_by_client_oid(
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await?;
-            }
+    match (tp_res, sl_res) {
+        (Ok(Some(tp_resp)), Ok(Some(sl_resp))) => {
+            bot_repo
+                .update_exit_tp_order_id_by_client_oid(&tp_resp.order_id, &tp_resp.client_oid)
+                .await?;
+
+            bot_repo
+                .update_exit_sl_order_id_by_client_oid(&sl_resp.order_id, &sl_resp.client_oid)
+                .await?;
+
             info!(
                 "Both stop orders created: TP={}, SL={}",
                 exit_tp_client_oid, exit_sl_client_oid
             );
         }
-        (Err(tp_err), Ok(sl_resp)) => {
-            if let Some(response_data) = sl_resp {
-                let mut query_params = Map::new();
-                query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
-                    query_params,
-                )?)
+        (Ok(None), Ok(Some(sl_resp))) => {
+            let mut query_params = Map::new();
+            query_params.insert("clientOid", sl_resp.client_oid.as_str());
+            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
+                query_params,
+            )?)
+            .await?;
+
+            bot_repo
+                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
-            }
+            error!("Failed add TP order: SL was cancelled for symmetry.",);
+        }
+
+        (Ok(Some(tp_resp)), Ok(None)) => {
+            let mut query_params = Map::new();
+            query_params.insert("clientOid", tp_resp.client_oid.as_str());
+            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
+                query_params,
+            )?)
+            .await?;
+
+            bot_repo
+                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
+                .await?;
+            error!("Failed add SL order: TP was cancelled for symmetry.",);
+        }
+        (Ok(None), Err(sl_err)) => {
+            bot_repo
+                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
+                .await?;
+            error!(
+                "Failed add SL order: {}. TP was cancelled for symmetry.",
+                sl_err
+            );
+        }
+        (Ok(Some(tp_resp)), Err(sl_err)) => {
+            let mut query_params = Map::new();
+            query_params.insert("clientOid", tp_resp.client_oid.as_str());
+            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
+                query_params,
+            )?)
+            .await?;
+
+            bot_repo
+                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
+                .await?;
+            error!(
+                "Failed add SL order: {}. TP was cancelled for symmetry.",
+                sl_err
+            );
+        }
+        (Err(tp_err), Ok(Some(sl_resp))) => {
+            let mut query_params = Map::new();
+            query_params.insert("clientOid", sl_resp.client_oid.as_str());
+            api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
+                query_params,
+            )?)
+            .await?;
+
             bot_repo
                 .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
@@ -330,21 +373,13 @@ async fn handle_stop_order_results_buy(
                 tp_err
             );
         }
-        (Ok(tp_resp), Err(sl_err)) => {
-            if let Some(response_data) = tp_resp {
-                let mut query_params = Map::new();
-                query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
-                    query_params,
-                )?)
-                .await?;
-            }
+        (Err(tp_err), Ok(None)) => {
             bot_repo
-                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
+                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
             error!(
-                "Failed add SL order: {}. TP was cancelled for symmetry.",
-                sl_err
+                "Failed add TP order: {}. SL was cancelled for symmetry.",
+                tp_err
             );
         }
         (Err(tp_err), Err(sl_err)) => {
@@ -357,6 +392,7 @@ async fn handle_stop_order_results_buy(
                 .await?;
             bot_repo.clear_entry_client_oid(client_oid).await?;
         }
+        (Ok(None), Ok(None)) => {}
     }
     Ok(())
 }
