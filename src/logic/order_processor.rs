@@ -69,10 +69,10 @@ pub async fn process_bot_by_entry_client_oid(
     }
 
     if let Err(e) = bot_repo
-        .update_symbol_by_entry_client_oid(client_oid, &order.symbol)
+        .update_symbol_by_entry_client_oid(&order.symbol, client_oid)
         .await
     {
-        error!("Failed to update entry_price: {}", e);
+        error!("Failed to update symbol by client_oid: {}", e);
         return Ok(());
     }
 
