@@ -6,6 +6,7 @@ use crate::core::repository_traits::{
 };
 use crate::logic::utils::{format_assert_decimal, get_next_side};
 use anyhow::{Context, Result};
+use micromap::Map;
 use rust_decimal::Decimal;
 use serde_json;
 
@@ -111,7 +112,7 @@ pub async fn make_random_trade(
 
     let order_result = match get_next_side() {
         OrderSide::Sell => {
-            let mut query_params = micromap::Map::new();
+            let mut query_params = Map::new();
             query_params.insert("symbol", tradeable_symbol.as_str());
 
             let token_price =
