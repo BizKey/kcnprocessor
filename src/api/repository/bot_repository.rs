@@ -154,20 +154,18 @@ impl BotRepository {
     pub async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
         exit_tp_client_oid: &str,
         tp_stop_price: &str,
     ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET symbol = $3, exit_tp_client_oid = $4, exit_tp_price = $5, updated_at = CURRENT_TIMESTAMP
+            SET exit_tp_client_oid = $3, exit_tp_price = $4, updated_at = CURRENT_TIMESTAMP
             WHERE entry_client_oid = $1 AND exchange = $2;
             "#,
         )
         .bind(entry_client_oid)
         .bind(EXCHANGE)
-        .bind(symbol)
         .bind(exit_tp_client_oid)
         .bind(tp_stop_price)
         .execute(&self.pool)
@@ -210,20 +208,18 @@ impl BotRepository {
     pub async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
         exit_sl_client_oid: &str,
         sl_stop_price: &str,
     ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET symbol = $3, exit_sl_client_oid = $4, exit_sl_price = $5 updated_at = CURRENT_TIMESTAMP
+            SET exit_sl_client_oid = $3, exit_sl_price = $4 updated_at = CURRENT_TIMESTAMP
             WHERE entry_client_oid = $1 AND exchange = $2;
             "#,
         )
         .bind(entry_client_oid)
         .bind(EXCHANGE)
-        .bind(symbol)
         .bind(exit_sl_client_oid)
         .bind(sl_stop_price)
         .execute(&self.pool)
@@ -513,22 +509,27 @@ impl BotRepository {
         Ok(())
     }
 
-    pub async fn clear_symbol_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<()> {
+    pub async fn update_symbol_by_entry_client_oid(
+        &self,
+        symbol: &str,
+        entry_client_oid: &str,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET symbol = NULL, updated_at = CURRENT_TIMESTAMP
-            WHERE exit_sl_client_oid = $1 AND exchange = $2;
+            SET symbol = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $3 AND exchange = $2;
             "#,
         )
-        .bind(exit_sl_client_oid)
+        .bind(symbol)
         .bind(EXCHANGE)
+        .bind(entry_client_oid)
         .execute(&self.pool)
         .await
         .with_context(|| {
             format!(
-                "Fail clear symbol by exit_sl_client_oid:{} exchange:{}",
-                exit_sl_client_oid, EXCHANGE,
+                "Fail update symbol by entry_client_oid:{} exchange:{}",
+                entry_client_oid, EXCHANGE,
             )
         })?;
         Ok(())

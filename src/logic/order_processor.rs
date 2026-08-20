@@ -68,6 +68,14 @@ pub async fn process_bot_by_entry_client_oid(
         return Ok(());
     }
 
+    if let Err(e) = bot_repo
+        .update_symbol_by_entry_client_oid(client_oid, &order.symbol)
+        .await
+    {
+        error!("Failed to update entry_price: {}", e);
+        return Ok(());
+    }
+
     match order.side {
         OrderSide::Buy => {
             let base_increment = symbol_info.base_increment_decimal()?;
@@ -136,7 +144,6 @@ async fn process_buy_entry(
     bot_repo
         .update_exit_tp_client_oid_by_entry_client_oid(
             client_oid,
-            &order.symbol,
             &exit_tp_client_oid,
             &tp_stop_price,
         )
@@ -170,7 +177,6 @@ async fn process_buy_entry(
     bot_repo
         .update_exit_sl_client_oid_by_entry_client_oid(
             client_oid,
-            &order.symbol,
             &exit_sl_client_oid,
             &sl_stop_price,
         )
@@ -229,7 +235,6 @@ async fn process_sell_entry(
     bot_repo
         .update_exit_tp_client_oid_by_entry_client_oid(
             client_oid,
-            &order.symbol,
             &exit_tp_client_oid,
             &tp_stop_price,
         )
@@ -264,7 +269,6 @@ async fn process_sell_entry(
     bot_repo
         .update_exit_sl_client_oid_by_entry_client_oid(
             client_oid,
-            &order.symbol,
             &exit_sl_client_oid,
             &sl_stop_price,
         )

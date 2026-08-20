@@ -97,14 +97,13 @@ impl BotTpUpdate for PostgresBotRepository {
     async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
+
         exit_tp_client_oid: &str,
         tp_stop_price: &str,
     ) -> Result<()> {
         self.bot_repo
             .update_exit_tp_client_oid_by_entry_client_oid(
                 entry_client_oid,
-                symbol,
                 exit_tp_client_oid,
                 tp_stop_price,
             )
@@ -153,14 +152,13 @@ impl BotSlUpdate for PostgresBotRepository {
     async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
+
         exit_sl_client_oid: &str,
         sl_stop_price: &str,
     ) -> Result<()> {
         self.bot_repo
             .update_exit_sl_client_oid_by_entry_client_oid(
                 entry_client_oid,
-                symbol,
                 exit_sl_client_oid,
                 sl_stop_price,
             )
@@ -203,9 +201,13 @@ impl BotSlUpdate for PostgresBotRepository {
             .await
     }
 
-    async fn clear_symbol_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<()> {
+    async fn update_symbol_by_entry_client_oid(
+        &self,
+        symbol: &str,
+        entry_client_oid: &str,
+    ) -> Result<()> {
         self.bot_repo
-            .clear_symbol_by_exit_sl_client_oid(exit_sl_client_oid)
+            .update_symbol_by_entry_client_oid(symbol, entry_client_oid)
             .await
     }
 }
@@ -544,14 +546,13 @@ impl BotTpUpdate for PostgresRepository {
     async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
+
         exit_tp_client_oid: &str,
         tp_stop_price: &str,
     ) -> Result<()> {
         self.bot
             .update_exit_tp_client_oid_by_entry_client_oid(
                 entry_client_oid,
-                symbol,
                 exit_tp_client_oid,
                 tp_stop_price,
             )
@@ -600,14 +601,13 @@ impl BotSlUpdate for PostgresRepository {
     async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
+
         exit_sl_client_oid: &str,
         sl_stop_price: &str,
     ) -> Result<()> {
         self.bot
             .update_exit_sl_client_oid_by_entry_client_oid(
                 entry_client_oid,
-                symbol,
                 exit_sl_client_oid,
                 sl_stop_price,
             )
@@ -650,9 +650,13 @@ impl BotSlUpdate for PostgresRepository {
             .await
     }
 
-    async fn clear_symbol_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<()> {
+    async fn update_symbol_by_entry_client_oid(
+        &self,
+        symbol: &str,
+        entry_client_oid: &str,
+    ) -> Result<()> {
         self.bot
-            .clear_symbol_by_exit_sl_client_oid(exit_sl_client_oid)
+            .update_symbol_by_entry_client_oid(symbol, entry_client_oid)
             .await
     }
 }

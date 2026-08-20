@@ -39,7 +39,7 @@ pub trait BotTpUpdate: Send + Sync {
     async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
+
         exit_tp_client_oid: &str,
         tp_stop_price: &str,
     ) -> Result<()>;
@@ -70,7 +70,7 @@ pub trait BotSlUpdate: Send + Sync {
     async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
+
         exit_sl_client_oid: &str,
         sl_stop_price: &str,
     ) -> Result<()>;
@@ -95,7 +95,11 @@ pub trait BotSlUpdate: Send + Sync {
         balance: &str,
     ) -> Result<()>;
 
-    async fn clear_symbol_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<()>;
+    async fn update_symbol_by_entry_client_oid(
+        &self,
+        symbol: &str,
+        entry_client_oid: &str,
+    ) -> Result<()>;
 }
 
 #[async_trait]
