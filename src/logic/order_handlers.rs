@@ -104,14 +104,13 @@ pub async fn make_random_trade(
 
     let entry_client_oid = Uuid::new_v4().to_string();
 
+    // update entry_client_oid exchange
     bot_repo
         .update_entry_client_oid_by_id(Some(&entry_client_oid), trade_bot_id)
         .await?;
 
     let order_result = match get_next_side() {
         OrderSide::Sell => {
-            let base_increment = symbol_info.base_increment_decimal()?;
-
             let mut query_params = micromap::Map::new();
             query_params.insert("symbol", tradeable_symbol.as_str());
 
@@ -123,6 +122,7 @@ pub async fn make_random_trade(
                     None => anyhow::bail!("No price data"),
                 };
 
+            let base_increment = symbol_info.base_increment_decimal()?;
             let token_price = token_price.price_decimal()?;
             let token_size = balance_funds / token_price;
             let size = format_assert_decimal(token_size, base_increment)

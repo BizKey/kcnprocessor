@@ -99,7 +99,7 @@ pub async fn process_kcn_msg(
             anyhow::bail!("Got error in WS {:?}", data)
         }
         KuCoinMessage::Unknown => {
-            anyhow::bail!("Unknown WS message type");
+            anyhow::bail!("Unknown WS message type {:?}", msg);
         }
     };
 
