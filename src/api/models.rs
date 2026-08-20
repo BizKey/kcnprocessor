@@ -33,11 +33,14 @@ pub enum OrderAmount {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
 pub enum OrderTopic {
+    #[serde(rename = "/account/balance")]
     Balance,
+    #[serde(rename = "/spotMarket/tradeOrdersV2")]
     TradeOrders,
+    #[serde(rename = "/spotMarket/advancedOrders")]
     AdvancedOrders,
+    #[serde(rename = "/margin/position")]
     Position,
     #[serde(other)]
     Unknown,
@@ -57,13 +60,10 @@ impl OrderTopic {
 
 impl From<&str> for OrderTopic {
     fn from(s: &str) -> Self {
-        let lower = s.to_lowercase();
-        // Добавляем отладочный вывод
-        tracing::debug!("OrderTopic::from: original='{}', lower='{}'", s, lower);
         match s.to_lowercase().as_str() {
             "/account/balance" => OrderTopic::Balance,
-            "/spotmarket/tradeordersv2" => OrderTopic::TradeOrders,
-            "/spotmarket/advancedorders" => OrderTopic::AdvancedOrders,
+            "/spotMarket/tradeOrdersV2" => OrderTopic::TradeOrders,
+            "/spotMarket/advancedOrders" => OrderTopic::AdvancedOrders,
             "/margin/position" => OrderTopic::Position,
             _ => OrderTopic::Unknown,
         }
