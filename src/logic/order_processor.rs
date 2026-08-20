@@ -173,7 +173,7 @@ async fn process_buy_entry(
 
     let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-    handle_stop_order_results_buy(
+    handle_stop_order_results(
         bot_repo,
         tp_res,
         sl_res,
@@ -268,7 +268,7 @@ async fn process_sell_entry(
 
     let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-    handle_stop_order_results_sell(
+    handle_stop_order_results(
         bot_repo,
         tp_res,
         sl_res,
@@ -282,87 +282,7 @@ async fn process_sell_entry(
 }
 
 /// Обработка результатов создания стоп-ордеров для buy
-async fn handle_stop_order_results_buy(
-    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
-    tp_res: Result<Option<MakeStopOrderResData>>,
-    sl_res: Result<Option<MakeStopOrderResData>>,
-    exit_tp_client_oid: &str,
-    exit_sl_client_oid: &str,
-    client_oid: &str,
-) -> Result<()> {
-    match (&tp_res, &sl_res) {
-        (Ok(Some(tp)), Ok(Some(sl))) => {
-            bot_repo
-                .update_exit_tp_order_id_by_client_oid(&tp.order_id, &tp.client_oid)
-                .await?;
-            bot_repo
-                .update_exit_sl_order_id_by_client_oid(&sl.order_id, &sl.client_oid)
-                .await?;
-            info!(
-                "Both stop orders created: TP={}, SL={}",
-                exit_tp_client_oid, exit_sl_client_oid
-            );
-            return Ok(());
-        }
-        _ => {}
-    }
-
-    let tp_success = matches!(&tp_res, Ok(Some(_)));
-    let sl_success = matches!(&sl_res, Ok(Some(_)));
-
-    match (tp_success, sl_success) {
-        (true, true) => unreachable!(),
-
-        (true, false) => {
-            // TP успешен, SL нет - отменяем TP
-            if let Ok(Some(tp)) = tp_res {
-                let mut query_params = Map::new();
-                query_params.insert("clientOid", tp.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
-                    query_params,
-                )?)
-                .await?;
-            }
-            bot_repo
-                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
-                .await?;
-            error!("Failed add SL order. TP was cancelled for symmetry.");
-        }
-
-        (false, true) => {
-            // SL успешен, TP нет - отменяем SL
-            if let Ok(Some(sl)) = sl_res {
-                let mut query_params = Map::new();
-                query_params.insert("clientOid", sl.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
-                    query_params,
-                )?)
-                .await?;
-            }
-            bot_repo
-                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
-                .await?;
-            error!("Failed add TP order. SL was cancelled for symmetry.");
-        }
-
-        (false, false) => {
-            // Оба провалились
-            error!("Failed add both stop orders");
-            bot_repo
-                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
-                .await?;
-            bot_repo
-                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
-                .await?;
-            bot_repo.clear_entry_client_oid(client_oid).await?;
-        }
-    }
-
-    Ok(())
-}
-
-/// Обработка результатов создания стоп-ордеров для sell
-async fn handle_stop_order_results_sell(
+async fn handle_stop_order_results(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     tp_res: Result<Option<MakeStopOrderResData>>,
     sl_res: Result<Option<MakeStopOrderResData>>,
