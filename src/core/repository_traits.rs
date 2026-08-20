@@ -35,6 +35,7 @@ pub trait BotTpUpdate: Send + Sync {
         entry_client_oid: &str,
         symbol: &str,
         exit_tp_client_oid: &str,
+        tp_stop_price: &str,
     ) -> Result<()>;
 
     async fn update_exit_tp_order_id_by_client_oid(

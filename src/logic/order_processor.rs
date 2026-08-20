@@ -106,7 +106,7 @@ async fn process_buy_entry(
     let tp_buy = tp_buy_percent()?;
     let trigger_tp_price = match_price * tp_buy;
     let exit_tp_client_oid = Uuid::new_v4().to_string();
-    let stop_price_tp = format_assert_decimal(trigger_tp_price, price_increment)?;
+    let tp_stop_price = format_assert_decimal(trigger_tp_price, price_increment)?;
     let size_tp_str = format_assert_decimal(filled_size, base_increment)?;
 
     let msg_tp_order = serde_json::json!({
@@ -115,7 +115,7 @@ async fn process_buy_entry(
         "symbol": order.symbol,
         "type": OrderType::Market,
         "stop": StopType::Entry,
-        "stopPrice": stop_price_tp,
+        "stopPrice": tp_stop_price,
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
@@ -130,6 +130,7 @@ async fn process_buy_entry(
             client_oid,
             &order.symbol,
             &exit_tp_client_oid,
+            &tp_stop_price,
         )
         .await?;
 

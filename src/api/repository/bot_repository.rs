@@ -156,18 +156,20 @@ impl BotRepository {
         entry_client_oid: &str,
         symbol: &str,
         exit_tp_client_oid: &str,
+        tp_stop_price: &str,
     ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET exit_tp_client_oid = $1, symbol = $2, updated_at = CURRENT_TIMESTAMP
-            WHERE entry_client_oid = $3 AND exchange = $4;
+            SET symbol = $3, exit_tp_client_oid = $4, exit_tp_price = $5, updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $1 AND exchange = $2;
             "#,
         )
-        .bind(exit_tp_client_oid)
-        .bind(symbol)
         .bind(entry_client_oid)
         .bind(EXCHANGE)
+        .bind(symbol)
+        .bind(exit_tp_client_oid)
+        .bind(tp_stop_price)
         .execute(&self.pool)
         .await
         .with_context(|| {
@@ -189,7 +191,7 @@ impl BotRepository {
         sqlx::query(
             r#"
             UPDATE bots
-            SET symbol = $3, exit_sl_client_oid = $4, exit_tp_price = $5 updated_at = CURRENT_TIMESTAMP
+            SET symbol = $3, exit_sl_client_oid = $4, exit_sl_price = $5 updated_at = CURRENT_TIMESTAMP
             WHERE entry_client_oid = $1 AND exchange = $2;
             "#,
         )

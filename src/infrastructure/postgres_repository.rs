@@ -90,12 +90,14 @@ impl BotTpUpdate for PostgresBotRepository {
         entry_client_oid: &str,
         symbol: &str,
         exit_tp_client_oid: &str,
+        tp_stop_price: &str,
     ) -> Result<()> {
         self.bot_repo
             .update_exit_tp_client_oid_by_entry_client_oid(
                 entry_client_oid,
                 symbol,
                 exit_tp_client_oid,
+                tp_stop_price,
             )
             .await
     }
@@ -526,12 +528,14 @@ impl BotTpUpdate for PostgresRepository {
         entry_client_oid: &str,
         symbol: &str,
         exit_tp_client_oid: &str,
+        tp_stop_price: &str,
     ) -> Result<()> {
         self.bot
             .update_exit_tp_client_oid_by_entry_client_oid(
                 entry_client_oid,
                 symbol,
                 exit_tp_client_oid,
+                tp_stop_price,
             )
             .await
     }
