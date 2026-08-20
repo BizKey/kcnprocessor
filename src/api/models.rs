@@ -315,7 +315,7 @@ impl OrderData {
         let filled_size = match &self.filled_size {
             Some(filled_size) => filled_size,
             None => {
-                anyhow::bail!("filled_size is None:{:?}", &self)
+                anyhow::bail!("filled_size is None:{:?}", self)
             }
         };
 
@@ -377,15 +377,10 @@ pub struct ApiV1MarketOrderbookLevel1ResData {
     pub time: f64,
     pub sequence: String,
     pub price: String,
-    pub size: String,
     #[serde(rename = "bestBid")]
     pub best_bid: String,
-    #[serde(rename = "bestBidSize")]
-    pub best_bid_size: String,
     #[serde(rename = "bestAsk")]
     pub best_ask: String,
-    #[serde(rename = "bestAskSize")]
-    pub best_ask_size: String,
 }
 
 impl ApiV1MarketOrderbookLevel1ResData {
@@ -396,34 +391,16 @@ impl ApiV1MarketOrderbookLevel1ResData {
             .with_context(|| format!("Fail parse decimal:{}", self.price))
     }
     #[inline]
-    pub fn size_decimal(&self) -> Result<Decimal> {
-        Decimal::from_str(&self.size)
-            .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.size))
-    }
-    #[inline]
     pub fn best_bid_decimal(&self) -> Result<Decimal> {
         Decimal::from_str(&self.best_bid)
             .map_err(|e| anyhow::anyhow!(e))
             .with_context(|| format!("Fail parse decimal:{}", self.best_bid))
     }
     #[inline]
-    pub fn best_bid_size_decimal(&self) -> Result<Decimal> {
-        Decimal::from_str(&self.best_bid_size)
-            .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_bid_size))
-    }
-    #[inline]
     pub fn best_ask_decimal(&self) -> Result<Decimal> {
         Decimal::from_str(&self.best_ask)
             .map_err(|e| anyhow::anyhow!(e))
             .with_context(|| format!("Fail parse decimal:{}", self.best_ask))
-    }
-    #[inline]
-    pub fn best_ask_size_decimal(&self) -> Result<Decimal> {
-        Decimal::from_str(&self.best_ask_size)
-            .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_ask_size))
     }
 }
 
@@ -501,7 +478,7 @@ impl Symbol {
         let min_funds = match &self.min_funds {
             Some(min_funds) => min_funds,
             None => {
-                anyhow::bail!("min_funds is None for symbol {:?}", &self)
+                anyhow::bail!("min_funds is None for symbol {:?}", self)
             }
         };
 
@@ -583,14 +560,8 @@ pub struct ApiV3HfMarginStopOrdersResDataItem {
 
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersResData {
-    #[serde(rename = "currentPage")]
-    pub current_page: i32,
-    #[serde(rename = "pageSize")]
-    pub page_size: i32,
     #[serde(rename = "totalNum")]
     pub total_num: i32,
-    #[serde(rename = "totalPage")]
-    pub total_page: i32,
     pub items: Vec<ApiV3HfMarginStopOrdersResDataItem>,
 }
 #[derive(Debug, Deserialize)]
