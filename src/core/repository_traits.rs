@@ -65,6 +65,7 @@ pub trait BotSlUpdate: Send + Sync {
         entry_client_oid: &str,
         symbol: &str,
         exit_sl_client_oid: &str,
+        sl_stop_price: &str,
     ) -> Result<()>;
 
     async fn update_exit_sl_order_id_by_client_oid(

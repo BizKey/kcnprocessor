@@ -144,12 +144,14 @@ impl BotSlUpdate for PostgresBotRepository {
         entry_client_oid: &str,
         symbol: &str,
         exit_sl_client_oid: &str,
+        sl_stop_price: &str,
     ) -> Result<()> {
         self.bot_repo
             .update_exit_sl_client_oid_by_entry_client_oid(
                 entry_client_oid,
                 symbol,
                 exit_sl_client_oid,
+                sl_stop_price,
             )
             .await
     }
@@ -578,12 +580,14 @@ impl BotSlUpdate for PostgresRepository {
         entry_client_oid: &str,
         symbol: &str,
         exit_sl_client_oid: &str,
+        sl_stop_price: &str,
     ) -> Result<()> {
         self.bot
             .update_exit_sl_client_oid_by_entry_client_oid(
                 entry_client_oid,
                 symbol,
                 exit_sl_client_oid,
+                sl_stop_price,
             )
             .await
     }

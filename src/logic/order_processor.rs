@@ -134,7 +134,7 @@ async fn process_buy_entry(
     let sl_buy = sl_buy_percent()?;
     let trigger_sl_price = match_price * sl_buy;
     let exit_sl_client_oid = Uuid::new_v4().to_string();
-    let stop_price_sl = format_assert_decimal(trigger_sl_price, price_increment)?;
+    let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
 
     let msg_sl_order = serde_json::json!({
         "clientOid": exit_sl_client_oid,
@@ -142,7 +142,7 @@ async fn process_buy_entry(
         "symbol": order.symbol,
         "type": OrderType::Market,
         "stop": StopType::Loss,
-        "stopPrice": stop_price_sl,
+        "stopPrice": sl_stop_price,
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
@@ -157,6 +157,7 @@ async fn process_buy_entry(
             client_oid,
             &order.symbol,
             &exit_sl_client_oid,
+            &sl_stop_price,
         )
         .await?;
 

@@ -1,5 +1,5 @@
 use crate::api::models::{
-    AdvancedOrders, BalanceData, KuCoinMessage, OrderData, OrderEventType, OrderTopic, PositionData,
+    AdvancedOrders, BalanceData, KuCoinMessage, OrderData, OrderTopic, PositionData,
 };
 use crate::core::repository_traits::{
     BalanceCommand, BotEntryUpdate, BotManagement, BotQuery, BotRepositoryFull, BotSlUpdate,
