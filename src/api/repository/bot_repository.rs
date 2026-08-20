@@ -133,7 +133,7 @@ impl BotRepository {
         sqlx::query(
             r#"
             UPDATE bots
-            SET entry_client_oid = $1
+            SET entry_client_oid = $1, updated_at = CURRENT_TIMESTAMP
             WHERE exchange = $2 AND id = $3;
             "#,
         )
@@ -154,20 +154,20 @@ impl BotRepository {
     pub async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
         exit_tp_client_oid: &str,
+        tp_stop_price: &str,
     ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET exit_tp_client_oid = $1, symbol = $2, updated_at = CURRENT_TIMESTAMP
-            WHERE entry_client_oid = $3 AND exchange = $4;
+            SET exit_tp_client_oid = $3, exit_tp_price = $4, updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $1 AND exchange = $2;
             "#,
         )
-        .bind(exit_tp_client_oid)
-        .bind(symbol)
         .bind(entry_client_oid)
         .bind(EXCHANGE)
+        .bind(exit_tp_client_oid)
+        .bind(tp_stop_price)
         .execute(&self.pool)
         .await
         .with_context(|| {
@@ -179,23 +179,49 @@ impl BotRepository {
         Ok(())
     }
 
+    pub async fn update_entry_price_by_client_oid(
+        &self,
+        client_oid: &str,
+        entry_price: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+        UPDATE bots
+        SET entry_price = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE entry_client_oid = $2 AND exchange = $3;
+        "#,
+        )
+        .bind(entry_price)
+        .bind(client_oid)
+        .bind(EXCHANGE)
+        .execute(&self.pool)
+        .await
+        .with_context(|| {
+            format!(
+                "Fail update entry_price:{} by client_oid:{} exchange:{}",
+                entry_price, client_oid, EXCHANGE,
+            )
+        })?;
+        Ok(())
+    }
+
     pub async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
         exit_sl_client_oid: &str,
+        sl_stop_price: &str,
     ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET exit_sl_client_oid = $1, symbol = $2, updated_at = CURRENT_TIMESTAMP
-            WHERE entry_client_oid = $3 AND exchange = $4;
+            SET exit_sl_client_oid = $3, exit_sl_price = $4 updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $1 AND exchange = $2;
             "#,
         )
-        .bind(exit_sl_client_oid)
-        .bind(symbol)
         .bind(entry_client_oid)
         .bind(EXCHANGE)
+        .bind(exit_sl_client_oid)
+        .bind(sl_stop_price)
         .execute(&self.pool)
         .await
         .with_context(|| {
@@ -483,22 +509,27 @@ impl BotRepository {
         Ok(())
     }
 
-    pub async fn clear_symbol_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<()> {
+    pub async fn update_symbol_by_entry_client_oid(
+        &self,
+        symbol: &str,
+        entry_client_oid: &str,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE bots
-            SET symbol = NULL, updated_at = CURRENT_TIMESTAMP
-            WHERE exit_sl_client_oid = $1 AND exchange = $2;
+            SET symbol = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE entry_client_oid = $3 AND exchange = $2;
             "#,
         )
-        .bind(exit_sl_client_oid)
+        .bind(symbol)
         .bind(EXCHANGE)
+        .bind(entry_client_oid)
         .execute(&self.pool)
         .await
         .with_context(|| {
             format!(
-                "Fail clear symbol by exit_sl_client_oid:{} exchange:{}",
-                exit_sl_client_oid, EXCHANGE,
+                "Fail update symbol by entry_client_oid:{} exchange:{}",
+                entry_client_oid, EXCHANGE,
             )
         })?;
         Ok(())

@@ -110,7 +110,10 @@ pub async fn auto_clean_account(
             continue;
         }
 
-        let trade_symbol = format!("{}-USDT", account.currency);
+        let mut trade_symbol = String::with_capacity(account.currency.len() + 5);
+        trade_symbol.push_str(&account.currency);
+        trade_symbol.push_str("-USDT");
+
         let symbol_info = match symbol_repo.get_symbol_info(&trade_symbol).await? {
             Some(symbol_info) => symbol_info,
             None => anyhow::bail!("Symbol info not found for {}", account.currency),

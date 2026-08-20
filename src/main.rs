@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
     tokio::spawn(async move {
         info!("Starting background initialization of bots...");
         // Даем WebSocket время подключиться
-        tokio::time::sleep(Duration::from_secs(20)).await;
+        tokio::time::sleep(Duration::from_secs(30)).await;
 
         if let Err(e) =
             create_init_orders(&bot_repo_clone, &symbol_repo_clone, &message_repo_clone).await

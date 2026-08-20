@@ -1,15 +1,17 @@
 use crate::api::utils::QueryBuilder;
 use anyhow::Result;
 use micromap::Map;
-use tokio::time::sleep;
+
 use tracing::{error, info};
 
 use crate::api::models::{AdvancedOrders, OrderAmount, OrderSide, OrderType, StopType};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_id_delete, api_v3_hf_margin_stop_orders_get,
 };
-use crate::constants::DELETE_STOP_ORDER_DELAY;
-use crate::core::repository_traits::*;
+
+use crate::core::repository_traits::{
+    BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand,
+};
 use crate::logic::order_handlers::make_hf_margin_order;
 use uuid::Uuid;
 
@@ -21,7 +23,7 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
 
         let query_params = QueryBuilder::build(query_params)?;
         let open_stop_orders = match api_v3_hf_margin_stop_orders_get(&query_params).await? {
-            Some(orders) => orders,
+            Some(open_stop_orders) => open_stop_orders,
             None => {
                 error!("Fail get list open stop orders:None");
                 continue;
@@ -56,13 +58,12 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
                 info!("Success cancel stop order:{}", st_order)
             }
         }
-        sleep(DELETE_STOP_ORDER_DELAY).await;
     }
 
     Ok(())
 }
 
-/// Обработка событий стоп-ордеров (повторная отправка при ошибке)
+/// Обработка событий стоп-ордеров
 pub async fn handle_advanced_orders(
     order: AdvancedOrders,
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
@@ -74,7 +75,7 @@ pub async fn handle_advanced_orders(
     }
     error!("Got error on stop order : {}", order);
 
-    let order_id_ref = &order.order_id;
+    let order_id_ref = order.order_id.as_ref();
     let new_exit_client_oid = Uuid::new_v4().to_string();
 
     match order.stop {
@@ -114,6 +115,7 @@ pub async fn handle_advanced_orders(
                 Some(funds) => funds,
                 None => anyhow::bail!("Fail parse funds"),
             };
+
             make_hf_margin_order(
                 message_repo,
                 &new_exit_client_oid,
@@ -131,6 +133,7 @@ pub async fn handle_advanced_orders(
                 Some(size) => size,
                 None => anyhow::bail!("Fail parse size"),
             };
+
             make_hf_margin_order(
                 message_repo,
                 &new_exit_client_oid,
@@ -151,7 +154,7 @@ pub async fn handle_advanced_orders(
 
     match order_result {
         Ok(_) => {
-            info!("Order re-placed: {} {}", order_id_ref, new_exit_client_oid,);
+            info!("Order re-placed: {} {}", order_id_ref, new_exit_client_oid);
         }
         Err(e) => {
             anyhow::bail!(

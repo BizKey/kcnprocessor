@@ -26,6 +26,12 @@ pub trait BotEntryUpdate: Send + Sync {
         entry_client_oid: &str,
         balance: &str,
     ) -> Result<()>;
+
+    async fn update_entry_price_by_client_oid(
+        &self,
+        entry_client_oid: &str,
+        entry_price: &str,
+    ) -> Result<()>;
 }
 
 #[async_trait]
@@ -33,8 +39,9 @@ pub trait BotTpUpdate: Send + Sync {
     async fn update_exit_tp_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
+
         exit_tp_client_oid: &str,
+        tp_stop_price: &str,
     ) -> Result<()>;
 
     async fn update_exit_tp_order_id_by_client_oid(
@@ -63,8 +70,9 @@ pub trait BotSlUpdate: Send + Sync {
     async fn update_exit_sl_client_oid_by_entry_client_oid(
         &self,
         entry_client_oid: &str,
-        symbol: &str,
+
         exit_sl_client_oid: &str,
+        sl_stop_price: &str,
     ) -> Result<()>;
 
     async fn update_exit_sl_order_id_by_client_oid(
@@ -87,7 +95,11 @@ pub trait BotSlUpdate: Send + Sync {
         balance: &str,
     ) -> Result<()>;
 
-    async fn clear_symbol_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<()>;
+    async fn update_symbol_by_entry_client_oid(
+        &self,
+        symbol: &str,
+        entry_client_oid: &str,
+    ) -> Result<()>;
 }
 
 #[async_trait]
@@ -103,7 +115,7 @@ pub trait OrderQuery: Send + Sync {
 
 #[async_trait]
 pub trait OrderCommand: Send + Sync {
-    async fn save_order_event(&self, order: OrderData) -> Result<()>;
+    async fn save_order_event(&self, order: &OrderData) -> Result<()>;
 }
 
 #[async_trait]

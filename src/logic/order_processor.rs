@@ -1,4 +1,6 @@
-use crate::api::models::{Bot, OrderData, OrderSide, OrderType, StopType};
+use crate::api::models::{
+    Bot, BotOrderType, MakeStopOrderResData, OrderData, OrderSide, OrderType, StopType,
+};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
 };
@@ -32,7 +34,7 @@ pub async fn process_bot_by_entry_client_oid(
     };
 
     let price_increment = symbol_info.price_increment_decimal()?;
-    let quote_increment = symbol_info.quote_increment_decimal()?;
+
     let filled_size = order.filled_size_decimal()?;
 
     let return_balance = match order_repo
@@ -49,27 +51,52 @@ pub async fn process_bot_by_entry_client_oid(
     let new_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
     bot_repo
-        .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
+        .update_balance_by_entry_client_oid(
+            client_oid,
+            &new_balance.trunc_with_scale(4).normalize().to_string(),
+        )
         .await?;
+
+    let match_price = new_balance / filled_size;
+    let match_price_str = format_assert_decimal(match_price, price_increment)?;
+
+    if let Err(e) = bot_repo
+        .update_entry_price_by_client_oid(client_oid, &match_price_str)
+        .await
+    {
+        error!("Failed to update entry_price: {}", e);
+        return Ok(());
+    }
+
+    if let Err(e) = bot_repo
+        .update_symbol_by_entry_client_oid(client_oid, &order.symbol)
+        .await
+    {
+        error!("Failed to update entry_price: {}", e);
+        return Ok(());
+    }
 
     match order.side {
         OrderSide::Buy => {
+            let base_increment = symbol_info.base_increment_decimal()?;
             process_buy_entry(
                 bot_repo,
                 client_oid,
                 order,
-                new_balance,
+                match_price,
                 filled_size,
                 price_increment,
+                base_increment,
             )
             .await?;
         }
         OrderSide::Sell => {
+            let quote_increment = symbol_info.quote_increment_decimal()?;
             process_sell_entry(
                 bot_repo,
                 client_oid,
                 order,
-                new_balance,
+                match_price,
                 filled_size,
                 price_increment,
                 quote_increment,
@@ -79,7 +106,6 @@ pub async fn process_bot_by_entry_client_oid(
         OrderSide::Unknown => {}
     }
 
-    bot_repo.clear_entry_client_oid(client_oid).await?;
     Ok(())
 }
 
@@ -88,83 +114,85 @@ async fn process_buy_entry(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     client_oid: &str,
     order: &OrderData,
-    new_balance: Decimal,
+    match_price: Decimal,
     filled_size: Decimal,
     price_increment: Decimal,
+    base_increment: Decimal,
 ) -> Result<()> {
     let tp_buy = tp_buy_percent()?;
-    let sl_buy = sl_buy_percent()?;
-
-    let match_price = new_balance / filled_size;
     let trigger_tp_price = match_price * tp_buy;
-    let trigger_sl_price = match_price * sl_buy;
-
     let exit_tp_client_oid = Uuid::new_v4().to_string();
-    let exit_sl_client_oid = Uuid::new_v4().to_string();
-
-    let stop_price_tp = format_assert_decimal(trigger_tp_price, price_increment)?;
+    let tp_stop_price = format_assert_decimal(trigger_tp_price, price_increment)?;
+    let size_tp_str = format_assert_decimal(filled_size, base_increment)?;
 
     let msg_tp_order = serde_json::json!({
         "clientOid": exit_tp_client_oid,
-        "side": "sell",
+        "side": OrderSide::Sell,
         "symbol": order.symbol,
         "type": OrderType::Market,
         "stop": StopType::Entry,
-        "stopPrice": stop_price_tp,
+        "stopPrice": tp_stop_price,
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
-        "size": &order.filled_size,
-        "timeInForce": "GTC",
-    });
-    let stop_price_sl = format_assert_decimal(trigger_sl_price, price_increment)?;
-
-    let msg_sl_order = serde_json::json!({
-        "clientOid": exit_sl_client_oid,
-        "side": "sell",
-        "symbol": order.symbol,
-        "type": OrderType::Market,
-        "stop": "loss",
-        "stopPrice": stop_price_sl,
-        "isIsolated": false,
-        "autoBorrow": true,
-        "autoRepay": false,
-        "size": order.filled_size,
+        "size": size_tp_str,
         "timeInForce": "GTC",
     });
 
     info!("Stop profit order:{}", msg_tp_order);
-    info!("Stop loss order:{}", msg_sl_order);
 
     bot_repo
         .update_exit_tp_client_oid_by_entry_client_oid(
             client_oid,
-            &order.symbol,
             &exit_tp_client_oid,
-        )
-        .await?;
-    bot_repo
-        .update_exit_sl_client_oid_by_entry_client_oid(
-            client_oid,
-            &order.symbol,
-            &exit_sl_client_oid,
+            &tp_stop_price,
         )
         .await?;
 
     let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;
-    let sl_body = BodySerializer::serialize(Some(msg_sl_order))?;
     let tp_fut = api_v3_hf_margin_stop_order_post(&tp_body);
+
+    let sl_buy = sl_buy_percent()?;
+    let trigger_sl_price = match_price * sl_buy;
+    let exit_sl_client_oid = Uuid::new_v4().to_string();
+    let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
+    let size_sl_str = format_assert_decimal(filled_size, base_increment)?;
+
+    let msg_sl_order = serde_json::json!({
+        "clientOid": exit_sl_client_oid,
+        "side": OrderSide::Sell,
+        "symbol": order.symbol,
+        "type": OrderType::Market,
+        "stop": StopType::Loss,
+        "stopPrice": sl_stop_price,
+        "isIsolated": false,
+        "autoBorrow": true,
+        "autoRepay": false,
+        "size": size_sl_str,
+        "timeInForce": "GTC",
+    });
+
+    info!("Stop loss order:{}", msg_sl_order);
+
+    bot_repo
+        .update_exit_sl_client_oid_by_entry_client_oid(
+            client_oid,
+            &exit_sl_client_oid,
+            &sl_stop_price,
+        )
+        .await?;
+
+    let sl_body = BodySerializer::serialize(Some(msg_sl_order))?;
     let sl_fut = api_v3_hf_margin_stop_order_post(&sl_body);
 
     let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-    handle_stop_order_results_buy(
+    handle_stop_order_results(
         bot_repo,
         tp_res,
         sl_res,
         &exit_tp_client_oid,
         &exit_sl_client_oid,
-        client_oid,
     )
     .await?;
 
@@ -176,39 +204,50 @@ async fn process_sell_entry(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     client_oid: &str,
     order: &OrderData,
-    new_balance: Decimal,
+    match_price: Decimal,
     filled_size: Decimal,
     price_increment: Decimal,
     quote_increment: Decimal,
 ) -> Result<()> {
     let tp_sell = tp_sell_percent()?;
-    let sl_sell = sl_sell_percent()?;
-
-    let match_price = new_balance / filled_size;
     let trigger_tp_price = match_price * tp_sell;
-    let trigger_sl_price = match_price * sl_sell;
     let funds_tp = trigger_tp_price * filled_size;
-    let funds_sl = trigger_sl_price * filled_size;
-
     let exit_tp_client_oid = Uuid::new_v4().to_string();
-    let exit_sl_client_oid = Uuid::new_v4().to_string();
-
-    let stop_price_tp = format_assert_decimal(trigger_tp_price, price_increment)?;
+    let tp_stop_price = format_assert_decimal(trigger_tp_price, price_increment)?;
     let funds_tp_str = format_assert_decimal(funds_tp, quote_increment)?;
+
     let msg_tp_order = serde_json::json!({
         "clientOid": exit_tp_client_oid,
         "side": OrderSide::Buy,
         "symbol": order.symbol,
         "type": OrderType::Market,
-        "stop": "loss",
-        "stopPrice": stop_price_tp,
+        "stop": StopType::Loss,
+        "stopPrice": tp_stop_price,
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
-        "timeInForce": "GTC",
         "funds": funds_tp_str,
+        "timeInForce": "GTC",
     });
-    let stop_price_sl = format_assert_decimal(trigger_sl_price, price_increment)?;
+
+    info!("Stop profit order:{}", msg_tp_order);
+
+    bot_repo
+        .update_exit_tp_client_oid_by_entry_client_oid(
+            client_oid,
+            &exit_tp_client_oid,
+            &tp_stop_price,
+        )
+        .await?;
+
+    let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;
+    let tp_fut = api_v3_hf_margin_stop_order_post(&tp_body);
+
+    let sl_sell = sl_sell_percent()?;
+    let trigger_sl_price = match_price * sl_sell;
+    let funds_sl = trigger_sl_price * filled_size;
+    let exit_sl_client_oid = Uuid::new_v4().to_string();
+    let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
     let funds_sl_str = format_assert_decimal(funds_sl, quote_increment)?;
 
     let msg_sl_order = serde_json::json!({
@@ -217,36 +256,35 @@ async fn process_sell_entry(
         "symbol": order.symbol,
         "type": OrderType::Market,
         "stop": StopType::Entry,
-        "stopPrice": stop_price_sl,
+        "stopPrice": sl_stop_price,
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
-        "timeInForce": "GTC",
         "funds": funds_sl_str,
+        "timeInForce": "GTC",
     });
 
-    info!("Stop profit order:{}", msg_tp_order);
     info!("Stop loss order:{}", msg_sl_order);
 
     bot_repo
-        .update_exit_tp_order_id_by_client_oid(client_oid, &exit_tp_client_oid)
+        .update_exit_sl_client_oid_by_entry_client_oid(
+            client_oid,
+            &exit_sl_client_oid,
+            &sl_stop_price,
+        )
         .await?;
-    bot_repo.clear_exit_sl_by_client_oid(client_oid).await?;
 
-    let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;
     let sl_body = BodySerializer::serialize(Some(msg_sl_order))?;
-    let tp_fut = api_v3_hf_margin_stop_order_post(&tp_body);
     let sl_fut = api_v3_hf_margin_stop_order_post(&sl_body);
 
     let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
-    handle_stop_order_results_sell(
+    handle_stop_order_results(
         bot_repo,
         tp_res,
         sl_res,
         &exit_tp_client_oid,
         &exit_sl_client_oid,
-        client_oid,
     )
     .await?;
 
@@ -254,138 +292,41 @@ async fn process_sell_entry(
 }
 
 /// Обработка результатов создания стоп-ордеров для buy
-async fn handle_stop_order_results_buy(
+async fn handle_stop_order_results(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
-    tp_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
-    sl_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
+    tp_res: Result<Option<MakeStopOrderResData>>,
+    sl_res: Result<Option<MakeStopOrderResData>>,
     exit_tp_client_oid: &str,
     exit_sl_client_oid: &str,
-    client_oid: &str,
 ) -> Result<()> {
     match (&tp_res, &sl_res) {
-        (Ok(tp_resp), Ok(sl_resp)) => {
-            if let Some(response_data) = tp_resp {
-                bot_repo
-                    .update_exit_tp_order_id_by_client_oid(
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await?;
-            }
-            if let Some(response_data) = sl_resp {
-                bot_repo
-                    .update_exit_sl_order_id_by_client_oid(
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await?;
-            }
+        (Ok(Some(tp)), Ok(Some(sl))) => {
+            bot_repo
+                .update_exit_tp_order_id_by_client_oid(&tp.order_id, &tp.client_oid)
+                .await?;
+            bot_repo
+                .update_exit_sl_order_id_by_client_oid(&sl.order_id, &sl.client_oid)
+                .await?;
             info!(
                 "Both stop orders created: TP={}, SL={}",
                 exit_tp_client_oid, exit_sl_client_oid
             );
+            return Ok(());
         }
-        (Err(tp_err), Ok(sl_resp)) => {
-            if let Some(response_data) = sl_resp {
-                let mut query_params = Map::new();
-                query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
-                    query_params,
-                )?)
-                .await?;
-            }
-            bot_repo
-                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
-                .await?;
-            error!(
-                "Failed add TP order: {}. SL was cancelled for symmetry.",
-                tp_err
-            );
-        }
-        (Ok(tp_resp), Err(sl_err)) => {
-            if let Some(response_data) = tp_resp {
-                let mut query_params = Map::new();
-                query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
-                    query_params,
-                )?)
-                .await?;
-            }
-            bot_repo
-                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
-                .await?;
-            error!(
-                "Failed add SL order: {}. TP was cancelled for symmetry.",
-                sl_err
-            );
-        }
-        (Err(tp_err), Err(sl_err)) => {
-            error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
-            bot_repo
-                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
-                .await?;
-            bot_repo
-                .clear_exit_tp_by_client_oid(exit_tp_client_oid)
-                .await?;
-            bot_repo.clear_entry_client_oid(client_oid).await?;
-        }
+        _ => {}
     }
-    Ok(())
-}
 
-/// Обработка результатов создания стоп-ордеров для sell
-async fn handle_stop_order_results_sell(
-    bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
-    tp_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
-    sl_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
-    exit_tp_client_oid: &str,
-    exit_sl_client_oid: &str,
-    client_oid: &str,
-) -> Result<()> {
-    match (&tp_res, &sl_res) {
-        (Ok(tp_resp), Ok(sl_resp)) => {
-            if let Some(response_data) = tp_resp {
-                bot_repo
-                    .update_exit_tp_order_id_by_client_oid(
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await?;
-            }
-            if let Some(response_data) = sl_resp {
-                bot_repo
-                    .update_exit_sl_order_id_by_client_oid(
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await?;
-            }
-            info!(
-                "Both stop orders created: TP={}, SL={}",
-                exit_tp_client_oid, exit_sl_client_oid
-            );
-        }
-        (Err(tp_err), Ok(sl_resp)) => {
-            if let Some(response_data) = sl_resp {
+    let tp_success = matches!(&tp_res, Ok(Some(_)));
+    let sl_success = matches!(&sl_res, Ok(Some(_)));
+
+    match (tp_success, sl_success) {
+        (true, true) => unreachable!(),
+
+        (true, false) => {
+            // TP успешен, SL нет - отменяем TP
+            if let Ok(Some(tp)) = tp_res {
                 let mut query_params = Map::new();
-                query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
-                    query_params,
-                )?)
-                .await?;
-            }
-            bot_repo
-                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
-                .await?;
-            error!(
-                "Failed add TP order: {}. SL was cancelled for symmetry.",
-                tp_err
-            );
-        }
-        (Ok(tp_resp), Err(sl_err)) => {
-            if let Some(response_data) = tp_resp {
-                let mut query_params = Map::new();
-                query_params.insert("clientOid", response_data.client_oid.as_str());
+                query_params.insert("clientOid", tp.client_oid.as_str());
                 api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
                     query_params,
                 )?)
@@ -394,22 +335,37 @@ async fn handle_stop_order_results_sell(
             bot_repo
                 .clear_exit_tp_by_client_oid(exit_tp_client_oid)
                 .await?;
-            error!(
-                "Failed add SL order: {}. TP was cancelled for symmetry.",
-                sl_err
-            );
+            error!("Failed add SL order. TP was cancelled for symmetry.");
         }
-        (Err(tp_err), Err(sl_err)) => {
-            error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
+
+        (false, true) => {
+            // SL успешен, TP нет - отменяем SL
+            if let Ok(Some(sl)) = sl_res {
+                let mut query_params = Map::new();
+                query_params.insert("clientOid", sl.client_oid.as_str());
+                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
+                    query_params,
+                )?)
+                .await?;
+            }
+            bot_repo
+                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
+                .await?;
+            error!("Failed add TP order. SL was cancelled for symmetry.");
+        }
+
+        (false, false) => {
+            // Оба провалились
+            error!("Failed add both stop orders");
             bot_repo
                 .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
             bot_repo
                 .clear_exit_tp_by_client_oid(exit_tp_client_oid)
                 .await?;
-            bot_repo.clear_entry_client_oid(client_oid).await?;
         }
     }
+
     Ok(())
 }
 
@@ -425,7 +381,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
 ) -> Result<()> {
     bot_repo.clear_exit_tp_by_client_oid(client_oid).await?;
 
-    if let Some(exit_sl_client_oid) = &bot.exit_sl_client_oid {
+    if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid.as_ref() {
         bot_repo
             .clear_exit_sl_by_client_oid(exit_sl_client_oid)
             .await?;
@@ -459,7 +415,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
             bot_repo
                 .update_balance_and_clear_symbol_by_exit_tp(
                     client_oid,
-                    &format!("{:.4}", new_balance),
+                    &new_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
             make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
@@ -468,7 +424,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
             bot_repo
                 .update_balance_and_clear_symbol_by_exit_tp(
                     client_oid,
-                    &format!("{:.4}", return_balance),
+                    &return_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
             make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
@@ -490,7 +446,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
 ) -> Result<()> {
     bot_repo.clear_exit_sl_by_client_oid(client_oid).await?;
 
-    if let Some(exit_tp_client_oid) = &bot.exit_tp_client_oid {
+    if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid.as_ref() {
         bot_repo
             .clear_exit_tp_by_client_oid(exit_tp_client_oid)
             .await?;
@@ -530,7 +486,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             bot_repo
                 .update_balance_and_clear_symbol_by_exit_sl(
                     client_oid,
-                    &format!("{:.4}", return_balance),
+                    &return_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
             make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
@@ -549,7 +505,7 @@ pub async fn trade_order_event(
     message_repo: &impl MessageCommand,
     order: &OrderData,
 ) -> Result<()> {
-    let client_oid = match &order.client_oid {
+    let client_oid = match order.client_oid.as_ref() {
         Some(client_oid) => client_oid,
         None => anyhow::bail!("client_oid in order is none: {}", order),
     };
@@ -559,12 +515,14 @@ pub async fn trade_order_event(
         None => anyhow::bail!("Bot is None by:{}", client_oid),
     };
 
-    match client_oid.as_str() {
-        s if Some(s.to_string()) == bot.entry_client_oid => {
+    match bot.get_order_type(client_oid) {
+        Some(BotOrderType::Entry) => {
+            // Phase 1
             process_bot_by_entry_client_oid(bot_repo, order_repo, symbol_repo, client_oid, order)
                 .await?;
         }
-        s if Some(s.to_string()) == bot.exit_tp_client_oid => {
+        Some(BotOrderType::TakeProfit) => {
+            // Phase 2
             process_bot_by_exit_tp_client_oid(
                 bot_repo,
                 order_repo,
@@ -576,7 +534,8 @@ pub async fn trade_order_event(
             )
             .await?;
         }
-        s if Some(s.to_string()) == bot.exit_sl_client_oid => {
+        Some(BotOrderType::StopLoss) => {
+            // Phase 2
             process_bot_by_exit_sl_client_oid(
                 bot_repo,
                 order_repo,
@@ -588,7 +547,8 @@ pub async fn trade_order_event(
             )
             .await?;
         }
-        _ => anyhow::bail!("don't find client_oid in:{}", order),
+        None => anyhow::bail!("Client OID {} not found in bot", client_oid),
     }
+
     Ok(())
 }

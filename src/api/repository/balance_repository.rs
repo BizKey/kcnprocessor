@@ -14,7 +14,7 @@ impl BalanceRepository {
     }
 
     pub async fn save_balance_event(&self, balance: BalanceData) -> Result<()> {
-        let relation_context: &BalanceRelationContext = match &balance.relation_context {
+        let relation_context = match balance.relation_context.as_ref() {
             Some(ctx) => ctx,
             None => &BalanceRelationContext {
                 symbol: None,

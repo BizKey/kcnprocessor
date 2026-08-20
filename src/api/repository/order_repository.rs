@@ -13,7 +13,7 @@ impl OrderRepository {
         Self { pool }
     }
 
-    pub async fn save_order_event(&self, order: OrderData) -> Result<()> {
+    pub async fn save_order_event(&self, order: &OrderData) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO orderevent (
@@ -30,10 +30,10 @@ impl OrderRepository {
         )
         .bind(EXCHANGE)
         .bind(&order.status)
-        .bind(&order.type_.as_str())
+        .bind(order.type_.as_str())
         .bind(&order.symbol)
-        .bind(&order.side.as_str())
-        .bind(&order.order_type.as_str())
+        .bind(order.side.as_str())
+        .bind(order.order_type.as_str())
         .bind(&order.fee_type)
         .bind(&order.liquidity)
         .bind(&order.price)

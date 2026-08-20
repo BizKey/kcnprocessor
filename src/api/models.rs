@@ -5,10 +5,66 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BotOrderType {
+    Entry,
+    TakeProfit,
+    StopLoss,
+}
+
+impl Bot {
+    pub fn get_order_type(&self, client_oid: &str) -> Option<BotOrderType> {
+        if Some(client_oid) == self.entry_client_oid.as_deref() {
+            Some(BotOrderType::Entry)
+        } else if Some(client_oid) == self.exit_tp_client_oid.as_deref() {
+            Some(BotOrderType::TakeProfit)
+        } else if Some(client_oid) == self.exit_sl_client_oid.as_deref() {
+            Some(BotOrderType::StopLoss)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum OrderAmount {
     Size(String),
     Funds(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrderTopic {
+    Balance,
+    TradeOrders,
+    AdvancedOrders,
+    Position,
+    #[serde(other)]
+    Unknown,
+}
+
+impl OrderTopic {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderTopic::Balance => "/account/balance",
+            OrderTopic::TradeOrders => "/spotMarket/tradeOrdersV2",
+            OrderTopic::AdvancedOrders => "/spotMarket/advancedOrders",
+            OrderTopic::Position => "/margin/position",
+            OrderTopic::Unknown => "unknown",
+        }
+    }
+}
+
+impl From<&str> for OrderTopic {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "/account/balance" => OrderTopic::Balance,
+            "/spotMarket/tradeOrdersV2" => OrderTopic::TradeOrders,
+            "/spotMarket/advancedOrders" => OrderTopic::AdvancedOrders,
+            "/margin/position" => OrderTopic::Position,
+            _ => OrderTopic::Unknown,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -312,16 +368,31 @@ pub struct OrderData {
 impl OrderData {
     #[inline]
     pub fn filled_size_decimal(&self) -> Result<Decimal> {
-        let filled_size = match &self.filled_size {
+        let filled_size = match self.filled_size.as_ref() {
             Some(filled_size) => filled_size,
             None => {
-                anyhow::bail!("filled_size is None:{:?}", &self)
+                anyhow::bail!("filled_size is None:{:?}", self)
             }
         };
 
         Decimal::from_str(filled_size)
             .map_err(|e| anyhow::anyhow!(e))
             .with_context(|| format!("Fail parse decimal:{}", filled_size))
+    }
+
+    #[inline]
+    pub fn is_terminal(&self) -> bool {
+        matches!(self.type_, OrderEventType::Match | OrderEventType::Canceled)
+    }
+
+    #[inline]
+    pub fn is_remain_zero(&self) -> bool {
+        self.remain_size.as_deref() == Some("0") || self.remain_funds.as_deref() == Some("0")
+    }
+
+    #[inline]
+    pub fn should_process(&self) -> bool {
+        self.is_terminal() && self.is_remain_zero()
     }
 }
 impl fmt::Display for OrderData {
@@ -358,7 +429,7 @@ impl fmt::Display for OrderData {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct MessageData {
-    pub topic: String,
+    pub topic: OrderTopic,
     #[serde(rename = "userId")]
     pub user_id: String,
     #[serde(rename = "channelType")]
@@ -377,15 +448,10 @@ pub struct ApiV1MarketOrderbookLevel1ResData {
     pub time: f64,
     pub sequence: String,
     pub price: String,
-    pub size: String,
     #[serde(rename = "bestBid")]
     pub best_bid: String,
-    #[serde(rename = "bestBidSize")]
-    pub best_bid_size: String,
     #[serde(rename = "bestAsk")]
     pub best_ask: String,
-    #[serde(rename = "bestAskSize")]
-    pub best_ask_size: String,
 }
 
 impl ApiV1MarketOrderbookLevel1ResData {
@@ -396,34 +462,16 @@ impl ApiV1MarketOrderbookLevel1ResData {
             .with_context(|| format!("Fail parse decimal:{}", self.price))
     }
     #[inline]
-    pub fn size_decimal(&self) -> Result<Decimal> {
-        Decimal::from_str(&self.size)
-            .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.size))
-    }
-    #[inline]
     pub fn best_bid_decimal(&self) -> Result<Decimal> {
         Decimal::from_str(&self.best_bid)
             .map_err(|e| anyhow::anyhow!(e))
             .with_context(|| format!("Fail parse decimal:{}", self.best_bid))
     }
     #[inline]
-    pub fn best_bid_size_decimal(&self) -> Result<Decimal> {
-        Decimal::from_str(&self.best_bid_size)
-            .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_bid_size))
-    }
-    #[inline]
     pub fn best_ask_decimal(&self) -> Result<Decimal> {
         Decimal::from_str(&self.best_ask)
             .map_err(|e| anyhow::anyhow!(e))
             .with_context(|| format!("Fail parse decimal:{}", self.best_ask))
-    }
-    #[inline]
-    pub fn best_ask_size_decimal(&self) -> Result<Decimal> {
-        Decimal::from_str(&self.best_ask_size)
-            .map_err(|e| anyhow::anyhow!(e))
-            .with_context(|| format!("Fail parse decimal:{}", self.best_ask_size))
     }
 }
 
@@ -498,10 +546,10 @@ impl Symbol {
     }
     #[inline]
     pub fn min_funds_decimal(&self) -> Result<Decimal> {
-        let min_funds = match &self.min_funds {
+        let min_funds = match self.min_funds.as_ref() {
             Some(min_funds) => min_funds,
             None => {
-                anyhow::bail!("min_funds is None for symbol {:?}", &self)
+                anyhow::bail!("min_funds is None for symbol {:?}", self)
             }
         };
 
@@ -583,14 +631,8 @@ pub struct ApiV3HfMarginStopOrdersResDataItem {
 
 #[derive(Debug, Deserialize)]
 pub struct ApiV3HfMarginStopOrdersResData {
-    #[serde(rename = "currentPage")]
-    pub current_page: i32,
-    #[serde(rename = "pageSize")]
-    pub page_size: i32,
     #[serde(rename = "totalNum")]
     pub total_num: i32,
-    #[serde(rename = "totalPage")]
-    pub total_page: i32,
     pub items: Vec<ApiV3HfMarginStopOrdersResDataItem>,
 }
 #[derive(Debug, Deserialize)]
