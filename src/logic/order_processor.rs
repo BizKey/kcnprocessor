@@ -57,13 +57,15 @@ pub async fn process_bot_by_entry_client_oid(
         )
         .await?;
 
+    let match_price = new_balance / filled_size;
+
     match order.side {
         OrderSide::Buy => {
             process_buy_entry(
                 bot_repo,
                 client_oid,
                 order,
-                new_balance,
+                match_price,
                 filled_size,
                 price_increment,
             )
@@ -74,7 +76,7 @@ pub async fn process_bot_by_entry_client_oid(
                 bot_repo,
                 client_oid,
                 order,
-                new_balance,
+                match_price,
                 filled_size,
                 price_increment,
                 quote_increment,
@@ -93,12 +95,10 @@ async fn process_buy_entry(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     client_oid: &str,
     order: &OrderData,
-    new_balance: Decimal,
+    match_price: Decimal,
     filled_size: Decimal,
     price_increment: Decimal,
 ) -> Result<()> {
-    let match_price = new_balance / filled_size;
-
     let tp_buy = tp_buy_percent()?;
     let trigger_tp_price = match_price * tp_buy;
     let exit_tp_client_oid = Uuid::new_v4().to_string();
@@ -184,13 +184,11 @@ async fn process_sell_entry(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     client_oid: &str,
     order: &OrderData,
-    new_balance: Decimal,
+    match_price: Decimal,
     filled_size: Decimal,
     price_increment: Decimal,
     quote_increment: Decimal,
 ) -> Result<()> {
-    let match_price = new_balance / filled_size;
-
     let tp_sell = tp_sell_percent()?;
     let trigger_tp_price = match_price * tp_sell;
     let funds_tp = trigger_tp_price * filled_size;
