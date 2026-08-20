@@ -102,6 +102,7 @@ pub async fn process_kcn_msg(
             anyhow::bail!("Unknown WS message type {:?}", msg);
         }
     };
+    info!("data.topic:{:.?}", data);
 
     match data.topic {
         OrderTopic::Balance => {
