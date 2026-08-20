@@ -1,4 +1,6 @@
-use crate::api::models::{Bot, BotOrderType, OrderData, OrderSide, OrderType, StopType};
+use crate::api::models::{
+    Bot, BotOrderType, MakeStopOrderResData, OrderData, OrderSide, OrderType, StopType,
+};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
 };
@@ -261,8 +263,8 @@ async fn process_sell_entry(
 /// Обработка результатов создания стоп-ордеров для buy
 async fn handle_stop_order_results_buy(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
-    tp_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
-    sl_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
+    tp_res: Result<Option<MakeStopOrderResData>>,
+    sl_res: Result<Option<MakeStopOrderResData>>,
     exit_tp_client_oid: &str,
     exit_sl_client_oid: &str,
     client_oid: &str,
@@ -341,8 +343,8 @@ async fn handle_stop_order_results_buy(
 /// Обработка результатов создания стоп-ордеров для sell
 async fn handle_stop_order_results_sell(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
-    tp_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
-    sl_res: Result<Option<crate::api::models::MakeStopOrderResData>>,
+    tp_res: Result<Option<MakeStopOrderResData>>,
+    sl_res: Result<Option<MakeStopOrderResData>>,
     exit_tp_client_oid: &str,
     exit_sl_client_oid: &str,
     client_oid: &str,
