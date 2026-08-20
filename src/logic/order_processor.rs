@@ -89,7 +89,6 @@ pub async fn process_bot_by_entry_client_oid(
         OrderSide::Unknown => {}
     }
 
-    bot_repo.clear_entry_client_oid(client_oid).await?;
     Ok(())
 }
 

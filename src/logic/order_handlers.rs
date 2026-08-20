@@ -119,7 +119,7 @@ pub async fn make_random_trade(
                     .await?
                 {
                     Some(token_price) => token_price,
-                    None => anyhow::bail!("No price data"),
+                    None => anyhow::bail!("No price data:{}", tradeable_symbol),
                 };
 
             let base_increment = symbol_info.base_increment_decimal()?;
