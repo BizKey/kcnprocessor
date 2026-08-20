@@ -1,4 +1,4 @@
-use crate::api::models::{Bot, OrderData, OrderSide, OrderType, StopType};
+use crate::api::models::{Bot, BotOrderType, OrderData, OrderSide, OrderType, StopType};
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
 };
@@ -549,7 +549,7 @@ pub async fn trade_order_event(
     message_repo: &impl MessageCommand,
     order: &OrderData,
 ) -> Result<()> {
-    let client_oid = match &order.client_oid {
+    let client_oid = match order.client_oid.as_ref() {
         Some(client_oid) => client_oid,
         None => anyhow::bail!("client_oid in order is none: {}", order),
     };
@@ -559,12 +559,12 @@ pub async fn trade_order_event(
         None => anyhow::bail!("Bot is None by:{}", client_oid),
     };
 
-    match client_oid.as_str() {
-        s if Some(s.to_string()) == bot.entry_client_oid => {
+    match bot.get_order_type(client_oid) {
+        Some(BotOrderType::Entry) => {
             process_bot_by_entry_client_oid(bot_repo, order_repo, symbol_repo, client_oid, order)
                 .await?;
         }
-        s if Some(s.to_string()) == bot.exit_tp_client_oid => {
+        Some(BotOrderType::TakeProfit) => {
             process_bot_by_exit_tp_client_oid(
                 bot_repo,
                 order_repo,
@@ -576,7 +576,7 @@ pub async fn trade_order_event(
             )
             .await?;
         }
-        s if Some(s.to_string()) == bot.exit_sl_client_oid => {
+        Some(BotOrderType::StopLoss) => {
             process_bot_by_exit_sl_client_oid(
                 bot_repo,
                 order_repo,
@@ -588,7 +588,8 @@ pub async fn trade_order_event(
             )
             .await?;
         }
-        _ => anyhow::bail!("don't find client_oid in:{}", order),
+        None => anyhow::bail!("Client OID {} not found in bot", client_oid),
     }
+
     Ok(())
 }

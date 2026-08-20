@@ -5,6 +5,27 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BotOrderType {
+    Entry,
+    TakeProfit,
+    StopLoss,
+}
+
+impl Bot {
+    pub fn get_order_type(&self, client_oid: &str) -> Option<BotOrderType> {
+        if Some(client_oid.to_string()) == self.entry_client_oid {
+            Some(BotOrderType::Entry)
+        } else if Some(client_oid.to_string()) == self.exit_tp_client_oid {
+            Some(BotOrderType::TakeProfit)
+        } else if Some(client_oid.to_string()) == self.exit_sl_client_oid {
+            Some(BotOrderType::StopLoss)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum OrderAmount {
     Size(String),
