@@ -220,7 +220,12 @@ async fn process_sell_entry(
     info!("Stop profit order:{}", msg_tp_order);
 
     bot_repo
-        .update_exit_tp_order_id_by_client_oid(client_oid, &exit_tp_client_oid)
+        .update_exit_tp_client_oid_by_entry_client_oid(
+            client_oid,
+            &order.symbol,
+            &exit_tp_client_oid,
+            &tp_stop_price,
+        )
         .await?;
 
     let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;
@@ -230,7 +235,7 @@ async fn process_sell_entry(
     let trigger_sl_price = match_price * sl_sell;
     let funds_sl = trigger_sl_price * filled_size;
     let exit_sl_client_oid = Uuid::new_v4().to_string();
-    let stop_price_sl = format_assert_decimal(trigger_sl_price, price_increment)?;
+    let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
     let funds_sl_str = format_assert_decimal(funds_sl, quote_increment)?;
 
     let msg_sl_order = serde_json::json!({
@@ -239,7 +244,7 @@ async fn process_sell_entry(
         "symbol": order.symbol,
         "type": OrderType::Market,
         "stop": StopType::Entry,
-        "stopPrice": stop_price_sl,
+        "stopPrice": sl_stop_price,
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
@@ -249,8 +254,18 @@ async fn process_sell_entry(
 
     info!("Stop loss order:{}", msg_sl_order);
 
+    bot_repo
+        .update_exit_sl_client_oid_by_entry_client_oid(
+            client_oid,
+            &order.symbol,
+            &exit_sl_client_oid,
+            &sl_stop_price,
+        )
+        .await?;
+
     let sl_body = BodySerializer::serialize(Some(msg_sl_order))?;
     let sl_fut = api_v3_hf_margin_stop_order_post(&sl_body);
+
     let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
 
     handle_stop_order_results_sell(
