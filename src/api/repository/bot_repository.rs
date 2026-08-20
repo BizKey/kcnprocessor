@@ -214,7 +214,7 @@ impl BotRepository {
         sqlx::query(
             r#"
             UPDATE bots
-            SET exit_sl_client_oid = $3, exit_sl_price = $4 updated_at = CURRENT_TIMESTAMP
+            SET exit_sl_client_oid = $3, exit_sl_price = $4, updated_at = CURRENT_TIMESTAMP
             WHERE entry_client_oid = $1 AND exchange = $2;
             "#,
         )
