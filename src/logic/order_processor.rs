@@ -373,7 +373,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
 ) -> Result<()> {
     bot_repo.clear_exit_tp_by_client_oid(client_oid).await?;
 
-    if let Some(exit_sl_client_oid) = &bot.exit_sl_client_oid {
+    if let Some(exit_sl_client_oid) = bot.exit_sl_client_oid.as_ref() {
         bot_repo
             .clear_exit_sl_by_client_oid(exit_sl_client_oid)
             .await?;
@@ -438,7 +438,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
 ) -> Result<()> {
     bot_repo.clear_exit_sl_by_client_oid(client_oid).await?;
 
-    if let Some(exit_tp_client_oid) = &bot.exit_tp_client_oid {
+    if let Some(exit_tp_client_oid) = bot.exit_tp_client_oid.as_ref() {
         bot_repo
             .clear_exit_tp_by_client_oid(exit_tp_client_oid)
             .await?;
