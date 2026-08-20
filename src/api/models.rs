@@ -57,7 +57,7 @@ impl OrderTopic {
 
 impl From<&str> for OrderTopic {
     fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+        match s {
             "/account/balance" => OrderTopic::Balance,
             "/spotMarket/tradeOrdersV2" => OrderTopic::TradeOrders,
             "/spotMarket/advancedOrders" => OrderTopic::AdvancedOrders,
