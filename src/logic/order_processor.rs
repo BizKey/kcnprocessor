@@ -141,6 +141,7 @@ async fn process_buy_entry(
     let trigger_sl_price = match_price * sl_buy;
     let exit_sl_client_oid = Uuid::new_v4().to_string();
     let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
+    let size_sl_str = format_assert_decimal(filled_size, base_increment)?;
 
     let msg_sl_order = serde_json::json!({
         "clientOid": exit_sl_client_oid,
@@ -152,7 +153,7 @@ async fn process_buy_entry(
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
-        "size": order.filled_size,
+        "size": size_sl_str,
         "timeInForce": "GTC",
     });
 
@@ -199,7 +200,7 @@ async fn process_sell_entry(
     let trigger_tp_price = match_price * tp_sell;
     let funds_tp = trigger_tp_price * filled_size;
     let exit_tp_client_oid = Uuid::new_v4().to_string();
-    let stop_price_tp = format_assert_decimal(trigger_tp_price, price_increment)?;
+    let tp_stop_price = format_assert_decimal(trigger_tp_price, price_increment)?;
     let funds_tp_str = format_assert_decimal(funds_tp, quote_increment)?;
 
     let msg_tp_order = serde_json::json!({
@@ -208,7 +209,7 @@ async fn process_sell_entry(
         "symbol": order.symbol,
         "type": OrderType::Market,
         "stop": StopType::Loss,
-        "stopPrice": stop_price_tp,
+        "stopPrice": tp_stop_price,
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
