@@ -180,7 +180,7 @@ pub async fn handle_trade_order_event(
     order: OrderData,
 ) -> Result<()> {
     info!("{}", order);
-    order_repo.save_order_event(order.clone()).await?;
+    order_repo.save_order_event(&order).await?;
 
     if order.should_process() {
         trade_order_event(bot_repo, order_repo, symbol_repo, message_repo, &order).await?;

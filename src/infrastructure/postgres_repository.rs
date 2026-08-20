@@ -233,7 +233,7 @@ impl OrderQuery for PostgresOrderRepository {
 
 #[async_trait]
 impl OrderCommand for PostgresOrderRepository {
-    async fn save_order_event(&self, order: OrderData) -> Result<()> {
+    async fn save_order_event(&self, order: &OrderData) -> Result<()> {
         self.order_repo.save_order_event(order).await
     }
 }
@@ -652,7 +652,7 @@ impl OrderQuery for PostgresRepository {
 
 #[async_trait]
 impl OrderCommand for PostgresRepository {
-    async fn save_order_event(&self, order: OrderData) -> Result<()> {
+    async fn save_order_event(&self, order: &OrderData) -> Result<()> {
         self.order.save_order_event(order).await
     }
 }

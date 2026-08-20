@@ -103,7 +103,7 @@ pub trait OrderQuery: Send + Sync {
 
 #[async_trait]
 pub trait OrderCommand: Send + Sync {
-    async fn save_order_event(&self, order: OrderData) -> Result<()>;
+    async fn save_order_event(&self, order: &OrderData) -> Result<()>;
 }
 
 #[async_trait]

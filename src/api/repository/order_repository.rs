@@ -13,7 +13,7 @@ impl OrderRepository {
         Self { pool }
     }
 
-    pub async fn save_order_event(&self, order: OrderData) -> Result<()> {
+    pub async fn save_order_event(&self, order: &OrderData) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO orderevent (
