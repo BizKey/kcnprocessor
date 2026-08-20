@@ -32,8 +32,6 @@ pub fn sl_sell_percent() -> Result<Decimal> {
     Decimal::from_str("1.05").map_err(|e| anyhow::anyhow!(e))
 }
 
-pub const RETRY_DELAY_BASE: u64 = 500;
-pub const BOT_INIT_DELAY: tokio::time::Duration = tokio::time::Duration::from_secs(5);
 pub const AUTO_CLEAN_DELAY: tokio::time::Duration = tokio::time::Duration::from_secs(5);
 
 #[cfg(test)]

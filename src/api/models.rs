@@ -46,30 +46,6 @@ pub enum OrderTopic {
     Unknown,
 }
 
-impl OrderTopic {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            OrderTopic::Balance => "/account/balance",
-            OrderTopic::TradeOrders => "/spotMarket/tradeOrdersV2",
-            OrderTopic::AdvancedOrders => "/spotMarket/advancedOrders",
-            OrderTopic::Position => "/margin/position",
-            OrderTopic::Unknown => "unknown",
-        }
-    }
-}
-
-impl From<&str> for OrderTopic {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "/account/balance" => OrderTopic::Balance,
-            "/spotMarket/tradeOrdersV2" => OrderTopic::TradeOrders,
-            "/spotMarket/advancedOrders" => OrderTopic::AdvancedOrders,
-            "/margin/position" => OrderTopic::Position,
-            _ => OrderTopic::Unknown,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OrderType {

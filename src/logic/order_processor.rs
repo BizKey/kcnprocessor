@@ -69,10 +69,10 @@ pub async fn process_bot_by_entry_client_oid(
     }
 
     if let Err(e) = bot_repo
-        .update_symbol_by_entry_client_oid(client_oid, &order.symbol)
+        .update_symbol_by_entry_client_oid(&order.symbol, client_oid)
         .await
     {
-        error!("Failed to update entry_price: {}", e);
+        error!("Failed to update symbol by client_oid: {}", e);
         return Ok(());
     }
 
@@ -299,21 +299,18 @@ async fn handle_stop_order_results(
     exit_tp_client_oid: &str,
     exit_sl_client_oid: &str,
 ) -> Result<()> {
-    match (&tp_res, &sl_res) {
-        (Ok(Some(tp)), Ok(Some(sl))) => {
-            bot_repo
-                .update_exit_tp_order_id_by_client_oid(&tp.order_id, &tp.client_oid)
-                .await?;
-            bot_repo
-                .update_exit_sl_order_id_by_client_oid(&sl.order_id, &sl.client_oid)
-                .await?;
-            info!(
-                "Both stop orders created: TP={}, SL={}",
-                exit_tp_client_oid, exit_sl_client_oid
-            );
-            return Ok(());
-        }
-        _ => {}
+    if let (Ok(Some(tp)), Ok(Some(sl))) = (&tp_res, &sl_res) {
+        bot_repo
+            .update_exit_tp_order_id_by_client_oid(&tp.order_id, &tp.client_oid)
+            .await?;
+        bot_repo
+            .update_exit_sl_order_id_by_client_oid(&sl.order_id, &sl.client_oid)
+            .await?;
+        info!(
+            "Both stop orders created: TP={}, SL={}",
+            exit_tp_client_oid, exit_sl_client_oid
+        );
+        return Ok(());
     }
 
     let tp_success = matches!(&tp_res, Ok(Some(_)));
