@@ -496,7 +496,7 @@ impl Symbol {
     }
     #[inline]
     pub fn min_funds_decimal(&self) -> Result<Decimal> {
-        let min_funds = match &self.min_funds {
+        let min_funds = match self.min_funds.as_ref() {
             Some(min_funds) => min_funds,
             None => {
                 anyhow::bail!("min_funds is None for symbol {:?}", self)
