@@ -133,7 +133,7 @@ impl BotRepository {
         sqlx::query(
             r#"
             UPDATE bots
-            SET entry_client_oid = $1
+            SET entry_client_oid = $1, updated_at = CURRENT_TIMESTAMP
             WHERE exchange = $2 AND id = $3;
             "#,
         )
@@ -176,6 +176,32 @@ impl BotRepository {
             format!(
                 "Fail update exit_tp_client_oid:{} by entry_client_oid:{} and exchange:{}",
                 exit_tp_client_oid, entry_client_oid, EXCHANGE,
+            )
+        })?;
+        Ok(())
+    }
+
+    pub async fn update_entry_price_by_client_oid(
+        &self,
+        client_oid: &str,
+        entry_price: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+        UPDATE bots
+        SET entry_price = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE entry_client_oid = $2 AND exchange = $3;
+        "#,
+        )
+        .bind(entry_price)
+        .bind(client_oid)
+        .bind(EXCHANGE)
+        .execute(&self.pool)
+        .await
+        .with_context(|| {
+            format!(
+                "Fail update entry_price:{} by client_oid:{} exchange:{}",
+                entry_price, client_oid, EXCHANGE,
             )
         })?;
         Ok(())

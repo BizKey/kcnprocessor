@@ -58,6 +58,15 @@ pub async fn process_bot_by_entry_client_oid(
         .await?;
 
     let match_price = new_balance / filled_size;
+    let match_price_str = format_assert_decimal(match_price, price_increment)?;
+
+    if let Err(e) = bot_repo
+        .update_entry_price_by_client_oid(client_oid, &match_price_str)
+        .await
+    {
+        error!("Failed to update entry_price: {}", e);
+        return Ok(());
+    }
 
     match order.side {
         OrderSide::Buy => {

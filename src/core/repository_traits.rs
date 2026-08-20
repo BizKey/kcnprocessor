@@ -26,6 +26,12 @@ pub trait BotEntryUpdate: Send + Sync {
         entry_client_oid: &str,
         balance: &str,
     ) -> Result<()>;
+
+    async fn update_entry_price_by_client_oid(
+        &self,
+        entry_client_oid: &str,
+        entry_price: &str,
+    ) -> Result<()>;
 }
 
 #[async_trait]

@@ -81,6 +81,15 @@ impl BotEntryUpdate for PostgresBotRepository {
             .update_balance_by_entry_client_oid(entry_client_oid, balance)
             .await
     }
+    async fn update_entry_price_by_client_oid(
+        &self,
+        client_oid: &str,
+        entry_price: &str,
+    ) -> Result<()> {
+        self.bot_repo
+            .update_entry_price_by_client_oid(client_oid, entry_price)
+            .await
+    }
 }
 
 #[async_trait]
@@ -517,6 +526,15 @@ impl BotEntryUpdate for PostgresRepository {
     ) -> Result<()> {
         self.bot
             .update_balance_by_entry_client_oid(entry_client_oid, balance)
+            .await
+    }
+    async fn update_entry_price_by_client_oid(
+        &self,
+        client_oid: &str,
+        entry_price: &str,
+    ) -> Result<()> {
+        self.bot
+            .update_entry_price_by_client_oid(client_oid, entry_price)
             .await
     }
 }
