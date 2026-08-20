@@ -14,11 +14,11 @@ pub enum BotOrderType {
 
 impl Bot {
     pub fn get_order_type(&self, client_oid: &str) -> Option<BotOrderType> {
-        if Some(client_oid.to_string()) == self.entry_client_oid {
+        if Some(client_oid) == self.entry_client_oid.as_deref() {
             Some(BotOrderType::Entry)
-        } else if Some(client_oid.to_string()) == self.exit_tp_client_oid {
+        } else if Some(client_oid) == self.exit_tp_client_oid.as_deref() {
             Some(BotOrderType::TakeProfit)
-        } else if Some(client_oid.to_string()) == self.exit_sl_client_oid {
+        } else if Some(client_oid) == self.exit_sl_client_oid.as_deref() {
             Some(BotOrderType::StopLoss)
         } else {
             None

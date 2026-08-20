@@ -462,7 +462,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
             bot_repo
                 .update_balance_and_clear_symbol_by_exit_tp(
                     client_oid,
-                    &format!("{:.4}", new_balance),
+                    &new_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
             make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
@@ -471,7 +471,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
             bot_repo
                 .update_balance_and_clear_symbol_by_exit_tp(
                     client_oid,
-                    &format!("{:.4}", return_balance),
+                    &return_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
             make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
@@ -533,7 +533,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             bot_repo
                 .update_balance_and_clear_symbol_by_exit_sl(
                     client_oid,
-                    &format!("{:.4}", return_balance),
+                    &return_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
             make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
