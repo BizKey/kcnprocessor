@@ -95,40 +95,20 @@ async fn process_buy_entry(
     filled_size: Decimal,
     price_increment: Decimal,
 ) -> Result<()> {
-    let tp_buy = tp_buy_percent()?;
-    let sl_buy = sl_buy_percent()?;
-
     let match_price = new_balance / filled_size;
+
+    let tp_buy = tp_buy_percent()?;
     let trigger_tp_price = match_price * tp_buy;
-    let trigger_sl_price = match_price * sl_buy;
-
     let exit_tp_client_oid = Uuid::new_v4().to_string();
-    let exit_sl_client_oid = Uuid::new_v4().to_string();
-
     let stop_price_tp = format_assert_decimal(trigger_tp_price, price_increment)?;
 
     let msg_tp_order = serde_json::json!({
         "clientOid": exit_tp_client_oid,
-        "side": "sell",
+        "side": OrderSide::Sell,
         "symbol": order.symbol,
         "type": OrderType::Market,
         "stop": StopType::Entry,
         "stopPrice": stop_price_tp,
-        "isIsolated": false,
-        "autoBorrow": true,
-        "autoRepay": false,
-        "size": &order.filled_size,
-        "timeInForce": "GTC",
-    });
-    let stop_price_sl = format_assert_decimal(trigger_sl_price, price_increment)?;
-
-    let msg_sl_order = serde_json::json!({
-        "clientOid": exit_sl_client_oid,
-        "side": "sell",
-        "symbol": order.symbol,
-        "type": OrderType::Market,
-        "stop": "loss",
-        "stopPrice": stop_price_sl,
         "isIsolated": false,
         "autoBorrow": true,
         "autoRepay": false,
@@ -137,7 +117,6 @@ async fn process_buy_entry(
     });
 
     info!("Stop profit order:{}", msg_tp_order);
-    info!("Stop loss order:{}", msg_sl_order);
 
     bot_repo
         .update_exit_tp_client_oid_by_entry_client_oid(
@@ -146,6 +125,31 @@ async fn process_buy_entry(
             &exit_tp_client_oid,
         )
         .await?;
+
+    let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;
+    let tp_fut = api_v3_hf_margin_stop_order_post(&tp_body);
+
+    let sl_buy = sl_buy_percent()?;
+    let trigger_sl_price = match_price * sl_buy;
+    let exit_sl_client_oid = Uuid::new_v4().to_string();
+    let stop_price_sl = format_assert_decimal(trigger_sl_price, price_increment)?;
+
+    let msg_sl_order = serde_json::json!({
+        "clientOid": exit_sl_client_oid,
+        "side": OrderSide::Sell,
+        "symbol": order.symbol,
+        "type": OrderType::Market,
+        "stop": StopType::Loss,
+        "stopPrice": stop_price_sl,
+        "isIsolated": false,
+        "autoBorrow": true,
+        "autoRepay": false,
+        "size": order.filled_size,
+        "timeInForce": "GTC",
+    });
+
+    info!("Stop loss order:{}", msg_sl_order);
+
     bot_repo
         .update_exit_sl_client_oid_by_entry_client_oid(
             client_oid,
@@ -154,9 +158,7 @@ async fn process_buy_entry(
         )
         .await?;
 
-    let tp_body = BodySerializer::serialize(Some(msg_tp_order))?;
     let sl_body = BodySerializer::serialize(Some(msg_sl_order))?;
-    let tp_fut = api_v3_hf_margin_stop_order_post(&tp_body);
     let sl_fut = api_v3_hf_margin_stop_order_post(&sl_body);
 
     let (tp_res, sl_res) = tokio::join!(tp_fut, sl_fut);
@@ -564,10 +566,12 @@ pub async fn trade_order_event(
 
     match bot.get_order_type(client_oid) {
         Some(BotOrderType::Entry) => {
+            // Phase 1
             process_bot_by_entry_client_oid(bot_repo, order_repo, symbol_repo, client_oid, order)
                 .await?;
         }
         Some(BotOrderType::TakeProfit) => {
+            // Phase 2
             process_bot_by_exit_tp_client_oid(
                 bot_repo,
                 order_repo,
@@ -580,6 +584,7 @@ pub async fn trade_order_event(
             .await?;
         }
         Some(BotOrderType::StopLoss) => {
+            // Phase 2
             process_bot_by_exit_sl_client_oid(
                 bot_repo,
                 order_repo,
