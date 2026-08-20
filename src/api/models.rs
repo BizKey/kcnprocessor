@@ -57,6 +57,9 @@ impl OrderTopic {
 
 impl From<&str> for OrderTopic {
     fn from(s: &str) -> Self {
+        let lower = s.to_lowercase();
+        // Добавляем отладочный вывод
+        tracing::debug!("OrderTopic::from: original='{}', lower='{}'", s, lower);
         match s.to_lowercase().as_str() {
             "/account/balance" => OrderTopic::Balance,
             "/spotmarket/tradeordersv2" => OrderTopic::TradeOrders,
