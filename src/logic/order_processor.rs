@@ -371,49 +371,33 @@ async fn handle_stop_order_results_sell(
     client_oid: &str,
 ) -> Result<()> {
     match (&tp_res, &sl_res) {
-        (Ok(tp_resp), Ok(sl_resp)) => {
-            if let Some(response_data) = tp_resp {
-                bot_repo
-                    .update_exit_tp_order_id_by_client_oid(
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await?;
-            }
-            if let Some(response_data) = sl_resp {
-                bot_repo
-                    .update_exit_sl_order_id_by_client_oid(
-                        &response_data.order_id,
-                        &response_data.client_oid,
-                    )
-                    .await?;
-            }
+        (Ok(Some(tp)), Ok(Some(sl))) => {
+            bot_repo
+                .update_exit_tp_order_id_by_client_oid(&tp.order_id, &tp.client_oid)
+                .await?;
+            bot_repo
+                .update_exit_sl_order_id_by_client_oid(&sl.order_id, &sl.client_oid)
+                .await?;
             info!(
                 "Both stop orders created: TP={}, SL={}",
                 exit_tp_client_oid, exit_sl_client_oid
             );
+            return Ok(());
         }
-        (Err(tp_err), Ok(sl_resp)) => {
-            if let Some(response_data) = sl_resp {
+        _ => {}
+    }
+
+    let tp_success = matches!(&tp_res, Ok(Some(_)));
+    let sl_success = matches!(&sl_res, Ok(Some(_)));
+
+    match (tp_success, sl_success) {
+        (true, true) => unreachable!(),
+
+        (true, false) => {
+            // TP успешен, SL нет - отменяем TP
+            if let Ok(Some(tp)) = tp_res {
                 let mut query_params = Map::new();
-                query_params.insert("clientOid", response_data.client_oid.as_str());
-                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
-                    query_params,
-                )?)
-                .await?;
-            }
-            bot_repo
-                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
-                .await?;
-            error!(
-                "Failed add TP order: {}. SL was cancelled for symmetry.",
-                tp_err
-            );
-        }
-        (Ok(tp_resp), Err(sl_err)) => {
-            if let Some(response_data) = tp_resp {
-                let mut query_params = Map::new();
-                query_params.insert("clientOid", response_data.client_oid.as_str());
+                query_params.insert("clientOid", tp.client_oid.as_str());
                 api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
                     query_params,
                 )?)
@@ -422,13 +406,28 @@ async fn handle_stop_order_results_sell(
             bot_repo
                 .clear_exit_tp_by_client_oid(exit_tp_client_oid)
                 .await?;
-            error!(
-                "Failed add SL order: {}. TP was cancelled for symmetry.",
-                sl_err
-            );
+            error!("Failed add SL order. TP was cancelled for symmetry.");
         }
-        (Err(tp_err), Err(sl_err)) => {
-            error!("Failed add both stop orders: TP={}, SL={}", tp_err, sl_err);
+
+        (false, true) => {
+            // SL успешен, TP нет - отменяем SL
+            if let Ok(Some(sl)) = sl_res {
+                let mut query_params = Map::new();
+                query_params.insert("clientOid", sl.client_oid.as_str());
+                api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
+                    query_params,
+                )?)
+                .await?;
+            }
+            bot_repo
+                .clear_exit_sl_by_client_oid(exit_sl_client_oid)
+                .await?;
+            error!("Failed add TP order. SL was cancelled for symmetry.");
+        }
+
+        (false, false) => {
+            // Оба провалились
+            error!("Failed add both stop orders");
             bot_repo
                 .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
@@ -438,6 +437,7 @@ async fn handle_stop_order_results_sell(
             bot_repo.clear_entry_client_oid(client_oid).await?;
         }
     }
+
     Ok(())
 }
 
