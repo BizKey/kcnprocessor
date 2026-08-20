@@ -49,7 +49,10 @@ pub async fn process_bot_by_entry_client_oid(
     let new_balance = Decimal::from_str(&return_balance).map_err(|e| anyhow::anyhow!(e))?;
 
     bot_repo
-        .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
+        .update_balance_by_entry_client_oid(
+            client_oid,
+            &new_balance.trunc_with_scale(4).normalize().to_string(),
+        )
         .await?;
 
     match order.side {

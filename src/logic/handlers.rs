@@ -179,14 +179,12 @@ pub async fn handle_trade_order_event(
     message_repo: &impl MessageCommand,
     order: OrderData,
 ) -> Result<()> {
-    order_repo.save_order_event(order.clone()).await?;
     info!("{}", order);
+    order_repo.save_order_event(order.clone()).await?;
 
-    if (order.type_ == OrderEventType::Match || order.type_ == OrderEventType::Canceled)
-        && (order.remain_size == Some("0".to_string())
-            || order.remain_funds == Some("0".to_string()))
-    {
+    if order.should_process() {
         trade_order_event(bot_repo, order_repo, symbol_repo, message_repo, &order).await?;
     }
+
     Ok(())
 }

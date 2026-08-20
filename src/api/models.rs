@@ -368,7 +368,7 @@ pub struct OrderData {
 impl OrderData {
     #[inline]
     pub fn filled_size_decimal(&self) -> Result<Decimal> {
-        let filled_size = match &self.filled_size {
+        let filled_size = match self.filled_size.as_ref() {
             Some(filled_size) => filled_size,
             None => {
                 anyhow::bail!("filled_size is None:{:?}", self)
@@ -378,6 +378,21 @@ impl OrderData {
         Decimal::from_str(filled_size)
             .map_err(|e| anyhow::anyhow!(e))
             .with_context(|| format!("Fail parse decimal:{}", filled_size))
+    }
+
+    #[inline]
+    pub fn is_terminal(&self) -> bool {
+        matches!(self.type_, OrderEventType::Match | OrderEventType::Canceled)
+    }
+
+    #[inline]
+    pub fn is_remain_zero(&self) -> bool {
+        self.remain_size.as_deref() == Some("0") || self.remain_funds.as_deref() == Some("0")
+    }
+
+    #[inline]
+    pub fn should_process(&self) -> bool {
+        self.is_terminal() && self.is_remain_zero()
     }
 }
 impl fmt::Display for OrderData {
