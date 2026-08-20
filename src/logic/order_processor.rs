@@ -187,7 +187,6 @@ async fn process_buy_entry(
         sl_res,
         &exit_tp_client_oid,
         &exit_sl_client_oid,
-        client_oid,
     )
     .await?;
 
@@ -282,7 +281,6 @@ async fn process_sell_entry(
         sl_res,
         &exit_tp_client_oid,
         &exit_sl_client_oid,
-        client_oid,
     )
     .await?;
 
@@ -296,7 +294,6 @@ async fn handle_stop_order_results(
     sl_res: Result<Option<MakeStopOrderResData>>,
     exit_tp_client_oid: &str,
     exit_sl_client_oid: &str,
-    client_oid: &str,
 ) -> Result<()> {
     match (&tp_res, &sl_res) {
         (Ok(Some(tp)), Ok(Some(sl))) => {
@@ -362,7 +359,6 @@ async fn handle_stop_order_results(
             bot_repo
                 .clear_exit_tp_by_client_oid(exit_tp_client_oid)
                 .await?;
-            bot_repo.clear_entry_client_oid(client_oid).await?;
         }
     }
 
