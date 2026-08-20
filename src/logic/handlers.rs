@@ -1,5 +1,5 @@
 use crate::api::models::{
-    AdvancedOrders, BalanceData, KuCoinMessage, OrderData, OrderEventType, PositionData,
+    AdvancedOrders, BalanceData, KuCoinMessage, OrderData, OrderEventType, OrderTopic, PositionData,
 };
 use crate::core::repository_traits::{
     BalanceCommand, BotEntryUpdate, BotManagement, BotQuery, BotRepositoryFull, BotSlUpdate,
@@ -103,25 +103,25 @@ pub async fn process_kcn_msg(
         }
     };
 
-    match data.topic.as_str() {
-        "/account/balance" => {
+    match data.topic {
+        OrderTopic::Balance => {
             let balance: BalanceData = serde_json::from_value(data.data)?;
             balance_repo.save_balance_event(balance).await?;
         }
-        "/spotMarket/tradeOrdersV2" => {
+        OrderTopic::TradeOrders => {
             let order: OrderData = serde_json::from_value(data.data)?;
             handle_trade_order_event(bot_repo, order_repo, symbol_repo, message_repo, order)
                 .await?;
         }
-        "/spotMarket/advancedOrders" => {
+        OrderTopic::AdvancedOrders => {
             let order: AdvancedOrders = serde_json::from_value(data.data)?;
             handle_advanced_orders(order, bot_repo, message_repo).await?;
         }
-        "/margin/position" => {
+        OrderTopic::Position => {
             let position: PositionData = serde_json::from_value(data.data)?;
             handle_position_event(position, position_repo, symbol_repo).await?;
         }
-        _ => anyhow::bail!("Unknown topic: {}", data.topic),
+        OrderTopic::Unknown => anyhow::bail!("Unknown topic: {:.?}", data.topic),
     }
     Ok(())
 }
