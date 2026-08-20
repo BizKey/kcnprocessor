@@ -75,7 +75,7 @@ pub async fn handle_advanced_orders(
     }
     error!("Got error on stop order : {}", order);
 
-    let order_id_ref = &order.order_id;
+    let order_id_ref = order.order_id.as_ref();
     let new_exit_client_oid = Uuid::new_v4().to_string();
 
     match order.stop {
@@ -115,6 +115,7 @@ pub async fn handle_advanced_orders(
                 Some(funds) => funds,
                 None => anyhow::bail!("Fail parse funds"),
             };
+
             make_hf_margin_order(
                 message_repo,
                 &new_exit_client_oid,
@@ -132,6 +133,7 @@ pub async fn handle_advanced_orders(
                 Some(size) => size,
                 None => anyhow::bail!("Fail parse size"),
             };
+
             make_hf_margin_order(
                 message_repo,
                 &new_exit_client_oid,
@@ -152,7 +154,7 @@ pub async fn handle_advanced_orders(
 
     match order_result {
         Ok(_) => {
-            info!("Order re-placed: {} {}", order_id_ref, new_exit_client_oid,);
+            info!("Order re-placed: {} {}", order_id_ref, new_exit_client_oid);
         }
         Err(e) => {
             anyhow::bail!(
