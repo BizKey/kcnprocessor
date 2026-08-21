@@ -333,6 +333,7 @@ async fn handle_stop_order_results(
                 .clear_exit_tp_by_client_oid(exit_tp_client_oid)
                 .await?;
             error!("Failed add SL order. TP was cancelled for symmetry.");
+            anyhow::bail!("Failed add SL order. TP was cancelled for symmetry.");
         }
 
         (false, true) => {
@@ -349,6 +350,7 @@ async fn handle_stop_order_results(
                 .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
             error!("Failed add TP order. SL was cancelled for symmetry.");
+            anyhow::bail!("Failed add TP order. SL was cancelled for symmetry.");
         }
 
         (false, false) => {
