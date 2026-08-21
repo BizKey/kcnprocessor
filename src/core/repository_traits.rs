@@ -183,80 +183,11 @@ pub trait MessageCommand: Send + Sync {
 pub trait BotRepositoryFull:
     BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement
 {
-    // Пустой трейт для композиции
 }
 
 impl<T> BotRepositoryFull for T where
     T: BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement
 {
-}
-
-#[async_trait]
-pub trait WebSocketRepositories:
-    BotRepositoryFull
-    + OrderQuery
-    + OrderCommand
-    + BalanceCommand
-    + PositionCommand
-    + SymbolQuery
-    + ErrorCommand
-    + EventCommand
-    + MessageCommand
-    + Send
-    + Sync
-    + Clone
-    + 'static
-{
-}
-
-impl<T> WebSocketRepositories for T where
-    T: BotRepositoryFull
-        + OrderQuery
-        + OrderCommand
-        + BalanceCommand
-        + PositionCommand
-        + SymbolQuery
-        + ErrorCommand
-        + EventCommand
-        + MessageCommand
-        + Send
-        + Sync
-        + Clone
-        + 'static
-{
-}
-
-#[async_trait]
-pub trait OrderRepositoryTrait: Send + Sync {
-    async fn save_order_event(&self, order: OrderData) -> Result<()>;
-    async fn get_total_match_value_by_client_oid(&self, client_oid: &str)
-    -> Result<Option<String>>;
-}
-
-#[async_trait]
-pub trait BalanceRepositoryTrait: Send + Sync {
-    async fn save_balance_event(&self, balance: BalanceData) -> Result<()>;
-}
-
-#[async_trait]
-pub trait PositionRepositoryTrait: Send + Sync {
-    async fn upsert_position_ratio(
-        &self,
-        debt_ratio: f64,
-        total_asset: f64,
-        margin_coefficient_total_asset: &str,
-        total_debt: &str,
-    ) -> Result<()>;
-
-    async fn upsert_position_debt(&self, debt_symbol: &str, debt_value: &str) -> Result<()>;
-
-    async fn upsert_position_asset(
-        &self,
-        asset_symbol: &str,
-        asset_total: &str,
-        asset_available: &str,
-        asset_hold: &str,
-    ) -> Result<()>;
 }
 
 #[async_trait]
