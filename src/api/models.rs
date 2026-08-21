@@ -89,6 +89,7 @@ impl fmt::Display for OrderType {
 pub enum OrderEventType {
     Match,
     Canceled,
+    Received,
     Open,
     Filled,
     Partial,
@@ -101,6 +102,7 @@ impl OrderEventType {
         match self {
             OrderEventType::Match => "match",
             OrderEventType::Canceled => "canceled",
+            OrderEventType::Received => "received",
             OrderEventType::Open => "open",
             OrderEventType::Filled => "filled",
             OrderEventType::Partial => "partial",
@@ -114,6 +116,7 @@ impl From<&str> for OrderEventType {
         match s.to_lowercase().as_str() {
             "match" => OrderEventType::Match,
             "canceled" => OrderEventType::Canceled,
+            "received" => OrderEventType::Received,
             "open" => OrderEventType::Open,
             "filled" => OrderEventType::Filled,
             "partial" => OrderEventType::Partial,
