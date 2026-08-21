@@ -196,6 +196,8 @@ async fn process_buy_entry(
     )
     .await?;
 
+    // run process_bot_by_entry_client_oid
+
     Ok(())
 }
 
@@ -287,6 +289,8 @@ async fn process_sell_entry(
         &exit_sl_client_oid,
     )
     .await?;
+
+    // run process_bot_by_entry_client_oid
 
     Ok(())
 }
