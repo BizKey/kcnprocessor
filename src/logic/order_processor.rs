@@ -4,7 +4,8 @@ use crate::api::models::{
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
 };
-use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::api::utils::query_builder::QueryBuilder;
+use crate::api::utils::serializer::BodySerializer;
 use crate::core::repository_traits::{
     BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand,
     OrderCommand, OrderQuery, SymbolQuery,

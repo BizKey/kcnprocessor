@@ -6,7 +6,8 @@ use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
     api_v3_margin_accounts_get, api_v3_margin_repay_post,
 };
-use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::api::utils::query_builder::QueryBuilder;
+use crate::api::utils::serializer::BodySerializer;
 use crate::core::repository_traits::{MessageCommand, SymbolQuery};
 use crate::logic::order_handlers::make_hf_margin_order;
 use crate::logic::utils::{AUTO_CLEAN_DELAY, format_assert_decimal};

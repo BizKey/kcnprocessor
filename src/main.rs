@@ -4,12 +4,14 @@ mod core;
 mod infrastructure;
 mod logic;
 
-use crate::api::utils::get_env;
+use crate::api::utils::tools::get_env;
 use crate::core::repository_traits::BotManagement;
 use crate::infrastructure::postgres_repository::PostgresRepository;
 use crate::infrastructure::tracing_layer::DbErrorLayer;
 use crate::infrastructure::websocket::run_websocket_loop;
-use crate::logic::{cancel_all_stop_orders, clean_account, create_init_orders};
+use crate::logic::account_handlers::clean_account;
+use crate::logic::order_handlers::create_init_orders;
+use crate::logic::stop_order_handlers::cancel_all_stop_orders;
 
 use anyhow::Result;
 use dotenvy::dotenv;

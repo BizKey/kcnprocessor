@@ -1,4 +1,4 @@
-use crate::api::utils::QueryBuilder;
+use crate::api::utils::query_builder::QueryBuilder;
 use anyhow::Result;
 use micromap::Map;
 

@@ -1,6 +1,7 @@
 use crate::api::models::{MakeOrderResData, OrderAmount, OrderSide, OrderType};
 use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
-use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::api::utils::query_builder::QueryBuilder;
+use crate::api::utils::serializer::BodySerializer;
 use crate::core::repository_traits::{
     BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand, SymbolQuery,
 };
