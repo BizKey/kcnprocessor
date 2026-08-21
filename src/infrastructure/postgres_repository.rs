@@ -1,8 +1,12 @@
 use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
-use crate::api::repository::{
-    BalanceRepository, BotRepository, ErrorRepository, EventRepository, MessageRepository,
-    OrderRepository, PositionRepository, SymbolRepository,
-};
+use crate::api::repository::balance_repository::BalanceRepository;
+use crate::api::repository::bot_repository::BotRepository;
+use crate::api::repository::error_repository::ErrorRepository;
+use crate::api::repository::event_repository::EventRepository;
+use crate::api::repository::message_repository::MessageRepository;
+use crate::api::repository::order_repository::OrderRepository;
+use crate::api::repository::position_repository::PositionRepository;
+use crate::api::repository::symbol_repository::SymbolRepository;
 use crate::core::repository_traits::{
     BalanceCommand, BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate,
     ErrorCommand, EventCommand, MessageCommand, OrderCommand, OrderQuery, PositionCommand,

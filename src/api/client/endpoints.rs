@@ -1,7 +1,7 @@
 use anyhow::Result;
 use reqwest::Method;
 
-use crate::api::auth::AuthCredentials;
+use crate::api::auth::credentials::AuthCredentials;
 use crate::api::client::http::HttpClient;
 use crate::api::utils::response::ResponseHandler;
 
