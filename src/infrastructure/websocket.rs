@@ -1,5 +1,5 @@
 use crate::api::requests::api_v1_bullet_private_post;
-use crate::constants::{PING_INTERVAL, RECONNECT_DELAY};
+use crate::constants::PING_INTERVAL;
 use crate::core::repository_traits::{
     BalanceRepositoryFull, BotRepositoryFull, EventRepositoryFull, MessageRepositoryFull,
     OrderRepositoryFull, PositionRepositoryFull, SymbolRepositoryFull,
@@ -10,7 +10,7 @@ use anyhow::Result;
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
-use tokio::time::{interval, sleep};
+use tokio::time::interval;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info};
 
@@ -158,7 +158,6 @@ where
             }
         }
 
-        error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
-        sleep(RECONNECT_DELAY).await;
+        error!("Reconnecting...");
     }
 }
