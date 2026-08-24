@@ -10,7 +10,7 @@ use crate::api::utils::query_builder::QueryBuilder;
 use crate::api::utils::serializer::BodySerializer;
 use crate::core::repository_traits::{MessageCommand, SymbolQuery};
 use crate::logic::order_handlers::make_hf_margin_order;
-use crate::logic::utils::{AUTO_CLEAN_DELAY, format_assert_decimal};
+use crate::logic::utils::{AUTO_CLEAN_DELAY, format_assert_decimal, generate_entry_id};
 use anyhow::Result;
 use micromap::Map;
 use rust_decimal::Decimal;
@@ -61,7 +61,7 @@ pub async fn transfer_in_account(
 ) -> Result<()> {
     let body_str = BodySerializer::serialize(Some(serde_json::json!({
         "currency": currency,
-        "clientOid": Uuid::new_v4().to_string(),
+        "clientOid": generate_entry_id(),
         "amount": amount,
         "type": type_,
         "fromAccountType": from_account_type,
@@ -233,7 +233,7 @@ async fn handle_liability(
 
         make_hf_margin_order(
             message_repo,
-            &Uuid::new_v4().to_string(),
+            &generate_entry_id(),
             OrderSide::Buy,
             trade_symbol,
             OrderAmount::Size(size.clone()),
@@ -272,7 +272,7 @@ async fn handle_available(
         let size = format_assert_decimal(available, base_increment)?;
         make_hf_margin_order(
             message_repo,
-            &Uuid::new_v4().to_string(),
+            &generate_entry_id(),
             OrderSide::Sell,
             trade_symbol,
             OrderAmount::Size(size.clone()),

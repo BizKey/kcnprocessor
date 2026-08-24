@@ -14,12 +14,12 @@ use crate::logic::order_handlers::make_random_trade;
 use crate::logic::utils::{
     format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
 };
+use crate::logic::utils::{generate_sl_id, generate_tp_id};
 use anyhow::Result;
 use micromap::Map;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use tracing::{error, info};
-use uuid::Uuid;
 
 /// Обработка entry ордера бота
 pub async fn process_bot_by_entry_client_oid(
@@ -122,7 +122,7 @@ async fn process_buy_entry(
 ) -> Result<()> {
     let tp_buy = tp_buy_percent()?;
     let trigger_tp_price = match_price * tp_buy;
-    let exit_tp_client_oid = Uuid::new_v4().to_string();
+    let exit_tp_client_oid = generate_tp_id(client_oid);
     let tp_stop_price = format_assert_decimal(trigger_tp_price, price_increment)?;
     let size_tp_str = format_assert_decimal(filled_size, base_increment)?;
 
@@ -155,7 +155,7 @@ async fn process_buy_entry(
 
     let sl_buy = sl_buy_percent()?;
     let trigger_sl_price = match_price * sl_buy;
-    let exit_sl_client_oid = Uuid::new_v4().to_string();
+    let exit_sl_client_oid = generate_sl_id(client_oid);
     let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
     let size_sl_str = format_assert_decimal(filled_size, base_increment)?;
 
@@ -215,7 +215,7 @@ async fn process_sell_entry(
     let tp_sell = tp_sell_percent()?;
     let trigger_tp_price = match_price * tp_sell;
     let funds_tp = trigger_tp_price * filled_size;
-    let exit_tp_client_oid = Uuid::new_v4().to_string();
+    let exit_tp_client_oid = generate_tp_id(client_oid);
     let tp_stop_price = format_assert_decimal(trigger_tp_price, price_increment)?;
     let funds_tp_str = format_assert_decimal(funds_tp, quote_increment)?;
 
@@ -249,7 +249,7 @@ async fn process_sell_entry(
     let sl_sell = sl_sell_percent()?;
     let trigger_sl_price = match_price * sl_sell;
     let funds_sl = trigger_sl_price * filled_size;
-    let exit_sl_client_oid = Uuid::new_v4().to_string();
+    let exit_sl_client_oid = generate_sl_id(client_oid);
     let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
     let funds_sl_str = format_assert_decimal(funds_sl, quote_increment)?;
 

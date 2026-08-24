@@ -5,7 +5,7 @@ use crate::api::utils::serializer::BodySerializer;
 use crate::core::repository_traits::{
     BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand, SymbolQuery,
 };
-use crate::logic::utils::{format_assert_decimal, get_next_side};
+use crate::logic::utils::{format_assert_decimal, generate_entry_id, get_next_side};
 use anyhow::{Context, Result};
 use micromap::Map;
 use rust_decimal::Decimal;
@@ -13,7 +13,6 @@ use serde_json;
 
 use tokio::time::sleep;
 use tracing::{error, info};
-use uuid::Uuid;
 
 /// Создание рыночного ордера с указанием суммы (funds)
 pub async fn make_hf_margin_order(
@@ -104,7 +103,7 @@ pub async fn make_random_trade(
         }
     };
 
-    let entry_client_oid = Uuid::new_v4().to_string();
+    let entry_client_oid = generate_entry_id();
 
     // update entry_client_oid exchange
     bot_repo

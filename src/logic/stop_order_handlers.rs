@@ -13,7 +13,7 @@ use crate::core::repository_traits::{
     BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand,
 };
 use crate::logic::order_handlers::make_hf_margin_order;
-use uuid::Uuid;
+use crate::logic::utils::generate_entry_id;
 
 /// Отмена всех стоп-ордеров
 pub async fn cancel_all_stop_orders() -> Result<()> {
@@ -76,7 +76,7 @@ pub async fn handle_advanced_orders(
     error!("Got error on stop order : {}", order);
 
     let order_id_ref = order.order_id.as_ref();
-    let new_exit_client_oid = Uuid::new_v4().to_string();
+    let new_exit_client_oid = generate_entry_id();
 
     match order.stop {
         StopType::Loss => {
