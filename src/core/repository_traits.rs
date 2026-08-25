@@ -163,7 +163,7 @@ pub trait EventCommand: Send + Sync {
 
 #[async_trait]
 pub trait MessageCommand: Send + Sync {
-    async fn save_order_message(
+    async fn save_send_orders(
         &self,
         args_symbol: Option<&str>,
         args_side: Option<&str>,

@@ -34,7 +34,7 @@ pub async fn make_hf_margin_order(
     };
 
     sendorders_repo
-        .save_order_message(
+        .save_send_orders(
             Some(symbol),
             Some(side.as_str()),
             size,

@@ -423,7 +423,7 @@ impl PostgresSendOrdersRepository {
 
 #[async_trait]
 impl MessageCommand for PostgresSendOrdersRepository {
-    async fn save_order_message(
+    async fn save_send_orders(
         &self,
         args_symbol: Option<&str>,
         args_side: Option<&str>,
@@ -438,7 +438,7 @@ impl MessageCommand for PostgresSendOrdersRepository {
         args_order_id: Option<&str>,
     ) -> Result<()> {
         self.sendorders_repo
-            .save_order_message(
+            .save_send_orders(
                 args_symbol,
                 args_side,
                 args_size,
@@ -767,7 +767,7 @@ impl EventCommand for PostgresRepository {
 
 #[async_trait]
 impl MessageCommand for PostgresRepository {
-    async fn save_order_message(
+    async fn save_send_orders(
         &self,
         args_symbol: Option<&str>,
         args_side: Option<&str>,
@@ -782,7 +782,7 @@ impl MessageCommand for PostgresRepository {
         args_order_id: Option<&str>,
     ) -> Result<()> {
         self.sendorders
-            .save_order_message(
+            .save_send_orders(
                 args_symbol,
                 args_side,
                 args_size,

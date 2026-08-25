@@ -12,7 +12,7 @@ impl SendOrdersRepository {
         Self { pool }
     }
 
-    pub async fn save_order_message(
+    pub async fn save_send_orders(
         &self,
         args_symbol: Option<&str>,
         args_side: Option<&str>,
