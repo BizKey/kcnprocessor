@@ -16,7 +16,6 @@ use micromap::Map;
 use rust_decimal::Decimal;
 use tokio::time::sleep;
 use tracing::info;
-use uuid::Uuid;
 
 /// Получение данных всех аккаунтов
 pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
