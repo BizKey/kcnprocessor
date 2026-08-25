@@ -1,8 +1,8 @@
 use crate::api::requests::api_v1_bullet_private_post;
 use crate::constants::PING_INTERVAL;
 use crate::core::repository_traits::{
-    BalanceRepositoryFull, BotRepositoryFull, EventRepositoryFull, MessageRepositoryFull,
-    OrderRepositoryFull, PositionRepositoryFull, SymbolRepositoryFull,
+    BalanceRepositoryFull, BotRepositoryFull, EventRepositoryFull, OrderRepositoryFull,
+    PositionRepositoryFull, SendOrdersRepositoryFull, SymbolRepositoryFull,
 };
 use crate::logic::handlers::spawn_process_kcn_msg;
 
@@ -21,7 +21,7 @@ pub async fn run_websocket_loop<B, O, S, Bal, P, E, M>(
     balance_repo: Bal,
     position_repo: P,
     event_repo: E,
-    message_repo: M,
+    sendorders_repo: M,
 ) -> Result<()>
 where
     B: BotRepositoryFull + Clone + Send + Sync + 'static,
@@ -30,7 +30,7 @@ where
     Bal: BalanceRepositoryFull + Clone + Send + Sync + 'static,
     P: PositionRepositoryFull + Clone + Send + Sync + 'static,
     E: EventRepositoryFull + Clone + Send + Sync + 'static,
-    M: MessageRepositoryFull + Clone + Send + Sync + 'static,
+    M: SendOrdersRepositoryFull + Clone + Send + Sync + 'static,
 {
     let (tx_in, rx_in) = mpsc::channel::<Bytes>(8192);
 
@@ -44,7 +44,7 @@ where
             balance_repo.clone(),
             position_repo.clone(),
             event_repo.clone(),
-            message_repo.clone(),
+            sendorders_repo.clone(),
         )
         .await;
     });

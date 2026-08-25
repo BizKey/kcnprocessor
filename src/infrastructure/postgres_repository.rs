@@ -3,9 +3,9 @@ use crate::api::repository::balance_repository::BalanceRepository;
 use crate::api::repository::bot_repository::BotRepository;
 use crate::api::repository::error_repository::ErrorRepository;
 use crate::api::repository::event_repository::EventRepository;
-use crate::api::repository::message_repository::MessageRepository;
 use crate::api::repository::order_repository::OrderRepository;
 use crate::api::repository::position_repository::PositionRepository;
+use crate::api::repository::sendorders_repository::SendOrdersRepository;
 use crate::api::repository::symbol_repository::SymbolRepository;
 use crate::core::repository_traits::{
     BalanceCommand, BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate,
@@ -409,20 +409,20 @@ impl EventCommand for PostgresEventRepository {
 // ============ MESSAGE ============
 
 #[derive(Clone)]
-pub struct PostgresMessageRepository {
-    message_repo: MessageRepository,
+pub struct PostgresSendOrdersRepository {
+    sendorders_repo: SendOrdersRepository,
 }
 
-impl PostgresMessageRepository {
+impl PostgresSendOrdersRepository {
     pub fn new(pool: PgPool) -> Self {
         Self {
-            message_repo: MessageRepository::new(pool),
+            sendorders_repo: SendOrdersRepository::new(pool),
         }
     }
 }
 
 #[async_trait]
-impl MessageCommand for PostgresMessageRepository {
+impl MessageCommand for PostgresSendOrdersRepository {
     async fn save_order_message(
         &self,
         args_symbol: Option<&str>,
@@ -437,7 +437,7 @@ impl MessageCommand for PostgresMessageRepository {
         args_client_oid: Option<&str>,
         args_order_id: Option<&str>,
     ) -> Result<()> {
-        self.message_repo
+        self.sendorders_repo
             .save_order_message(
                 args_symbol,
                 args_side,
@@ -466,7 +466,7 @@ pub struct PostgresRepository {
     pub symbol: PostgresSymbolRepository,
     pub error: PostgresErrorRepository,
     pub event: PostgresEventRepository,
-    pub message: PostgresMessageRepository,
+    pub sendorders: PostgresSendOrdersRepository,
 }
 
 impl PostgresRepository {
@@ -479,7 +479,7 @@ impl PostgresRepository {
             symbol: PostgresSymbolRepository::new(pool.clone()),
             error: PostgresErrorRepository::new(pool.clone()),
             event: PostgresEventRepository::new(pool.clone()),
-            message: PostgresMessageRepository::new(pool.clone()),
+            sendorders: PostgresSendOrdersRepository::new(pool.clone()),
         }
     }
 }
@@ -781,7 +781,7 @@ impl MessageCommand for PostgresRepository {
         args_client_oid: Option<&str>,
         args_order_id: Option<&str>,
     ) -> Result<()> {
-        self.message
+        self.sendorders
             .save_order_message(
                 args_symbol,
                 args_side,

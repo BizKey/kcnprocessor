@@ -81,7 +81,7 @@ pub async fn transfer_in_account(
 /// Автоматическая очистка аккаунта
 pub async fn auto_clean_account(
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
 ) -> Result<bool> {
     let mut passed = true;
 
@@ -120,7 +120,7 @@ pub async fn auto_clean_account(
         };
 
         passed = handle_non_usdt_account(
-            message_repo,
+            sendorders_repo,
             &account.currency,
             &trade_symbol,
             token_liability,
@@ -158,7 +158,7 @@ async fn handle_usdt_account(
 
 /// Обработка не-USDT аккаунта
 async fn handle_non_usdt_account(
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     liability: Decimal,
@@ -170,7 +170,7 @@ async fn handle_non_usdt_account(
 
     if liability > Decimal::ZERO {
         passed = handle_liability(
-            message_repo,
+            sendorders_repo,
             currency,
             trade_symbol,
             liability,
@@ -181,7 +181,7 @@ async fn handle_non_usdt_account(
         .await?;
     } else if available > Decimal::ZERO {
         passed = handle_available(
-            message_repo,
+            sendorders_repo,
             currency,
             trade_symbol,
             available,
@@ -196,7 +196,7 @@ async fn handle_non_usdt_account(
 
 /// Обработка задолженности
 async fn handle_liability(
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     liability: Decimal,
@@ -231,7 +231,7 @@ async fn handle_liability(
         )?;
 
         make_hf_margin_order(
-            message_repo,
+            sendorders_repo,
             &generate_entry_id(),
             OrderSide::Buy,
             trade_symbol,
@@ -248,7 +248,7 @@ async fn handle_liability(
 
 /// Обработка доступных средств
 async fn handle_available(
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     available: Decimal,
@@ -270,7 +270,7 @@ async fn handle_available(
     if available >= base_min_size && token_funds >= quote_min_size {
         let size = format_assert_decimal(available, base_increment)?;
         make_hf_margin_order(
-            message_repo,
+            sendorders_repo,
             &generate_entry_id(),
             OrderSide::Sell,
             trade_symbol,
@@ -292,10 +292,10 @@ async fn handle_available(
 /// Полная очистка аккаунта
 pub async fn clean_account(
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
 ) -> Result<()> {
     loop {
-        if auto_clean_account(symbol_repo, message_repo).await? {
+        if auto_clean_account(symbol_repo, sendorders_repo).await? {
             info!("auto_clean_account success");
             break;
         }

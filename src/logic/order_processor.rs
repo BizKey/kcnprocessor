@@ -378,7 +378,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     order_repo: &(impl OrderQuery + OrderCommand),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
@@ -392,6 +392,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
 
         let mut query_params = Map::new();
         query_params.insert("clientOid", exit_sl_client_oid.as_str());
+
         api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
             query_params,
         )?)
@@ -422,7 +423,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
                     &new_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
-            make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
+            make_random_trade(bot_repo, symbol_repo, sendorders_repo, new_balance, bot.id).await?;
         }
         OrderSide::Sell => {
             bot_repo
@@ -431,7 +432,14 @@ pub async fn process_bot_by_exit_tp_client_oid(
                     &return_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
-            make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
+            make_random_trade(
+                bot_repo,
+                symbol_repo,
+                sendorders_repo,
+                return_balance,
+                bot.id,
+            )
+            .await?;
         }
         OrderSide::Unknown => {}
     }
@@ -443,7 +451,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     order_repo: &(impl OrderQuery + OrderCommand),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
@@ -484,7 +492,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             bot_repo
                 .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
                 .await?;
-            make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
+            make_random_trade(bot_repo, symbol_repo, sendorders_repo, new_balance, bot.id).await?;
         }
         OrderSide::Sell => {
             bot_repo
@@ -493,7 +501,14 @@ pub async fn process_bot_by_exit_sl_client_oid(
                     &return_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
-            make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
+            make_random_trade(
+                bot_repo,
+                symbol_repo,
+                sendorders_repo,
+                return_balance,
+                bot.id,
+            )
+            .await?;
         }
         OrderSide::Unknown => {}
     }
@@ -506,7 +521,7 @@ pub async fn trade_order_event(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     order_repo: &(impl OrderQuery + OrderCommand),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     order: &OrderData,
 ) -> Result<()> {
     let client_oid = match order.client_oid.as_ref() {
@@ -531,7 +546,7 @@ pub async fn trade_order_event(
                 bot_repo,
                 order_repo,
                 symbol_repo,
-                message_repo,
+                sendorders_repo,
                 bot,
                 client_oid,
                 order,
@@ -544,7 +559,7 @@ pub async fn trade_order_event(
                 bot_repo,
                 order_repo,
                 symbol_repo,
-                message_repo,
+                sendorders_repo,
                 bot,
                 client_oid,
                 order,

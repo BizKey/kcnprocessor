@@ -16,7 +16,7 @@ use tracing::{error, info};
 
 /// Создание рыночного ордера с указанием суммы (funds)
 pub async fn make_hf_margin_order(
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     client_oid: &str,
     side: OrderSide,
     symbol: &str,
@@ -33,7 +33,7 @@ pub async fn make_hf_margin_order(
         OrderAmount::Funds(f) => (None, Some(f.as_str())),
     };
 
-    message_repo
+    sendorders_repo
         .save_order_message(
             Some(symbol),
             Some(side.as_str()),
@@ -83,7 +83,7 @@ pub async fn make_hf_margin_order(
 pub async fn make_random_trade(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     balance_funds: Decimal,
     trade_bot_id: i32,
 ) -> Result<()> {
@@ -130,7 +130,7 @@ pub async fn make_random_trade(
                 .with_context(|| format!("Fail parse:{} {}", token_size, base_increment))?;
 
             make_hf_margin_order(
-                message_repo,
+                sendorders_repo,
                 &entry_client_oid,
                 OrderSide::Sell,
                 &tradeable_symbol,
@@ -147,7 +147,7 @@ pub async fn make_random_trade(
                 .with_context(|| format!("Fail parse:{} {}", balance_funds, quote_increment))?;
 
             make_hf_margin_order(
-                message_repo,
+                sendorders_repo,
                 &entry_client_oid,
                 OrderSide::Buy,
                 &tradeable_symbol,
@@ -183,14 +183,14 @@ pub async fn make_random_trade(
 pub async fn create_init_orders(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
 ) -> Result<()> {
     for trade_bot in bot_repo.get_all().await?.iter() {
         sleep(crate::constants::INIT_ORDER_DELAY).await;
         if let Err(e) = make_random_trade(
             bot_repo,
             symbol_repo,
-            message_repo,
+            sendorders_repo,
             trade_bot.balance_decimal()?,
             trade_bot.id,
         )

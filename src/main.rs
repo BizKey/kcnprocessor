@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
     let position_repo = repo.position;
     let balance_repo = repo.balance;
     let event_repo = repo.event;
-    let message_repo = repo.message;
+    let sendorders_repo = repo.sendorders;
 
     // Очищаем ботов
     match bot_repo.clear_all_bots(&init_balance_per_bot).await {
@@ -79,13 +79,13 @@ async fn main() -> Result<()> {
     }
 
     // Очищаем аккаунт
-    if let Err(e) = clean_account(&symbol_repo, &message_repo).await {
+    if let Err(e) = clean_account(&symbol_repo, &sendorders_repo).await {
         error!("Failed to clean account: {:#}", e);
     }
 
     let bot_repo_clone = bot_repo.clone();
     let symbol_repo_clone = symbol_repo.clone();
-    let message_repo_clone = message_repo.clone();
+    let sendorders_repo_clone = sendorders_repo.clone();
 
     // Запускаем инициализацию в фоновом режиме
     tokio::spawn(async move {
@@ -94,7 +94,7 @@ async fn main() -> Result<()> {
         tokio::time::sleep(Duration::from_secs(30)).await;
 
         if let Err(e) =
-            create_init_orders(&bot_repo_clone, &symbol_repo_clone, &message_repo_clone).await
+            create_init_orders(&bot_repo_clone, &symbol_repo_clone, &sendorders_repo_clone).await
         {
             error!("Background initialization failed: {:#}", e);
         } else {
@@ -110,7 +110,7 @@ async fn main() -> Result<()> {
         balance_repo,
         position_repo,
         event_repo,
-        message_repo,
+        sendorders_repo,
     )
     .await
 }

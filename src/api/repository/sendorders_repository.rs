@@ -3,11 +3,11 @@ use anyhow::{Context, Result};
 use sqlx::PgPool;
 
 #[derive(Clone)]
-pub struct MessageRepository {
+pub struct SendOrdersRepository {
     pool: PgPool,
 }
 
-impl MessageRepository {
+impl SendOrdersRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
@@ -28,7 +28,7 @@ impl MessageRepository {
     ) -> Result<()> {
         sqlx::query(
             r#"
-            INSERT INTO msgsend (
+            INSERT INTO sendorders (
                 exchange, args_symbol, args_side, args_size, args_funds, 
                 args_price, args_time_in_force, args_type, args_auto_borrow, 
                 args_auto_repay, args_client_oid, args_order_id
@@ -52,7 +52,7 @@ impl MessageRepository {
         .await
         .with_context(|| {
             format!(
-                "Fail insert into msgsend args_client_oid:{:?} exchange:{}",
+                "Fail insert into sendorders args_client_oid:{:?} exchange:{}",
                 args_client_oid, EXCHANGE,
             )
         })?;

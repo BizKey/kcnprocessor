@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use reqwest::Response;
-use serde::de::DeserializeOwned;
 
 pub struct ResponseHandler;
 

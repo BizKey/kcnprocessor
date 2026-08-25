@@ -67,7 +67,7 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
 pub async fn handle_advanced_orders(
     order: AdvancedOrders,
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
 ) -> Result<()> {
     if order.error.is_none() {
         info!("{}", order);
@@ -117,7 +117,7 @@ pub async fn handle_advanced_orders(
             };
 
             make_hf_margin_order(
-                message_repo,
+                sendorders_repo,
                 &new_exit_client_oid,
                 order.side,
                 &order.symbol,
@@ -135,7 +135,7 @@ pub async fn handle_advanced_orders(
             };
 
             make_hf_margin_order(
-                message_repo,
+                sendorders_repo,
                 &new_exit_client_oid,
                 order.side,
                 &order.symbol,

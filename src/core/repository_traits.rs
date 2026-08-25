@@ -216,9 +216,9 @@ pub trait EventRepositoryFull: EventCommand {}
 impl<T> EventRepositoryFull for T where T: EventCommand {}
 
 #[async_trait]
-pub trait MessageRepositoryFull: MessageCommand {}
+pub trait SendOrdersRepositoryFull: MessageCommand {}
 
-impl<T> MessageRepositoryFull for T where T: MessageCommand {}
+impl<T> SendOrdersRepositoryFull for T where T: MessageCommand {}
 
 #[async_trait]
 pub trait ErrorRepositoryFull: ErrorCommand {}
