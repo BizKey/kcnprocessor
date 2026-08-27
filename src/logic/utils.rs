@@ -9,14 +9,6 @@ pub fn generate_entry_id() -> String {
     Uuid::new_v4().to_string()
 }
 
-pub fn generate_tp_id(entry_id: &str) -> String {
-    format!("{}-TP", entry_id)
-}
-
-pub fn generate_sl_id(entry_id: &str) -> String {
-    format!("{}-SL", entry_id)
-}
-
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String> {
     Ok(size
         .trunc_with_scale(increment.scale())
