@@ -1,4 +1,4 @@
-use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
+use crate::api::models::{BalanceData, Bot, Currencies, OrderData, StopOrderData, Symbol};
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -165,17 +165,17 @@ pub trait EventCommand: Send + Sync {
 pub trait MessageCommand: Send + Sync {
     async fn save_send_orders(
         &self,
-        args_symbol: Option<&str>,
-        args_side: Option<&str>,
-        args_size: Option<&str>,
-        args_funds: Option<&str>,
-        args_price: Option<&str>,
-        args_time_in_force: Option<&str>,
-        args_type: Option<&str>,
-        args_auto_borrow: Option<&bool>,
-        args_auto_repay: Option<&bool>,
-        args_client_oid: Option<&str>,
-        args_order_id: Option<&str>,
+        symbol: Option<&str>,
+        side: Option<&str>,
+        size: Option<&str>,
+        funds: Option<&str>,
+        price: Option<&str>,
+        time_in_force: Option<&str>,
+        order_type: Option<&str>,
+        borrow: Option<&bool>,
+        repay: Option<&bool>,
+        client_oid: Option<&str>,
+        order_id: Option<&str>,
     ) -> Result<()>;
 }
 
@@ -224,3 +224,8 @@ impl<T> SendOrdersRepositoryFull for T where T: MessageCommand {}
 pub trait ErrorRepositoryFull: ErrorCommand {}
 
 impl<T> ErrorRepositoryFull for T where T: ErrorCommand {}
+
+#[async_trait]
+pub trait StopOrderCommand: Send + Sync {
+    async fn save_stop_order(&self, stop_order: &StopOrderData) -> Result<()>;
+}

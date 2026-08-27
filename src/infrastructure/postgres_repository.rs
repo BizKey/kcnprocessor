@@ -1,3 +1,4 @@
+use crate::api::models::StopOrderData;
 use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
 use crate::api::repository::balance_repository::BalanceRepository;
 use crate::api::repository::bot_repository::BotRepository;
@@ -6,11 +7,12 @@ use crate::api::repository::event_repository::EventRepository;
 use crate::api::repository::order_repository::OrderRepository;
 use crate::api::repository::position_repository::PositionRepository;
 use crate::api::repository::sendorders_repository::SendOrdersRepository;
+use crate::api::repository::stoporders_repository::StopOrdersRepository;
 use crate::api::repository::symbol_repository::SymbolRepository;
 use crate::core::repository_traits::{
     BalanceCommand, BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate,
     ErrorCommand, EventCommand, MessageCommand, OrderCommand, OrderQuery, PositionCommand,
-    SymbolQuery,
+    StopOrderCommand, SymbolQuery,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -425,31 +427,31 @@ impl PostgresSendOrdersRepository {
 impl MessageCommand for PostgresSendOrdersRepository {
     async fn save_send_orders(
         &self,
-        args_symbol: Option<&str>,
-        args_side: Option<&str>,
-        args_size: Option<&str>,
-        args_funds: Option<&str>,
-        args_price: Option<&str>,
-        args_time_in_force: Option<&str>,
-        args_type: Option<&str>,
-        args_auto_borrow: Option<&bool>,
-        args_auto_repay: Option<&bool>,
-        args_client_oid: Option<&str>,
-        args_order_id: Option<&str>,
+        symbol: Option<&str>,
+        side: Option<&str>,
+        size: Option<&str>,
+        funds: Option<&str>,
+        price: Option<&str>,
+        time_in_force: Option<&str>,
+        order_type: Option<&str>,
+        auto_borrow: Option<&bool>,
+        auto_repay: Option<&bool>,
+        client_oid: Option<&str>,
+        order_id: Option<&str>,
     ) -> Result<()> {
         self.sendorders_repo
             .save_send_orders(
-                args_symbol,
-                args_side,
-                args_size,
-                args_funds,
-                args_price,
-                args_time_in_force,
-                args_type,
-                args_auto_borrow,
-                args_auto_repay,
-                args_client_oid,
-                args_order_id,
+                symbol,
+                side,
+                size,
+                funds,
+                price,
+                time_in_force,
+                order_type,
+                auto_borrow,
+                auto_repay,
+                client_oid,
+                order_id,
             )
             .await
     }
@@ -467,6 +469,7 @@ pub struct PostgresRepository {
     pub error: PostgresErrorRepository,
     pub event: PostgresEventRepository,
     pub sendorders: PostgresSendOrdersRepository,
+    pub stoporders: PostgresStopOrdersRepository,
 }
 
 impl PostgresRepository {
@@ -480,6 +483,7 @@ impl PostgresRepository {
             error: PostgresErrorRepository::new(pool.clone()),
             event: PostgresEventRepository::new(pool.clone()),
             sendorders: PostgresSendOrdersRepository::new(pool.clone()),
+            stoporders: PostgresStopOrdersRepository::new(pool.clone()),
         }
     }
 }
@@ -769,32 +773,59 @@ impl EventCommand for PostgresRepository {
 impl MessageCommand for PostgresRepository {
     async fn save_send_orders(
         &self,
-        args_symbol: Option<&str>,
-        args_side: Option<&str>,
-        args_size: Option<&str>,
-        args_funds: Option<&str>,
-        args_price: Option<&str>,
-        args_time_in_force: Option<&str>,
-        args_type: Option<&str>,
-        args_auto_borrow: Option<&bool>,
-        args_auto_repay: Option<&bool>,
-        args_client_oid: Option<&str>,
-        args_order_id: Option<&str>,
+        symbol: Option<&str>,
+        side: Option<&str>,
+        size: Option<&str>,
+        funds: Option<&str>,
+        price: Option<&str>,
+        time_in_force: Option<&str>,
+        order_type: Option<&str>,
+        auto_borrow: Option<&bool>,
+        auto_repay: Option<&bool>,
+        client_oid: Option<&str>,
+        order_id: Option<&str>,
     ) -> Result<()> {
         self.sendorders
             .save_send_orders(
-                args_symbol,
-                args_side,
-                args_size,
-                args_funds,
-                args_price,
-                args_time_in_force,
-                args_type,
-                args_auto_borrow,
-                args_auto_repay,
-                args_client_oid,
-                args_order_id,
+                symbol,
+                side,
+                size,
+                funds,
+                price,
+                time_in_force,
+                order_type,
+                auto_borrow,
+                auto_repay,
+                client_oid,
+                order_id,
             )
             .await
+    }
+}
+
+#[derive(Clone)]
+pub struct PostgresStopOrdersRepository {
+    stoporders_repo: StopOrdersRepository,
+}
+
+impl PostgresStopOrdersRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            stoporders_repo: StopOrdersRepository::new(pool),
+        }
+    }
+}
+
+#[async_trait]
+impl StopOrderCommand for PostgresStopOrdersRepository {
+    async fn save_stop_order(&self, stop_order: &StopOrderData) -> Result<()> {
+        self.stoporders_repo.save_stop_order(stop_order).await
+    }
+}
+
+#[async_trait]
+impl StopOrderCommand for PostgresRepository {
+    async fn save_stop_order(&self, stop_order: &StopOrderData) -> Result<()> {
+        self.stoporders.save_stop_order(stop_order).await
     }
 }

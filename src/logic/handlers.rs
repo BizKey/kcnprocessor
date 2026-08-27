@@ -4,7 +4,7 @@ use crate::api::models::{
 use crate::core::repository_traits::{
     BalanceCommand, BotEntryUpdate, BotManagement, BotQuery, BotRepositoryFull, BotSlUpdate,
     BotTpUpdate, EventCommand, MessageCommand, OrderCommand, OrderQuery, OrderRepositoryFull,
-    PositionCommand, SymbolQuery, SymbolRepositoryFull,
+    PositionCommand, StopOrderCommand, SymbolQuery, SymbolRepositoryFull,
 };
 use crate::logic::account_handlers::repay_account;
 use crate::logic::order_processor::trade_order_event;
@@ -83,6 +83,7 @@ pub async fn process_kcn_msg(
     position_repo: &impl PositionCommand,
     event_repo: &impl EventCommand,
     sendorders_repo: &impl MessageCommand,
+    stoporders_repo: &impl StopOrderCommand,
     msg: &str,
 ) -> Result<()> {
     let data = match serde_json::from_str::<KuCoinMessage>(msg)? {
@@ -110,8 +111,15 @@ pub async fn process_kcn_msg(
         }
         OrderTopic::TradeOrders => {
             let order: OrderData = serde_json::from_value(data.data)?;
-            handle_trade_order_event(bot_repo, order_repo, symbol_repo, sendorders_repo, order)
-                .await?;
+            handle_trade_order_event(
+                bot_repo,
+                order_repo,
+                symbol_repo,
+                sendorders_repo,
+                stoporders_repo,
+                order,
+            )
+            .await?;
         }
         OrderTopic::AdvancedOrders => {
             let order: AdvancedOrders = serde_json::from_value(data.data)?;
@@ -136,6 +144,7 @@ pub async fn spawn_process_kcn_msg(
     position_repo: impl PositionCommand + Clone + 'static,
     event_repo: impl EventCommand + Clone + 'static,
     sendorders_repo: impl MessageCommand + Clone + 'static,
+    stoporders_repo: impl StopOrderCommand + Clone + 'static,
 ) {
     loop {
         let msg = match rx_in.recv().await {
@@ -162,6 +171,7 @@ pub async fn spawn_process_kcn_msg(
             &position_repo,
             &event_repo,
             &sendorders_repo,
+            &stoporders_repo,
             &text,
         )
         .await
@@ -177,13 +187,22 @@ pub async fn handle_trade_order_event(
     order_repo: &(impl OrderQuery + OrderCommand),
     symbol_repo: &impl SymbolQuery,
     sendorders_repo: &impl MessageCommand,
+    stoporders_repo: &impl StopOrderCommand,
     order: OrderData,
 ) -> Result<()> {
     info!("{}", order);
     order_repo.save_order_event(&order).await?;
 
     if order.should_process() {
-        trade_order_event(bot_repo, order_repo, symbol_repo, sendorders_repo, &order).await?;
+        trade_order_event(
+            bot_repo,
+            order_repo,
+            symbol_repo,
+            sendorders_repo,
+            stoporders_repo,
+            &order,
+        )
+        .await?;
     }
 
     Ok(())

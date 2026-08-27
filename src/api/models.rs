@@ -751,3 +751,19 @@ impl fmt::Display for AdvancedOrders {
         )
     }
 }
+
+#[derive(Debug, Serialize)]
+pub struct StopOrderData {
+    pub client_oid: String,
+    pub side: OrderSide,
+    pub symbol: String,
+    pub order_type: OrderType,
+    pub stop: StopType,
+    pub stop_price: String,
+    pub is_isolated: bool,
+    pub auto_borrow: bool,
+    pub auto_repay: bool,
+    pub size: Option<String>,
+    pub funds: Option<String>,
+    pub time_in_force: String,
+}

@@ -14,46 +14,45 @@ impl SendOrdersRepository {
 
     pub async fn save_send_orders(
         &self,
-        args_symbol: Option<&str>,
-        args_side: Option<&str>,
-        args_size: Option<&str>,
-        args_funds: Option<&str>,
-        args_price: Option<&str>,
-        args_time_in_force: Option<&str>,
-        args_type: Option<&str>,
-        args_auto_borrow: Option<&bool>,
-        args_auto_repay: Option<&bool>,
-        args_client_oid: Option<&str>,
-        args_order_id: Option<&str>,
+        symbol: Option<&str>,
+        side: Option<&str>,
+        size: Option<&str>,
+        funds: Option<&str>,
+        price: Option<&str>,
+        time_in_force: Option<&str>,
+        order_type: Option<&str>,
+        auto_borrow: Option<&bool>,
+        auto_repay: Option<&bool>,
+        client_oid: Option<&str>,
+        order_id: Option<&str>,
     ) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO sendorders (
-                exchange, args_symbol, args_side, args_size, args_funds, 
-                args_price, args_time_in_force, args_type, args_auto_borrow, 
-                args_auto_repay, args_client_oid, args_order_id
+                exchange, symbol, side, size, funds, price, time_in_force, 
+                order_type, auto_borrow, auto_repay, client_oid, order_id
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
             "#,
         )
         .bind(EXCHANGE)
-        .bind(args_symbol)
-        .bind(args_side)
-        .bind(args_size)
-        .bind(args_funds)
-        .bind(args_price)
-        .bind(args_time_in_force)
-        .bind(args_type)
-        .bind(args_auto_borrow)
-        .bind(args_auto_repay)
-        .bind(args_client_oid)
-        .bind(args_order_id)
+        .bind(symbol)
+        .bind(side)
+        .bind(size)
+        .bind(funds)
+        .bind(price)
+        .bind(time_in_force)
+        .bind(order_type)
+        .bind(auto_borrow)
+        .bind(auto_repay)
+        .bind(client_oid)
+        .bind(order_id)
         .execute(&self.pool)
         .await
         .with_context(|| {
             format!(
-                "Fail insert into sendorders args_client_oid:{:?} exchange:{}",
-                args_client_oid, EXCHANGE,
+                "Fail insert into sendorders client_oid:{:?} exchange:{}",
+                client_oid, EXCHANGE,
             )
         })?;
         Ok(())

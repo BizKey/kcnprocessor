@@ -63,6 +63,7 @@ async fn main() -> Result<()> {
     let balance_repo = repo.balance;
     let event_repo = repo.event;
     let sendorders_repo = repo.sendorders;
+    let stoporders_repo = repo.stoporders;
 
     // Очищаем ботов
     match bot_repo.clear_all_bots(&init_balance_per_bot).await {
@@ -111,6 +112,7 @@ async fn main() -> Result<()> {
         position_repo,
         event_repo,
         sendorders_repo,
+        stoporders_repo,
     )
     .await
 }
