@@ -18,7 +18,10 @@ pub fn generate_sl_id(entry_id: &str) -> String {
 }
 
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String> {
-    Ok(size.trunc_with_scale(increment.scale()).to_string())
+    Ok(size
+        .trunc_with_scale(increment.scale())
+        .normalize()
+        .to_string())
 }
 
 pub fn get_next_side() -> OrderSide {
