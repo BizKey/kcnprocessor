@@ -1,4 +1,4 @@
-use crate::api::repository::ErrorRepository;
+use crate::api::repository::error_repository::ErrorRepository;
 use sqlx::PgPool;
 use std::sync::mpsc::{Sender, channel};
 use std::thread;

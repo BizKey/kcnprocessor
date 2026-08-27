@@ -1,15 +1,19 @@
 use crate::api::models::{
-    Bot, BotOrderType, MakeStopOrderResData, OrderData, OrderSide, OrderType, StopType,
+    Bot, BotOrderType, MakeStopOrderResData, OrderData, OrderSide, OrderType, StopOrderData,
+    StopType,
 };
 use crate::api::requests::{
     api_v3_hf_margin_stop_order_cancel_by_client_oid_delete, api_v3_hf_margin_stop_order_post,
 };
-use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::api::utils::query_builder::QueryBuilder;
+use crate::api::utils::serializer::BodySerializer;
+use crate::core::repository_traits::StopOrderCommand;
 use crate::core::repository_traits::{
     BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand,
     OrderCommand, OrderQuery, SymbolQuery,
 };
 use crate::logic::order_handlers::make_random_trade;
+use crate::logic::utils::generate_entry_id;
 use crate::logic::utils::{
     format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
 };
@@ -18,13 +22,13 @@ use micromap::Map;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use tracing::{error, info};
-use uuid::Uuid;
 
 /// Обработка entry ордера бота
 pub async fn process_bot_by_entry_client_oid(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
     order_repo: &(impl OrderQuery + OrderCommand),
     symbol_repo: &impl SymbolQuery,
+    stoporders_repo: &impl StopOrderCommand,
     client_oid: &str,
     order: &OrderData,
 ) -> Result<()> {
@@ -81,6 +85,7 @@ pub async fn process_bot_by_entry_client_oid(
             let base_increment = symbol_info.base_increment_decimal()?;
             process_buy_entry(
                 bot_repo,
+                stoporders_repo,
                 client_oid,
                 order,
                 match_price,
@@ -94,6 +99,7 @@ pub async fn process_bot_by_entry_client_oid(
             let quote_increment = symbol_info.quote_increment_decimal()?;
             process_sell_entry(
                 bot_repo,
+                stoporders_repo,
                 client_oid,
                 order,
                 match_price,
@@ -112,6 +118,7 @@ pub async fn process_bot_by_entry_client_oid(
 /// Обработка buy entry ордера
 async fn process_buy_entry(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
+    stoporders_repo: &impl StopOrderCommand,
     client_oid: &str,
     order: &OrderData,
     match_price: Decimal,
@@ -121,7 +128,7 @@ async fn process_buy_entry(
 ) -> Result<()> {
     let tp_buy = tp_buy_percent()?;
     let trigger_tp_price = match_price * tp_buy;
-    let exit_tp_client_oid = Uuid::new_v4().to_string();
+    let exit_tp_client_oid = generate_entry_id();
     let tp_stop_price = format_assert_decimal(trigger_tp_price, price_increment)?;
     let size_tp_str = format_assert_decimal(filled_size, base_increment)?;
 
@@ -141,6 +148,22 @@ async fn process_buy_entry(
 
     info!("Stop profit order:{}", msg_tp_order);
 
+    let tp_stop_order = StopOrderData {
+        client_oid: exit_tp_client_oid.clone(),
+        side: OrderSide::Sell,
+        symbol: order.symbol.clone(),
+        order_type: OrderType::Market,
+        stop: StopType::Entry,
+        stop_price: tp_stop_price.clone(),
+        size: Some(size_tp_str),
+        funds: None,
+        time_in_force: "GTC".to_string(),
+        auto_borrow: true,
+        auto_repay: false,
+        is_isolated: false,
+    };
+    stoporders_repo.save_stop_order(&tp_stop_order).await?;
+
     bot_repo
         .update_exit_tp_client_oid_by_entry_client_oid(
             client_oid,
@@ -154,7 +177,7 @@ async fn process_buy_entry(
 
     let sl_buy = sl_buy_percent()?;
     let trigger_sl_price = match_price * sl_buy;
-    let exit_sl_client_oid = Uuid::new_v4().to_string();
+    let exit_sl_client_oid = generate_entry_id();
     let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
     let size_sl_str = format_assert_decimal(filled_size, base_increment)?;
 
@@ -174,6 +197,22 @@ async fn process_buy_entry(
 
     info!("Stop loss order:{}", msg_sl_order);
 
+    let sl_stop_order = StopOrderData {
+        client_oid: exit_tp_client_oid.clone(),
+        side: OrderSide::Sell,
+        symbol: order.symbol.clone(),
+        order_type: OrderType::Market,
+        stop: StopType::Entry,
+        stop_price: tp_stop_price.clone(),
+        size: Some(size_sl_str),
+        funds: None,
+        time_in_force: "GTC".to_string(),
+        auto_borrow: true,
+        auto_repay: false,
+        is_isolated: false,
+    };
+    stoporders_repo.save_stop_order(&sl_stop_order).await?;
+
     bot_repo
         .update_exit_sl_client_oid_by_entry_client_oid(
             client_oid,
@@ -196,12 +235,15 @@ async fn process_buy_entry(
     )
     .await?;
 
+    // run process_bot_by_entry_client_oid
+
     Ok(())
 }
 
 /// Обработка sell entry ордера
 async fn process_sell_entry(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate),
+    stoporders_repo: &impl StopOrderCommand,
     client_oid: &str,
     order: &OrderData,
     match_price: Decimal,
@@ -212,7 +254,7 @@ async fn process_sell_entry(
     let tp_sell = tp_sell_percent()?;
     let trigger_tp_price = match_price * tp_sell;
     let funds_tp = trigger_tp_price * filled_size;
-    let exit_tp_client_oid = Uuid::new_v4().to_string();
+    let exit_tp_client_oid = generate_entry_id();
     let tp_stop_price = format_assert_decimal(trigger_tp_price, price_increment)?;
     let funds_tp_str = format_assert_decimal(funds_tp, quote_increment)?;
 
@@ -232,6 +274,22 @@ async fn process_sell_entry(
 
     info!("Stop profit order:{}", msg_tp_order);
 
+    let tp_stop_order = StopOrderData {
+        client_oid: exit_tp_client_oid.clone(),
+        side: OrderSide::Sell,
+        symbol: order.symbol.clone(),
+        order_type: OrderType::Market,
+        stop: StopType::Entry,
+        stop_price: tp_stop_price.clone(),
+        size: None,
+        funds: Some(funds_tp_str),
+        time_in_force: "GTC".to_string(),
+        auto_borrow: true,
+        auto_repay: false,
+        is_isolated: false,
+    };
+    stoporders_repo.save_stop_order(&tp_stop_order).await?;
+
     bot_repo
         .update_exit_tp_client_oid_by_entry_client_oid(
             client_oid,
@@ -246,7 +304,7 @@ async fn process_sell_entry(
     let sl_sell = sl_sell_percent()?;
     let trigger_sl_price = match_price * sl_sell;
     let funds_sl = trigger_sl_price * filled_size;
-    let exit_sl_client_oid = Uuid::new_v4().to_string();
+    let exit_sl_client_oid = generate_entry_id();
     let sl_stop_price = format_assert_decimal(trigger_sl_price, price_increment)?;
     let funds_sl_str = format_assert_decimal(funds_sl, quote_increment)?;
 
@@ -265,6 +323,22 @@ async fn process_sell_entry(
     });
 
     info!("Stop loss order:{}", msg_sl_order);
+
+    let sl_stop_order = StopOrderData {
+        client_oid: exit_sl_client_oid.clone(),
+        side: OrderSide::Buy,
+        symbol: order.symbol.clone(),
+        order_type: OrderType::Market,
+        stop: StopType::Entry,
+        stop_price: sl_stop_price.clone(),
+        size: None,
+        funds: Some(funds_sl_str),
+        time_in_force: "GTC".to_string(),
+        auto_borrow: true,
+        auto_repay: false,
+        is_isolated: false,
+    };
+    stoporders_repo.save_stop_order(&sl_stop_order).await?;
 
     bot_repo
         .update_exit_sl_client_oid_by_entry_client_oid(
@@ -287,6 +361,8 @@ async fn process_sell_entry(
         &exit_sl_client_oid,
     )
     .await?;
+
+    // run process_bot_by_entry_client_oid
 
     Ok(())
 }
@@ -333,6 +409,7 @@ async fn handle_stop_order_results(
                 .clear_exit_tp_by_client_oid(exit_tp_client_oid)
                 .await?;
             error!("Failed add SL order. TP was cancelled for symmetry.");
+            anyhow::bail!("Failed add SL order. TP was cancelled for symmetry.");
         }
 
         (false, true) => {
@@ -349,6 +426,7 @@ async fn handle_stop_order_results(
                 .clear_exit_sl_by_client_oid(exit_sl_client_oid)
                 .await?;
             error!("Failed add TP order. SL was cancelled for symmetry.");
+            anyhow::bail!("Failed add TP order. SL was cancelled for symmetry.");
         }
 
         (false, false) => {
@@ -371,7 +449,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     order_repo: &(impl OrderQuery + OrderCommand),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
@@ -385,6 +463,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
 
         let mut query_params = Map::new();
         query_params.insert("clientOid", exit_sl_client_oid.as_str());
+
         api_v3_hf_margin_stop_order_cancel_by_client_oid_delete(&QueryBuilder::build(
             query_params,
         )?)
@@ -415,7 +494,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
                     &new_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
-            make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
+            make_random_trade(bot_repo, symbol_repo, sendorders_repo, new_balance, bot.id).await?;
         }
         OrderSide::Sell => {
             bot_repo
@@ -424,7 +503,14 @@ pub async fn process_bot_by_exit_tp_client_oid(
                     &return_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
-            make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
+            make_random_trade(
+                bot_repo,
+                symbol_repo,
+                sendorders_repo,
+                return_balance,
+                bot.id,
+            )
+            .await?;
         }
         OrderSide::Unknown => {}
     }
@@ -436,7 +522,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     order_repo: &(impl OrderQuery + OrderCommand),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     bot: Bot,
     client_oid: &str,
     order: &OrderData,
@@ -477,7 +563,7 @@ pub async fn process_bot_by_exit_sl_client_oid(
             bot_repo
                 .update_balance_by_entry_client_oid(client_oid, &format!("{:.4}", new_balance))
                 .await?;
-            make_random_trade(bot_repo, symbol_repo, message_repo, new_balance, bot.id).await?;
+            make_random_trade(bot_repo, symbol_repo, sendorders_repo, new_balance, bot.id).await?;
         }
         OrderSide::Sell => {
             bot_repo
@@ -486,7 +572,14 @@ pub async fn process_bot_by_exit_sl_client_oid(
                     &return_balance.trunc_with_scale(4).to_string(),
                 )
                 .await?;
-            make_random_trade(bot_repo, symbol_repo, message_repo, return_balance, bot.id).await?;
+            make_random_trade(
+                bot_repo,
+                symbol_repo,
+                sendorders_repo,
+                return_balance,
+                bot.id,
+            )
+            .await?;
         }
         OrderSide::Unknown => {}
     }
@@ -499,7 +592,8 @@ pub async fn trade_order_event(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     order_repo: &(impl OrderQuery + OrderCommand),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
+    stoporders_repo: &impl StopOrderCommand,
     order: &OrderData,
 ) -> Result<()> {
     let client_oid = match order.client_oid.as_ref() {
@@ -515,8 +609,15 @@ pub async fn trade_order_event(
     match bot.get_order_type(client_oid) {
         Some(BotOrderType::Entry) => {
             // Phase 1
-            process_bot_by_entry_client_oid(bot_repo, order_repo, symbol_repo, client_oid, order)
-                .await?;
+            process_bot_by_entry_client_oid(
+                bot_repo,
+                order_repo,
+                symbol_repo,
+                stoporders_repo,
+                client_oid,
+                order,
+            )
+            .await?;
         }
         Some(BotOrderType::TakeProfit) => {
             // Phase 2
@@ -524,7 +625,7 @@ pub async fn trade_order_event(
                 bot_repo,
                 order_repo,
                 symbol_repo,
-                message_repo,
+                sendorders_repo,
                 bot,
                 client_oid,
                 order,
@@ -537,7 +638,7 @@ pub async fn trade_order_event(
                 bot_repo,
                 order_repo,
                 symbol_repo,
-                message_repo,
+                sendorders_repo,
                 bot,
                 client_oid,
                 order,

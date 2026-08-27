@@ -4,12 +4,14 @@ mod core;
 mod infrastructure;
 mod logic;
 
-use crate::api::utils::get_env;
+use crate::api::utils::tools::get_env;
 use crate::core::repository_traits::BotManagement;
 use crate::infrastructure::postgres_repository::PostgresRepository;
 use crate::infrastructure::tracing_layer::DbErrorLayer;
 use crate::infrastructure::websocket::run_websocket_loop;
-use crate::logic::{cancel_all_stop_orders, clean_account, create_init_orders};
+use crate::logic::account_handlers::clean_account;
+use crate::logic::order_handlers::create_init_orders;
+use crate::logic::stop_order_handlers::cancel_all_stop_orders;
 
 use anyhow::Result;
 use dotenvy::dotenv;
@@ -42,7 +44,7 @@ async fn main() -> Result<()> {
     let init_balance_per_bot = get_env("INIT_BALANCE_PER_BOT")?;
 
     let pool = PgPoolOptions::new()
-        .max_connections(10)
+        .max_connections(50)
         .min_connections(1)
         .acquire_timeout(Duration::from_secs(10))
         .idle_timeout(Duration::from_secs(600))
@@ -60,7 +62,8 @@ async fn main() -> Result<()> {
     let position_repo = repo.position;
     let balance_repo = repo.balance;
     let event_repo = repo.event;
-    let message_repo = repo.message;
+    let sendorders_repo = repo.sendorders;
+    let stoporders_repo = repo.stoporders;
 
     // Очищаем ботов
     match bot_repo.clear_all_bots(&init_balance_per_bot).await {
@@ -77,13 +80,13 @@ async fn main() -> Result<()> {
     }
 
     // Очищаем аккаунт
-    if let Err(e) = clean_account(&symbol_repo, &message_repo).await {
+    if let Err(e) = clean_account(&symbol_repo, &sendorders_repo).await {
         error!("Failed to clean account: {:#}", e);
     }
 
     let bot_repo_clone = bot_repo.clone();
     let symbol_repo_clone = symbol_repo.clone();
-    let message_repo_clone = message_repo.clone();
+    let sendorders_repo_clone = sendorders_repo.clone();
 
     // Запускаем инициализацию в фоновом режиме
     tokio::spawn(async move {
@@ -92,7 +95,7 @@ async fn main() -> Result<()> {
         tokio::time::sleep(Duration::from_secs(30)).await;
 
         if let Err(e) =
-            create_init_orders(&bot_repo_clone, &symbol_repo_clone, &message_repo_clone).await
+            create_init_orders(&bot_repo_clone, &symbol_repo_clone, &sendorders_repo_clone).await
         {
             error!("Background initialization failed: {:#}", e);
         } else {
@@ -108,7 +111,8 @@ async fn main() -> Result<()> {
         balance_repo,
         position_repo,
         event_repo,
-        message_repo,
+        sendorders_repo,
+        stoporders_repo,
     )
     .await
 }

@@ -6,16 +6,16 @@ use crate::api::requests::{
     api_v1_market_orderbook_level1_get, api_v3_accounts_universal_transfer_post,
     api_v3_margin_accounts_get, api_v3_margin_repay_post,
 };
-use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::api::utils::query_builder::QueryBuilder;
+use crate::api::utils::serializer::BodySerializer;
 use crate::core::repository_traits::{MessageCommand, SymbolQuery};
 use crate::logic::order_handlers::make_hf_margin_order;
-use crate::logic::utils::{AUTO_CLEAN_DELAY, format_assert_decimal};
+use crate::logic::utils::{AUTO_CLEAN_DELAY, format_assert_decimal, generate_entry_id};
 use anyhow::Result;
 use micromap::Map;
 use rust_decimal::Decimal;
 use tokio::time::sleep;
 use tracing::info;
-use uuid::Uuid;
 
 /// Получение данных всех аккаунтов
 pub async fn get_all_accounts_data() -> Result<MarginAccountData> {
@@ -60,7 +60,7 @@ pub async fn transfer_in_account(
 ) -> Result<()> {
     let body_str = BodySerializer::serialize(Some(serde_json::json!({
         "currency": currency,
-        "clientOid": Uuid::new_v4().to_string(),
+        "clientOid": generate_entry_id(),
         "amount": amount,
         "type": type_,
         "fromAccountType": from_account_type,
@@ -81,7 +81,7 @@ pub async fn transfer_in_account(
 /// Автоматическая очистка аккаунта
 pub async fn auto_clean_account(
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
 ) -> Result<bool> {
     let mut passed = true;
 
@@ -120,7 +120,7 @@ pub async fn auto_clean_account(
         };
 
         passed = handle_non_usdt_account(
-            message_repo,
+            sendorders_repo,
             &account.currency,
             &trade_symbol,
             token_liability,
@@ -158,7 +158,7 @@ async fn handle_usdt_account(
 
 /// Обработка не-USDT аккаунта
 async fn handle_non_usdt_account(
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     liability: Decimal,
@@ -170,7 +170,7 @@ async fn handle_non_usdt_account(
 
     if liability > Decimal::ZERO {
         passed = handle_liability(
-            message_repo,
+            sendorders_repo,
             currency,
             trade_symbol,
             liability,
@@ -181,7 +181,7 @@ async fn handle_non_usdt_account(
         .await?;
     } else if available > Decimal::ZERO {
         passed = handle_available(
-            message_repo,
+            sendorders_repo,
             currency,
             trade_symbol,
             available,
@@ -196,7 +196,7 @@ async fn handle_non_usdt_account(
 
 /// Обработка задолженности
 async fn handle_liability(
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     liability: Decimal,
@@ -231,8 +231,8 @@ async fn handle_liability(
         )?;
 
         make_hf_margin_order(
-            message_repo,
-            &Uuid::new_v4().to_string(),
+            sendorders_repo,
+            &generate_entry_id(),
             OrderSide::Buy,
             trade_symbol,
             OrderAmount::Size(size.clone()),
@@ -248,7 +248,7 @@ async fn handle_liability(
 
 /// Обработка доступных средств
 async fn handle_available(
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     currency: &str,
     trade_symbol: &str,
     available: Decimal,
@@ -270,8 +270,8 @@ async fn handle_available(
     if available >= base_min_size && token_funds >= quote_min_size {
         let size = format_assert_decimal(available, base_increment)?;
         make_hf_margin_order(
-            message_repo,
-            &Uuid::new_v4().to_string(),
+            sendorders_repo,
+            &generate_entry_id(),
             OrderSide::Sell,
             trade_symbol,
             OrderAmount::Size(size.clone()),
@@ -292,10 +292,10 @@ async fn handle_available(
 /// Полная очистка аккаунта
 pub async fn clean_account(
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
 ) -> Result<()> {
     loop {
-        if auto_clean_account(symbol_repo, message_repo).await? {
+        if auto_clean_account(symbol_repo, sendorders_repo).await? {
             info!("auto_clean_account success");
             break;
         }

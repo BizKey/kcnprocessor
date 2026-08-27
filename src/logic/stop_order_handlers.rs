@@ -1,4 +1,4 @@
-use crate::api::utils::QueryBuilder;
+use crate::api::utils::query_builder::QueryBuilder;
 use anyhow::Result;
 use micromap::Map;
 
@@ -13,7 +13,7 @@ use crate::core::repository_traits::{
     BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand,
 };
 use crate::logic::order_handlers::make_hf_margin_order;
-use uuid::Uuid;
+use crate::logic::utils::generate_entry_id;
 
 /// Отмена всех стоп-ордеров
 pub async fn cancel_all_stop_orders() -> Result<()> {
@@ -67,7 +67,7 @@ pub async fn cancel_all_stop_orders() -> Result<()> {
 pub async fn handle_advanced_orders(
     order: AdvancedOrders,
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
 ) -> Result<()> {
     if order.error.is_none() {
         info!("{}", order);
@@ -76,7 +76,7 @@ pub async fn handle_advanced_orders(
     error!("Got error on stop order : {}", order);
 
     let order_id_ref = order.order_id.as_ref();
-    let new_exit_client_oid = Uuid::new_v4().to_string();
+    let new_exit_client_oid = generate_entry_id();
 
     match order.stop {
         StopType::Loss => {
@@ -117,7 +117,7 @@ pub async fn handle_advanced_orders(
             };
 
             make_hf_margin_order(
-                message_repo,
+                sendorders_repo,
                 &new_exit_client_oid,
                 order.side,
                 &order.symbol,
@@ -135,7 +135,7 @@ pub async fn handle_advanced_orders(
             };
 
             make_hf_margin_order(
-                message_repo,
+                sendorders_repo,
                 &new_exit_client_oid,
                 order.side,
                 &order.symbol,

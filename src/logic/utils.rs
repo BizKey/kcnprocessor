@@ -3,9 +3,17 @@ use crate::logic::order_side_counter::ORDER_SIDE_COUNTER;
 use anyhow::Result;
 use rust_decimal::Decimal;
 use std::str::FromStr;
+use uuid::Uuid;
+
+pub fn generate_entry_id() -> String {
+    Uuid::new_v4().to_string()
+}
 
 pub fn format_assert_decimal(size: Decimal, increment: Decimal) -> Result<String> {
-    Ok(size.trunc_with_scale(increment.scale()).to_string())
+    Ok(size
+        .trunc_with_scale(increment.scale())
+        .normalize()
+        .to_string())
 }
 
 pub fn get_next_side() -> OrderSide {

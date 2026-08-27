@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use reqwest::Response;
-use serde::de::DeserializeOwned;
 
 pub struct ResponseHandler;
 
@@ -16,14 +15,5 @@ impl ResponseHandler {
             200 => Ok(body),
             _ => anyhow::bail!("API returned error status {}: {}", status, body),
         }
-    }
-
-    pub async fn parse_response<T: DeserializeOwned>(
-        response: Response,
-        type_name: &str,
-    ) -> Result<T> {
-        let body = Self::read_response(response).await?;
-        serde_json::from_str(&body)
-            .with_context(|| format!("Failed to deserialize response as {}", type_name))
     }
 }

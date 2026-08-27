@@ -1,10 +1,11 @@
 use crate::api::models::{MakeOrderResData, OrderAmount, OrderSide, OrderType};
 use crate::api::requests::{api_v1_market_orderbook_level1_get, api_v3_hf_margin_order_post};
-use crate::api::utils::{BodySerializer, QueryBuilder};
+use crate::api::utils::query_builder::QueryBuilder;
+use crate::api::utils::serializer::BodySerializer;
 use crate::core::repository_traits::{
     BotEntryUpdate, BotManagement, BotQuery, BotSlUpdate, BotTpUpdate, MessageCommand, SymbolQuery,
 };
-use crate::logic::utils::{format_assert_decimal, get_next_side};
+use crate::logic::utils::{format_assert_decimal, generate_entry_id, get_next_side};
 use anyhow::{Context, Result};
 use micromap::Map;
 use rust_decimal::Decimal;
@@ -12,11 +13,10 @@ use serde_json;
 
 use tokio::time::sleep;
 use tracing::{error, info};
-use uuid::Uuid;
 
 /// Создание рыночного ордера с указанием суммы (funds)
 pub async fn make_hf_margin_order(
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     client_oid: &str,
     side: OrderSide,
     symbol: &str,
@@ -33,8 +33,8 @@ pub async fn make_hf_margin_order(
         OrderAmount::Funds(f) => (None, Some(f.as_str())),
     };
 
-    message_repo
-        .save_order_message(
+    sendorders_repo
+        .save_send_orders(
             Some(symbol),
             Some(side.as_str()),
             size,
@@ -83,7 +83,7 @@ pub async fn make_hf_margin_order(
 pub async fn make_random_trade(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
     balance_funds: Decimal,
     trade_bot_id: i32,
 ) -> Result<()> {
@@ -103,7 +103,7 @@ pub async fn make_random_trade(
         }
     };
 
-    let entry_client_oid = Uuid::new_v4().to_string();
+    let entry_client_oid = generate_entry_id();
 
     // update entry_client_oid exchange
     bot_repo
@@ -130,7 +130,7 @@ pub async fn make_random_trade(
                 .with_context(|| format!("Fail parse:{} {}", token_size, base_increment))?;
 
             make_hf_margin_order(
-                message_repo,
+                sendorders_repo,
                 &entry_client_oid,
                 OrderSide::Sell,
                 &tradeable_symbol,
@@ -147,7 +147,7 @@ pub async fn make_random_trade(
                 .with_context(|| format!("Fail parse:{} {}", balance_funds, quote_increment))?;
 
             make_hf_margin_order(
-                message_repo,
+                sendorders_repo,
                 &entry_client_oid,
                 OrderSide::Buy,
                 &tradeable_symbol,
@@ -183,14 +183,14 @@ pub async fn make_random_trade(
 pub async fn create_init_orders(
     bot_repo: &(impl BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement),
     symbol_repo: &impl SymbolQuery,
-    message_repo: &impl MessageCommand,
+    sendorders_repo: &impl MessageCommand,
 ) -> Result<()> {
     for trade_bot in bot_repo.get_all().await?.iter() {
         sleep(crate::constants::INIT_ORDER_DELAY).await;
         if let Err(e) = make_random_trade(
             bot_repo,
             symbol_repo,
-            message_repo,
+            sendorders_repo,
             trade_bot.balance_decimal()?,
             trade_bot.id,
         )

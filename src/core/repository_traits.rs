@@ -1,4 +1,4 @@
-use crate::api::models::{BalanceData, Bot, Currencies, OrderData, Symbol};
+use crate::api::models::{BalanceData, Bot, Currencies, OrderData, StopOrderData, Symbol};
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -163,19 +163,19 @@ pub trait EventCommand: Send + Sync {
 
 #[async_trait]
 pub trait MessageCommand: Send + Sync {
-    async fn save_order_message(
+    async fn save_send_orders(
         &self,
-        args_symbol: Option<&str>,
-        args_side: Option<&str>,
-        args_size: Option<&str>,
-        args_funds: Option<&str>,
-        args_price: Option<&str>,
-        args_time_in_force: Option<&str>,
-        args_type: Option<&str>,
-        args_auto_borrow: Option<&bool>,
-        args_auto_repay: Option<&bool>,
-        args_client_oid: Option<&str>,
-        args_order_id: Option<&str>,
+        symbol: Option<&str>,
+        side: Option<&str>,
+        size: Option<&str>,
+        funds: Option<&str>,
+        price: Option<&str>,
+        time_in_force: Option<&str>,
+        order_type: Option<&str>,
+        borrow: Option<&bool>,
+        repay: Option<&bool>,
+        client_oid: Option<&str>,
+        order_id: Option<&str>,
     ) -> Result<()>;
 }
 
@@ -183,80 +183,11 @@ pub trait MessageCommand: Send + Sync {
 pub trait BotRepositoryFull:
     BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement
 {
-    // Пустой трейт для композиции
 }
 
 impl<T> BotRepositoryFull for T where
     T: BotQuery + BotEntryUpdate + BotTpUpdate + BotSlUpdate + BotManagement
 {
-}
-
-#[async_trait]
-pub trait WebSocketRepositories:
-    BotRepositoryFull
-    + OrderQuery
-    + OrderCommand
-    + BalanceCommand
-    + PositionCommand
-    + SymbolQuery
-    + ErrorCommand
-    + EventCommand
-    + MessageCommand
-    + Send
-    + Sync
-    + Clone
-    + 'static
-{
-}
-
-impl<T> WebSocketRepositories for T where
-    T: BotRepositoryFull
-        + OrderQuery
-        + OrderCommand
-        + BalanceCommand
-        + PositionCommand
-        + SymbolQuery
-        + ErrorCommand
-        + EventCommand
-        + MessageCommand
-        + Send
-        + Sync
-        + Clone
-        + 'static
-{
-}
-
-#[async_trait]
-pub trait OrderRepositoryTrait: Send + Sync {
-    async fn save_order_event(&self, order: OrderData) -> Result<()>;
-    async fn get_total_match_value_by_client_oid(&self, client_oid: &str)
-    -> Result<Option<String>>;
-}
-
-#[async_trait]
-pub trait BalanceRepositoryTrait: Send + Sync {
-    async fn save_balance_event(&self, balance: BalanceData) -> Result<()>;
-}
-
-#[async_trait]
-pub trait PositionRepositoryTrait: Send + Sync {
-    async fn upsert_position_ratio(
-        &self,
-        debt_ratio: f64,
-        total_asset: f64,
-        margin_coefficient_total_asset: &str,
-        total_debt: &str,
-    ) -> Result<()>;
-
-    async fn upsert_position_debt(&self, debt_symbol: &str, debt_value: &str) -> Result<()>;
-
-    async fn upsert_position_asset(
-        &self,
-        asset_symbol: &str,
-        asset_total: &str,
-        asset_available: &str,
-        asset_hold: &str,
-    ) -> Result<()>;
 }
 
 #[async_trait]
@@ -285,11 +216,16 @@ pub trait EventRepositoryFull: EventCommand {}
 impl<T> EventRepositoryFull for T where T: EventCommand {}
 
 #[async_trait]
-pub trait MessageRepositoryFull: MessageCommand {}
+pub trait SendOrdersRepositoryFull: MessageCommand {}
 
-impl<T> MessageRepositoryFull for T where T: MessageCommand {}
+impl<T> SendOrdersRepositoryFull for T where T: MessageCommand {}
 
 #[async_trait]
 pub trait ErrorRepositoryFull: ErrorCommand {}
 
 impl<T> ErrorRepositoryFull for T where T: ErrorCommand {}
+
+#[async_trait]
+pub trait StopOrderCommand: Send + Sync {
+    async fn save_stop_order(&self, stop_order: &StopOrderData) -> Result<()>;
+}

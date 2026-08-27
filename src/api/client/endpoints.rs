@@ -1,9 +1,9 @@
 use anyhow::Result;
 use reqwest::Method;
 
-use crate::api::auth::AuthCredentials;
-use crate::api::client::HttpClient;
-use crate::api::utils::ResponseHandler;
+use crate::api::auth::credentials::AuthCredentials;
+use crate::api::client::http::HttpClient;
+use crate::api::utils::response::ResponseHandler;
 
 pub struct KuCoinEndpoints {
     client: HttpClient,

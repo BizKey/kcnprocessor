@@ -1,12 +1,13 @@
-use crate::api::auth::AuthCredentials;
-use crate::api::client::{HttpClient, KuCoinEndpoints};
+use crate::api::auth::credentials::AuthCredentials;
+use crate::api::client::endpoints::KuCoinEndpoints;
+use crate::api::client::http::HttpClient;
 use crate::api::models::{
     ApiV1MarketOrderbookLevel1ResData, ApiV3AccountsUniversalTransferResData,
     ApiV3HfMarginStopOrderCancelByClientOidResData, ApiV3HfMarginStopOrderCancelByIdResData,
     ApiV3HfMarginStopOrdersResData, ApiV3MarginRepayResData, MakeOrderResData,
     MakeStopOrderResData, MarginAccountData,
 };
-use crate::api::utils::get_env;
+use crate::api::utils::tools::get_env;
 use anyhow::Result;
 use std::sync::OnceLock;
 // Re-export для обратной совместимости

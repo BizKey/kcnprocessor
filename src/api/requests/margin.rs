@@ -1,4 +1,4 @@
-use crate::api::client::KuCoinEndpoints;
+use crate::api::client::endpoints::KuCoinEndpoints;
 use crate::api::models::{
     ApiV3MarginRepayRes, ApiV3MarginRepayResData, MarginAccount, MarginAccountData,
 };

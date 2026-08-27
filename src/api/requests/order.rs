@@ -1,4 +1,4 @@
-use crate::api::client::KuCoinEndpoints;
+use crate::api::client::endpoints::KuCoinEndpoints;
 use crate::api::models::{
     ApiV3AccountsUniversalTransferRes, ApiV3AccountsUniversalTransferResData,
     ApiV3HfMarginStopOrderCancelByClientOidRes, ApiV3HfMarginStopOrderCancelByClientOidResData,

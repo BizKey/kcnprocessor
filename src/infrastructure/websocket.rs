@@ -1,8 +1,8 @@
 use crate::api::requests::api_v1_bullet_private_post;
-use crate::constants::{PING_INTERVAL, RECONNECT_DELAY};
+use crate::constants::PING_INTERVAL;
 use crate::core::repository_traits::{
-    BalanceRepositoryFull, BotRepositoryFull, EventRepositoryFull, MessageRepositoryFull,
-    OrderRepositoryFull, PositionRepositoryFull, SymbolRepositoryFull,
+    BalanceRepositoryFull, BotRepositoryFull, EventRepositoryFull, OrderRepositoryFull,
+    PositionRepositoryFull, SendOrdersRepositoryFull, StopOrderCommand, SymbolRepositoryFull,
 };
 use crate::logic::handlers::spawn_process_kcn_msg;
 
@@ -10,18 +10,19 @@ use anyhow::Result;
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
-use tokio::time::{interval, sleep};
+use tokio::time::interval;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info};
 
-pub async fn run_websocket_loop<B, O, S, Bal, P, E, M>(
+pub async fn run_websocket_loop<B, O, S, Bal, P, E, M, St>(
     bot_repo: B,
     order_repo: O,
     symbol_repo: S,
     balance_repo: Bal,
     position_repo: P,
     event_repo: E,
-    message_repo: M,
+    sendorders_repo: M,
+    stoporders_repo: St,
 ) -> Result<()>
 where
     B: BotRepositoryFull + Clone + Send + Sync + 'static,
@@ -30,7 +31,8 @@ where
     Bal: BalanceRepositoryFull + Clone + Send + Sync + 'static,
     P: PositionRepositoryFull + Clone + Send + Sync + 'static,
     E: EventRepositoryFull + Clone + Send + Sync + 'static,
-    M: MessageRepositoryFull + Clone + Send + Sync + 'static,
+    M: SendOrdersRepositoryFull + Clone + Send + Sync + 'static,
+    St: StopOrderCommand + Clone + Send + Sync + 'static,
 {
     let (tx_in, rx_in) = mpsc::channel::<Bytes>(8192);
 
@@ -44,7 +46,8 @@ where
             balance_repo.clone(),
             position_repo.clone(),
             event_repo.clone(),
-            message_repo.clone(),
+            sendorders_repo.clone(),
+            stoporders_repo.clone(),
         )
         .await;
     });
@@ -158,7 +161,6 @@ where
             }
         }
 
-        error!("Reconnecting in {} seconds...", RECONNECT_DELAY.as_secs());
-        sleep(RECONNECT_DELAY).await;
+        error!("Reconnecting...");
     }
 }
