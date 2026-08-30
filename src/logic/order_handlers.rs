@@ -25,7 +25,7 @@ pub async fn make_hf_margin_order(
     auto_borrow: bool,
     auto_repay: bool,
 ) -> Result<MakeOrderResData> {
-    let args_time_in_force = "GTC";
+    let time_in_force = "GTC";
     let order_type_str = order_type.as_str();
 
     let (size, funds) = match &amount {
@@ -40,7 +40,7 @@ pub async fn make_hf_margin_order(
             size,
             funds,
             None,
-            Some(args_time_in_force),
+            Some(time_in_force),
             Some(order_type_str),
             Some(&auto_borrow),
             Some(&auto_repay),
@@ -56,7 +56,7 @@ pub async fn make_hf_margin_order(
         "type": order_type_str,
         "autoBorrow": auto_borrow,
         "autoRepay": auto_repay,
-        "timeInForce": args_time_in_force,
+        "timeInForce": time_in_force,
     });
 
     match amount {
