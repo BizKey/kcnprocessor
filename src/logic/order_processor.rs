@@ -198,12 +198,12 @@ async fn process_buy_entry(
     info!("Stop loss order:{}", msg_sl_order);
 
     let sl_stop_order = StopOrderData {
-        client_oid: exit_tp_client_oid.clone(),
+        client_oid: exit_sl_client_oid.clone(),
         side: OrderSide::Sell,
         symbol: order.symbol.clone(),
         order_type: OrderType::Market,
-        stop: StopType::Entry,
-        stop_price: tp_stop_price.clone(),
+        stop: StopType::Loss,
+        stop_price: sl_stop_price.clone(),
         size: Some(size_sl_str),
         funds: None,
         time_in_force: "GTC".to_string(),
@@ -276,10 +276,10 @@ async fn process_sell_entry(
 
     let tp_stop_order = StopOrderData {
         client_oid: exit_tp_client_oid.clone(),
-        side: OrderSide::Sell,
+        side: OrderSide::Buy,
         symbol: order.symbol.clone(),
         order_type: OrderType::Market,
-        stop: StopType::Entry,
+        stop: StopType::Loss,
         stop_price: tp_stop_price.clone(),
         size: None,
         funds: Some(funds_tp_str),
