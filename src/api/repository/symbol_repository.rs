@@ -30,6 +30,7 @@ impl SymbolRepository {
               AND s.base_currency <> 'USDC' 
               AND s.base_currency <> 'KCS' 
               AND s.base_currency <> 'ASTER' 
+              AND s.base_currency = 'ZEC' 
               AND s.exchange = $1
               AND (b.bot_count IS NULL OR b.bot_count < 10)
             ORDER BY RANDOM()
