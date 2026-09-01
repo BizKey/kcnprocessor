@@ -487,8 +487,7 @@ pub async fn process_bot_by_exit_tp_client_oid(
     let new_balance = match order.side {
         OrderSide::Buy => {
             let old_balance = bot.balance_decimal()?;
-            let new_balance = old_balance + old_balance - return_balance;
-            new_balance
+            old_balance + old_balance - return_balance
         }
         OrderSide::Sell => return_balance,
         OrderSide::Unknown => {

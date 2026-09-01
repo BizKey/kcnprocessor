@@ -39,24 +39,6 @@ impl BotQuery for PostgresBotRepository {
         self.bot_repo.get_by_client_oid(client_oid).await
     }
 
-    async fn get_by_entry_client_oid(&self, entry_client_oid: &str) -> Result<Option<Bot>> {
-        self.bot_repo
-            .get_by_entry_client_oid(entry_client_oid)
-            .await
-    }
-
-    async fn get_by_exit_tp_client_oid(&self, exit_tp_client_oid: &str) -> Result<Option<Bot>> {
-        self.bot_repo
-            .get_by_exit_tp_client_oid(exit_tp_client_oid)
-            .await
-    }
-
-    async fn get_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<Option<Bot>> {
-        self.bot_repo
-            .get_by_exit_sl_client_oid(exit_sl_client_oid)
-            .await
-    }
-
     async fn get_bot_by_exit_tp_order_id(&self, exit_tp_order_id: &str) -> Result<Option<Bot>> {
         self.bot_repo
             .get_bot_by_exit_tp_order_id(exit_tp_order_id)
@@ -84,10 +66,6 @@ impl BotEntryUpdate for PostgresBotRepository {
         self.bot_repo
             .update_entry_client_oid_by_id(entry_client_oid, id)
             .await
-    }
-
-    async fn clear_entry_client_oid(&self, entry_client_oid: &str) -> Result<()> {
-        self.bot_repo.clear_entry_client_oid(entry_client_oid).await
     }
 
     async fn update_balance_by_entry_client_oid(
@@ -138,16 +116,6 @@ impl BotTpUpdate for PostgresBotRepository {
             .await
     }
 
-    async fn update_exit_tp_client_oid_by_order_id(
-        &self,
-        exit_tp_order_id: &str,
-        exit_tp_client_oid: &str,
-    ) -> Result<()> {
-        self.bot_repo
-            .update_exit_tp_client_oid_by_order_id(exit_tp_order_id, exit_tp_client_oid)
-            .await
-    }
-
     async fn clear_exit_tp_by_client_oid(&self, exit_tp_client_oid: &str) -> Result<()> {
         self.bot_repo
             .clear_exit_tp_by_client_oid(exit_tp_client_oid)
@@ -190,16 +158,6 @@ impl BotSlUpdate for PostgresBotRepository {
     ) -> Result<()> {
         self.bot_repo
             .update_exit_sl_order_id_by_client_oid(exit_sl_order_id, exit_sl_client_oid)
-            .await
-    }
-
-    async fn update_exit_sl_client_oid_by_order_id(
-        &self,
-        exit_sl_order_id: &str,
-        exit_sl_client_oid: &str,
-    ) -> Result<()> {
-        self.bot_repo
-            .update_exit_sl_client_oid_by_order_id(exit_sl_order_id, exit_sl_client_oid)
             .await
     }
 
@@ -508,17 +466,6 @@ impl BotQuery for PostgresRepository {
         self.bot.get_by_client_oid(client_oid).await
     }
 
-    async fn get_by_entry_client_oid(&self, entry_client_oid: &str) -> Result<Option<Bot>> {
-        self.bot.get_by_entry_client_oid(entry_client_oid).await
-    }
-
-    async fn get_by_exit_tp_client_oid(&self, exit_tp_client_oid: &str) -> Result<Option<Bot>> {
-        self.bot.get_by_exit_tp_client_oid(exit_tp_client_oid).await
-    }
-
-    async fn get_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<Option<Bot>> {
-        self.bot.get_by_exit_sl_client_oid(exit_sl_client_oid).await
-    }
     async fn get_bot_by_exit_tp_order_id(&self, exit_tp_order_id: &str) -> Result<Option<Bot>> {
         self.bot.get_bot_by_exit_tp_order_id(exit_tp_order_id).await
     }
@@ -541,10 +488,6 @@ impl BotEntryUpdate for PostgresRepository {
         self.bot
             .update_entry_client_oid_by_id(entry_client_oid, id)
             .await
-    }
-
-    async fn clear_entry_client_oid(&self, entry_client_oid: &str) -> Result<()> {
-        self.bot.clear_entry_client_oid(entry_client_oid).await
     }
 
     async fn update_balance_by_entry_client_oid(
@@ -595,16 +538,6 @@ impl BotTpUpdate for PostgresRepository {
             .await
     }
 
-    async fn update_exit_tp_client_oid_by_order_id(
-        &self,
-        exit_tp_order_id: &str,
-        exit_tp_client_oid: &str,
-    ) -> Result<()> {
-        self.bot
-            .update_exit_tp_client_oid_by_order_id(exit_tp_order_id, exit_tp_client_oid)
-            .await
-    }
-
     async fn clear_exit_tp_by_client_oid(&self, exit_tp_client_oid: &str) -> Result<()> {
         self.bot
             .clear_exit_tp_by_client_oid(exit_tp_client_oid)
@@ -647,16 +580,6 @@ impl BotSlUpdate for PostgresRepository {
     ) -> Result<()> {
         self.bot
             .update_exit_sl_order_id_by_client_oid(exit_sl_order_id, exit_sl_client_oid)
-            .await
-    }
-
-    async fn update_exit_sl_client_oid_by_order_id(
-        &self,
-        exit_sl_order_id: &str,
-        exit_sl_client_oid: &str,
-    ) -> Result<()> {
-        self.bot
-            .update_exit_sl_client_oid_by_order_id(exit_sl_order_id, exit_sl_client_oid)
             .await
     }
 

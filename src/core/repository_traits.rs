@@ -5,9 +5,6 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait BotQuery: Send + Sync {
     async fn get_by_client_oid(&self, client_oid: &str) -> Result<Option<Bot>>;
-    async fn get_by_entry_client_oid(&self, entry_client_oid: &str) -> Result<Option<Bot>>;
-    async fn get_by_exit_tp_client_oid(&self, exit_tp_client_oid: &str) -> Result<Option<Bot>>;
-    async fn get_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<Option<Bot>>;
     async fn get_bot_by_exit_tp_order_id(&self, exit_tp_order_id: &str) -> Result<Option<Bot>>;
     async fn get_bot_by_exit_sl_order_id(&self, exit_sl_order_id: &str) -> Result<Option<Bot>>;
     async fn get_all(&self) -> Result<Vec<Bot>>;
@@ -20,8 +17,6 @@ pub trait BotEntryUpdate: Send + Sync {
         entry_client_oid: Option<&str>,
         id: i32,
     ) -> Result<()>;
-
-    async fn clear_entry_client_oid(&self, entry_client_oid: &str) -> Result<()>;
 
     async fn update_balance_by_entry_client_oid(
         &self,
@@ -52,12 +47,6 @@ pub trait BotTpUpdate: Send + Sync {
         exit_tp_client_oid: &str,
     ) -> Result<()>;
 
-    async fn update_exit_tp_client_oid_by_order_id(
-        &self,
-        exit_tp_order_id: &str,
-        exit_tp_client_oid: &str,
-    ) -> Result<()>;
-
     async fn clear_exit_tp_by_client_oid(&self, exit_tp_client_oid: &str) -> Result<()>;
 
     async fn update_balance_and_clear_symbol_by_exit_tp(
@@ -78,12 +67,6 @@ pub trait BotSlUpdate: Send + Sync {
     ) -> Result<()>;
 
     async fn update_exit_sl_order_id_by_client_oid(
-        &self,
-        exit_sl_order_id: &str,
-        exit_sl_client_oid: &str,
-    ) -> Result<()>;
-
-    async fn update_exit_sl_client_oid_by_order_id(
         &self,
         exit_sl_order_id: &str,
         exit_sl_client_oid: &str,
