@@ -484,36 +484,27 @@ pub async fn process_bot_by_exit_tp_client_oid(
         }
     };
 
-    match order.side {
+    let new_balance = match order.side {
         OrderSide::Buy => {
             let old_balance = bot.balance_decimal()?;
             let new_balance = old_balance + old_balance - return_balance;
-            bot_repo
-                .update_balance_and_clear_symbol_by_exit_tp(
-                    client_oid,
-                    &new_balance.trunc_with_scale(4).to_string(),
-                )
-                .await?;
-            make_random_trade(bot_repo, symbol_repo, sendorders_repo, new_balance, bot.id).await?;
+            new_balance
         }
-        OrderSide::Sell => {
-            bot_repo
-                .update_balance_and_clear_symbol_by_exit_tp(
-                    client_oid,
-                    &return_balance.trunc_with_scale(4).to_string(),
-                )
-                .await?;
-            make_random_trade(
-                bot_repo,
-                symbol_repo,
-                sendorders_repo,
-                return_balance,
-                bot.id,
-            )
-            .await?;
+        OrderSide::Sell => return_balance,
+        OrderSide::Unknown => {
+            error!("OrderSide is {}", order.side);
+            anyhow::bail!("OrderSide is {}", order.side)
         }
-        OrderSide::Unknown => {}
-    }
+    };
+
+    bot_repo
+        .update_balance_and_clear_symbol_by_exit_tp(
+            client_oid,
+            &new_balance.trunc_with_scale(4).to_string(),
+        )
+        .await?;
+
+    make_random_trade(bot_repo, symbol_repo, sendorders_repo, new_balance, bot.id).await?;
     Ok(())
 }
 
