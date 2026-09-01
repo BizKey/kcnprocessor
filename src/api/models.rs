@@ -734,7 +734,7 @@ impl fmt::Display for AdvancedOrders {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "OrderData {{ created_at: {}, funds: {:?}, size: {:?}, order_id: {}, order_type: {}, side: {:?}, stop: {:?}, stop_price: {:?}, symbol: {}, trade_type: {:?}, ts: {:?}, type_: {:?}, error: {:?}}}",
+            "AdvancedOrders {{ created_at: {}, funds: {:?}, size: {:?}, order_id: {}, order_type: {}, side: {:?}, stop: {:?}, stop_price: {:?}, symbol: {}, trade_type: {:?}, ts: {:?}, type_: {:?}, error: {:?}}}",
             self.created_at,
             self.funds,
             self.size,

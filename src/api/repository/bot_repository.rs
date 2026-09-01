@@ -109,6 +109,57 @@ impl BotRepository {
         })
     }
 
+    pub async fn get_client_oid_by_exit_tp_order_id(
+        &self,
+        exit_tp_order_id: &str,
+    ) -> Result<Option<Bot>> {
+        sqlx::query_as::<_, Bot>(
+            r#"
+            SELECT id, entry_client_oid, entry_price, exit_tp_price, 
+                   exit_tp_order_id, exit_tp_client_oid, exit_sl_price, 
+                   exit_sl_order_id, exit_sl_client_oid, balance
+            FROM bots
+            WHERE exchange = $1 AND exit_tp_order_id = $2
+            LIMIT 1;
+            "#,
+        )
+        .bind(EXCHANGE)
+        .bind(exit_tp_order_id)
+        .fetch_optional(&self.pool)
+        .await
+        .with_context(|| {
+            format!(
+                "Fail get bot by exit_sl_client_oid:{} exchange:{}",
+                exit_tp_order_id, EXCHANGE
+            )
+        })
+    }
+    pub async fn get_client_oid_by_exit_sl_order_id(
+        &self,
+        exit_sl_order_id: &str,
+    ) -> Result<Option<Bot>> {
+        sqlx::query_as::<_, Bot>(
+            r#"
+            SELECT id, entry_client_oid, entry_price, exit_tp_price, 
+                   exit_tp_order_id, exit_tp_client_oid, exit_sl_price, 
+                   exit_sl_order_id, exit_sl_client_oid, balance
+            FROM bots
+            WHERE exchange = $1 AND exit_sl_order_id = $2
+            LIMIT 1;
+            "#,
+        )
+        .bind(EXCHANGE)
+        .bind(exit_sl_order_id)
+        .fetch_optional(&self.pool)
+        .await
+        .with_context(|| {
+            format!(
+                "Fail get bot by exit_sl_client_oid:{} exchange:{}",
+                exit_sl_order_id, EXCHANGE
+            )
+        })
+    }
+
     pub async fn get_all(&self) -> Result<Vec<Bot>> {
         sqlx::query_as::<_, Bot>(
             r#"

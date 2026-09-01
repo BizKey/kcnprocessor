@@ -57,6 +57,24 @@ impl BotQuery for PostgresBotRepository {
             .await
     }
 
+    async fn get_client_oid_by_exit_tp_order_id(
+        &self,
+        exit_tp_order_id: &str,
+    ) -> Result<Option<Bot>> {
+        self.bot_repo
+            .get_client_oid_by_exit_tp_order_id(exit_tp_order_id)
+            .await
+    }
+
+    async fn get_client_oid_by_exit_sl_order_id(
+        &self,
+        exit_sl_order_id: &str,
+    ) -> Result<Option<Bot>> {
+        self.bot_repo
+            .get_client_oid_by_exit_sl_order_id(exit_sl_order_id)
+            .await
+    }
+
     async fn get_all(&self) -> Result<Vec<Bot>> {
         self.bot_repo.get_all().await
     }
@@ -506,6 +524,22 @@ impl BotQuery for PostgresRepository {
 
     async fn get_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<Option<Bot>> {
         self.bot.get_by_exit_sl_client_oid(exit_sl_client_oid).await
+    }
+    async fn get_client_oid_by_exit_tp_order_id(
+        &self,
+        exit_tp_order_id: &str,
+    ) -> Result<Option<Bot>> {
+        self.bot
+            .get_client_oid_by_exit_tp_order_id(exit_tp_order_id)
+            .await
+    }
+    async fn get_client_oid_by_exit_sl_order_id(
+        &self,
+        exit_sl_order_id: &str,
+    ) -> Result<Option<Bot>> {
+        self.bot
+            .get_client_oid_by_exit_sl_order_id(exit_sl_order_id)
+            .await
     }
 
     async fn get_all(&self) -> Result<Vec<Bot>> {

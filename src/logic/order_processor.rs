@@ -13,9 +13,9 @@ use crate::core::repository_traits::{
     OrderCommand, OrderQuery, SymbolQuery,
 };
 use crate::logic::order_handlers::make_random_trade;
-use crate::logic::utils::generate_entry_id;
 use crate::logic::utils::{
-    format_assert_decimal, sl_buy_percent, sl_sell_percent, tp_buy_percent, tp_sell_percent,
+    format_assert_decimal, generate_entry_id, sl_buy_percent, sl_sell_percent, tp_buy_percent,
+    tp_sell_percent,
 };
 use anyhow::Result;
 use micromap::Map;
