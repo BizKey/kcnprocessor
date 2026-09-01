@@ -8,14 +8,8 @@ pub trait BotQuery: Send + Sync {
     async fn get_by_entry_client_oid(&self, entry_client_oid: &str) -> Result<Option<Bot>>;
     async fn get_by_exit_tp_client_oid(&self, exit_tp_client_oid: &str) -> Result<Option<Bot>>;
     async fn get_by_exit_sl_client_oid(&self, exit_sl_client_oid: &str) -> Result<Option<Bot>>;
-    async fn get_client_oid_by_exit_tp_order_id(
-        &self,
-        exit_tp_order_id: &str,
-    ) -> Result<Option<Bot>>;
-    async fn get_client_oid_by_exit_sl_order_id(
-        &self,
-        exit_sl_order_id: &str,
-    ) -> Result<Option<Bot>>;
+    async fn get_bot_by_exit_tp_order_id(&self, exit_tp_order_id: &str) -> Result<Option<Bot>>;
+    async fn get_bot_by_exit_sl_order_id(&self, exit_sl_order_id: &str) -> Result<Option<Bot>>;
     async fn get_all(&self) -> Result<Vec<Bot>>;
 }
 

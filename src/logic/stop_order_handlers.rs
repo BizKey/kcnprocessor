@@ -75,30 +75,20 @@ pub async fn handle_advanced_orders(
     let order_id_ref = order.order_id.as_ref();
 
     let bot = match order.stop {
-        StopType::Loss => {
-            match bot_repo
-                .get_client_oid_by_exit_sl_order_id(order_id_ref)
-                .await
-            {
-                Ok(bot) => bot,
-                Err(e) => {
-                    error!("{:#}", e);
-                    anyhow::bail!("{:#}", e)
-                }
+        StopType::Loss => match bot_repo.get_bot_by_exit_sl_order_id(order_id_ref).await {
+            Ok(bot) => bot,
+            Err(e) => {
+                error!("{:#}", e);
+                anyhow::bail!("{:#}", e)
             }
-        }
-        StopType::Entry => {
-            match bot_repo
-                .get_client_oid_by_exit_tp_order_id(order_id_ref)
-                .await
-            {
-                Ok(bot) => bot,
-                Err(e) => {
-                    error!("{:#}", e);
-                    anyhow::bail!("{:#}", e)
-                }
+        },
+        StopType::Entry => match bot_repo.get_bot_by_exit_tp_order_id(order_id_ref).await {
+            Ok(bot) => bot,
+            Err(e) => {
+                error!("{:#}", e);
+                anyhow::bail!("{:#}", e)
             }
-        }
+        },
         StopType::Unknown => {
             error!("Fail match stop_clone:{}", order.stop);
             anyhow::bail!("Fail match stop_clone:{}", order.stop)

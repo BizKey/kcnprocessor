@@ -109,10 +109,7 @@ impl BotRepository {
         })
     }
 
-    pub async fn get_client_oid_by_exit_tp_order_id(
-        &self,
-        exit_tp_order_id: &str,
-    ) -> Result<Option<Bot>> {
+    pub async fn get_bot_by_exit_tp_order_id(&self, exit_tp_order_id: &str) -> Result<Option<Bot>> {
         sqlx::query_as::<_, Bot>(
             r#"
             SELECT id, entry_client_oid, entry_price, exit_tp_price, 
@@ -134,10 +131,7 @@ impl BotRepository {
             )
         })
     }
-    pub async fn get_client_oid_by_exit_sl_order_id(
-        &self,
-        exit_sl_order_id: &str,
-    ) -> Result<Option<Bot>> {
+    pub async fn get_bot_by_exit_sl_order_id(&self, exit_sl_order_id: &str) -> Result<Option<Bot>> {
         sqlx::query_as::<_, Bot>(
             r#"
             SELECT id, entry_client_oid, entry_price, exit_tp_price, 
