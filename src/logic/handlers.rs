@@ -106,28 +106,36 @@ pub async fn process_kcn_msg(
 
     match data.topic {
         OrderTopic::Balance => {
-            let balance: BalanceData = serde_json::from_value(data.data)?;
-            balance_repo.save_balance_event(balance).await?;
+            balance_repo
+                .save_balance_event(serde_json::from_value::<BalanceData>(data.data)?)
+                .await?;
         }
         OrderTopic::TradeOrders => {
-            let order: OrderData = serde_json::from_value(data.data)?;
             handle_trade_order_event(
                 bot_repo,
                 order_repo,
                 symbol_repo,
                 sendorders_repo,
                 stoporders_repo,
-                order,
+                serde_json::from_value::<OrderData>(data.data)?,
             )
             .await?;
         }
         OrderTopic::AdvancedOrders => {
-            let order: AdvancedOrders = serde_json::from_value(data.data)?;
-            handle_advanced_orders(order, bot_repo, sendorders_repo).await?;
+            handle_advanced_orders(
+                serde_json::from_value::<AdvancedOrders>(data.data)?,
+                bot_repo,
+                sendorders_repo,
+            )
+            .await?;
         }
         OrderTopic::Position => {
-            let position: PositionData = serde_json::from_value(data.data)?;
-            handle_position_event(position, position_repo, symbol_repo).await?;
+            handle_position_event(
+                serde_json::from_value::<PositionData>(data.data)?,
+                position_repo,
+                symbol_repo,
+            )
+            .await?;
         }
         OrderTopic::Unknown => anyhow::bail!("Unknown topic: {:.?}", data.topic),
     }
