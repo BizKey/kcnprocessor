@@ -16,9 +16,9 @@ base64 = { version = "0.22", default-features = false }
 futures-util = { version = "0.3", default-features = false }
 urlencoding = { version = "2.1", default-features = false }
 uuid = { version = "1.26", default-features = false, features = ["v4", "std", "rng"] }
-smallvec = { version = "1.15", default-features = false }
+smallvec = { version = "1.16", default-features = false }
 micromap = { version = "0.3", default-features = false }
-rust_decimal = { version = "1.42", default-features = false }
+rust_decimal = { version = "1.43", default-features = false }
 dotenvy = { version = "0.15", default-features = false }
 bytes = { version = "1.12", default-features = false }
 tracing = { version = "0.1", default-features = false }
